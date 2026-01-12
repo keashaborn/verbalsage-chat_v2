@@ -8,6 +8,7 @@ import {
   PencilIcon,
   RefreshCwIcon,
   Square,
+  Volume2Icon,
 } from "lucide-react";
 
 import {
@@ -46,23 +47,27 @@ export const Thread: FC = () => {
             ["--thread-max-width" as string]: "44rem",
           }}
         >
-          <ThreadPrimitive.Viewport className="aui-thread-viewport relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll px-4">
-            <ThreadPrimitive.If empty>
-              <ThreadWelcome />
+          <ThreadPrimitive.Viewport className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll px-4">
+            {/* Empty thread: take up space above the composer so the composer stays bottom */}
+            <ThreadPrimitive.If empty={true}>
+              <div className="flex flex-1 items-center justify-center">
+                <ThreadWelcome />
+              </div>
             </ThreadPrimitive.If>
 
-            <ThreadPrimitive.Messages
-              components={{
-                UserMessage,
-                EditComposer,
-                AssistantMessage,
-              }}
-            />
-
+            {/* Non-empty thread: show messages and a little spacer */}
             <ThreadPrimitive.If empty={false}>
-              <div className="aui-thread-viewport-spacer min-h-8 grow" />
+              <ThreadPrimitive.Messages
+                components={{
+                  UserMessage,
+                  EditComposer,
+                  AssistantMessage,
+                }}
+              />
+              <div className="min-h-8 grow" />
             </ThreadPrimitive.If>
 
+            {/* Composer always at bottom */}
             <Composer />
           </ThreadPrimitive.Viewport>
         </ThreadPrimitive.Root>
@@ -85,91 +90,9 @@ const ThreadScrollToBottom: FC = () => {
   );
 };
 
-const ThreadWelcome: FC = () => {
-  return (
-    <div className="aui-thread-welcome-root mx-auto my-auto flex w-full max-w-[var(--thread-max-width)] flex-grow flex-col">
-      <div className="aui-thread-welcome-center flex w-full flex-grow flex-col items-center justify-center">
-        <div className="aui-thread-welcome-message flex size-full flex-col justify-center px-8">
-          <m.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="aui-thread-welcome-message-motion-1 text-2xl font-semibold"
-          >
-            Hello there!
-          </m.div>
-          <m.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ delay: 0.1 }}
-            className="aui-thread-welcome-message-motion-2 text-2xl text-muted-foreground/65"
-          >
-            How can I help you today?
-          </m.div>
-        </div>
-      </div>
-      <ThreadSuggestions />
-    </div>
-  );
-};
+const ThreadWelcome: FC = () => null;
 
-const ThreadSuggestions: FC = () => {
-  return (
-    <div className="aui-thread-welcome-suggestions grid w-full gap-2 pb-4 @md:grid-cols-2">
-      {[
-        {
-          title: "What's the weather",
-          label: "in San Francisco?",
-          action: "What's the weather in San Francisco?",
-        },
-        {
-          title: "Explain React hooks",
-          label: "like useState and useEffect",
-          action: "Explain React hooks like useState and useEffect",
-        },
-        {
-          title: "Write a SQL query",
-          label: "to find top customers",
-          action: "Write a SQL query to find top customers",
-        },
-        {
-          title: "Create a meal plan",
-          label: "for healthy weight loss",
-          action: "Create a meal plan for healthy weight loss",
-        },
-      ].map((suggestedAction, index) => (
-        <m.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          transition={{ delay: 0.05 * index }}
-          key={`suggested-action-${suggestedAction.title}-${index}`}
-          className="aui-thread-welcome-suggestion-display [&:nth-child(n+3)]:hidden @md:[&:nth-child(n+3)]:block"
-        >
-          <ThreadPrimitive.Suggestion
-            prompt={suggestedAction.action}
-            send
-            asChild
-          >
-            <Button
-              variant="ghost"
-              className="aui-thread-welcome-suggestion h-auto w-full flex-1 flex-wrap items-start justify-start gap-1 rounded-3xl border px-5 py-4 text-left text-sm @md:flex-col dark:hover:bg-accent/60"
-              aria-label={suggestedAction.action}
-            >
-              <span className="aui-thread-welcome-suggestion-text-1 font-medium">
-                {suggestedAction.title}
-              </span>
-              <span className="aui-thread-welcome-suggestion-text-2 text-muted-foreground">
-                {suggestedAction.label}
-              </span>
-            </Button>
-          </ThreadPrimitive.Suggestion>
-        </m.div>
-      ))}
-    </div>
-  );
-};
+const ThreadSuggestions: FC = () => null;
 
 const Composer: FC = () => {
   return (
@@ -240,6 +163,270 @@ const MessageError: FC = () => {
   );
 };
 
+function getLS<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw == null) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+type GrokVoice = "Ara" | "Rex" | "Sal" | "Eve" | "Leo";
+
+let grokWs: WebSocket | null = null;
+let grokCtx: AudioContext | null = null;
+let grokGain: GainNode | null = null;
+let grokNextTime = 0;
+let grokSeq = 0;
+
+function stripJsonQuotes(s: string): string {
+  // handles values accidentally stored as JSON strings, e.g. "\"grok_realtime\""
+  return s.replace(/^"+|"+$/g, "");
+}
+
+function lsGetRaw(key: string, fallback: string): string {
+  try {
+    const v = localStorage.getItem(key);
+    const s = (v ?? fallback).trim();
+    const u = stripJsonQuotes(s).trim();
+    return u || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function stopGrokPlaybackHard() {
+  grokSeq++;
+
+  try { grokWs?.close(); } catch { }
+  grokWs = null;
+
+  // Hard stop any queued audio by tearing down the AudioContext.
+  if (grokCtx) {
+    try { grokCtx.close(); } catch { }
+  }
+  grokCtx = null;
+  grokGain = null;
+  grokNextTime = 0;
+}
+
+function ensureGrokAudio(): AudioContext {
+  const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined;
+  if (!Ctx) throw new Error("WebAudio not supported in this browser.");
+
+  if (!grokCtx) {
+    grokCtx = new Ctx();
+    grokGain = grokCtx.createGain();
+    grokGain.gain.value = 1;
+    grokGain.connect(grokCtx.destination);
+    grokNextTime = grokCtx.currentTime;
+  }
+  return grokCtx;
+}
+
+function b64ToU8(b64: string): Uint8Array {
+  const bin = globalThis.atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function pcm16leToF32(pcm: Uint8Array): Float32Array {
+  const view = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+  const n = Math.floor(pcm.byteLength / 2);
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const s = view.getInt16(i * 2, true);
+    out[i] = Math.max(-1, Math.min(1, s / 32768));
+  }
+  return out;
+}
+
+function enqueuePcm16(pcm16: Uint8Array, sampleRate = 24000) {
+  const ctx = ensureGrokAudio();
+  const gain = grokGain;
+  if (!gain) return;
+
+  const f32 = pcm16leToF32(pcm16);
+  const buf = ctx.createBuffer(1, f32.length, sampleRate);
+  buf.getChannelData(0).set(f32);
+
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(gain);
+
+  const now = ctx.currentTime;
+  let t = grokNextTime;
+  if (t < now + 0.02) t = now + 0.02; // minimal jitter buffer
+  src.start(t);
+
+  grokNextTime = t + buf.duration;
+}
+
+async function fetchGrokWsToken(): Promise<string> {
+  const r = await fetch("/api/voice/ws-token", { method: "GET" });
+  const j = await r.json().catch(() => ({} as any));
+  if (!r.ok || !j?.token) throw new Error(j?.error || `ws-token HTTP ${r.status}`);
+  return String(j.token);
+}
+
+async function speakViaGrok(text: string) {
+  const voice = (lsGetRaw("vs_grok_voice", "Ara") as GrokVoice) || "Ara";
+  const instructions = lsGetRaw("vs_grok_voice_instructions", "You are a helpful assistant.");
+  const volume = Number(lsGetRaw("vs_grok_voice_volume", "1")) || 1;
+
+  // Stop any previous stream/audio so the new utterance is clean.
+  stopGrokPlaybackHard();
+  const mySeq = grokSeq;
+
+  const ctx = ensureGrokAudio();
+  if (ctx.state === "suspended") {
+    await ctx.resume().catch(() => { });
+  }
+  if (grokGain) grokGain.gain.value = Math.max(0, Math.min(1, volume));
+
+  const token = await fetchGrokWsToken();
+
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const qs = new URLSearchParams({
+    voice,
+    token,
+    turn: "none",
+    in_rate: "24000",
+    out_rate: "24000",
+  });
+  if (instructions.trim()) qs.set("instructions", instructions.trim());
+
+  const wsUrl = `${proto}://${location.host}/ws/voice?${qs.toString()}`;
+
+  await new Promise<void>((resolve, reject) => {
+    const ws = new WebSocket(wsUrl);
+    grokWs = ws;
+
+    ws.onopen = () => {
+      if (mySeq !== grokSeq) return;
+
+      ws.send(JSON.stringify({
+        type: "conversation.item.create",
+        item: {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text }],
+        },
+      }));
+
+      ws.send(JSON.stringify({
+        type: "response.create",
+        response: { modalities: ["audio"] },
+      }));
+    };
+
+    ws.onmessage = (e) => {
+      if (mySeq !== grokSeq) return;
+
+      try {
+        const ev = JSON.parse(String(e.data));
+        const t = ev?.type;
+
+        if (t === "response.output_audio.delta") {
+          const b64 = String(ev?.delta ?? "");
+          if (!b64) return;
+          const u8 = b64ToU8(b64);
+          if (u8.byteLength) enqueuePcm16(u8, 24000);
+          return;
+        }
+
+        if (t === "response.done") {
+          try { ws.close(); } catch { }
+          if (grokWs === ws) grokWs = null;
+          resolve();
+          return;
+        }
+
+        if (t === "error") {
+          try { ws.close(); } catch { }
+          if (grokWs === ws) grokWs = null;
+          reject(new Error(String(ev?.error || "grok realtime error")));
+          return;
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+
+    ws.onerror = () => {
+      if (mySeq !== grokSeq) return;
+      reject(new Error("grok websocket error"));
+    };
+
+    ws.onclose = () => {
+      if (mySeq !== grokSeq) return;
+      if (grokWs === ws) grokWs = null;
+      resolve(); // don’t hang if server closes without response.done
+    };
+  });
+}
+
+
+async function speakTextFromButton(btn: HTMLElement) {
+  const root =
+    btn.closest(".aui-assistant-message-root") ||
+    btn.closest('[data-role="assistant"]');
+
+  if (!root) return;
+
+  const contentEl =
+    root.querySelector("[data-vs-message-text]") ||
+    root.querySelector(".aui-assistant-message-content");
+
+  const text = (contentEl?.textContent || "").trim();
+  if (!text) return;
+
+  const cleaned = text.replace(/\bCopy\b|\bSpeak\b|\bRefresh\b/g, "").trim();
+  if (!cleaned) return;
+
+  // Route based on selected voice engine
+  const engine = lsGetRaw("vs_voice_engine", "openai_tts");
+
+  if (engine === "grok_realtime") {
+    try {
+      await speakViaGrok(cleaned);
+    } catch (e: any) {
+      alert(e?.message || String(e));
+    }
+    return;
+  }
+
+  // Default: OpenAI TTS (/api/tts)
+  const voice = String(getLS<string>("vs_voice", "sage")).trim();
+  const model = String(getLS<string>("vs_voice_model", "gpt-4o-mini-tts")).trim();
+  const speed = Number(getLS<number>("vs_voice_speed", 1.0)) || 1.0;
+
+  const r = await fetch("/api/tts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: cleaned, voice, speed, model }),
+  });
+
+  if (!r.ok) {
+    const err = await r.text().catch(() => "");
+    alert(`TTS error: HTTP ${r.status}\n${err}`);
+    return;
+  }
+
+  const blob = await r.blob();
+  const url = URL.createObjectURL(blob);
+  const a = new Audio(url);
+
+  a.addEventListener("ended", () => {
+    try { URL.revokeObjectURL(url); } catch { }
+  });
+
+  await a.play();
+}
+
 const AssistantMessage: FC = () => {
   return (
     <MessagePrimitive.Root asChild>
@@ -247,7 +434,10 @@ const AssistantMessage: FC = () => {
         className="aui-assistant-message-root relative mx-auto w-full max-w-[var(--thread-max-width)] animate-in py-4 duration-150 ease-out fade-in slide-in-from-bottom-1 last:mb-24"
         data-role="assistant"
       >
-        <div className="aui-assistant-message-content mx-2 leading-7 break-words text-foreground">
+        <div
+          className="aui-assistant-message-content mx-2 leading-7 break-words text-foreground"
+          data-vs-message-text
+        >
           <MessagePrimitive.Parts
             components={{
               Text: MarkdownText,
@@ -286,6 +476,15 @@ const AssistantActionBar: FC = () => {
           </MessagePrimitive.If>
         </TooltipIconButton>
       </ActionBarPrimitive.Copy>
+      <TooltipIconButton
+        tooltip="Speak"
+        onClick={(e) => {
+          e.preventDefault();
+          speakTextFromButton(e.currentTarget);
+        }}
+      >
+        <Volume2Icon />
+      </TooltipIconButton>
       <ActionBarPrimitive.Reload asChild>
         <TooltipIconButton tooltip="Refresh">
           <RefreshCwIcon />

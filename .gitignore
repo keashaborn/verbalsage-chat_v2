@@ -39,3 +39,22 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local safety backups (do not commit)
+*.bak
+*.bak.*
+*.save
+
+# editor backups
+*.bak_*
+
+# build + deps
+.next/
+next/
+node_modules/
+
+# backups + scratch
+backups/
+assistant-ui-starter@0.1.0
+*.log
+tmp/

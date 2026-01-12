@@ -1,0 +1,866 @@
+"use client";
+
+import * as React from "react";
+import { useSettingsStore } from "@/components/admin/settings/store";
+import { supabase } from "@/lib/supabaseClient";
+
+type VantageLimits = { Y: number; R: number; C: number; S: number };
+
+type RoutingControls = {
+  answer_first: boolean;
+  clarify_bias: number; // 0..1
+  max_clarify_questions: number; // 0..3
+};
+
+type MixControls = {
+  conversation: number; // 0..1
+  memory_cards: number; // 0..1
+  corpus: number; // 0..1
+  lens_fm: number; // 0..1
+  recency_bias: number; // 0..1
+  similarity_threshold: number; // 0..1
+};
+
+type PragmaticsControls = {
+  rfg: number; // 0..1 Ritual-First Gate
+  df: number; // 0..1 Disclosure Friction
+  pe: number; // 0..3 Persona Embodiment (integer)
+};
+
+type VantageProfile = {
+  id: string;
+  name: string; // display name (we treat this as the namespace name)
+  state: {
+    vantageId: string;
+    limits: VantageLimits;
+    routing: RoutingControls;
+    mix: MixControls;
+    roleplay: RoleplayControls;
+    pragmatics: PragmaticsControls;
+  };
+  created_at: string;
+  updated_at: string;
+};
+
+const DEFAULT_LIMITS: VantageLimits = { Y: 0.1, R: 0.2, C: 0.4, S: 0.4 };
+const DEFAULT_ROUTING: RoutingControls = { answer_first: true, clarify_bias: 0.1, max_clarify_questions: 1 };
+const DEFAULT_MIX: MixControls = {
+  conversation: 0.6,
+  memory_cards: 0.7,
+  corpus: 0.8,
+  lens_fm: 0.8,
+  recency_bias: 0.6,
+  similarity_threshold: 0.4,
+};
+const DEFAULT_PRAGMATICS: PragmaticsControls = { rfg: 0.0, df: 0.7, pe: 2 };
+const LS_PROFILES = "vs_vantage_profiles";
+const LS_DEFAULT_PROFILE_ID = "vs_vantage_default_id";
+const LS_LEGACY_PRESETS = "vs_vantage_presets";
+
+const CLOUD_PRESETS_KEY = "vs_vantage_profiles_v1";
+
+async function cloudGetPresets(): Promise<{ profiles: any[]; defaultId: string } | null> {
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data?.user) return null;
+    const um: any = data.user.user_metadata || {};
+    const blob = um[CLOUD_PRESETS_KEY];
+    if (!blob || typeof blob !== "object") return { profiles: [], defaultId: "" };
+    return {
+      profiles: Array.isArray(blob.profiles) ? blob.profiles : [],
+      defaultId: typeof blob.defaultId === "string" ? blob.defaultId : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function cloudSetPresets(profiles: any[], defaultId: string) {
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data?.user) return;
+    const um: any = data.user.user_metadata || {};
+    const next = { ...(um[CLOUD_PRESETS_KEY] || {}), profiles, defaultId, updated_at: new Date().toISOString() };
+    await supabase.auth.updateUser({ data: { ...um, [CLOUD_PRESETS_KEY]: next } });
+  } catch {
+    // ignore
+  }
+}
+
+
+function clamp01(x: any, d: number) {
+  const n = Number(x);
+  if (!Number.isFinite(n)) return d;
+  return Math.max(0, Math.min(1, n));
+}
+function clampInt(x: any, lo: number, hi: number, d: number) {
+  const n = Number(x);
+  if (!Number.isFinite(n)) return d;
+  const v = Math.round(n);
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
+function sanitizeLimits(raw: any): VantageLimits {
+  if (!raw || typeof raw !== "object") return DEFAULT_LIMITS;
+  return {
+    Y: clamp01(raw.Y, DEFAULT_LIMITS.Y),
+    R: clamp01(raw.R, DEFAULT_LIMITS.R),
+    C: clamp01(raw.C, DEFAULT_LIMITS.C),
+    S: clamp01(raw.S, DEFAULT_LIMITS.S),
+  };
+}
+
+function sanitizeRouting(raw: any): RoutingControls {
+  if (!raw || typeof raw !== "object") return DEFAULT_ROUTING;
+  const r: any = raw as any;
+  return {
+    answer_first: typeof r.answer_first === "boolean" ? r.answer_first : DEFAULT_ROUTING.answer_first,
+    clarify_bias: clamp01(r.clarify_bias, DEFAULT_ROUTING.clarify_bias),
+    max_clarify_questions: clampInt(r.max_clarify_questions, 0, 3, DEFAULT_ROUTING.max_clarify_questions),
+  };
+}
+
+function sanitizeMix(raw: any): MixControls {
+  if (!raw || typeof raw !== "object") return DEFAULT_MIX;
+  return {
+    conversation: clamp01(raw.conversation, DEFAULT_MIX.conversation),
+    memory_cards: clamp01(raw.memory_cards, DEFAULT_MIX.memory_cards),
+    corpus: clamp01(raw.corpus, DEFAULT_MIX.corpus),
+    lens_fm: clamp01(raw.lens_fm, DEFAULT_MIX.lens_fm),
+    recency_bias: clamp01(raw.recency_bias, DEFAULT_MIX.recency_bias),
+    similarity_threshold: clamp01(raw.similarity_threshold, DEFAULT_MIX.similarity_threshold),
+  };
+}
+
+function sanitizePragmatics(raw: any): PragmaticsControls {
+  if (!raw || typeof raw !== "object") return DEFAULT_PRAGMATICS;
+  return {
+    rfg: clamp01((raw as any).rfg, DEFAULT_PRAGMATICS.rfg),
+    df: clamp01((raw as any).df, DEFAULT_PRAGMATICS.df),
+    pe: clampInt((raw as any).pe, 0, 3, DEFAULT_PRAGMATICS.pe),
+  };
+}
+
+type RoleplayPersonalizationMode = "none" | "about_only" | "full";
+
+type RoleplayControls = {
+  on: boolean;
+  strict: boolean;
+  script: string;
+  use_personalization: RoleplayPersonalizationMode;
+};
+
+const DEFAULT_ROLEPLAY: RoleplayControls = {
+  on: false,
+  strict: false,
+  script: "",
+  use_personalization: "none",
+};
+
+function sanitizeRoleplay(raw: any): RoleplayControls {
+  if (!raw || typeof raw !== "object") return DEFAULT_ROLEPLAY;
+
+  const up = String((raw as any).use_personalization || "").trim() as RoleplayPersonalizationMode;
+  const use_personalization: RoleplayPersonalizationMode =
+    up === "full" ? "full" : up === "about_only" ? "about_only" : "none";
+
+  return {
+    on: !!(raw as any).on,
+    strict: !!(raw as any).strict,
+    script: typeof (raw as any).script === "string" ? String((raw as any).script).slice(0, 2000) : "",
+    use_personalization,
+  };
+}
+
+function normalizeVantageId(v: any): string {
+  const raw = String(v ?? "").trim().slice(0, 64);
+  if (!raw) return "default";
+  const s = raw.toLowerCase() === "default" ? "default" : raw.toUpperCase();
+  return s;
+}
+
+function uid8(): string {
+  return Math.random().toString(16).slice(2, 10);
+}
+
+function lsGetRaw(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function lsSetRaw(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch { }
+}
+function lsRemove(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch { }
+}
+
+function loadProfiles(): VantageProfile[] {
+  const raw = lsGetRaw(LS_PROFILES);
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((p) => p && typeof p === "object" && typeof p.id === "string" && typeof p.name === "string")
+      .map((p: any) => ({
+        id: String(p.id),
+        name: String(p.name).slice(0, 64),
+        state: {
+          vantageId: normalizeVantageId(p?.state?.vantageId),
+          limits: sanitizeLimits(p?.state?.limits),
+          routing: sanitizeRouting(p?.state?.routing),
+          mix: sanitizeMix(p?.state?.mix),
+          roleplay: sanitizeRoleplay(p?.state?.roleplay),
+          pragmatics: sanitizePragmatics(p?.state?.pragmatics),
+        },
+        created_at: String(p.created_at || new Date().toISOString()),
+        updated_at: String(p.updated_at || p.created_at || new Date().toISOString()),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function saveProfiles(arr: VantageProfile[]) {
+  lsSetRaw(LS_PROFILES, JSON.stringify(arr));
+}
+
+function getDefaultProfileId(): string {
+  return String(lsGetRaw(LS_DEFAULT_PROFILE_ID) || "");
+}
+function setDefaultProfileId(id: string) {
+  lsSetRaw(LS_DEFAULT_PROFILE_ID, id);
+}
+function clearDefaultProfileId() {
+  lsRemove(LS_DEFAULT_PROFILE_ID);
+}
+
+function migrateLegacyPresetsIfNeeded() {
+  const existing = lsGetRaw(LS_PROFILES);
+  if (existing) return;
+
+  const legacyRaw = lsGetRaw(LS_LEGACY_PRESETS);
+  if (!legacyRaw) return;
+
+  try {
+    const arr = JSON.parse(legacyRaw);
+    if (!Array.isArray(arr) || arr.length === 0) return;
+
+    const now = new Date().toISOString();
+    const migrated: VantageProfile[] = arr
+      .filter((p) => p && typeof p === "object")
+      .map((p: any) => ({
+        id: String(p.id || uid8()),
+        name: String(p.name || "Migrated").slice(0, 64),
+        state: {
+          vantageId: "default",
+          limits: sanitizeLimits(p.limits),
+          routing: DEFAULT_ROUTING,
+          mix: DEFAULT_MIX,
+          roleplay: DEFAULT_ROLEPLAY,
+          pragmatics: DEFAULT_PRAGMATICS,
+        },
+        created_at: String(p.created_at || now),
+        updated_at: String(p.updated_at || p.created_at || now),
+      }));
+
+    saveProfiles(migrated);
+  } catch { }
+}
+
+function InfoTip({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLSpanElement | null>(null);
+
+  return (
+    <span ref={ref} className="relative inline-flex">
+      <button
+        type="button"
+        aria-label="Help"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex size-5 items-center justify-center rounded-md border bg-background/40 text-[11px] font-semibold text-muted-foreground hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-ring/30"
+      >
+        ?
+      </button>
+
+      <div
+        className={[
+          "absolute right-0 top-7 z-50 w-[300px] rounded-xl border bg-background/95 p-2 text-xs leading-snug text-muted-foreground shadow-xl backdrop-blur-sm",
+          open ? "block" : "hidden",
+        ].join(" ")}
+      >
+        {children}
+      </div>
+    </span>
+  );
+}
+
+function Group({
+  title,
+  children,
+  help,
+}: {
+  title: string;
+  children: React.ReactNode;
+  help?: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between px-1">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</div>
+        {help ? <InfoTip>{help}</InfoTip> : null}
+      </div>
+
+      <div className="overflow-hidden rounded-xl border">
+        <div className="divide-y">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function Row({
+  left,
+  right,
+  children,
+}: {
+  left: React.ReactNode;
+  right?: React.ReactNode;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 text-sm">{left}</div>
+        {right != null && <div className="shrink-0">{right}</div>}
+      </div>
+      {children != null && <div className="mt-2">{children}</div>}
+    </div>
+  );
+}
+
+function ActionRow({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className="w-full px-3 py-2 text-left text-sm hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-60"
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {label}
+    </button>
+  );
+}
+
+function SliderRow({
+  title,
+  value,
+  min = 0,
+  max = 1,
+  step = 0.01,
+  format = (v: number) => v.toFixed(2),
+  onChange,
+}: {
+  title: string;
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  format?: (v: number) => string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <Row left={title} right={<span className="text-xs tabular-nums text-muted-foreground">{format(value)}</span>}>
+      <input
+        className="w-full"
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+    </Row>
+  );
+}
+
+function stableJson(x: any) {
+  return JSON.stringify(x);
+}
+
+function sameState(a: VantageProfile["state"], b: VantageProfile["state"]) {
+  return (
+    normalizeVantageId(a.vantageId) === normalizeVantageId(b.vantageId) &&
+    stableJson(sanitizeLimits(a.limits)) === stableJson(sanitizeLimits(b.limits)) &&
+    stableJson(sanitizeRouting(a.routing)) === stableJson(sanitizeRouting(b.routing)) &&
+    stableJson(sanitizeMix(a.mix)) === stableJson(sanitizeMix(b.mix)) &&
+    stableJson(sanitizeRoleplay(a.roleplay)) === stableJson(sanitizeRoleplay(b.roleplay)) &&
+    stableJson(sanitizePragmatics(a.pragmatics)) === stableJson(sanitizePragmatics(b.pragmatics))
+  );
+}
+
+export function VantageProfilePage() {
+  const { applied, draft, setDraft } = useSettingsStore();
+
+  const limits = sanitizeLimits(draft.limits);
+  const routing = sanitizeRouting(draft.routing);
+  const mix = sanitizeMix(draft.mix);
+  const pragmatics = sanitizePragmatics((draft as any).pragmatics);
+  const roleplay = sanitizeRoleplay((draft as any).roleplay);
+  const namespace = normalizeVantageId(draft.vantageId);
+
+  const [profiles, setProfiles] = React.useState<VantageProfile[]>([]);
+  const [selectedId, setSelectedId] = React.useState<string>("");
+  const [defaultId, setDefaultId] = React.useState<string>("");
+  const [msg, setMsg] = React.useState<string>("");
+
+  React.useEffect(() => {
+    (async () => {
+      migrateLegacyPresetsIfNeeded();
+
+      // Cloud is authoritative for cross-browser consistency.
+      // If not signed in, show empty presets (do not silently fall back to local).
+      const cloud = await cloudGetPresets();
+      const ps = (cloud && cloud.profiles) ? cloud.profiles : [];
+      const defId = (cloud && typeof cloud.defaultId === "string") ? cloud.defaultId : "";
+
+      setProfiles(ps);
+      setDefaultId(defId);
+
+      // try to select the profile matching the applied cookie-state
+      const appliedState: VantageProfile["state"] = {
+        vantageId: normalizeVantageId(applied.vantageId),
+        limits: sanitizeLimits(applied.limits),
+        routing: sanitizeRouting(applied.routing),
+        mix: sanitizeMix(applied.mix),
+        roleplay: sanitizeRoleplay((applied as any).roleplay),
+        pragmatics: sanitizePragmatics((applied as any).pragmatics),
+      };
+      const match = ps.find((p: any) => sameState(p.state, appliedState));
+      setSelectedId(match ? match.id : "");
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applied.vantageId, applied.limits, applied.routing, applied.mix, applied.pragmatics, (applied as any).roleplay]);
+  function currentDraftState(): VantageProfile["state"] {
+    return {
+      vantageId: normalizeVantageId(draft.vantageId),
+      limits: sanitizeLimits(draft.limits),
+      routing: sanitizeRouting(draft.routing),
+      mix: sanitizeMix(draft.mix),
+      roleplay: sanitizeRoleplay((draft as any).roleplay),
+      pragmatics: sanitizePragmatics((draft as any).pragmatics),
+    };
+  }
+
+  function loadIntoDraft(p: VantageProfile) {
+    setDraft((s) => ({
+      ...s,
+      vantageId: p.state.vantageId,
+      limits: p.state.limits,
+      routing: p.state.routing,
+      mix: p.state.mix,
+      roleplay: p.state.roleplay,
+      pragmatics: p.state.pragmatics
+    }));
+  }
+
+  const selected = selectedId ? profiles.find((p) => p.id === selectedId) : null;
+  const defaultProfile = defaultId ? profiles.find((p) => p.id === defaultId) : null;
+
+  return (
+    <div className="space-y-4">
+      <div className="text-xs text-muted-foreground">
+        Use the header Save to apply this profile’s routing + retrieval behavior.
+      </div>
+
+      <Group title="Profile">
+        <Row
+          left="Name"
+          right={
+            <input
+              className="w-[210px] rounded-lg border bg-background px-2 py-1.5 text-sm"
+              value={draft.vantageId ?? ""}
+              onChange={(e) => setDraft((s) => ({ ...s, vantageId: e.target.value }))}
+              placeholder="default"
+            />
+          }
+        />
+
+        <ActionRow
+          label="Edit Personalization for this vantage"
+          onClick={() => {
+            // Uses the current cookie vs_vantage_id (set by header Save on this page)
+            window.open("/personalization", "_blank", "noopener,noreferrer");
+          }}
+        />
+
+        <Row
+          left="Load preset"
+          right={
+            <select
+              className="w-[210px] rounded-lg border bg-background px-2 py-1.5 text-sm"
+              value={selectedId}
+              onChange={(e) => {
+                const id = e.target.value;
+                setMsg("");
+                setSelectedId(id);
+                const p = profiles.find((x) => x.id === id);
+                if (p) {
+                  loadIntoDraft(p);
+                  setMsg(`Loaded "${p.name}" into draft.`);
+                }
+              }}
+            >
+              <option value="">(none)</option>
+              {profiles
+                .slice()
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                    {p.id === defaultId ? " (default)" : ""}
+                  </option>
+                ))}
+            </select>
+          }
+        />
+
+        <div className="px-1 text-xs text-muted-foreground">
+          Header <span className="font-semibold">Save</span> applies cookies (active behavior). Presets here are synced to your account.
+        </div>
+
+        <ActionRow
+          label={`Save preset "${namespace}"`}
+          onClick={() => {
+            setMsg("");
+            const now = new Date().toISOString();
+
+            const existing = profiles.find((p) => p.name.toLowerCase() === namespace.toLowerCase());
+            const state = currentDraftState();
+
+            if (existing) {
+              const ok = window.confirm(`Overwrite existing preset "${existing.name}"?`);
+              if (!ok) return;
+
+              const next = profiles.map((p) =>
+                p.id === existing.id ? { ...p, name: namespace, state, updated_at: now } : p
+              );
+              setProfiles(next);
+              saveProfiles(next);
+              void cloudSetPresets(next, defaultId);
+              setSelectedId(existing.id);
+              setMsg(`Overwrote preset "${namespace}".`);
+              return;
+            }
+
+            const p: VantageProfile = { id: uid8(), name: namespace, state, created_at: now, updated_at: now };
+            const next = [p, ...profiles];
+            setProfiles(next);
+            saveProfiles(next);
+            void cloudSetPresets(next, defaultId);
+            setSelectedId(p.id);
+            setMsg(`Saved preset "${namespace}".`);
+          }}
+        />
+
+        <ActionRow
+          label="Set default preset"
+          disabled={!selectedId}
+          onClick={() => {
+            if (!selectedId) return;
+            setDefaultProfileId(selectedId); // local cache
+            setDefaultId(selectedId);
+            void cloudSetPresets(profiles as any, selectedId);
+            setMsg("Set default preset.");
+          }}
+        /><ActionRow
+          label="Delete preset"
+          disabled={!selectedId}
+          onClick={() => {
+            if (!selected) return;
+            const ok = window.confirm(`Delete preset "${selected.name}"?`);
+            if (!ok) return;
+
+            const next = profiles.filter((p) => p.id !== selected.id);
+            setProfiles(next);
+            saveProfiles(next); // local cache
+
+            const nextDefaultId = defaultId === selected.id ? "" : defaultId;
+            if (defaultId === selected.id) clearDefaultProfileId(); // local cache
+            void cloudSetPresets(next as any, nextDefaultId);
+
+            if (defaultId === selected.id) setDefaultId("");
+            setSelectedId("");
+            setMsg(`Deleted "${selected.name}".`);
+          }}
+        /></Group>
+
+      {msg ? <div className="px-1 text-xs text-muted-foreground">{msg}</div> : null}
+      <div className="px-1 text-xs text-muted-foreground">Default preset: {defaultProfile ? defaultProfile.name : "(none)"}</div>
+
+      <Group
+        title="Conversation context"
+        help={
+          <div className="space-y-1">
+            <div>
+              <span className="font-semibold">Thread context</span>: higher = injects more recent thread turns as
+              normal <code>messages[]</code> (requires a real <code>thread_id</code>).
+            </div>
+            <div className="pt-1">
+              Cookie: <code>vs_vantage_mix</code>
+            </div>
+          </div>
+        }
+      >
+        <SliderRow
+          title="Thread context"
+          value={mix.conversation}
+          onChange={(v) => setDraft((s) => ({ ...s, mix: { ...sanitizeMix(s.mix), conversation: v } }))}
+        />
+      </Group>
+
+      <Group
+        title="Retrieval weights"
+        help={
+          <div className="space-y-1">
+            <div>
+              <span className="font-semibold">Personal memory</span>: scales how many personal-memory hits are
+              retrieved (also requires <code>VANTAGE_PERSONAL_MEMORY=1</code> on Brains).
+            </div>
+            <div>
+              <span className="font-semibold">Corpus</span>: scales how many corpus hits are retrieved.
+            </div>
+            <div className="pt-1">
+              Cookie: <code>vs_vantage_mix</code>
+            </div>
+          </div>
+        }
+      >
+        <SliderRow
+          title="Personal memory"
+          value={mix.memory_cards}
+          onChange={(v) => setDraft((s) => ({ ...s, mix: { ...sanitizeMix(s.mix), memory_cards: v } }))}
+        />
+        <SliderRow
+          title="Corpus"
+          value={mix.corpus}
+          onChange={(v) => setDraft((s) => ({ ...s, mix: { ...sanitizeMix(s.mix), corpus: v } }))}
+        />
+      </Group>
+
+      <Group
+        title="Retrieval filters & ranking"
+        help={
+          <div className="space-y-1">
+            <div>
+              <span className="font-semibold">Similarity cutoff</span>: higher = stricter threshold (fewer hits).
+            </div>
+            <div>
+              <span className="font-semibold">Recency bias</span>: higher = reranks toward newer items (not a hard
+              filter).
+            </div>
+            <div className="pt-1">
+              Cookie: <code>vs_vantage_mix</code>
+            </div>
+          </div>
+        }
+      >
+        <SliderRow
+          title="Similarity cutoff"
+          value={mix.similarity_threshold}
+          onChange={(v) => setDraft((s) => ({ ...s, mix: { ...sanitizeMix(s.mix), similarity_threshold: v } }))}
+        />
+        <SliderRow
+          title="Recency bias"
+          value={mix.recency_bias}
+          onChange={(v) => setDraft((s) => ({ ...s, mix: { ...sanitizeMix(s.mix), recency_bias: v } }))}
+        />
+      </Group>
+
+      <Group
+        title="Lenses"
+        help={
+          <div className="space-y-1">
+            <div>
+              <span className="font-semibold">FM lens</span>: injects a framing constraint block into the
+              prompt (instruction overlay, not retrieval).
+            </div>
+            <div className="pt-1">
+              Cookie: <code>vs_vantage_mix</code>
+            </div>
+          </div>
+        }
+      >
+        <SliderRow
+          title="FM lens strength"
+          value={mix.lens_fm}
+          onChange={(v) => setDraft((s) => ({ ...s, mix: { ...sanitizeMix(s.mix), lens_fm: v } }))}
+        />
+      </Group>
+
+      <Group
+        title="Routing policy"
+        help={
+          <div className="space-y-1">
+            <div>
+              <span className="font-semibold">Answer-first</span>: ON answers immediately (suppresses clarifying). OFF allows clarifying.
+            </div>
+            <div>
+              <span className="font-semibold">Clarify bias</span>: 0 disables clarifying; higher increases tendency to ask clarifying questions (when allowed).
+            </div>
+            <div>
+              <span className="font-semibold">Max clarify</span>: hard cap on clarifying questions. 0 disables clarifying; 1–3 limits question count.
+            </div>
+            <div className="pt-1">
+              Cookie: <code>vs_vantage_routing</code>
+            </div>
+          </div>
+        }
+      >
+        <Row
+          left="Answer-first"
+          right={
+            <input
+              type="checkbox"
+              checked={routing.answer_first}
+              onChange={(e) =>
+                setDraft((s) => ({ ...s, routing: { ...sanitizeRouting(s.routing), answer_first: e.target.checked } }))
+              }
+            />
+          }
+        />
+        <SliderRow
+          title="Clarify bias"
+          value={routing.clarify_bias}
+          onChange={(v) => setDraft((s) => ({ ...s, routing: { ...sanitizeRouting(s.routing), clarify_bias: v } }))}
+        />
+        <SliderRow
+          title="Max clarify questions"
+          value={routing.max_clarify_questions}
+          min={0}
+          max={3}
+          step={1}
+          format={(v) => String(Math.round(v))}
+          onChange={(v) =>
+            setDraft((s) => ({
+              ...s,
+              routing: { ...sanitizeRouting(s.routing), max_clarify_questions: clampInt(v, 0, 3, 1) },
+            }))
+          }
+        />
+      </Group>
+
+      <Group
+        title="Social presence"
+        help={
+          <div className="space-y-1">
+            <div>
+              Controls how the assistant handles greetings/check-ins and how humanlike its self-references are.
+              These are separate from verbosity (S) and retrieval.
+            </div>
+            <div className="pt-1">
+              Cookie: <code>vs_vantage_pragmatics</code>
+            </div>
+          </div>
+        }
+      >
+        <SliderRow
+          title="RFG — Ritual-first gate"
+          value={pragmatics.rfg}
+          onChange={(v) =>
+            setDraft((s: any) => ({
+              ...s,
+              pragmatics: { ...sanitizePragmatics(s.pragmatics), rfg: v },
+            }))
+          }
+        />
+        <SliderRow
+          title="DF — Disclosure friction"
+          value={pragmatics.df}
+          onChange={(v) =>
+            setDraft((s: any) => ({
+              ...s,
+              pragmatics: { ...sanitizePragmatics(s.pragmatics), df: v },
+            }))
+          }
+        />
+        <SliderRow
+          title="PE — Persona embodiment"
+          value={pragmatics.pe}
+          min={0}
+          max={3}
+          step={1}
+          format={(v) => String(Math.round(v))}
+          onChange={(v) =>
+            setDraft((s: any) => ({
+              ...s,
+              pragmatics: { ...sanitizePragmatics(s.pragmatics), pe: clampInt(v, 0, 3, 2) },
+            }))
+          }
+        />
+      </Group>
+
+      <Group
+        title="Limiters (Y/R/C/S)"
+        help={
+          <div className="space-y-1">
+            <div>
+              <span className="font-semibold">Y</span>: higher = concedes/defers more under pressure; lower = holds
+              firm.
+            </div>
+            <div>
+              <span className="font-semibold">R</span>: higher = revises more readily; lower = more stable.
+            </div>
+            <div>
+              <span className="font-semibold">C</span>: coupling gain for longer-run shaping (verify actual effect
+              via inspector/meta).
+            </div>
+            <div>
+              <span className="font-semibold">S</span>: higher = more verbosity/hedges/affirmations/compliments.
+            </div>
+            <div className="pt-1">
+              Cookie: <code>vs_vantage_limits</code>
+            </div>
+          </div>
+        }
+      >
+        <SliderRow
+          title="Y — Concession cap"
+          value={limits.Y}
+          onChange={(v) => setDraft((s) => ({ ...s, limits: { ...sanitizeLimits(s.limits), Y: v } }))}
+        />
+        <SliderRow
+          title="R — Ledger update gate"
+          value={limits.R}
+          onChange={(v) => setDraft((s) => ({ ...s, limits: { ...sanitizeLimits(s.limits), R: v } }))}
+        />
+        <SliderRow
+          title="C — Policy coupling gain"
+          value={limits.C}
+          onChange={(v) => setDraft((s) => ({ ...s, limits: { ...sanitizeLimits(s.limits), C: v } }))}
+        />
+        <SliderRow
+          title="S — Ornament budget"
+          value={limits.S}
+          onChange={(v) => setDraft((s) => ({ ...s, limits: { ...sanitizeLimits(s.limits), S: v } }))}
+        />
+      </Group>
+
+    </div>
+  );
+}

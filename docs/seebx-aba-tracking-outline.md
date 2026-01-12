@@ -8,26 +8,20 @@
 - Entry: one observation/event record for a given subject + template_version_id
 - Subject: the person whose behavior is being tracked (self, client_1, etc.)
 
-## Glossary (canonical terms)
-- Target / Program: the behavior or skill being tracked (ABA concept)
-- Template: container for a target/program definition
-- Template Version (`template_version_id`): immutable snapshot of schema + metadata for a target/program
-- Entry: one observation/event record for a given subject + template_version_id
-- Subject: the person whose behavior is being tracked (self, client_1, etc.)
-
-## Glossary (canonical terms)
-- Target / Program: the behavior or skill being tracked (ABA concept)
-- Template: container for a target/program definition
-- Template Version (`template_version_id`): immutable snapshot of schema + metadata for a target/program
-- Entry: one observation/event record for a given subject + template_version_id
-- Subject: the person whose behavior is being tracked (self, client_1, etc.)
-
 
 ## 0) Purpose and non-negotiables
 - Build a low-friction ABA tracking system that supports real behavior change, not just record-keeping.
 - Default to “person-in-context” (relations first): behavior is tracked with its functional context.
 - Support both self-management and caregiver/clinician-assisted workflows.
 - Privacy-first: user owns data; clear consent; minimal collection by default; exportable.
+
+## 0.1 Current implementation status (what exists now)
+- Data substrate exists via Forms engine:
+  - Program definition = Template + Template Version (`template_version_id`)
+  - Observation/event = Entry (`owner_user_id`, `subject_id`, `template_version_id`, `occurred_at`, `data`)
+- ProgramSpec v0 exists (JSON) and is stored in template metadata (`metadata.program_spec_v0`).
+- Measurement types implemented in UI: count + duration (quick entry + history + basic graphs).
+- Phase changes implemented as entries of a dedicated phase marker template version, keyed to a target `template_version_id`.
 
 ## Appendix A) Current implementation mapping (Forms engine → ABA tracking)
 

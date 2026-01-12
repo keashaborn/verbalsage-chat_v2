@@ -1,0 +1,36 @@
+{
+  "name": "ABA Entry Correction",
+  "measurement": {
+    "type": "entry_correction"
+  },
+  "fields": [
+    {
+      "key": "target_template_version_id",
+      "type": "string",
+      "title": "Target template_version_id",
+      "required": true
+    },
+    {
+      "key": "old_entry_id",
+      "type": "string",
+      "title": "Old entry_id",
+      "required": true
+    },
+    {
+      "key": "new_entry_id",
+      "type": "string",
+      "title": "New entry_id (optional)"
+    },
+    {
+      "key": "reason",
+      "type": "string",
+      "title": "Reason"
+    },
+    {
+      "key": "notes",
+      "type": "string",
+      "title": "Notes",
+      "widget": "textarea"
+    }
+  ]
+}

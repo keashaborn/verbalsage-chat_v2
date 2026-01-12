@@ -1,0 +1,10 @@
+{
+  "name": "ABA Phase Change",
+  "measurement": { "type": "phase_change" },
+  "fields": [
+    { "key": "date", "type": "string", "format": "date", "title": "Date", "required": true },
+    { "key": "phase", "type": "string", "title": "Phase label", "required": true },
+    { "key": "target_template_version_id", "type": "string", "title": "Target template_version_id" },
+    { "key": "notes", "type": "string", "title": "Notes", "widget": "textarea" }
+  ]
+}

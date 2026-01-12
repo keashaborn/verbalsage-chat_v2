@@ -1,0 +1,49 @@
+{
+  "name": "Tantrum Duration (seconds)",
+  "measurement": {
+    "type": "duration",
+    "unit": "seconds"
+  },
+  "graph_spec_v0": {
+    "kind": "aba_line_v0",
+    "x": {
+      "label": "Date",
+      "mode_default": "date"
+    },
+    "y": {
+      "label": "Tantrum duration",
+      "unit": "seconds",
+      "include_zero": true
+    },
+    "phase_change": {
+      "enabled": true
+    }
+  },
+  "fields": [
+    {
+      "key": "date",
+      "type": "string",
+      "format": "date",
+      "title": "Date",
+      "required": true
+    },
+    {
+      "key": "duration_seconds",
+      "type": "integer",
+      "minimum": 0,
+      "title": "Duration (seconds)",
+      "required": true
+    },
+    {
+      "key": "context",
+      "type": "string",
+      "title": "Context"
+    },
+    {
+      "key": "notes",
+      "type": "string",
+      "title": "Notes",
+      "widget": "textarea"
+    }
+  ]
+}

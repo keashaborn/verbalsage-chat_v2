@@ -41,12 +41,13 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --animate-shimmer: shimmer-sweep var(--shimmer-duration, 1000ms) linear
-    infinite both;
+  --animate-shimmer: shimmer-sweep var(--shimmer-duration, 1000ms) linear infinite both;
+
   @keyframes shimmer-sweep {
     from {
       background-position: 150% 0;
     }
+
     to {
       background-position: -100% 0;
     }
@@ -135,7 +136,51 @@
     color-scheme: dark;
   }
 
+  /* High-contrast dark mode */
+  :root.dark-hc {
+    color-scheme: dark;
+  }
+
+  /* Tighten contrast for common surfaces */
+  .dark-hc body {
+    @apply bg-black text-white;
+  }
+
+  .dark-hc .bg-background {
+    @apply bg-black;
+  }
+
+  .dark-hc .text-muted-foreground {
+    @apply text-white/70;
+  }
+
+  .dark-hc .bg-muted {
+    @apply bg-white/10;
+  }
+
+  .dark-hc .border {
+    @apply border-white/20;
+  }
+
+  html,
   body {
+    height: 100%;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  /* Lock page scroll only where we explicitly opt-in (iOS chat stability) */
+  html.vs-lock-body-scroll,
+  body.vs-lock-body-scroll {
+    overflow: hidden !important;
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: auto;
+  }
+
+  body {
+    min-height: 100dvh;
+    /* stabilize viewport height */
     @apply bg-background text-foreground;
   }
 }
