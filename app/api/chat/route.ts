@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { randomUUID } from "crypto";
 
 const JWKS = process.env.SUPABASE_JWKS_URL
   ? createRemoteJWKSet(new URL(process.env.SUPABASE_JWKS_URL))
@@ -10,6 +11,12 @@ const JWKS = process.env.SUPABASE_JWKS_URL
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function getRequestId(req: Request): string {
+  const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
+  if (raw && raw.length <= 128) return raw;
+  return randomUUID();
+}
 
 async function getUserIdFromCookie(): Promise<string | null> {
   if (!JWKS || !process.env.SUPABASE_ISSUER) return null;
@@ -128,6 +135,7 @@ function sanitizeRoleplay(raw: any): { on: boolean; strict: boolean; script: str
 }
 
 export async function POST(req: Request) {
+  const requestId = getRequestId(req);
   try {
     const rawBody = await req.text();
     let body: any = {};
@@ -166,7 +174,7 @@ export async function POST(req: Request) {
     if (!msg.trim()) {
       return new Response("Missing user message", {
         status: 400,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
       });
     }
 
@@ -187,7 +195,10 @@ export async function POST(req: Request) {
       // dev-only: force a stable test user id for local/manual testing
       user_id = devTestUser;
     } else {
-      return new Response("unauthorized", { status: 401 });
+      return new Response("unauthorized", {
+        status: 401,
+        headers: { "x-request-id": requestId },
+      });
     }
 
     // thread_id from request body OR cookie
@@ -274,7 +285,7 @@ export async function POST(req: Request) {
       try {
         await fetch(`${BRAINS_URL}/log`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-request-id": requestId },
           body: JSON.stringify({
             user_id,
             thread_id,
@@ -309,7 +320,7 @@ export async function POST(req: Request) {
     // 2) Brains answer via /vantage/query
     const r = await fetch(`${BRAINS_URL}/vantage/query`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-request-id": requestId },
       body: JSON.stringify({
         user_id,
         message: msg,
@@ -364,6 +375,7 @@ export async function POST(req: Request) {
         status: r.status,
         headers: {
           "Content-Type": "application/json; charset=utf-8",
+          "x-request-id": requestId,
           ...(vantage_id ? { "X-VS-Vantage-Id": vantage_id } : {}),
           ...(modelRequested ? { "X-VS-Model-Requested": modelRequested } : {}),
           ...(modelUsed ? { "X-VS-Model-Used": modelUsed } : {}),
@@ -378,7 +390,7 @@ export async function POST(req: Request) {
     if (!r.ok) {
       return new Response(`Brains HTTP ${r.status}\n${rawBrains.slice(0, 2000)}`, {
         status: 502,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
       });
     }
 
@@ -387,7 +399,7 @@ export async function POST(req: Request) {
       try {
         await fetch(`${BRAINS_URL}/log`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-request-id": requestId },
           body: JSON.stringify({
             user_id,
             thread_id,
@@ -412,6 +424,7 @@ export async function POST(req: Request) {
     return new Response(stream, {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
+        "x-request-id": requestId,
         ...(vantage_id ? { "X-VS-Vantage-Id": vantage_id } : {}),
         ...(modelRequested ? { "X-VS-Model-Requested": modelRequested } : {}),
         ...(modelUsed ? { "X-VS-Model-Used": modelUsed } : {}),
@@ -424,6 +437,9 @@ export async function POST(req: Request) {
       },
     });
   } catch (err: any) {
-    return new Response(`Route error: ${err?.message || String(err)}`, { status: 500 });
+    return new Response(`Route error: ${err?.message || String(err)}`, {
+      status: 500,
+      headers: { "x-request-id": requestId },
+    });
   }
 }
