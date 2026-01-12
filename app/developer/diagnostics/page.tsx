@@ -12,6 +12,8 @@ type TimeseriesResp = {
   phases: PhaseSpan[];
 };
 
+type ModelsResp = { models: string[] };
+
 type Probe = { probe_id: string; category: string; prompt: string };
 
 const PROBES_V0: Probe[] = [
@@ -133,7 +135,22 @@ function Sparkline({ points }: { points: TimeseriesPoint[] }) {
 }
 
 export default function DiagnosticsPage() {
-  const [subjectId, setSubjectId] = React.useState("openai:gpt-4o-mini");
+  // Model passed to /api/chat/inspect (must match allowlist in app/api/chat/inspect/route.ts)
+  const [modelId, setModelId] = React.useState("gpt-4o-mini");
+
+  // Canonical subject_id used for telemetry + metrics grouping.
+  // - OpenAI models: "openai:<model>"
+  // - Provider-prefixed models (e.g., "xai:..."): keep as-is
+  const subjectId = React.useMemo(() => {
+    const m = String(modelId || "").trim();
+    if (!m) return "openai:gpt-4o-mini";
+    if (m.includes(":")) return m;
+    return `openai:${m}`;
+  }, [modelId]);
+
+  const [models, setModels] = React.useState<string[]>([]);
+  const [modelsErr, setModelsErr] = React.useState<string>("");
+
   const [conditionId, setConditionId] = React.useState("cond:baseline");
   const [vantageId, setVantageId] = React.useState("default");
   const [useCookieVantage, setUseCookieVantage] = React.useState(true);
@@ -144,6 +161,38 @@ export default function DiagnosticsPage() {
   const [series, setSeries] = React.useState<TimeseriesResp | null>(null);
   const [err, setErr] = React.useState<string>("");
 
+  React.useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const r = await fetch("/api/dev/models", { cache: "no-store" });
+        const j = (await r.json().catch(() => ({}))) as ModelsResp | any;
+        if (!r.ok) throw new Error((j as any)?.error || `HTTP ${r.status}`);
+
+        const ms = Array.isArray((j as any)?.models) ? ((j as any).models as string[]) : [];
+        if (!cancelled) {
+          setModels(ms);
+          setModelsErr("");
+          // If our default isn't present, snap to the first allowed model.
+          if (ms.length && !ms.includes(modelId)) setModelId(ms[0]);
+        }
+      } catch (e: any) {
+        if (!cancelled) setModelsErr(e?.message || String(e));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  React.useEffect(() => {
+    refreshSeries().catch(() => { });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metricKey, subjectId]);
+
   async function markCondition() {
     setErr("");
     try {
@@ -153,7 +202,7 @@ export default function DiagnosticsPage() {
         subject_type: "model",
         subject_id: subjectId,
 
-        target_model_id: subjectId,
+        target_model_id: modelId,
         target_model_version: null,
         judge_model_id: null,
         judge_model_version: null,
@@ -169,6 +218,7 @@ export default function DiagnosticsPage() {
 
       await postTelemetry([ev]);
       setLog((x) => x + `ok: condition.set -> ${conditionId}\n`);
+      await refreshSeries();
     } catch (e: any) {
       setErr(e?.message || String(e));
     }
@@ -181,7 +231,7 @@ export default function DiagnosticsPage() {
 
     const thread_id = `devtools:diagnostics:${Date.now()}`;
     const suite_id = "suite:v0";
-    const target_model_id = subjectId;
+    const target_model_id = modelId;
 
     try {
       for (const probe of PROBES_V0) {
@@ -211,7 +261,7 @@ export default function DiagnosticsPage() {
           event_id: uuidv4(),
           event_type: "probe.response",
           subject_type: "model",
-          subject_id: target_model_id,
+          subject_id: subjectId,
           target_model_id,
           target_model_version: j?.modelUsed || j?.model || null,
           judge_model_id: null,
@@ -254,7 +304,6 @@ export default function DiagnosticsPage() {
         from: "2026-01-01T00:00:00Z",
         to: "2026-02-01T00:00:00Z",
         bucket: "day",
-        target_model_id: subjectId,
       });
       setSeries(j);
     } catch (e: any) {
@@ -272,13 +321,24 @@ export default function DiagnosticsPage() {
       <div className="mt-6 grid gap-3 rounded-2xl border p-4">
         <div className="grid gap-2 md:grid-cols-3">
           <label className="grid gap-1 text-sm">
-            <span className="text-muted-foreground">Target model id (subject_id)</span>
-            <input
+            <span className="text-muted-foreground">Target model</span>
+            <select
               className="rounded-xl border bg-background px-3 py-2"
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
-              spellCheck={false}
-            />
+              value={modelId}
+              onChange={(e) => setModelId(e.target.value)}
+            >
+              {(models.length ? models : [modelId]).map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+
+            <div className="mt-1 text-xs text-muted-foreground">
+              subject_id: <code>{subjectId}</code>
+            </div>
+
+            {modelsErr ? <div className="text-xs text-red-500/80">models: {modelsErr}</div> : null}
           </label>
 
           <label className="grid gap-1 text-sm">
