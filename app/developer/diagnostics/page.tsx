@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import SSLGModalLauncher from "@/components/sslg/SSLGModalLauncher";
 
 type TimeseriesPoint = { t: string; v: number | null; n: number; meta?: any };
 type PhaseSpan = { condition_id: string; label: string; start_ts: string; end_ts: string | null };
@@ -386,9 +387,16 @@ export default function DiagnosticsPage() {
             >
               {running ? "Running…" : "Run probe suite v0"}
             </button>
+
             <button className="rounded-xl border px-3 py-2 text-sm" onClick={refreshSeries}>
               Refresh chart
             </button>
+
+            <SSLGModalLauncher
+              buttonLabel="Open SSLG"
+              buttonClassName="rounded-xl border px-3 py-2 text-sm"
+              modalTitle="Single-subject line graph"
+            />
           </div>
         </div>
 
