@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
-import { getActorUserIdFromCookie } from "@/app/api/_auth/getActorUserId";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+import { getActorUserId } from "../../_lib/actor";
 
 export async function POST(req: Request) {
   const BRAINS_URL = process.env.BRAINS_URL || "http://172.31.32.171:8088";
@@ -15,15 +15,14 @@ export async function POST(req: Request) {
     body = {};
   }
 
-  const actor = await getActorUserIdFromCookie();
-  if (!actor) return new NextResponse("unauthorized", { status: 401 });
+  const actor = await getActorUserId();
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (actor) headers["x-vs-actor-user-id"] = actor;
 
   const upstream = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-vs-actor-user-id": actor,
-    },
+    headers,
     body: JSON.stringify(body),
     cache: "no-store",
   });
