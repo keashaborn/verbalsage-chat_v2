@@ -22,6 +22,8 @@ export function MiniLineChart({
   breakAtPhaseChange = true,
   xLabel,
   yLabel,
+  yMin,
+  yMax,
 }: {
   title: string;
   series: XYPoint[];
@@ -33,6 +35,8 @@ export function MiniLineChart({
   breakAtPhaseChange?: boolean;
   xLabel?: string;
   yLabel?: string;
+  yMin?: number | null;
+  yMax?: number | null;
 }) {
   const pts = Array.isArray(series) ? series : [];
   if (pts.length === 0) {
@@ -49,10 +53,18 @@ export function MiniLineChart({
   const PAD = 12;
 
   const ys = pts.map((p) => p.y);
-  let minY = Math.min(...ys);
-  let maxY = Math.max(...ys);
 
-  if (includeZero) minY = Math.min(0, minY);
+  const hasYMin = typeof yMin === "number" && Number.isFinite(yMin);
+  const hasYMax = typeof yMax === "number" && Number.isFinite(yMax);
+
+  let minY = hasYMin ? (yMin as number) : Math.min(...ys);
+  let maxY = hasYMax ? (yMax as number) : Math.max(...ys);
+
+  // Only apply includeZero when user didn't explicitly set Y-min.
+  if (includeZero && !hasYMin) minY = Math.min(0, minY);
+
+  // Normalize if user enters inverted bounds
+  if (minY > maxY) [minY, maxY] = [maxY, minY];
 
   if (minY === maxY) {
     minY -= 1;

@@ -361,6 +361,41 @@ export default function SSLGPanel({
     return { xLabel, yLabelWithUnit, includeZero: includeZero ?? true };
   }, [targetVersion]);
 
+  // Graph controls (local-only; not persisted yet)
+  const [xMode, setXMode] = React.useState<"trial" | "date">("date");
+  const [xLabelOverride, setXLabelOverride] = React.useState<string>("Date");
+  const [yLabelOverride, setYLabelOverride] = React.useState<string>("Y");
+  const [includeZeroOverride, setIncludeZeroOverride] = React.useState<boolean>(true);
+  const [yMinOverride, setYMinOverride] = React.useState<string>("");
+  const [yMaxOverride, setYMaxOverride] = React.useState<string>("");
+
+  const yMinNum = coerceNumber(yMinOverride);
+  const yMaxNum = coerceNumber(yMaxOverride);
+
+  // Initialize controls from graph_spec_v0 whenever the loaded program version changes.
+  React.useEffect(() => {
+    if (!targetVersion) return;
+    try {
+      const md = (targetVersion?.metadata || {}) as any;
+      const gs = (md.graph_spec_v0 || null) as any;
+
+      const xLabel = String(gs?.x?.label || "Date");
+      const yUnit = String(gs?.y?.unit || "");
+      const yLabel = String(gs?.y?.label || targetVersion?.json_schema?.title || "Y");
+      const yLabelWithUnit = yUnit ? `${yLabel} (${yUnit})` : yLabel;
+      const includeZero = gs?.y?.include_zero;
+
+      setXMode("date");
+      setXLabelOverride(xLabel);
+      setYLabelOverride(yLabelWithUnit);
+      setIncludeZeroOverride(includeZero ?? true);
+      setYMinOverride("");
+      setYMaxOverride("");
+    } catch {
+      // ignore
+    }
+  }, [targetVersion?.version_id]);
+
   const shellClass = embedded ? "bg-background text-foreground" : "min-h-screen bg-background text-foreground";
   const containerClass = embedded ? "mx-auto max-w-5xl p-4" : "mx-auto max-w-5xl p-6";
 
@@ -453,15 +488,111 @@ export default function SSLGPanel({
 
         <div className="mt-6">
           <MiniLineChart
-            title={labelPack.yLabelWithUnit}
+            title={yLabelOverride || labelPack.yLabelWithUnit}
             series={series}
-            xMode="date"
-            includeZero={labelPack.includeZero}
+            xMode={xMode}
+            includeZero={includeZeroOverride}
             phases={phases}
             breakAtPhaseChange={true}
-            xLabel={labelPack.xLabel}
-            yLabel={labelPack.yLabelWithUnit}
+            xLabel={xLabelOverride || labelPack.xLabel}
+            yLabel={yLabelOverride || labelPack.yLabelWithUnit}
+            yMin={yMinNum}
+            yMax={yMaxNum}
           />
+        </div>
+        <div className="mt-4 rounded-xl border p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-semibold">Graph controls</div>
+            <button
+              type="button"
+              className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+              onClick={() => {
+                setXMode("date");
+                setXLabelOverride(labelPack.xLabel);
+                setYLabelOverride(labelPack.yLabelWithUnit);
+                setIncludeZeroOverride(labelPack.includeZero);
+                setYMinOverride("");
+                setYMaxOverride("");
+              }}
+              disabled={!targetVersion}
+              title="Reset controls to defaults"
+            >
+              Reset
+            </button>
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">X mode</span>
+              <select
+                className="rounded-xl border bg-background px-3 py-2 text-sm"
+                value={xMode}
+                onChange={(e) => setXMode(e.target.value as any)}
+              >
+                <option value="date">Date</option>
+                <option value="trial">Trial</option>
+              </select>
+            </label>
+
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">Include zero</span>
+              <div className="flex h-10 items-center">
+                <input
+                  type="checkbox"
+                  checked={includeZeroOverride}
+                  onChange={(e) => setIncludeZeroOverride(e.target.checked)}
+                />
+              </div>
+            </label>
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">X label</span>
+              <input
+                className="rounded-xl border bg-background px-3 py-2 text-sm"
+                value={xLabelOverride}
+                onChange={(e) => setXLabelOverride(e.target.value)}
+                placeholder={labelPack.xLabel}
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">Y label</span>
+              <input
+                className="rounded-xl border bg-background px-3 py-2 text-sm"
+                value={yLabelOverride}
+                onChange={(e) => setYLabelOverride(e.target.value)}
+                placeholder={labelPack.yLabelWithUnit}
+              />
+            </label>
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">Y min</span>
+              <input
+                className="rounded-xl border bg-background px-3 py-2 text-sm"
+                type="number"
+                value={yMinOverride}
+                onChange={(e) => setYMinOverride(e.target.value)}
+                placeholder="auto"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">Y max</span>
+              <input
+                className="rounded-xl border bg-background px-3 py-2 text-sm"
+                type="number"
+                value={yMaxOverride}
+                onChange={(e) => setYMaxOverride(e.target.value)}
+                placeholder="auto"
+              />
+            </label>
+          </div>
+
+          <div className="mt-2 text-xs text-muted-foreground">Local-only (not saved yet).</div>
         </div>
       </div>
     </div>
