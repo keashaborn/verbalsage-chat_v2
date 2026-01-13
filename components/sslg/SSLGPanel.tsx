@@ -377,12 +377,33 @@ export default function SSLGPanel({
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <div className="space-y-1">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client</div>
-            <input
-              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
-              placeholder="client_1"
-            />
+            <div className="flex items-center gap-2">
+              <select
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+                title="Select a client"
+              >
+                <option value="">(choose)</option>
+                {clients
+                  .slice()
+                  .sort((a, b) => String(a).localeCompare(String(b)))
+                  .map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+              </select>
+
+              <button
+                className="shrink-0 rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+                onClick={loadClients}
+                disabled={!ownerUserId.trim() || loadingClients}
+                title="Reload clients"
+              >
+                {loadingClients ? "Loading…" : clients.length ? "Reload" : "Load"}
+              </button>
+            </div>
           </div>
 
           <div className="space-y-1">

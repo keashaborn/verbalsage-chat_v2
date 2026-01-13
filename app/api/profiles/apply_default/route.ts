@@ -51,26 +51,36 @@ function parsePayloadMaybe(payload: any): any {
   return {};
 }
 
-export async function POST(_req: Request) {
+export async function POST(req: Request) {
+  const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
+  const requestId = (raw || crypto.randomUUID()).slice(0, 128);
+
   try {
     const BRAINS_URL = process.env.BRAINS_URL || "http://172.31.32.171:8088";
 
     const user_id = await getUserIdOrDevFallback();
-    if (!user_id) return new Response("unauthorized", { status: 401 });
+    if (!user_id) return new Response("unauthorized", { status: 401, headers: { "x-request-id": requestId } });
 
     const upstream = await fetch(`${BRAINS_URL}/profiles/${encodeURIComponent(user_id)}/default`, {
       method: "GET",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-request-id": requestId },
     });
 
     const txt = await upstream.text().catch(() => "");
-    if (!upstream.ok) return new Response(txt || `Brains HTTP ${upstream.status}`, { status: 502 });
+    const rid = upstream.headers.get("x-request-id") || requestId;
+
+    if (!upstream.ok) {
+      return new Response(txt || `Brains HTTP ${upstream.status}`, {
+        status: 502,
+        headers: { "x-request-id": rid },
+      });
+    }
 
     let data: any = {};
     try {
       data = JSON.parse(txt);
     } catch {
-      return new Response("brains returned invalid json", { status: 502 });
+      return new Response("brains returned invalid json", { status: 502, headers: { "x-request-id": rid } });
     }
 
     const payloadRaw = data?.profile?.payload;
@@ -80,7 +90,13 @@ export async function POST(_req: Request) {
     const rawVid = String(payload?.vantage_id || "").trim();
 
     // allowlist models
-    const modelAllowed = new Set(["gpt-5.2", "gpt-5.1", "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini", "xai:grok-3", "xai:grok-3-mini", "xai:grok-4-0709", "xai:grok-4-1-fast-non-reasoning", "xai:grok-4-1-fast-reasoning", "xai:grok-4-fast-non-reasoning", "xai:grok-4-fast-reasoning", "xai:grok-code-fast-1", "xai:grok-2-vision-1212", "xai:grok-2-image-1212"]);
+    const modelAllowed = new Set([
+      "gpt-5.2", "gpt-5.1", "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini",
+      "xai:grok-3", "xai:grok-3-mini", "xai:grok-4-0709",
+      "xai:grok-4-1-fast-non-reasoning", "xai:grok-4-1-fast-reasoning",
+      "xai:grok-4-fast-non-reasoning", "xai:grok-4-fast-reasoning",
+      "xai:grok-code-fast-1", "xai:grok-2-vision-1212", "xai:grok-2-image-1212"
+    ]);
     const model = modelAllowed.has(rawModel) ? rawModel : "";
 
     const vantage_id = rawVid ? rawVid.slice(0, 64) : "";
@@ -105,9 +121,9 @@ export async function POST(_req: Request) {
     jar.set("vs_vantage_mix", JSON.stringify(mix), { path: "/", sameSite: "lax", maxAge });
 
     return new Response(JSON.stringify({ status: "ok", applied: { user_id, model, vantage_id, mix } }), {
-      headers: { "Content-Type": "application/json; charset=utf-8" },
+      headers: { "Content-Type": "application/json; charset=utf-8", "x-request-id": rid },
     });
   } catch (e: any) {
-    return new Response(`Route error: ${e?.message || String(e)}`, { status: 500 });
+    return new Response(`Route error: ${e?.message || String(e)}`, { status: 500, headers: { "x-request-id": requestId } });
   }
 }

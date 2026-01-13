@@ -77,9 +77,9 @@ export function DeveloperToolsPage() {
       <div className="rounded-xl border p-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-sm font-semibold">Forms</div>
+            <div className="text-sm font-semibold">Design</div>
             <div className="text-xs text-muted-foreground">
-              Publish templates and submit entries to seebx (debug UI).
+              Create programs and enter measurements (templates, entries, history).
             </div>
           </div>
 
@@ -93,6 +93,27 @@ export function DeveloperToolsPage() {
           </a>
         </div>
       </div>
+
+      <div className="rounded-xl border p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold">SSLG</div>
+            <div className="text-xs text-muted-foreground">
+              Single-subject line graph workspace (clients, programs, phases, corrections).
+            </div>
+          </div>
+
+          <a
+            href="/developer/sslg"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
+          >
+            Open
+          </a>
+        </div>
+      </div>
+
 
       <div className="rounded-xl border p-3">
         <div className="flex items-center justify-between gap-3">

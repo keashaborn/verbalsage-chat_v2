@@ -36,7 +36,6 @@ async function getUserIdOrDev(): Promise<string | null> {
   return null;
 }
 
-
 function pickVantageId(args: { bodyVid?: any; cookieVid?: any }): string {
   const rawBody = String(args.bodyVid || "").trim().slice(0, 64);
   const rawCookie = String(args.cookieVid || "").trim().slice(0, 64);
@@ -88,11 +87,14 @@ type ReqBody = {
   vantage_id?: string; // optional; cookie is authoritative by default
 };
 
-export async function GET() {
+export async function GET(req: Request) {
+  const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
+  const requestId = (raw || crypto.randomUUID()).slice(0, 128);
+
   const BRAINS_URL = process.env.BRAINS_URL || "http://172.31.32.171:8088";
 
   const user_id = await getUserIdOrDev();
-  if (!user_id) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!user_id) return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { "x-request-id": requestId } });
 
   const jar = await cookies();
   const vantage_id = pickVantageId({ cookieVid: jar.get("vs_vantage_id")?.value });
@@ -101,12 +103,17 @@ export async function GET() {
     `${BRAINS_URL}/cards/${encodeURIComponent(user_id)}?vantage_id=${encodeURIComponent(
       vantage_id
     )}&kinds=user_instructions&limit=1`,
-    { method: "GET" }
+    { method: "GET", headers: { "x-request-id": requestId } }
   );
 
-  const raw = await r.text().catch(() => "");
+  const rawText = await r.text().catch(() => "");
+  const rid = r.headers.get("x-request-id") || requestId;
+
   if (!r.ok) {
-    return NextResponse.json({ error: `brains HTTP ${r.status}`, details: raw }, { status: 502 });
+    return NextResponse.json(
+      { error: `brains HTTP ${r.status}`, details: rawText },
+      { status: 502, headers: { "x-request-id": rid } }
+    );
   }
 
   let about_me = "";
@@ -114,7 +121,7 @@ export async function GET() {
   let updated_at: string | null = null;
 
   try {
-    const data = JSON.parse(raw);
+    const data = JSON.parse(rawText);
     const it = Array.isArray(data?.items) && data.items.length ? data.items[0] : null;
     const txt = String(it?.text || "");
     const parsed = parseInstructionsText(txt);
@@ -125,14 +132,20 @@ export async function GET() {
     // ignore parse errors; return blanks
   }
 
-  return NextResponse.json({ ok: true, vantage_id, about_me, how_to_respond, updated_at }, { status: 200 });
+  return NextResponse.json(
+    { ok: true, vantage_id, about_me, how_to_respond, updated_at },
+    { status: 200, headers: { "x-request-id": rid } }
+  );
 }
 
 export async function POST(req: Request) {
+  const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
+  const requestId = (raw || crypto.randomUUID()).slice(0, 128);
+
   const BRAINS_URL = process.env.BRAINS_URL || "http://172.31.32.171:8088";
 
   const user_id = await getUserIdOrDev();
-  if (!user_id) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!user_id) return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { "x-request-id": requestId } });
 
   const jar = await cookies();
   const body = (await req.json().catch(() => ({}))) as ReqBody;
@@ -155,7 +168,7 @@ export async function POST(req: Request) {
     `${BRAINS_URL}/cards/${encodeURIComponent(user_id)}?vantage_id=${encodeURIComponent(vantage_id)}`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-request-id": requestId },
       body: JSON.stringify({
         kind: "user_instructions",
         topic_key: "__singleton__",
@@ -167,9 +180,17 @@ export async function POST(req: Request) {
   );
 
   const txt = await r.text().catch(() => "");
+  const rid = r.headers.get("x-request-id") || requestId;
+
   if (!r.ok) {
-    return NextResponse.json({ error: `brains HTTP ${r.status}`, details: txt }, { status: 502 });
+    return NextResponse.json(
+      { error: `brains HTTP ${r.status}`, details: txt },
+      { status: 502, headers: { "x-request-id": rid } }
+    );
   }
 
-  return new NextResponse(txt, { status: 200, headers: { "Content-Type": "application/json" } });
+  return new NextResponse(txt, {
+    status: 200,
+    headers: { "Content-Type": "application/json", "x-request-id": rid },
+  });
 }
