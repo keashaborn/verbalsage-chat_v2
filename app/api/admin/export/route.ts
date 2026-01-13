@@ -1,13 +1,19 @@
 import { cookies } from "next/headers";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-
 const JWKS = process.env.SUPABASE_JWKS_URL
   ? createRemoteJWKSet(new URL(process.env.SUPABASE_JWKS_URL))
   : null;
+
+function getRequestId(req: Request): string {
+  const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
+  if (raw && raw.length <= 128) return raw;
+  return randomUUID();
+}
 
 async function getUserIdFromCookie(): Promise<string | null> {
   if (!JWKS || !process.env.SUPABASE_ISSUER) return null;
@@ -24,24 +30,41 @@ async function getUserIdFromCookie(): Promise<string | null> {
 }
 
 export async function GET(req: Request) {
+  const requestId = getRequestId(req);
+
   const BRAINS = process.env.BRAINS_URL || "http://172.31.32.171:8088";
   const user_id = (await getUserIdFromCookie()) || null;
-  if (!user_id) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
+  if (!user_id) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json", "x-request-id": requestId },
+    });
+  }
 
   const url = new URL(req.url);
   const limit = String(url.searchParams.get("limit") || "20000");
 
-  const upstream = await fetch(`${BRAINS}/user/${encodeURIComponent(user_id)}/export?limit=${encodeURIComponent(limit)}`, {
-    method: "GET",
-  });
+  const upstream = await fetch(
+    `${BRAINS}/user/${encodeURIComponent(user_id)}/export?limit=${encodeURIComponent(limit)}`,
+    {
+      method: "GET",
+      headers: { "x-request-id": requestId },
+      cache: "no-store",
+    }
+  );
 
   if (!upstream.ok) {
     const txt = await upstream.text().catch(() => "");
-    return new Response(txt || `Brains HTTP ${upstream.status}`, { status: 502 });
+    return new Response(txt || `Brains HTTP ${upstream.status}`, {
+      status: 502,
+      headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
+    });
   }
 
   const headers = new Headers();
   headers.set("Content-Type", upstream.headers.get("content-type") || "application/json");
+  headers.set("x-request-id", requestId);
+
   const cd = upstream.headers.get("content-disposition");
   if (cd) headers.set("Content-Disposition", cd);
 

@@ -123,10 +123,8 @@ export default function SSLGPanel({
     if (!enableQueryDefaults) return;
     try {
       const u = new URL(window.location.href);
-      const o = u.searchParams.get("owner_user_id") || "";
       const s = u.searchParams.get("subject_id") || "client_1";
       const tv = u.searchParams.get("template_version_id") || "";
-      if (o) setOwnerUserId(o);
       if (s) setSubjectId(s);
       if (tv) setTargetVid(tv);
     } catch {}
@@ -319,24 +317,17 @@ export default function SSLGPanel({
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <div className="space-y-1">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">owner_user_id</div>
-            <input
-              className="w-full rounded-xl border bg-background px-3 py-2 font-mono text-xs"
-              value={ownerUserId}
-              onChange={(e) => setOwnerUserId(e.target.value)}
-              placeholder="uuid"
-            />
-          </div>
 
-          <div className="space-y-1">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">template_version_id</div>
-            <input
-              className="w-full rounded-xl border bg-background px-3 py-2 font-mono text-xs"
-              value={targetVid}
-              onChange={(e) => setTargetVid(e.target.value)}
-              placeholder="uuid"
-            />
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">template_version_id</div>
+              <input
+                className="w-full rounded-xl border bg-background px-3 py-2 font-mono text-xs"
+                value={targetVid}
+                onChange={(e) => setTargetVid(e.target.value)}
+                placeholder="uuid"
+              />
+            </div>
           </div>
         </div>
 
