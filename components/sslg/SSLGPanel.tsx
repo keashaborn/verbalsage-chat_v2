@@ -100,6 +100,9 @@ export default function SSLGPanel({
   const [loadingTemplates, setLoadingTemplates] = React.useState(false);
 
   const [templatesAutoTried, setTemplatesAutoTried] = React.useState(false);
+  const [clients, setClients] = React.useState<string[]>(initialSubjectId ? [initialSubjectId] : []);
+  const [loadingClients, setLoadingClients] = React.useState(false);
+  const [clientsAutoTried, setClientsAutoTried] = React.useState(false);
 
   async function loadTemplates() {
     setLoadingTemplates(true);
@@ -120,6 +123,41 @@ export default function SSLGPanel({
     }
   }
 
+  async function loadClients() {
+    setLoadingClients(true);
+    setStatus("");
+    try {
+      if (!ownerUserId.trim()) throw new Error("owner_user_id required");
+
+      const qs = new URLSearchParams();
+      qs.set("owner_user_id", ownerUserId.trim());
+      qs.set("limit", "2000"); // temporary; enough for dev
+      const r = await fetch(`/api/forms/entries/list?${qs.toString()}`, { cache: "no-store" });
+      const t = await r.text().catch(() => "");
+      if (!r.ok) throw new Error(`clients failed: HTTP ${r.status} ${t}`);
+
+      const rows = JSON.parse(t);
+      const uniq = new Set<string>();
+      for (const row of Array.isArray(rows) ? rows : []) {
+        const sid = String(row?.subject_id || "").trim();
+        if (sid) uniq.add(sid);
+      }
+
+      let list = Array.from(uniq).sort((a, b) => a.localeCompare(b));
+      const cur = subjectId.trim();
+      if (cur && !list.includes(cur)) list = [cur, ...list];
+
+      setClients(list);
+      setStatus(list.length ? `loaded ${list.length} clients` : "no clients");
+    } catch (e: any) {
+      setStatus(`error: ${e?.message || String(e)}`);
+      // keep current subjectId usable even if list load fails
+      setClients(subjectId.trim() ? [subjectId.trim()] : []);
+    } finally {
+      setLoadingClients(false);
+    }
+  }
+
   // Optional defaults from querystring (bookmarkable)
   React.useEffect(() => {
     if (!enableQueryDefaults) return;
@@ -129,7 +167,7 @@ export default function SSLGPanel({
       const tv = u.searchParams.get("template_version_id") || "";
       if (s) setSubjectId(s);
       if (tv) setTargetVid(tv);
-    } catch {}
+    } catch { }
   }, [enableQueryDefaults]);
 
   // Auto-load templates once owner is known (one shot)
@@ -139,6 +177,14 @@ export default function SSLGPanel({
     setTemplatesAutoTried(true);
     loadTemplates();
   }, [ownerUserId, templatesAutoTried]);
+
+  // Auto-load clients once owner is known (one shot)
+  React.useEffect(() => {
+    if (!ownerUserId.trim()) return;
+    if (clientsAutoTried) return;
+    setClientsAutoTried(true);
+    loadClients();
+  }, [ownerUserId, clientsAutoTried]);
 
 
 
@@ -328,47 +374,54 @@ export default function SSLGPanel({
           </div>
         </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="space-y-1">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client</div>
-              <input
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="space-y-1">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client</div>
+            <input
+              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              value={subjectId}
+              onChange={(e) => setSubjectId(e.target.value)}
+              placeholder="client_1"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program</div>
+            <div className="flex items-center gap-2">
+              <select
                 className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                value={subjectId}
-                onChange={(e) => setSubjectId(e.target.value)}
-                placeholder="client_1"
-              />
-            </div>
+                value={targetVid}
+                onChange={(e) => setTargetVid(e.target.value)}
+                title="Select a program"
+              >
+                <option value="">(choose)</option>
+                {templates
+                  .filter((t) => {
+                    const vid = String(t.latest_version_id || "").trim();
+                    if (!vid) return false;
+                    if (vid === PHASE_TEMPLATE_VERSION_ID) return false;
+                    if (vid === CORRECTION_TEMPLATE_VERSION_ID) return false;
+                    return true;
+                  })
+                  .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
+                  .map((t) => (
+                    <option key={t.template_id} value={String(t.latest_version_id)}>
+                      {t.name} (v{t.latest_version ?? "?"})
+                    </option>
+                  ))}
+              </select>
 
-            <div className="space-y-1">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program</div>
-              <div className="flex items-center gap-2">
-                <select
-                  className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                  value={targetVid}
-                  onChange={(e) => setTargetVid(e.target.value)}
-                  title="Select a program"
-                >
-                  <option value="">(choose)</option>
-                  {templates
-                    .filter((t) => t.latest_version_id)
-                    .map((t) => (
-                      <option key={t.template_id} value={String(t.latest_version_id)}>
-                        {t.name} (v{t.latest_version ?? "?"})
-                      </option>
-                    ))}
-                </select>
-
-                <button
-                  className="shrink-0 rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-                  onClick={loadTemplates}
-                  disabled={!ownerUserId.trim() || loadingTemplates}
-                  title="Load programs"
-                >
-                  {loadingTemplates ? "Loading…" : templates.length ? "Reload" : "Load"}
-                </button>
-              </div>
+              <button
+                className="shrink-0 rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+                onClick={loadTemplates}
+                disabled={!ownerUserId.trim() || loadingTemplates}
+                title="Load programs"
+              >
+                {loadingTemplates ? "Loading…" : templates.length ? "Reload" : "Load"}
+              </button>
             </div>
           </div>
+        </div>
 
         <div className="mt-3 flex items-center gap-2">
           <button className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60" onClick={loadAll}>
