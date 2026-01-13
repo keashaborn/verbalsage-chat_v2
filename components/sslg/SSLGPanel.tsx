@@ -318,7 +318,7 @@ export default function SSLGPanel({
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
           <div className="space-y-1">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">owner_user_id</div>
             <input
@@ -328,15 +328,7 @@ export default function SSLGPanel({
               placeholder="uuid"
             />
           </div>
-          <div className="space-y-1">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">subject_id</div>
-            <input
-              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
-              placeholder="client_1"
-            />
-          </div>
+
           <div className="space-y-1">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">template_version_id</div>
             <input
