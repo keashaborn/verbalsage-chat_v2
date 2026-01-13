@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { MiniLineChart, type XYPoint, type PhaseStart } from "@/components/sslg/MiniLineChart";
+import { supabase } from "@/lib/supabaseClient";
 
 function coerceNumber(v: any): number | null {
   if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -71,6 +72,22 @@ export default function SSLGPanel({
   const [status, setStatus] = React.useState<string>("");
 
   const [ownerUserId, setOwnerUserId] = React.useState<string>(initialOwnerUserId);
+
+  // Derive owner_user_id from Supabase session (browser). Keeps owner_user_id out of the UI.
+  React.useEffect(() => {
+    if (ownerUserId.trim()) return;
+
+    (async () => {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error || !data?.user?.id) throw new Error("not signed in");
+        setOwnerUserId(data.user.id);
+      } catch (e: any) {
+        setStatus(`error: ${e?.message || String(e)}`);
+      }
+    })();
+  }, [ownerUserId]);
+
   const [subjectId, setSubjectId] = React.useState<string>(initialSubjectId);
   const [targetVid, setTargetVid] = React.useState<string>(initialTemplateVersionId);
 
