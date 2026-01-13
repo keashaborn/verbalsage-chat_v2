@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { randomUUID } from "crypto";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -10,6 +11,12 @@ const UUID_RE =
 const JWKS = process.env.SUPABASE_JWKS_URL
   ? createRemoteJWKSet(new URL(process.env.SUPABASE_JWKS_URL))
   : null;
+
+function getRequestId(req: Request): string {
+  const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
+  if (raw && raw.length <= 128) return raw;
+  return randomUUID();
+}
 
 async function getUserIdFromCookie(): Promise<string | null> {
   if (!JWKS || !process.env.SUPABASE_ISSUER) return null;
@@ -103,6 +110,8 @@ function sanitizeRoleplay(raw: any): { on: boolean; strict: boolean; script: str
 }
 
 export async function POST(req: Request) {
+  const requestId = getRequestId(req);
+
   try {
     const BRAINS_URL = process.env.BRAINS_URL || "http://172.31.32.171:8088";
     const jar = await cookies();
@@ -112,10 +121,14 @@ export async function POST(req: Request) {
     const debugTokenCookie = jar.get("vs_debug_token")?.value || "";
     const debugAllowed =
       !!process.env.VS_DEBUG_TOKEN &&
-      (debugTokenHdr === process.env.VS_DEBUG_TOKEN ||
-        debugTokenCookie === process.env.VS_DEBUG_TOKEN);
+      (debugTokenHdr === process.env.VS_DEBUG_TOKEN || debugTokenCookie === process.env.VS_DEBUG_TOKEN);
 
-    if (!debugAllowed) return new Response("unauthorized", { status: 401 });
+    if (!debugAllowed) {
+      return new Response("unauthorized", {
+        status: 401,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
+      });
+    }
 
     // Primary: Supabase user_id from vs_at JWT
     const authedUserId = await getUserIdFromCookie();
@@ -125,7 +138,12 @@ export async function POST(req: Request) {
     const devTestUser = (process.env.VS_DEV_TEST_USER_ID || "").trim();
 
     const user_id = authedUserId || (allowGuest && devTestUser ? devTestUser : "");
-    if (!user_id) return new Response("unauthorized", { status: 401 });
+    if (!user_id) {
+      return new Response("unauthorized", {
+        status: 401,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
+      });
+    }
 
     let body: any = {};
     try {
@@ -133,7 +151,12 @@ export async function POST(req: Request) {
     } catch { }
 
     const msg = String(body?.message || body?.input || "").trim();
-    if (!msg) return new Response("Missing message", { status: 400 });
+    if (!msg) {
+      return new Response("Missing message", {
+        status: 400,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
+      });
+    }
 
     const rawTid = String(body?.thread_id || jar.get("vs_tid")?.value || "").trim();
     const thread_id = UUID_RE.test(rawTid) ? rawTid : null;
@@ -142,7 +165,12 @@ export async function POST(req: Request) {
     const vantage_id = rawVid ? rawVid.slice(0, 64) : "default";
 
     const rawModel = String(body?.model || jar.get("vs_model")?.value || "").trim();
-    const modelAllowed = new Set(["gpt-5.2", "gpt-5.1", "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini", "xai:grok-3", "xai:grok-3-mini", "xai:grok-4-0709", "xai:grok-4-1-fast-non-reasoning", "xai:grok-4-1-fast-reasoning", "xai:grok-4-fast-non-reasoning", "xai:grok-4-fast-reasoning", "xai:grok-code-fast-1", "xai:grok-2-vision-1212", "xai:grok-2-image-1212"]);
+    const modelAllowed = new Set([
+      "gpt-5.2", "gpt-5.1", "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini",
+      "xai:grok-3", "xai:grok-3-mini", "xai:grok-4-0709", "xai:grok-4-1-fast-non-reasoning",
+      "xai:grok-4-1-fast-reasoning", "xai:grok-4-fast-non-reasoning", "xai:grok-4-fast-reasoning",
+      "xai:grok-code-fast-1", "xai:grok-2-vision-1212", "xai:grok-2-image-1212",
+    ]);
     const model = modelAllowed.has(rawModel) ? rawModel : null;
 
     // limits from body OR cookie (so Inspector reflects the real budgets)
@@ -206,7 +234,7 @@ export async function POST(req: Request) {
     // Call Brains with inspect_only + debug
     const r = await fetch(`${BRAINS_URL}/vantage/query`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-request-id": requestId },
       body: JSON.stringify({
         user_id,
         message: msg,
@@ -222,14 +250,21 @@ export async function POST(req: Request) {
         ...(pragmatics ? { pragmatics } : {}),
         ...(roleplay ? { definition_overlay: roleplay } : {}),
       }),
+      cache: "no-store",
     });
 
     const raw = await r.text();
     return new Response(raw, {
       status: r.status,
-      headers: { "Content-Type": "application/json; charset=utf-8" },
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "x-request-id": requestId,
+      },
     });
   } catch (err: any) {
-    return new Response(`Route error: ${err?.message || String(err)}`, { status: 500 });
+    return new Response(`Route error: ${err?.message || String(err)}`, {
+      status: 500,
+      headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
+    });
   }
 }

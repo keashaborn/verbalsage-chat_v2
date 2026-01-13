@@ -99,6 +99,8 @@ export default function SSLGPanel({
   const [templates, setTemplates] = React.useState<TemplateListItem[]>([]);
   const [loadingTemplates, setLoadingTemplates] = React.useState(false);
 
+  const [templatesAutoTried, setTemplatesAutoTried] = React.useState(false);
+
   async function loadTemplates() {
     setLoadingTemplates(true);
     setStatus("");
@@ -129,6 +131,16 @@ export default function SSLGPanel({
       if (tv) setTargetVid(tv);
     } catch {}
   }, [enableQueryDefaults]);
+
+  // Auto-load templates once owner is known (one shot)
+  React.useEffect(() => {
+    if (!ownerUserId.trim()) return;
+    if (templatesAutoTried) return;
+    setTemplatesAutoTried(true);
+    loadTemplates();
+  }, [ownerUserId, templatesAutoTried]);
+
+
 
   async function loadAll() {
     setStatus("loading…");
@@ -316,51 +328,47 @@ export default function SSLGPanel({
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">template_version_id</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client</div>
               <input
-                className="w-full rounded-xl border bg-background px-3 py-2 font-mono text-xs"
-                value={targetVid}
-                onChange={(e) => setTargetVid(e.target.value)}
-                placeholder="uuid"
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+                placeholder="client_1"
               />
             </div>
-          </div>
-        </div>
 
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <div className="space-y-1">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Templates</div>
-            <div className="flex items-center gap-2">
-              <button
-                className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-                onClick={loadTemplates}
-                disabled={!ownerUserId.trim() || loadingTemplates}
-                title="Fetch templates for this owner_user_id"
-              >
-                {loadingTemplates ? "Loading…" : "Load my templates"}
-              </button>
-              <select
-                className="w-[520px] max-w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                value={targetVid}
-                onChange={(e) => setTargetVid(e.target.value)}
-                title="Select latest version id"
-              >
-                <option value="">(choose)</option>
-                {templates
-                  .filter((t) => t.latest_version_id)
-                  .map((t) => (
-                    <option key={t.template_id} value={String(t.latest_version_id)}>
-                      {t.name} (v{t.latest_version ?? "?"}) — {String(t.latest_version_id).slice(0, 8)}…
-                    </option>
-                  ))}
-              </select>
+            <div className="space-y-1">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program</div>
+              <div className="flex items-center gap-2">
+                <select
+                  className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                  value={targetVid}
+                  onChange={(e) => setTargetVid(e.target.value)}
+                  title="Select a program"
+                >
+                  <option value="">(choose)</option>
+                  {templates
+                    .filter((t) => t.latest_version_id)
+                    .map((t) => (
+                      <option key={t.template_id} value={String(t.latest_version_id)}>
+                        {t.name} (v{t.latest_version ?? "?"})
+                      </option>
+                    ))}
+                </select>
+
+                <button
+                  className="shrink-0 rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+                  onClick={loadTemplates}
+                  disabled={!ownerUserId.trim() || loadingTemplates}
+                  title="Load programs"
+                >
+                  {loadingTemplates ? "Loading…" : templates.length ? "Reload" : "Load"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
         <div className="mt-3 flex items-center gap-2">
           <button className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60" onClick={loadAll}>
