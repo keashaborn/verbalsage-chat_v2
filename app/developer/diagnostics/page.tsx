@@ -101,9 +101,10 @@ function scoreFlags(responseText: string) {
 
 
 async function fetchTimeseries(qs: Record<string, string>) {
-  const u = new URL("/api/metrics/timeseries", window.location.origin);
-  for (const [k, v] of Object.entries(qs)) u.searchParams.set(k, v);
-  const r = await fetch(u.toString(), { cache: "no-store" });
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(qs)) sp.set(k, v);
+
+  const r = await fetch(`/api/metrics/timeseries?${sp.toString()}`, { cache: "no-store" });
   const j = (await r.json()) as TimeseriesResp;
   if (!r.ok) throw new Error(`timeseries ${r.status}`);
   return j;
