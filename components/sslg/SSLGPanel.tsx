@@ -542,20 +542,26 @@ export default function SSLGPanel({
               </select>
             </label>
 
+            <div className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">Y</span>
 
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={includeZeroOverride}
-                onChange={(e) => setIncludeZeroOverride(e.target.checked)}
-                disabled={yMinIsSet}
-              />
-              <span className={yMinIsSet ? "text-muted-foreground" : ""}>Include zero</span>
-            </label>
+              <label className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2">
+                <input
+                  className="h-4 w-4"
+                  type="checkbox"
+                  checked={includeZeroOverride}
+                  onChange={(e) => setIncludeZeroOverride(e.target.checked)}
+                  disabled={yMinIsSet}
+                />
+                <span className={yMinIsSet ? "text-muted-foreground" : ""}>Include zero</span>
+              </label>
 
-            {yMinIsSet ? (
-              <div className="text-xs text-muted-foreground">Ignored when Y min is set. Clear Y min to use auto-scale.</div>
-            ) : null}
+              {yMinIsSet ? (
+                <div className="text-xs text-muted-foreground">
+                  Ignored when Y min is set. Clear Y min to use auto-scale.
+                </div>
+              ) : null}
+            </div>
           </div>
 
           <div className="mt-3 grid gap-3 md:grid-cols-2">
