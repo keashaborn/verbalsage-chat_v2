@@ -368,9 +368,13 @@ export default function SSLGPanel({
   const [includeZeroOverride, setIncludeZeroOverride] = React.useState<boolean>(true);
   const [yMinOverride, setYMinOverride] = React.useState<string>("");
   const [yMaxOverride, setYMaxOverride] = React.useState<string>("");
+  const [yTickStepOverride, setYTickStepOverride] = React.useState<string>("");
 
   const yMinNum = coerceNumber(yMinOverride);
   const yMaxNum = coerceNumber(yMaxOverride);
+  const yTickStepNumRaw = coerceNumber(yTickStepOverride);
+  const yTickStepNum = yTickStepNumRaw !== null && yTickStepNumRaw > 0 ? yTickStepNumRaw : null;
+
 
   // Initialize controls from graph_spec_v0 whenever the loaded program version changes.
   React.useEffect(() => {
@@ -391,6 +395,7 @@ export default function SSLGPanel({
       setIncludeZeroOverride(includeZero ?? true);
       setYMinOverride("");
       setYMaxOverride("");
+      setYTickStepOverride("");
     } catch {
       // ignore
     }
@@ -513,6 +518,7 @@ export default function SSLGPanel({
                 setIncludeZeroOverride(labelPack.includeZero);
                 setYMinOverride("");
                 setYMaxOverride("");
+                setYTickStepOverride("");
               }}
               disabled={!targetVersion}
               title="Reset controls to defaults"

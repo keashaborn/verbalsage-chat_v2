@@ -24,6 +24,7 @@ export function MiniLineChart({
   yLabel,
   yMin,
   yMax,
+  yTickStep,
 }: {
   title: string;
   series: XYPoint[];
@@ -37,6 +38,7 @@ export function MiniLineChart({
   yLabel?: string;
   yMin?: number | null;
   yMax?: number | null;
+  yTickStep?: number | null;
 }) {
   const pts = Array.isArray(series) ? series : [];
   if (pts.length === 0) {
@@ -85,11 +87,58 @@ export function MiniLineChart({
     return PAD + (1 - t) * (H - PAD * 2);
   }
 
-  const yTicks = [maxY, (minY + maxY) / 2, minY].map((v) => ({
-    v,
-    y: yFor(v),
-    label: Number.isFinite(v) ? String(Math.round(v)) : "",
-  }));
+  function fmtTick(v: number) {
+    if (!Number.isFinite(v)) return "";
+    const iv = Math.round(v);
+    if (Math.abs(v - iv) < 1e-6) return String(iv);
+    return String(Number(v.toFixed(2))); // trims trailing zeros via Number(...)
+  }
+
+  const hasYTickStep = typeof yTickStep === "number" && Number.isFinite(yTickStep) && (yTickStep as number) > 0;
+
+  const yTicks = (() => {
+    // Default behavior: 3 ticks (max/mid/min)
+    if (!hasYTickStep) {
+      return [maxY, (minY + maxY) / 2, minY].map((v) => ({
+        v,
+        y: yFor(v),
+        label: fmtTick(v),
+      }));
+    }
+
+    const step = yTickStep as number;
+    const eps = Math.max(1e-9, step * 1e-9);
+
+    // Build all ticks at step intervals from minY upward (cap to avoid pathological cases)
+    const all: number[] = [];
+    const maxSteps = 5000;
+    for (let i = 0; i <= maxSteps; i++) {
+      const v = minY + i * step;
+      if (v > maxY + eps) break;
+      all.push(v);
+    }
+
+    // Ensure bounds are represented even if they don't align to step.
+    all.push(maxY);
+    all.push(minY);
+
+    // Dedup with rounding (reduce floating drift)
+    const uniqAsc = Array.from(new Set(all.map((v) => Number(v.toFixed(10))))).sort((a, b) => a - b);
+
+    // Downsample if too many labels for the small chart
+    const MAX_TICKS = 9;
+    let vals = uniqAsc;
+    if (vals.length > MAX_TICKS) {
+      const sampled: number[] = [];
+      for (let j = 0; j < MAX_TICKS; j++) {
+        const idx = Math.round((j * (vals.length - 1)) / (MAX_TICKS - 1));
+        sampled.push(vals[idx]);
+      }
+      vals = Array.from(new Set(sampled)).sort((a, b) => a - b);
+    }
+
+    return vals.map((v) => ({ v, y: yFor(v), label: fmtTick(v) }));
+  })();
 
   // Phase markers: prefer explicit markers prop; otherwise derive from phase starts
   const phaseStarts = Array.isArray(phases) ? phases : [];
@@ -321,8 +370,8 @@ export function MiniLineChart({
       <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
         <span>{leftLabel}</span>
         <span>
-          {minY.toFixed(0)}
-          {ySuffix || ""} … {maxY.toFixed(0)}
+          {fmtTick(minY)}
+          {ySuffix || ""} … {fmtTick(maxY)}
           {ySuffix || ""}
         </span>
         <span>{rightLabel}</span>
