@@ -503,6 +503,7 @@ export default function SSLGPanel({
             yLabel={yLabelOverride || labelPack.yLabelWithUnit}
             yMin={yMinNum}
             yMax={yMaxNum}
+            yTickStep={yTickStepNum}
           />
         </div>
         <div className="mt-4 rounded-xl border p-3">
@@ -583,6 +584,17 @@ export default function SSLGPanel({
                 value={yMinOverride}
                 onChange={(e) => setYMinOverride(e.target.value)}
                 placeholder="auto"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">Y tick step</span>
+              <input
+                className="rounded-xl border bg-background px-3 py-2"
+                value={yTickStepOverride}
+                onChange={(e) => setYTickStepOverride(e.target.value)}
+                placeholder="e.g. 5"
+                inputMode="decimal"
               />
             </label>
 
