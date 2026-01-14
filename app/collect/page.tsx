@@ -294,11 +294,11 @@ export default function CollectPage() {
       if (!date.trim()) throw new Error("date required");
 
       const data: Record<string, any> = {};
-      if (props.date) data.date = date.trim();
+      if (date.trim()) data.date = date.trim();
       data.count = Math.max(0, Math.trunc(countStep || 1));
 
-      if (props.context && context.trim()) data.context = context.trim();
-      if (props.notes && notes.trim()) data.notes = notes.trim();
+      if (context.trim()) data.context = context.trim();
+      if (notes.trim()) data.notes = notes.trim();
 
       const resp = await submitEntry(data);
       setStatus(`recorded entry_id=${resp?.entry_id || "ok"}`);
@@ -319,11 +319,11 @@ export default function CollectPage() {
       const sec = stopDuration();
 
       const data: Record<string, any> = {};
-      if (props.date) data.date = date.trim();
+      if (date.trim()) data.date = date.trim();
       data[dk] = Math.max(0, Math.trunc(sec));
 
-      if (props.context && context.trim()) data.context = context.trim();
-      if (props.notes && notes.trim()) data.notes = notes.trim();
+      if (context.trim()) data.context = context.trim();
+      if (notes.trim()) data.notes = notes.trim();
 
       const resp = await submitEntry(data);
       setStatus(`recorded entry_id=${resp?.entry_id || "ok"}`);
@@ -334,8 +334,11 @@ export default function CollectPage() {
 
   const mType = measurementType();
   const props = schemaProps();
-  const showContext = !!props.context;
-  const showNotes = !!props.notes;
+
+  // Collect v0: treat context/notes as generic optional fields for count/duration programs.
+  // Do not require the schema to declare them (backend stores arbitrary JSON).
+  const showContext = mType === "count" || mType === "duration";
+  const showNotes = showContext;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
