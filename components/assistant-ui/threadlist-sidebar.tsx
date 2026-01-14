@@ -11,26 +11,42 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { SettingsDrawer } from "@/components/admin/SettingsDrawer";
 import { BrainsThreadList } from "@/components/threads/BrainsThreadList";
 import Image from "next/image";
+import Link from "next/link";
 
 export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
+  const { isMobile, setOpenMobile } = useSidebar();
   return (
     <Sidebar {...props}>
       {/* Header: icon only */}
       <SidebarHeader className="aui-sidebar-header mb-2 border-b">
-        <div className="flex aspect-square size-10 items-center justify-center rounded-lg overflow-hidden">
-          <Image
-            src="/brand/vs-icon.svg"
-            alt="Verbal Sage"
-            width={28}
-            height={28}
-            priority
-          />
-        </div>
-      </SidebarHeader>
+          <div className="flex items-center justify-between gap-2 px-2 py-2">
+            <div className="flex aspect-square size-10 items-center justify-center rounded-lg overflow-hidden">
+              <Image
+                src="/brand/vs-icon.svg"
+                alt="Verbal Sage"
+                width={28}
+                height={28}
+                priority
+              />
+            </div>
+
+            <Link
+              href="/collect"
+              onClick={() => {
+                if (isMobile) setOpenMobile(false);
+              }}
+              className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60"
+              title="Open data collection"
+            >
+              Collect
+            </Link>
+          </div>
+        </SidebarHeader>
 
       <SidebarContent className="aui-sidebar-content px-2">
         <BrainsThreadList />
