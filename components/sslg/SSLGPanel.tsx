@@ -372,6 +372,7 @@ export default function SSLGPanel({
 
   const yMinNum = coerceNumber(yMinOverride);
   const yMaxNum = coerceNumber(yMaxOverride);
+  const yMinIsSet = yMinNum !== null;
   const yTickStepNumRaw = coerceNumber(yTickStepOverride);
   const yTickStepNum = yTickStepNumRaw !== null && yTickStepNumRaw > 0 ? yTickStepNumRaw : null;
 
@@ -541,16 +542,20 @@ export default function SSLGPanel({
               </select>
             </label>
 
-            <label className="grid gap-1 text-sm">
-              <span className="text-muted-foreground">Include zero</span>
-              <div className="flex h-10 items-center">
-                <input
-                  type="checkbox"
-                  checked={includeZeroOverride}
-                  onChange={(e) => setIncludeZeroOverride(e.target.checked)}
-                />
-              </div>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={includeZeroOverride}
+                onChange={(e) => setIncludeZeroOverride(e.target.checked)}
+                disabled={yMinIsSet}
+              />
+              <span className={yMinIsSet ? "text-muted-foreground" : ""}>Include zero</span>
             </label>
+
+            {yMinIsSet ? (
+              <div className="text-xs text-muted-foreground">Ignored when Y min is set. Clear Y min to use auto-scale.</div>
+            ) : null}
           </div>
 
           <div className="mt-3 grid gap-3 md:grid-cols-2">
