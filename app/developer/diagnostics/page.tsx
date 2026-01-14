@@ -65,6 +65,16 @@ function uuidv4() {
   return crypto.randomUUID();
 }
 
+async function readJsonSafe<T = any>(r: Response): Promise<{ json: T | null; raw: string }> {
+  const raw = await r.text().catch(() => "");
+  if (!raw) return { json: null, raw: "" };
+  try {
+    return { json: JSON.parse(raw) as T, raw };
+  } catch {
+    return { json: null, raw };
+  }
+}
+
 async function postTelemetry(events: any[]) {
   const r = await fetch("/api/telemetry/event", {
     method: "POST",
@@ -99,15 +109,21 @@ function scoreFlags(responseText: string) {
   return { refusal, clarification, concession, hallucination };
 }
 
-
 async function fetchTimeseries(qs: Record<string, string>) {
   const sp = new URLSearchParams();
   for (const [k, v] of Object.entries(qs)) sp.set(k, v);
 
   const r = await fetch(`/api/metrics/timeseries?${sp.toString()}`, { cache: "no-store" });
-  const j = (await r.json()) as TimeseriesResp;
-  if (!r.ok) throw new Error(`timeseries ${r.status}`);
-  return j;
+  const rid = r.headers.get("x-request-id") || "";
+  const { json, raw } = await readJsonSafe<TimeseriesResp>(r);
+
+  if (!r.ok) {
+    throw new Error(`timeseries ${r.status} rid=${rid}: ${raw.slice(0, 200)}`);
+  }
+  if (!json) {
+    throw new Error(`timeseries ${r.status} rid=${rid}: invalid JSON: ${raw.slice(0, 200)}`);
+  }
+  return json;
 }
 
 // Very small, dependency-free sparkline
