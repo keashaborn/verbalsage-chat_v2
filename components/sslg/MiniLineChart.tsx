@@ -182,13 +182,25 @@ export function MiniLineChart({
     const MAX_TICKS = 11;
 
     if (!hasXTickStep) {
-      const n = pts.length;
-      if (n <= 1) return [minX];
-      const k = Math.min(7, n);
+      // Default: integer ticks only.
+      // Choose an integer step that yields <= MAX_TICKS labels.
+      const MAX_TICKS = 7;
+
+      const lo = Math.round(minX);
+      const hi = Math.round(maxX);
+      const span = Math.max(1, hi - lo);
+
+      // pick a "nice" integer step
+      const rawStep = Math.ceil(span / (MAX_TICKS - 1));
+      const step = Math.max(1, rawStep);
+
       const out: number[] = [];
-      for (let j = 0; j < k; j++) {
-        out.push(minX + (j * (maxX - minX)) / (k - 1));
-      }
+      for (let v = lo; v <= hi; v += step) out.push(v);
+
+      // ensure endpoints
+      if (out[0] !== lo) out.unshift(lo);
+      if (out[out.length - 1] !== hi) out.push(hi);
+
       return out;
     }
 
