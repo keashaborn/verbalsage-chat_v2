@@ -87,6 +87,14 @@ export function MiniLineChart({
     return PAD + (1 - t) * (H - PAD * 2);
   }
 
+  function xTickIdxs(): number[] {
+    const n = pts.length;
+    if (n <= 1) return [0];
+    if (n === 2) return [0, 1];
+    // show 3 ticks: first, mid, last
+    return [0, Math.floor((n - 1) / 2), n - 1];
+  }
+
   function fmtTick(v: number) {
     if (!Number.isFinite(v)) return "";
     const iv = Math.round(v);
@@ -322,18 +330,116 @@ export function MiniLineChart({
       </div>
 
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-40 w-full" role="img" aria-label={title}>
+        {/* axes */}
         <path d={`M ${PAD} ${H - PAD} H ${W - PAD}`} fill="none" stroke="currentColor" opacity="0.2" />
         <path d={`M ${PAD} ${PAD} V ${H - PAD}`} fill="none" stroke="currentColor" opacity="0.2" />
 
+        {/* x ticks (3 ticks: first/mid/last) */}
+        {xTickIdxs().map((i) => {
+          const x = xFor(i);
+          const raw = String(pts[i]?.x || "");
+          const label = xMode === "date" ? shortDay(raw) : `T${i + 1}`;
+          const yTick = H - PAD;
+          const yText = H - PAD + 12;
+
+          // Rotate date labels to prevent overlap
+          const rotate = xMode === "date" ? -35 : 0;
+
+          return (
+            <g key={`xt-${i}`} opacity="0.7">
+              <path d={`M ${x.toFixed(2)} ${yTick} V ${(yTick + 4).toFixed(2)}`} fill="none" stroke="currentColor" />
+              <text
+                x={x}
+                y={yText}
+                fontSize="10"
+                fill="currentColor"
+                textAnchor={xMode === "date" ? "end" : "middle"}
+                transform={rotate ? `rotate(${rotate} ${x} ${yText})` : undefined}
+              >
+                {label}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Y ticks (move labels left of axis) */}
         {yTicks.map((t, idx) => (
           <g key={idx} opacity="0.6">
             <path d={`M ${PAD - 4} ${t.y} H ${PAD}`} fill="none" stroke="currentColor" />
-            <text x={0} y={t.y + 3} fontSize="10" fill="currentColor">
+            <text x={PAD - 6} y={t.y + 3} fontSize="10" fill="currentColor" textAnchor="end">
               {t.label}
             </text>
           </g>
         ))}
 
+        {/* X ticks */}
+        {(() => {
+          const maxTicks = 5;
+          const n = pts.length;
+          const idxs: number[] = [];
+
+          if (n <= 1) {
+            idxs.push(0);
+          } else if (n <= maxTicks) {
+            for (let i = 0; i < n; i++) idxs.push(i);
+          } else {
+            // evenly spaced indices, include endpoints
+            for (let k = 0; k < maxTicks; k++) {
+              const i = Math.round((k * (n - 1)) / (maxTicks - 1));
+              idxs.push(i);
+            }
+          }
+
+          // unique
+          const seen = new Set<number>();
+          const uniq = idxs.filter((i) => (seen.has(i) ? false : (seen.add(i), true)));
+
+          const yTick = H - PAD;
+          const yText = yTick + 14;
+
+          return uniq.map((i) => {
+            const x = xFor(i);
+            const label = xMode === "trial" ? `T${i + 1}` : shortDay(pts[i]?.x);
+            return (
+              <g key={`xt-${i}`} opacity="0.6">
+                <path d={`M ${x.toFixed(2)} ${yTick} V ${(yTick + 4).toFixed(2)}`} fill="none" stroke="currentColor" />
+                <text x={x} y={yText} fontSize="10" fill="currentColor" textAnchor="middle">
+                  {label}
+                </text>
+              </g>
+            );
+          });
+        })()}
+
+        {/* Axis labels (inside SVG) */}
+        {yLabel ? (
+          <text
+            x={PAD - 32}
+            y={H / 2}
+            fontSize="10"
+            fill="currentColor"
+            opacity="0.7"
+            textAnchor="middle"
+            transform={`rotate(-90 ${PAD - 32} ${H / 2})`}
+          >
+            {yLabel}
+          </text>
+        ) : null}
+
+        {xLabel ? (
+          <text
+            x={(X0 + X1) / 2}
+            y={H - 2}
+            fontSize="10"
+            fill="currentColor"
+            opacity="0.7"
+            textAnchor="middle"
+          >
+            {xLabel}
+          </text>
+        ) : null}
+
+        {/* phase labels (centered in each phase segment) */}
         {phaseLabelPos.map((p, i) => (
           <text
             key={`phase-label-${i}`}
@@ -348,6 +454,7 @@ export function MiniLineChart({
           </text>
         ))}
 
+        {/* phase change markers (dashed verticals) */}
         {markerPos.map((m, i) => (
           <g key={`phase-${i}`} opacity="0.6">
             <path
@@ -359,6 +466,7 @@ export function MiniLineChart({
           </g>
         ))}
 
+        {/* series (broken at phase changes if enabled) */}
         {paths.map((d, i) => (
           <path key={`seg-${i}`} d={d} fill="none" stroke="currentColor" strokeWidth="2" />
         ))}
@@ -367,15 +475,20 @@ export function MiniLineChart({
         ))}
       </svg>
 
-      <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
-        <span>{leftLabel}</span>
+      <div className="mt-1 flex items-center justify-center text-[11px] text-muted-foreground">
         <span>
           {fmtTick(minY)}
           {ySuffix || ""} … {fmtTick(maxY)}
           {ySuffix || ""}
         </span>
-        <span>{rightLabel}</span>
       </div>
+
+      {xMode === "trial" ? (
+        <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+          <span>{leftLabel}</span>
+          <span>{rightLabel}</span>
+        </div>
+      ) : null}
 
       <div className="mt-1 text-[11px] text-muted-foreground">{secondaryLabel}</div>
 

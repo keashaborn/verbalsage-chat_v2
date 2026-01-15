@@ -553,7 +553,9 @@ export default function SSLGPanel({
                   onChange={(e) => setIncludeZeroOverride(e.target.checked)}
                   disabled={yMinIsSet}
                 />
-                <span className={yMinIsSet ? "text-muted-foreground" : ""}>Include zero</span>
+                <span className={yMinIsSet ? "text-muted-foreground" : ""} title="If Y min is auto, clamp the Y-axis floor to 0">
+                  Include zero (Y floor)
+                </span>
               </label>
 
               {yMinIsSet ? (
