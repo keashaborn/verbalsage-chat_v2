@@ -288,15 +288,41 @@ export function MiniLineChart({
   })();
 
   const phaseLabelPos = (() => {
-    if (!segments.length) return [] as { x: number; text: string }[];
+    if (!segments.length) return [] as { x: number; y: number; text: string }[];
 
-    const out: { x: number; text: string }[] = [];
-    for (const s of segments) {
-      const mid = (xFor(s.start) + xFor(s.end)) / 2;
+    // Phase boundaries: Y-axis, each dashed marker X, plot end.
+    // This centers labels within phase spans even when a phase has 1 data point.
+    const markerXs = markerPos
+      .map((m) => m.x)
+      .slice()
+      .sort((a, b) => a - b);
+
+    const boundaries = [Y_AXIS_X, ...markerXs, PLOT_X1];
+
+    const labels = segments.map((s) => {
       const text = s.label ? `${s.phase} (${s.label})` : s.phase;
+      return text.trim();
+    });
+
+    const n = Math.min(labels.length, Math.max(0, boundaries.length - 1));
+    const out: { x: number; y: number; text: string }[] = [];
+
+    for (let i = 0; i < n; i++) {
+      const x0 = boundaries[i];
+      const x1 = boundaries[i + 1];
+      const spanW = x1 - x0;
+
+      const text = labels[i];
       if (!text) continue;
-      out.push({ x: mid, text });
+
+      const xMid = (x0 + x1) / 2;
+
+      // Only stagger when spans are narrow (dense phase changes).
+      const y = PAD_TOP + 10 + (spanW < 120 ? (i % 3) * 10 : 0);
+
+      out.push({ x: xMid, y, text });
     }
+
     return out;
   })();
 
@@ -491,16 +517,19 @@ export function MiniLineChart({
             </text>
           ))}
 
-          {/* phase change markers (dashed verticals) */}
-          {markerPos.map((m, i) => (
-            <g key={`phase-${i}`} opacity="0.6">
-              <path
-                d={`M ${m.x.toFixed(2)} ${PAD_TOP} V ${X_AXIS_Y}`}
-                fill="none"
-                stroke="currentColor"
-                strokeDasharray="4 3"
-              />
-            </g>
+          {/* phase labels (centered in each phase span) */}
+          {phaseLabelPos.map((p, i) => (
+            <text
+              key={`phase-label-${i}`}
+              x={p.x}
+              y={p.y}
+              fontSize="10"
+              fill="currentColor"
+              opacity="0.7"
+              textAnchor="middle"
+            >
+              {p.text}
+            </text>
           ))}
 
           {/* series (broken at phase changes if enabled) */}
