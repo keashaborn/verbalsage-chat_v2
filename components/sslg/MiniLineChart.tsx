@@ -21,6 +21,9 @@ export function MiniLineChart({
   phases,
   breakAtPhaseChange = true,
   xLabel,
+  xMin,
+  xMax,
+  xTickStep,
   yLabel,
   yMin,
   yMax,
@@ -37,6 +40,9 @@ export function MiniLineChart({
   phases?: PhaseStart[];
   breakAtPhaseChange?: boolean;
   xLabel?: string;
+  xMin?: number | null;
+  xMax?: number | null;
+  xTickStep?: number | null;
   yLabel?: string;
   yMin?: number | null;
   yMax?: number | null;
@@ -90,6 +96,92 @@ export function MiniLineChart({
   if (minY === maxY) {
     minY -= 1;
     maxY += 1;
+  }
+
+  // ----------------------------
+  // X domain (index axis)
+  // xMin/xMax define what number appears under the first/last point.
+  // If unset, defaults to 1..N.
+  // ----------------------------
+  const hasXMin = typeof xMin === "number" && Number.isFinite(xMin);
+  const hasXMax = typeof xMax === "number" && Number.isFinite(xMax);
+
+  let minX = hasXMin ? (xMin as number) : 1;
+  let maxX = hasXMax ? (xMax as number) : minX + Math.max(0, pts.length - 1);
+
+  // If only one bound provided, derive the other from point count.
+  if (hasXMin && !hasXMax) maxX = minX + Math.max(0, pts.length - 1);
+  if (!hasXMin && hasXMax) minX = maxX - Math.max(0, pts.length - 1);
+
+  // Normalize if inverted
+  if (minX > maxX) [minX, maxX] = [maxX, minX];
+
+  const xSpan = Math.max(1e-9, maxX - minX);
+
+  function tForIndex(i: number): number {
+    if (pts.length <= 1) return 0;
+    return i / (pts.length - 1);
+  }
+
+  function xValueForIndex(i: number): number {
+    // Linear mapping so first point is xMin and last point is xMax
+    const t = tForIndex(i);
+    return minX + t * (maxX - minX);
+  }
+
+  function xForIndex(i: number): number {
+    const t = tForIndex(i);
+    return PLOT_X0 + t * (PLOT_X1 - PLOT_X0);
+  }
+
+  // Major tick values along X
+  const hasXTickStep = typeof xTickStep === "number" && Number.isFinite(xTickStep) && (xTickStep as number) > 0;
+
+  function xTickValues(): number[] {
+    const MAX_TICKS = 9;
+
+    if (!hasXTickStep) {
+      // default: endpoints + evenly spaced ticks (like Y does when no step is set)
+      const n = pts.length;
+      if (n <= 1) return [minX];
+      const k = Math.min(5, n);
+      const out: number[] = [];
+      for (let j = 0; j < k; j++) {
+        const v = minX + (j * (maxX - minX)) / (k - 1);
+        out.push(v);
+      }
+      return out;
+    }
+
+    const step = xTickStep as number;
+    const out: number[] = [];
+
+    // Always include bounds
+    out.push(minX);
+
+    // Step ticks between bounds
+    const start = Math.ceil(minX / step) * step;
+    for (let v = start; v < maxX; v += step) out.push(v);
+
+    out.push(maxX);
+
+    // Dedup + sort
+    const uniq = Array.from(new Set(out.map((v) => Number(v.toFixed(10))))).sort((a, b) => a - b);
+
+    // Downsample if too many
+    if (uniq.length <= MAX_TICKS) return uniq;
+
+    const sampled: number[] = [];
+    for (let j = 0; j < MAX_TICKS; j++) {
+      const idx = Math.round((j * (uniq.length - 1)) / (MAX_TICKS - 1));
+      sampled.push(uniq[idx]);
+    }
+    return Array.from(new Set(sampled)).sort((a, b) => a - b);
+  }
+
+  function xPosForValue(v: number): number {
+    const t = (v - minX) / xSpan;
+    return PLOT_X0 + t * (PLOT_X1 - PLOT_X0);
   }
 
   function xFor(i: number) {
@@ -347,7 +439,7 @@ export function MiniLineChart({
     if (!cutIdxs.length) {
       const d = pts
         .map((p, i) => {
-          const x = xFor(i);
+          const x = xForIndex(i);
           const y = yFor(p.y);
           return `${i === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
         })
@@ -407,10 +499,9 @@ export function MiniLineChart({
           <path d={`M ${Y_AXIS_X} ${X_AXIS_Y} H ${W - PAD_RIGHT}`} fill="none" stroke="currentColor" opacity="0.2" />
           <path d={`M ${Y_AXIS_X} ${PAD_TOP} V ${X_AXIS_Y}`} fill="none" stroke="currentColor" opacity="0.2" />
 
-          {/* x ticks (3 ticks: first/mid/last) */}
-          {/* X ticks: minor tick per point + 5 labeled major ticks */}
-          {pts.slice(0, 200).map((_, i) => {
-            const x = xFor(i);
+          {/* X ticks: minor tick per point (cap at 250 for perf) */}
+          {pts.slice(0, 250).map((_, i) => {
+            const x = xForIndex(i);
             return (
               <path
                 key={`xt-min-${i}`}
@@ -422,30 +513,19 @@ export function MiniLineChart({
             );
           })}
 
-          {/* X ticks: labeled major ticks */}
-          {xTickIdxs().map((i) => {
-            const x = xFor(i);
-            const raw = String(pts[i]?.x || "");
-            const label = xMode === "date" ? shortDay(raw) : `T${i + 1}`;
+          {/* X ticks: labeled major ticks (numeric index axis) */}
+          {xTickValues().map((v, i) => {
+            const x = xPosForValue(v);
+            const yText = X_AXIS_Y + 20;
 
-            // Slant date labels down-right so the tick is at the left edge of the label
-            const rotate = xMode === "date" ? 30 : 0;
-
-            // Keep the last label from overflowing right
-            const isFirst = i === 0;
-            const isLast = i === pts.length - 1;
-
-            const anchor =
-              xMode === "date"
-                ? (isFirst ? "start" : isLast ? "end" : "middle")
-                : "middle";
-
-            const yText = X_AXIS_Y + 28;
+            // Slant labels down-right; keep baseline constant
+            const rotate = 30;
+            const anchor = "start";
 
             return (
               <g key={`xt-${i}`} opacity="0.7">
                 <path
-                  d={`M ${x.toFixed(2)} ${X_AXIS_Y} V ${(X_AXIS_Y + 6).toFixed(2)}`}
+                  d={`M ${x.toFixed(2)} ${X_AXIS_Y} V ${(X_AXIS_Y + 7).toFixed(2)}`}
                   fill="none"
                   stroke="currentColor"
                 />
@@ -455,9 +535,9 @@ export function MiniLineChart({
                   fontSize="10"
                   fill="currentColor"
                   textAnchor={anchor}
-                  transform={rotate ? `rotate(${rotate} ${x} ${yText})` : undefined}
+                  transform={`rotate(${rotate} ${x} ${yText})`}
                 >
-                  {label}
+                  {fmtTick(v)}
                 </text>
               </g>
             );
@@ -537,7 +617,7 @@ export function MiniLineChart({
             <path key={`seg-${i}`} d={d} fill="none" stroke="currentColor" strokeWidth="2" />
           ))}
           {pts.map((p, i) => (
-            <circle key={i} cx={xFor(i)} cy={yFor(p.y)} r="2.5" fill="currentColor" />
+            <circle key={i} cx={xForIndex(i)} cy={yFor(p.y)} r="2.5" fill="currentColor" />
           ))}
         </svg>
       </div>
