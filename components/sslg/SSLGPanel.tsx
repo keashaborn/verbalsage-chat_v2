@@ -518,6 +518,7 @@ export default function SSLGPanel({
             heightPx={360}
           />
         </div>
+
         <div className="mt-4 rounded-xl border p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm font-semibold">Graph controls</div>
@@ -530,6 +531,7 @@ export default function SSLGPanel({
                 setXMaxOverride("");
                 setXTickStepOverride("1");
                 setXLabelOverride(labelPack.xLabel);
+
                 setYLabelOverride(labelPack.yLabelWithUnit);
                 setIncludeZeroOverride(labelPack.includeZero);
                 setYMinOverride("");
@@ -543,9 +545,9 @@ export default function SSLGPanel({
             </button>
           </div>
 
-          {/* Row 1: X mode + X min/max/step (4 columns on desktop) */}
-          <div className="mt-3 grid gap-3 md:grid-cols-4">
-            <label className="grid gap-1 text-sm md:col-span-1">
+          {/* X */}
+          <div className="mt-3 grid gap-3 md:grid-cols-12">
+            <label className="md:col-span-3 grid gap-1 text-sm">
               <span className="text-muted-foreground">X mode</span>
               <select
                 className="rounded-xl border bg-background px-3 py-2 text-sm"
@@ -557,7 +559,17 @@ export default function SSLGPanel({
               </select>
             </label>
 
-            <label className="grid gap-1 text-sm">
+            <label className="md:col-span-3 grid gap-1 text-sm">
+              <span className="text-muted-foreground">X label</span>
+              <input
+                className="rounded-xl border bg-background px-3 py-2 text-sm"
+                value={xLabelOverride}
+                onChange={(e) => setXLabelOverride(e.target.value)}
+                placeholder={labelPack.xLabel}
+              />
+            </label>
+
+            <label className="md:col-span-2 grid gap-1 text-sm">
               <span className="text-muted-foreground">X min</span>
               <input
                 className="rounded-xl border bg-background px-3 py-2 text-sm"
@@ -568,7 +580,7 @@ export default function SSLGPanel({
               />
             </label>
 
-            <label className="grid gap-1 text-sm">
+            <label className="md:col-span-2 grid gap-1 text-sm">
               <span className="text-muted-foreground">X max</span>
               <input
                 className="rounded-xl border bg-background px-3 py-2 text-sm"
@@ -579,7 +591,7 @@ export default function SSLGPanel({
               />
             </label>
 
-            <label className="grid gap-1 text-sm">
+            <label className="md:col-span-2 grid gap-1 text-sm">
               <span className="text-muted-foreground">X tick step</span>
               <input
                 className="rounded-xl border bg-background px-3 py-2 text-sm"
@@ -591,47 +603,9 @@ export default function SSLGPanel({
             </label>
           </div>
 
-          {/* Row 2: Include zero (full width) */}
-          <div className="mt-3">
-            <div className="grid gap-1 text-sm">
-              <span className="text-muted-foreground">Y</span>
-
-              <label className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2">
-                <input
-                  className="h-4 w-4"
-                  type="checkbox"
-                  checked={includeZeroOverride}
-                  onChange={(e) => setIncludeZeroOverride(e.target.checked)}
-                  disabled={yMinIsSet}
-                />
-                <span
-                  className={yMinIsSet ? "text-muted-foreground" : ""}
-                  title="If Y min is auto, clamp the Y-axis floor to 0"
-                >
-                  Include zero (Y floor)
-                </span>
-              </label>
-
-              {yMinIsSet ? (
-                <div className="text-xs text-muted-foreground">
-                  Ignored when Y min is set. Clear Y min to use auto-scale.
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <label className="grid gap-1 text-sm">
-              <span className="text-muted-foreground">X label</span>
-              <input
-                className="rounded-xl border bg-background px-3 py-2 text-sm"
-                value={xLabelOverride}
-                onChange={(e) => setXLabelOverride(e.target.value)}
-                placeholder={labelPack.xLabel}
-              />
-            </label>
-
-            <label className="grid gap-1 text-sm">
+          {/* Y */}
+          <div className="mt-3 grid gap-3 md:grid-cols-12">
+            <label className="md:col-span-4 grid gap-1 text-sm">
               <span className="text-muted-foreground">Y label</span>
               <input
                 className="rounded-xl border bg-background px-3 py-2 text-sm"
@@ -640,10 +614,8 @@ export default function SSLGPanel({
                 placeholder={labelPack.yLabelWithUnit}
               />
             </label>
-          </div>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <label className="grid gap-1 text-sm">
+            <label className="md:col-span-2 grid gap-1 text-sm">
               <span className="text-muted-foreground">Y min</span>
               <input
                 className="rounded-xl border bg-background px-3 py-2 text-sm"
@@ -654,18 +626,7 @@ export default function SSLGPanel({
               />
             </label>
 
-            <label className="grid gap-1 text-sm">
-              <span className="text-muted-foreground">Y tick step</span>
-              <input
-                className="rounded-xl border bg-background px-3 py-2"
-                value={yTickStepOverride}
-                onChange={(e) => setYTickStepOverride(e.target.value)}
-                placeholder="e.g. 5"
-                inputMode="decimal"
-              />
-            </label>
-
-            <label className="grid gap-1 text-sm">
+            <label className="md:col-span-2 grid gap-1 text-sm">
               <span className="text-muted-foreground">Y max</span>
               <input
                 className="rounded-xl border bg-background px-3 py-2 text-sm"
@@ -675,6 +636,39 @@ export default function SSLGPanel({
                 placeholder="auto"
               />
             </label>
+
+            <label className="md:col-span-2 grid gap-1 text-sm">
+              <span className="text-muted-foreground">Y tick step</span>
+              <input
+                className="rounded-xl border bg-background px-3 py-2 text-sm"
+                value={yTickStepOverride}
+                onChange={(e) => setYTickStepOverride(e.target.value)}
+                placeholder="e.g. 5"
+                inputMode="decimal"
+              />
+            </label>
+
+            <div className="md:col-span-2 grid gap-1 text-sm">
+              <span className="text-muted-foreground">Y floor</span>
+              <label className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2">
+                <input
+                  className="h-4 w-4"
+                  type="checkbox"
+                  checked={includeZeroOverride}
+                  onChange={(e) => setIncludeZeroOverride(e.target.checked)}
+                  disabled={yMinIsSet}
+                />
+                <span className={yMinIsSet ? "text-muted-foreground" : ""} title="If Y min is auto, clamp the Y-axis floor to 0">
+                  Include 0
+                </span>
+              </label>
+
+              {yMinIsSet ? (
+                <div className="text-xs text-muted-foreground">
+                  Ignored when Y min is set.
+                </div>
+              ) : null}
+            </div>
           </div>
 
           <div className="mt-2 text-xs text-muted-foreground">Local-only (not saved yet).</div>
