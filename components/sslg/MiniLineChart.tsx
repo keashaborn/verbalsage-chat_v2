@@ -60,7 +60,7 @@ export function MiniLineChart({
   // Padding tuned so ticks + axis labels render inside the SVG viewBox.
   const PAD_TOP = 12;
   const PAD_RIGHT = 12;
-  const PAD_BOTTOM = 44;
+  const PAD_BOTTOM = 78; // room for rotated date labels + xLabel
   const PAD_LEFT = 40;
 
   // Axes (SVG coords)
@@ -106,7 +106,9 @@ export function MiniLineChart({
     const n = pts.length;
     if (n <= 1) return [0];
 
-    const maxTicks = 5;
+    // Aim: ~1 labeled tick per ~140px, clamped to [3..9]
+    const maxTicks = Math.max(3, Math.min(9, Math.floor(W / 140)));
+
     if (n <= maxTicks) return Array.from({ length: n }, (_, i) => i);
 
     const idxs: number[] = [];
@@ -298,6 +300,22 @@ export function MiniLineChart({
     return out;
   })();
 
+  // Phase label spans: center labels between phase boundaries (not between data points).
+  // Boundaries are: plot start, each dashed marker x, plot end.
+  const phaseLabelSpans = (() => {
+    const boundaries = [PLOT_X0, ...markerPos.map((m) => m.x), PLOT_X1];
+    const labels = phaseLabelPos.map((p) => p.text); // phase texts in order
+    const spans: { x: number; y: number; text: string }[] = [];
+
+    const n = Math.min(labels.length, Math.max(0, boundaries.length - 1));
+    for (let i = 0; i < n; i++) {
+      const xMid = (boundaries[i] + boundaries[i + 1]) / 2;
+      const y = PAD_TOP + 10 + (i % 3) * 10; // stagger a bit when phases are narrow
+      spans.push({ x: xMid, y, text: labels[i] });
+    }
+    return spans;
+  })();
+
   // Build path(s): one per segment if breaking is enabled; otherwise one path
   const paths = (() => {
     if (!cutIdxs.length) {
@@ -388,10 +406,15 @@ export function MiniLineChart({
             const rotate = xMode === "date" ? 30 : 0;
 
             // Keep the last label from overflowing right
+            const isFirst = i === 0;
             const isLast = i === pts.length - 1;
-            const anchor = xMode === "date" ? (isLast ? "end" : "start") : "middle";
 
-            const yText = X_AXIS_Y + 12;
+            const anchor =
+              xMode === "date"
+                ? (isFirst ? "start" : isLast ? "end" : "middle")
+                : "middle";
+
+            const yText = X_AXIS_Y + 28;
 
             return (
               <g key={`xt-${i}`} opacity="0.7">
@@ -442,7 +465,7 @@ export function MiniLineChart({
           {xLabel ? (
             <text
               x={(PLOT_X0 + PLOT_X1) / 2}
-              y={H - 8}
+              y={H - 10}
               fontSize="10"
               fill="currentColor"
               opacity="0.7"
@@ -452,12 +475,13 @@ export function MiniLineChart({
             </text>
           ) : null}
 
-          {/* phase labels (centered in each phase segment) */}
-          {phaseLabelPos.map((p, i) => (
+          {
+          /* phase labels (centered in each phase segment) */}
+          {phaseLabelSpans.map((p, i) => (
             <text
               key={`phase-label-${i}`}
               x={p.x}
-              y={PAD_TOP + 10}
+              y={p.y}
               fontSize="10"
               fill="currentColor"
               opacity="0.7"
