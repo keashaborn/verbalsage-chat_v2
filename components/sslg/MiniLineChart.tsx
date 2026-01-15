@@ -51,7 +51,7 @@ export function MiniLineChart({
   }
 
   const W = 320;
-  const H = 160;
+  const H = 240;
   const PAD = 12;
 
   const ys = pts.map((p) => p.y);
@@ -90,9 +90,19 @@ export function MiniLineChart({
   function xTickIdxs(): number[] {
     const n = pts.length;
     if (n <= 1) return [0];
-    if (n === 2) return [0, 1];
-    // show 3 ticks: first, mid, last
-    return [0, Math.floor((n - 1) / 2), n - 1];
+
+    const maxTicks = xMode === "date" ? 5 : 5;
+
+    if (n <= maxTicks) return Array.from({ length: n }, (_, i) => i);
+
+    const idxs: number[] = [];
+    for (let k = 0; k < maxTicks; k++) {
+      idxs.push(Math.round((k * (n - 1)) / (maxTicks - 1)));
+    }
+
+    // unique + sorted
+    const seen = new Set<number>();
+    return idxs.filter((i) => (seen.has(i) ? false : (seen.add(i), true))).sort((a, b) => a - b);
   }
 
   function fmtTick(v: number) {
@@ -340,7 +350,7 @@ export function MiniLineChart({
           const raw = String(pts[i]?.x || "");
           const label = xMode === "date" ? shortDay(raw) : `T${i + 1}`;
           const yTick = H - PAD;
-          const yText = H - PAD + 12;
+          const yText = H - PAD + 14; // must stay inside viewBox
 
           // Rotate date labels to prevent overlap
           const rotate = xMode === "date" ? -35 : 0;
@@ -371,45 +381,6 @@ export function MiniLineChart({
             </text>
           </g>
         ))}
-
-        {/* X ticks */}
-        {(() => {
-          const maxTicks = 5;
-          const n = pts.length;
-          const idxs: number[] = [];
-
-          if (n <= 1) {
-            idxs.push(0);
-          } else if (n <= maxTicks) {
-            for (let i = 0; i < n; i++) idxs.push(i);
-          } else {
-            // evenly spaced indices, include endpoints
-            for (let k = 0; k < maxTicks; k++) {
-              const i = Math.round((k * (n - 1)) / (maxTicks - 1));
-              idxs.push(i);
-            }
-          }
-
-          // unique
-          const seen = new Set<number>();
-          const uniq = idxs.filter((i) => (seen.has(i) ? false : (seen.add(i), true)));
-
-          const yTick = H - PAD;
-          const yText = yTick + 14;
-
-          return uniq.map((i) => {
-            const x = xFor(i);
-            const label = xMode === "trial" ? `T${i + 1}` : shortDay(pts[i]?.x);
-            return (
-              <g key={`xt-${i}`} opacity="0.6">
-                <path d={`M ${x.toFixed(2)} ${yTick} V ${(yTick + 4).toFixed(2)}`} fill="none" stroke="currentColor" />
-                <text x={x} y={yText} fontSize="10" fill="currentColor" textAnchor="middle">
-                  {label}
-                </text>
-              </g>
-            );
-          });
-        })()}
 
         {/* Axis labels (inside SVG) */}
         {yLabel ? (
