@@ -25,6 +25,8 @@ export function MiniLineChart({
   yMin,
   yMax,
   yTickStep,
+  heightPx = 240,
+  widthPx = 720,
 }: {
   title: string;
   series: XYPoint[];
@@ -39,6 +41,8 @@ export function MiniLineChart({
   yMin?: number | null;
   yMax?: number | null;
   yTickStep?: number | null;
+  heightPx?: number;
+  widthPx?: number;
 }) {
   const pts = Array.isArray(series) ? series : [];
   if (pts.length === 0) {
@@ -50,8 +54,8 @@ export function MiniLineChart({
     );
   }
 
-  const W = 320;
-  const H = 240;
+  const W = widthPx;
+  const H = heightPx;
 
   // Padding tuned so ticks + axis labels render inside the SVG viewBox.
   const PAD_TOP = 12;
@@ -348,7 +352,13 @@ export function MiniLineChart({
         </div>
       </div>
 
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-40 w-full" role="img" aria-label={title}>
+      <div className="mt-2 w-full aspect-[16/6]">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="h-full w-full"
+          role="img"
+          aria-label={title}
+        >
         {/* axes */}
         <path d={`M ${Y_AXIS_X} ${X_AXIS_Y} H ${W - PAD_RIGHT}`} fill="none" stroke="currentColor" opacity="0.2" />
         <path d={`M ${Y_AXIS_X} ${PAD_TOP} V ${X_AXIS_Y}`} fill="none" stroke="currentColor" opacity="0.2" />
@@ -367,57 +377,6 @@ export function MiniLineChart({
             />
           );
         })}
-
-        {xTickIdxs().map((i) => {
-          const x = xFor(i);
-          const raw = String(pts[i]?.x || "");
-          const label = xMode === "date" ? shortDay(raw) : `T${i + 1}`;
-
-          const rotate = xMode === "date" ? -35 : 0;
-          const isFirst = i === 0;
-          const isLast = i === pts.length - 1;
-
-          const anchor =
-            xMode === "date"
-              ? (isFirst ? "start" : isLast ? "end" : "middle")
-              : "middle";
-
-          const yText = X_AXIS_Y + 18;
-
-          return (
-            <g key={`xt-${i}`} opacity="0.7">
-              <path
-                d={`M ${x.toFixed(2)} ${X_AXIS_Y} V ${(X_AXIS_Y + 6).toFixed(2)}`}
-                fill="none"
-                stroke="currentColor"
-              />
-              <text
-                x={x}
-                y={yText}
-                fontSize="10"
-                fill="currentColor"
-                textAnchor={anchor}
-                transform={rotate ? `rotate(${rotate} ${x} ${yText})` : undefined}
-              >
-                {label}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* Y ticks */}
-        {yTicks.map((t, idx) => (
-          <g key={`yt-${idx}`} opacity="0.6">
-            <path
-              d={`M ${(Y_AXIS_X - 4).toFixed(2)} ${t.y.toFixed(2)} H ${Y_AXIS_X}`}
-              fill="none"
-              stroke="currentColor"
-            />
-            <text x={Y_AXIS_X - 6} y={t.y + 3} fontSize="10" fill="currentColor" textAnchor="end">
-              {t.label}
-            </text>
-          </g>
-        ))}
 
         {/* Axis labels (inside SVG) */}
         {yLabel ? (
@@ -481,7 +440,8 @@ export function MiniLineChart({
         {pts.map((p, i) => (
           <circle key={i} cx={xFor(i)} cy={yFor(p.y)} r="2.5" fill="currentColor" />
         ))}
-      </svg>
+        </svg>
+      </div>
 
       <div className="mt-1 flex items-center justify-center text-[11px] text-muted-foreground">
         <span>

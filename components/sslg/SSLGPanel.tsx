@@ -505,6 +505,7 @@ export default function SSLGPanel({
             yMin={yMinNum}
             yMax={yMaxNum}
             yTickStep={yTickStepNum}
+            heightPx={360}
           />
         </div>
         <div className="mt-4 rounded-xl border p-3">
