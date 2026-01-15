@@ -65,6 +65,19 @@ export default function CollectPage() {
   const [context, setContext] = React.useState<string>("");
   const [notes, setNotes] = React.useState<string>("");
 
+  // Recent entries for selected program (for prefill / next set index)
+  const [programRows, setProgramRows] = React.useState<any[]>([]);
+  const [loadingProgramRows, setLoadingProgramRows] = React.useState(false);
+
+  // Workout Set capture state (schemas with exercise/weight/reps/set_index)
+  const [wsWorkout, setWsWorkout] = React.useState<string>("");
+  const [wsExercise, setWsExercise] = React.useState<string>("");
+  const [wsSetIndex, setWsSetIndex] = React.useState<string>("1");
+  const [wsWeight, setWsWeight] = React.useState<string>("");
+  const [wsReps, setWsReps] = React.useState<string>("");
+  const [wsRpe, setWsRpe] = React.useState<string>("");
+
+
   // Count
   const [countStep, setCountStep] = React.useState<number>(1);
 
@@ -197,6 +210,45 @@ export default function CollectPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [programVid]);
 
+  async function loadProgramRows(tv: string) {
+    setLoadingProgramRows(true);
+    try {
+      if (!ownerUserId.trim() || !subjectId.trim() || !tv) {
+        setProgramRows([]);
+        return;
+      }
+
+      const qs = new URLSearchParams();
+      qs.set("owner_user_id", ownerUserId.trim());
+      qs.set("subject_id", subjectId.trim());
+      qs.set("template_version_id", tv);
+      qs.set("limit", "200");
+
+      const r = await fetch(`/api/forms/entries/list?${qs.toString()}`, { cache: "no-store" });
+      const t = await r.text().catch(() => "");
+      if (!r.ok) throw new Error(`entries failed: HTTP ${r.status} ${t}`);
+
+      const rows = JSON.parse(t);
+      setProgramRows(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      console.error(e);
+      setProgramRows([]);
+    } finally {
+      setLoadingProgramRows(false);
+    }
+  }
+
+  React.useEffect(() => {
+    const tv = extractUuid(programVid);
+    if (!ownerUserId.trim() || !subjectId.trim() || !tv) {
+      setProgramRows([]);
+      return;
+    }
+    loadProgramRows(tv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownerUserId, subjectId, programVid]);
+
+
   function measurementType(): string {
     const md = (programVersion?.metadata || {}) as any;
     return String(md?.measurement?.type || md?.program_spec_v0?.measurement?.type || "");
@@ -285,6 +337,63 @@ export default function CollectPage() {
     return resp;
   }
 
+
+  async function recordWorkoutSet() {
+    setStatus("");
+    try {
+      if (!programVersion) throw new Error("program not loaded");
+      const tv = extractUuid(programVid);
+      if (!tv) throw new Error("program required");
+      if (!date.trim()) throw new Error("date required");
+
+      const ex = wsExercise.trim();
+      if (!ex) throw new Error("exercise required");
+
+      const siRaw = Number(wsSetIndex);
+      const si = Number.isFinite(siRaw) ? Math.max(1, Math.trunc(siRaw)) : NaN;
+      if (!Number.isFinite(si) || si <= 0) throw new Error("set_index required");
+
+      const w = coerceNumber(wsWeight);
+      if (w === null) throw new Error("weight required");
+
+      const repsRaw = coerceNumber(wsReps);
+      if (repsRaw === null) throw new Error("reps required");
+      const reps = Math.max(0, Math.trunc(repsRaw));
+
+      const volume = w * reps;
+
+      const data: Record<string, any> = {
+        date: date.trim(),
+        exercise: ex,
+        set_index: si,
+        weight: w,
+        reps,
+        count: volume,
+      };
+
+      if (props.workout && wsWorkout.trim()) data.workout = wsWorkout.trim();
+
+      const rpeNum = coerceNumber(wsRpe);
+      if (props.rpe && rpeNum !== null) data.rpe = rpeNum;
+
+      if (context.trim()) data.context = context.trim();
+      if (notes.trim()) data.notes = notes.trim();
+
+      const resp = await submitEntry(data);
+      setStatus(`recorded entry_id=${resp?.entry_id || "ok"}`);
+
+      // Advance to next set; keep weight/reps for rapid capture
+      setWsSetIndex(String(si + 1));
+
+      // Refresh cached rows so dropdown + set index stay accurate
+      try {
+        await loadProgramRows(tv);
+      } catch {}
+    } catch (e: any) {
+      setStatus(`error: ${e?.message || String(e)}`);
+    }
+  }
+
   async function recordCount() {
     setStatus("");
     try {
@@ -339,6 +448,83 @@ export default function CollectPage() {
   // Do not require the schema to declare them (backend stores arbitrary JSON).
   const showContext = mType === "count" || mType === "duration";
   const showNotes = showContext;
+
+  const isWorkoutSet =
+    mType === "count" && !!props.exercise && !!props.weight && !!props.reps && !!props.set_index;
+
+  const exerciseOptions = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const r of Array.isArray(programRows) ? programRows : []) {
+      const ex = String((r as any)?.data?.exercise || "").trim();
+      if (ex) set.add(ex);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [programRows]);
+
+  const lastByExercise = React.useMemo(() => {
+    const out = new Map<string, { weight?: number | null; reps?: number | null; rpe?: number | null }>();
+    const rows = Array.isArray(programRows) ? programRows : [];
+    const sorted = rows
+      .slice()
+      .sort((a, b) => String((b as any)?.occurred_at || "").localeCompare(String((a as any)?.occurred_at || "")));
+
+    for (const r of sorted) {
+      const d = (r as any)?.data || {};
+      const ex = String(d.exercise || "").trim();
+      if (!ex) continue;
+      if (out.has(ex)) continue;
+      out.set(ex, { weight: coerceNumber(d.weight), reps: coerceNumber(d.reps), rpe: coerceNumber(d.rpe) });
+    }
+    return out;
+  }, [programRows]);
+
+  function computeNextSetIndex(exercise: string, day: string, workout: string): number {
+    const ex = String(exercise || "").trim();
+    const d0 = String(day || "").trim();
+    const w0 = String(workout || "").trim();
+    if (!ex || !d0) return 1;
+
+    let max = 0;
+    for (const r of Array.isArray(programRows) ? programRows : []) {
+      const d = (r as any)?.data || {};
+      if (String(d.date || "").slice(0, 10) != d0) continue;
+      if (String(d.exercise || "").trim() != ex) continue;
+      if (props.workout && w0 && String(d.workout || "").trim() != w0) continue;
+
+      const si = coerceNumber(d.set_index);
+      if (typeof si === "number" && Number.isFinite(si)) max = Math.max(max, Math.trunc(si));
+    }
+    return max > 0 ? max + 1 : 1;
+  }
+
+  React.useEffect(() => {
+    if (!isWorkoutSet) return;
+    if (!wsExercise.trim() && exerciseOptions.length) setWsExercise(exerciseOptions[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWorkoutSet, exerciseOptions]);
+
+  React.useEffect(() => {
+    if (!isWorkoutSet) return;
+    const ex = wsExercise.trim();
+    if (!ex) return;
+
+    const last = lastByExercise.get(ex);
+    if (last) {
+      if (!wsWeight.trim() && typeof last.weight === "number") setWsWeight(String(last.weight));
+      if (!wsReps.trim() && typeof last.reps === "number") setWsReps(String(Math.trunc(last.reps)));
+      if (!wsRpe.trim() && typeof last.rpe === "number") setWsRpe(String(last.rpe));
+    }
+
+    const next = computeNextSetIndex(ex, date, wsWorkout);
+    setWsSetIndex(String(next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWorkoutSet, wsExercise, date, wsWorkout, programRows]);
+
+  const wsWeightNum = coerceNumber(wsWeight);
+  const wsRepsNumRaw = coerceNumber(wsReps);
+  const wsRepsNum = wsRepsNumRaw === null ? null : Math.max(0, Math.trunc(wsRepsNumRaw));
+  const wsVolume = (wsWeightNum ?? 0) * (wsRepsNum ?? 0);
+
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -459,7 +645,115 @@ export default function CollectPage() {
                 </div>
               ) : null}
 
-              {mType === "count" ? (
+              {isWorkoutSet ? (
+                <div className="mt-4">
+                  {props.workout ? (
+                    <div className="mb-3 space-y-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workout</div>
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        value={wsWorkout}
+                        onChange={(e) => setWsWorkout(e.target.value)}
+                        placeholder="push_a"
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Exercise</div>
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        list="vs_exercise_options"
+                        value={wsExercise}
+                        onChange={(e) => setWsExercise(e.target.value)}
+                        placeholder="bench_press"
+                      />
+                      <datalist id="vs_exercise_options">
+                        {exerciseOptions.map((x) => (
+                          <option key={x} value={x} />
+                        ))}
+                      </datalist>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Set</div>
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        type="number"
+                        min={1}
+                        value={wsSetIndex}
+                        onChange={(e) => setWsSetIndex(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Weight</div>
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        type="number"
+                        inputMode="decimal"
+                        value={wsWeight}
+                        onChange={(e) => setWsWeight(e.target.value)}
+                        placeholder="lb"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reps</div>
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        type="number"
+                        min={0}
+                        value={wsReps}
+                        onChange={(e) => setWsReps(e.target.value)}
+                        placeholder="reps"
+                      />
+                    </div>
+                  </div>
+
+                  {props.rpe ? (
+                    <div className="mt-3 space-y-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">RPE</div>
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        type="number"
+                        inputMode="decimal"
+                        value={wsRpe}
+                        onChange={(e) => setWsRpe(e.target.value)}
+                        placeholder="optional"
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="mt-3 text-sm text-muted-foreground">
+                    Volume (count) = {Number.isFinite(wsVolume) ? Math.round(wsVolume) : "?"}{" "}
+                    {String(((programVersion as any)?.metadata?.graph_spec_v0?.y?.unit || "") as any)}
+                    {loadingProgramRows ? " · syncing…" : ""}
+                  </div>
+
+                  <button
+                    className="mt-3 w-full rounded-2xl bg-muted px-4 py-5 text-lg font-semibold hover:bg-muted/60 disabled:opacity-40"
+                    onClick={recordWorkoutSet}
+                    disabled={
+                      !date.trim() ||
+                      !wsExercise.trim() ||
+                      coerceNumber(wsWeight) === null ||
+                      coerceNumber(wsReps) === null ||
+                      !extractUuid(programVid)
+                    }
+                    title="Submit this set (append-only)"
+                  >
+                    Submit set
+                  </button>
+
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Stores: date, exercise, set_index, weight, reps, count (=weight×reps){props.workout ? ", workout" : ""}.
+                  </div>
+                </div>
+              ) : mType === "count" ? (
                 <div className="mt-4">
                   <div className="flex items-center gap-2">
                     <div className="text-sm text-muted-foreground">Step</div>
