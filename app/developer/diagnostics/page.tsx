@@ -266,8 +266,15 @@ export default function DiagnosticsPage() {
           }),
         });
 
-        const j = await r.json();
-        if (!r.ok) throw new Error(`inspect ${r.status}: ${JSON.stringify(j).slice(0, 200)}`);
+        const rid = r.headers.get("x-request-id") || "";
+        const { json: j, raw } = await readJsonSafe<any>(r);
+
+        if (!r.ok) {
+          throw new Error(`inspect ${r.status} rid=${rid}: ${raw.slice(0, 200)}`);
+        }
+        if (!j) {
+          throw new Error(`inspect ${r.status} rid=${rid}: invalid JSON: ${raw.slice(0, 200)}`);
+        }
 
         const response_text =
           j?.answer ?? j?.content ?? j?.response ?? j?.message ?? JSON.stringify(j).slice(0, 500);
