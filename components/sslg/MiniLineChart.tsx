@@ -359,87 +359,133 @@ export function MiniLineChart({
           role="img"
           aria-label={title}
         >
-        {/* axes */}
-        <path d={`M ${Y_AXIS_X} ${X_AXIS_Y} H ${W - PAD_RIGHT}`} fill="none" stroke="currentColor" opacity="0.2" />
-        <path d={`M ${Y_AXIS_X} ${PAD_TOP} V ${X_AXIS_Y}`} fill="none" stroke="currentColor" opacity="0.2" />
+          {/* axes */}
+          <path d={`M ${Y_AXIS_X} ${X_AXIS_Y} H ${W - PAD_RIGHT}`} fill="none" stroke="currentColor" opacity="0.2" />
+          <path d={`M ${Y_AXIS_X} ${PAD_TOP} V ${X_AXIS_Y}`} fill="none" stroke="currentColor" opacity="0.2" />
 
-        {/* x ticks (3 ticks: first/mid/last) */}
-        {/* X ticks: minor tick per point + 5 labeled major ticks */}
-        {pts.slice(0, 200).map((_, i) => {
-          const x = xFor(i);
-          return (
-            <path
-              key={`xt-min-${i}`}
-              d={`M ${x.toFixed(2)} ${X_AXIS_Y} V ${(X_AXIS_Y + 3).toFixed(2)}`}
-              fill="none"
-              stroke="currentColor"
-              opacity="0.25"
-            />
-          );
-        })}
+          {/* x ticks (3 ticks: first/mid/last) */}
+          {/* X ticks: minor tick per point + 5 labeled major ticks */}
+          {pts.slice(0, 200).map((_, i) => {
+            const x = xFor(i);
+            return (
+              <path
+                key={`xt-min-${i}`}
+                d={`M ${x.toFixed(2)} ${X_AXIS_Y} V ${(X_AXIS_Y + 3).toFixed(2)}`}
+                fill="none"
+                stroke="currentColor"
+                opacity="0.25"
+              />
+            );
+          })}
 
-        {/* Axis labels (inside SVG) */}
-        {yLabel ? (
-          <text
-            x={PAD_LEFT - 28}
-            y={(PLOT_Y0 + PLOT_Y1) / 2}
-            fontSize="10"
-            fill="currentColor"
-            opacity="0.7"
-            textAnchor="middle"
-            transform={`rotate(-90 ${PAD_LEFT - 28} ${(PLOT_Y0 + PLOT_Y1) / 2})`}
-          >
-            {yLabel}
-          </text>
-        ) : null}
+          {/* X ticks: labeled major ticks */}
+          {xTickIdxs().map((i) => {
+            const x = xFor(i);
+            const raw = String(pts[i]?.x || "");
+            const label = xMode === "date" ? shortDay(raw) : `T${i + 1}`;
 
-        {xLabel ? (
-          <text
-            x={(PLOT_X0 + PLOT_X1) / 2}
-            y={X_AXIS_Y + 44}
-            fontSize="10"
-            fill="currentColor"
-            opacity="0.7"
-            textAnchor="middle"
-          >
-            {xLabel}
-          </text>
-        ) : null}
+            // Slant date labels down-right so the tick is at the left edge of the label
+            const rotate = xMode === "date" ? 30 : 0;
 
-        {/* phase labels (centered in each phase segment) */}
-        {phaseLabelPos.map((p, i) => (
-          <text
-            key={`phase-label-${i}`}
-            x={p.x}
-            y={PAD_TOP + 10}
-            fontSize="10"
-            fill="currentColor"
-            opacity="0.7"
-            textAnchor="middle"
-          >
-            {p.text}
-          </text>
-        ))}
+            // Keep the last label from overflowing right
+            const isLast = i === pts.length - 1;
+            const anchor = xMode === "date" ? (isLast ? "end" : "start") : "middle";
 
-        {/* phase change markers (dashed verticals) */}
-        {markerPos.map((m, i) => (
-          <g key={`phase-${i}`} opacity="0.6">
-            <path
-              d={`M ${m.x.toFixed(2)} ${PAD_TOP} V ${X_AXIS_Y}`}
-              fill="none"
-              stroke="currentColor"
-              strokeDasharray="4 3"
-            />
-          </g>
-        ))}
+            const yText = X_AXIS_Y + 12;
 
-        {/* series (broken at phase changes if enabled) */}
-        {paths.map((d, i) => (
-          <path key={`seg-${i}`} d={d} fill="none" stroke="currentColor" strokeWidth="2" />
-        ))}
-        {pts.map((p, i) => (
-          <circle key={i} cx={xFor(i)} cy={yFor(p.y)} r="2.5" fill="currentColor" />
-        ))}
+            return (
+              <g key={`xt-${i}`} opacity="0.7">
+                <path
+                  d={`M ${x.toFixed(2)} ${X_AXIS_Y} V ${(X_AXIS_Y + 6).toFixed(2)}`}
+                  fill="none"
+                  stroke="currentColor"
+                />
+                <text
+                  x={x}
+                  y={yText}
+                  fontSize="10"
+                  fill="currentColor"
+                  textAnchor={anchor}
+                  transform={rotate ? `rotate(${rotate} ${x} ${yText})` : undefined}
+                >
+                  {label}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Y ticks */}
+          {yTicks.map((t, idx) => (
+            <g key={`yt-${idx}`} opacity="0.6">
+              <path d={`M ${Y_AXIS_X - 4} ${t.y} H ${Y_AXIS_X}`} fill="none" stroke="currentColor" />
+              <text x={Y_AXIS_X - 6} y={t.y + 3} fontSize="10" fill="currentColor" textAnchor="end">
+                {t.label}
+              </text>
+            </g>
+          ))}
+
+          {/* Axis labels (inside SVG) */}
+          {yLabel ? (
+            <text
+              x={PAD_LEFT - 28}
+              y={(PLOT_Y0 + PLOT_Y1) / 2}
+              fontSize="10"
+              fill="currentColor"
+              opacity="0.7"
+              textAnchor="middle"
+              transform={`rotate(-90 ${PAD_LEFT - 28} ${(PLOT_Y0 + PLOT_Y1) / 2})`}
+            >
+              {yLabel}
+            </text>
+          ) : null}
+
+          {xLabel ? (
+            <text
+              x={(PLOT_X0 + PLOT_X1) / 2}
+              y={H - 8}
+              fontSize="10"
+              fill="currentColor"
+              opacity="0.7"
+              textAnchor="middle"
+            >
+              {xLabel}
+            </text>
+          ) : null}
+
+          {/* phase labels (centered in each phase segment) */}
+          {phaseLabelPos.map((p, i) => (
+            <text
+              key={`phase-label-${i}`}
+              x={p.x}
+              y={PAD_TOP + 10}
+              fontSize="10"
+              fill="currentColor"
+              opacity="0.7"
+              textAnchor="middle"
+            >
+              {p.text}
+            </text>
+          ))}
+
+          {/* phase change markers (dashed verticals) */}
+          {markerPos.map((m, i) => (
+            <g key={`phase-${i}`} opacity="0.6">
+              <path
+                d={`M ${m.x.toFixed(2)} ${PAD_TOP} V ${X_AXIS_Y}`}
+                fill="none"
+                stroke="currentColor"
+                strokeDasharray="4 3"
+              />
+            </g>
+          ))}
+
+          {/* series (broken at phase changes if enabled) */}
+          {paths.map((d, i) => (
+            <path key={`seg-${i}`} d={d} fill="none" stroke="currentColor" strokeWidth="2" />
+          ))}
+          {pts.map((p, i) => (
+            <circle key={i} cx={xFor(i)} cy={yFor(p.y)} r="2.5" fill="currentColor" />
+          ))}
         </svg>
       </div>
 
