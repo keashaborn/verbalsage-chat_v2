@@ -52,7 +52,22 @@ export function MiniLineChart({
 
   const W = 320;
   const H = 240;
-  const PAD = 12;
+
+  // Padding tuned so ticks + axis labels render inside the SVG viewBox.
+  const PAD_TOP = 12;
+  const PAD_RIGHT = 12;
+  const PAD_BOTTOM = 44;
+  const PAD_LEFT = 40;
+
+  // Axes (SVG coords)
+  const Y_AXIS_X = PAD_LEFT;
+  const X_AXIS_Y = H - PAD_BOTTOM;
+
+  // Plot region (data points)
+  const PLOT_X0 = Y_AXIS_X + 18; // keep first point off the Y-axis (ABA convention)
+  const PLOT_X1 = W - PAD_RIGHT;
+  const PLOT_Y0 = PAD_TOP;
+  const PLOT_Y1 = X_AXIS_Y;
 
   const ys = pts.map((p) => p.y);
 
@@ -73,26 +88,21 @@ export function MiniLineChart({
     maxY += 1;
   }
 
-  // Keep first data point off the Y-axis (ABA convention)
-  const X0 = PAD + 18;
-  const X1 = W - PAD;
-
   function xFor(i: number) {
-    if (pts.length === 1) return (X0 + X1) / 2;
-    return X0 + (i * (X1 - X0)) / (pts.length - 1);
+    if (pts.length === 1) return (PLOT_X0 + PLOT_X1) / 2;
+    return PLOT_X0 + (i * (PLOT_X1 - PLOT_X0)) / (pts.length - 1);
   }
 
   function yFor(y: number) {
     const t = (y - minY) / (maxY - minY);
-    return PAD + (1 - t) * (H - PAD * 2);
+    return PLOT_Y0 + (1 - t) * (PLOT_Y1 - PLOT_Y0);
   }
 
   function xTickIdxs(): number[] {
     const n = pts.length;
     if (n <= 1) return [0];
 
-    const maxTicks = xMode === "date" ? 5 : 5;
-
+    const maxTicks = 5;
     if (n <= maxTicks) return Array.from({ length: n }, (_, i) => i);
 
     const idxs: number[] = [];
@@ -100,7 +110,6 @@ export function MiniLineChart({
       idxs.push(Math.round((k * (n - 1)) / (maxTicks - 1)));
     }
 
-    // unique + sorted
     const seen = new Set<number>();
     return idxs.filter((i) => (seen.has(i) ? false : (seen.add(i), true))).sort((a, b) => a - b);
   }
@@ -341,29 +350,53 @@ export function MiniLineChart({
 
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-40 w-full" role="img" aria-label={title}>
         {/* axes */}
-        <path d={`M ${PAD} ${H - PAD} H ${W - PAD}`} fill="none" stroke="currentColor" opacity="0.2" />
-        <path d={`M ${PAD} ${PAD} V ${H - PAD}`} fill="none" stroke="currentColor" opacity="0.2" />
+        <path d={`M ${Y_AXIS_X} ${X_AXIS_Y} H ${W - PAD_RIGHT}`} fill="none" stroke="currentColor" opacity="0.2" />
+        <path d={`M ${Y_AXIS_X} ${PAD_TOP} V ${X_AXIS_Y}`} fill="none" stroke="currentColor" opacity="0.2" />
 
         {/* x ticks (3 ticks: first/mid/last) */}
+        {/* X ticks: minor tick per point + 5 labeled major ticks */}
+        {pts.slice(0, 200).map((_, i) => {
+          const x = xFor(i);
+          return (
+            <path
+              key={`xt-min-${i}`}
+              d={`M ${x.toFixed(2)} ${X_AXIS_Y} V ${(X_AXIS_Y + 3).toFixed(2)}`}
+              fill="none"
+              stroke="currentColor"
+              opacity="0.25"
+            />
+          );
+        })}
+
         {xTickIdxs().map((i) => {
           const x = xFor(i);
           const raw = String(pts[i]?.x || "");
           const label = xMode === "date" ? shortDay(raw) : `T${i + 1}`;
-          const yTick = H - PAD;
-          const yText = H - PAD + 14; // must stay inside viewBox
 
-          // Rotate date labels to prevent overlap
           const rotate = xMode === "date" ? -35 : 0;
+          const isFirst = i === 0;
+          const isLast = i === pts.length - 1;
+
+          const anchor =
+            xMode === "date"
+              ? (isFirst ? "start" : isLast ? "end" : "middle")
+              : "middle";
+
+          const yText = X_AXIS_Y + 18;
 
           return (
             <g key={`xt-${i}`} opacity="0.7">
-              <path d={`M ${x.toFixed(2)} ${yTick} V ${(yTick + 4).toFixed(2)}`} fill="none" stroke="currentColor" />
+              <path
+                d={`M ${x.toFixed(2)} ${X_AXIS_Y} V ${(X_AXIS_Y + 6).toFixed(2)}`}
+                fill="none"
+                stroke="currentColor"
+              />
               <text
                 x={x}
                 y={yText}
                 fontSize="10"
                 fill="currentColor"
-                textAnchor={xMode === "date" ? "end" : "middle"}
+                textAnchor={anchor}
                 transform={rotate ? `rotate(${rotate} ${x} ${yText})` : undefined}
               >
                 {label}
@@ -372,26 +405,16 @@ export function MiniLineChart({
           );
         })}
 
-        {/* Y ticks (move labels left of axis) */}
-        {yTicks.map((t, idx) => (
-          <g key={idx} opacity="0.6">
-            <path d={`M ${PAD - 4} ${t.y} H ${PAD}`} fill="none" stroke="currentColor" />
-            <text x={PAD - 6} y={t.y + 3} fontSize="10" fill="currentColor" textAnchor="end">
-              {t.label}
-            </text>
-          </g>
-        ))}
-
         {/* Axis labels (inside SVG) */}
         {yLabel ? (
           <text
-            x={PAD - 32}
-            y={H / 2}
+            x={PAD_LEFT - 28}
+            y={(PLOT_Y0 + PLOT_Y1) / 2}
             fontSize="10"
             fill="currentColor"
             opacity="0.7"
             textAnchor="middle"
-            transform={`rotate(-90 ${PAD - 32} ${H / 2})`}
+            transform={`rotate(-90 ${PAD_LEFT - 28} ${(PLOT_Y0 + PLOT_Y1) / 2})`}
           >
             {yLabel}
           </text>
@@ -399,8 +422,8 @@ export function MiniLineChart({
 
         {xLabel ? (
           <text
-            x={(X0 + X1) / 2}
-            y={H - 2}
+            x={(PLOT_X0 + PLOT_X1) / 2}
+            y={H - 10}
             fontSize="10"
             fill="currentColor"
             opacity="0.7"
@@ -415,7 +438,7 @@ export function MiniLineChart({
           <text
             key={`phase-label-${i}`}
             x={p.x}
-            y={PAD + 10}
+            y={PAD_TOP + 10}
             fontSize="10"
             fill="currentColor"
             opacity="0.7"
@@ -429,7 +452,7 @@ export function MiniLineChart({
         {markerPos.map((m, i) => (
           <g key={`phase-${i}`} opacity="0.6">
             <path
-              d={`M ${m.x.toFixed(2)} ${PAD} V ${H - PAD}`}
+              d={`M ${m.x.toFixed(2)} ${PAD_TOP} V ${X_AXIS_Y}`}
               fill="none"
               stroke="currentColor"
               strokeDasharray="4 3"
@@ -448,8 +471,7 @@ export function MiniLineChart({
 
       <div className="mt-1 flex items-center justify-center text-[11px] text-muted-foreground">
         <span>
-          {fmtTick(minY)}
-          {ySuffix || ""} … {fmtTick(maxY)}
+          Y: {fmtTick(minY)}{ySuffix || ""} … {fmtTick(maxY)}{ySuffix || ""}
           {ySuffix || ""}
         </span>
       </div>
