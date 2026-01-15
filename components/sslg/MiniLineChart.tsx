@@ -300,18 +300,18 @@ export function MiniLineChart({
     return out;
   })();
 
-  // Phase label spans: center labels between phase boundaries (not between data points).
-  // Boundaries are: plot start, each dashed marker x, plot end.
+  // Phase label spans: center labels between phase boundaries (plot start → marker(s) → plot end)
   const phaseLabelSpans = (() => {
     const boundaries = [PLOT_X0, ...markerPos.map((m) => m.x), PLOT_X1];
-    const labels = phaseLabelPos.map((p) => p.text); // phase texts in order
-    const spans: { x: number; y: number; text: string }[] = [];
+    const labels = phaseLabelPos.map((p) => p.text);
 
+    const spans: { x: number; y: number; text: string }[] = [];
     const n = Math.min(labels.length, Math.max(0, boundaries.length - 1));
+
     for (let i = 0; i < n; i++) {
-      const xMid = (boundaries[i] + boundaries[i + 1]) / 2;
-      const y = PAD_TOP + 10 + (i % 3) * 10; // stagger a bit when phases are narrow
-      spans.push({ x: xMid, y, text: labels[i] });
+      const x = (boundaries[i] + boundaries[i + 1]) / 2;
+      const y = PAD_TOP + 10 + (i % 3) * 10; // stagger to reduce overlap in narrow phases
+      spans.push({ x, y, text: labels[i] });
     }
     return spans;
   })();
