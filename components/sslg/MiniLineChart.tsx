@@ -405,6 +405,20 @@ export function MiniLineChart({
           );
         })}
 
+        {/* Y ticks */}
+        {yTicks.map((t, idx) => (
+          <g key={`yt-${idx}`} opacity="0.6">
+            <path
+              d={`M ${(Y_AXIS_X - 4).toFixed(2)} ${t.y.toFixed(2)} H ${Y_AXIS_X}`}
+              fill="none"
+              stroke="currentColor"
+            />
+            <text x={Y_AXIS_X - 6} y={t.y + 3} fontSize="10" fill="currentColor" textAnchor="end">
+              {t.label}
+            </text>
+          </g>
+        ))}
+
         {/* Axis labels (inside SVG) */}
         {yLabel ? (
           <text
@@ -423,7 +437,7 @@ export function MiniLineChart({
         {xLabel ? (
           <text
             x={(PLOT_X0 + PLOT_X1) / 2}
-            y={H - 10}
+            y={X_AXIS_Y + 44}
             fontSize="10"
             fill="currentColor"
             opacity="0.7"
@@ -472,7 +486,6 @@ export function MiniLineChart({
       <div className="mt-1 flex items-center justify-center text-[11px] text-muted-foreground">
         <span>
           Y: {fmtTick(minY)}{ySuffix || ""} … {fmtTick(maxY)}{ySuffix || ""}
-          {ySuffix || ""}
         </span>
       </div>
 
