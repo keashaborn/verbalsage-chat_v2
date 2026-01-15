@@ -366,10 +366,17 @@ export default function SSLGPanel({
   const [xLabelOverride, setXLabelOverride] = React.useState<string>("Date");
   const [yLabelOverride, setYLabelOverride] = React.useState<string>("Y");
   const [includeZeroOverride, setIncludeZeroOverride] = React.useState<boolean>(true);
+  // X axis controls (local-only; numeric “trial/index” axis)
+  const [xMinOverride, setXMinOverride] = React.useState<string>("1");
+  const [xMaxOverride, setXMaxOverride] = React.useState<string>("");
+  const [xTickStepOverride, setXTickStepOverride] = React.useState<string>("1");
   const [yMinOverride, setYMinOverride] = React.useState<string>("");
   const [yMaxOverride, setYMaxOverride] = React.useState<string>("");
   const [yTickStepOverride, setYTickStepOverride] = React.useState<string>("");
 
+  const xMinNum = coerceNumber(xMinOverride);
+  const xMaxNum = coerceNumber(xMaxOverride);
+  const xTickStepNum = coerceNumber(xTickStepOverride);
   const yMinNum = coerceNumber(yMinOverride);
   const yMaxNum = coerceNumber(yMaxOverride);
   const yMinIsSet = yMinNum !== null;
@@ -497,10 +504,13 @@ export default function SSLGPanel({
             title={yLabelOverride || labelPack.yLabelWithUnit}
             series={series}
             xMode={xMode}
+            xLabel={xLabelOverride || labelPack.xLabel}
+            xMin={xMinNum}
+            xMax={xMaxNum}
+            xTickStep={xTickStepNum}
             includeZero={includeZeroOverride}
             phases={phases}
             breakAtPhaseChange={true}
-            xLabel={xLabelOverride || labelPack.xLabel}
             yLabel={yLabelOverride || labelPack.yLabelWithUnit}
             yMin={yMinNum}
             yMax={yMaxNum}
