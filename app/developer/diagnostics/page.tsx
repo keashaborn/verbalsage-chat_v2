@@ -75,6 +75,32 @@ async function readJsonSafe<T = any>(r: Response): Promise<{ json: T | null; raw
   }
 }
 
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const m = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+async function ensureInspectorCookie(): Promise<void> {
+  // /api/chat/inspect requires vs_debug_token == server VS_DEBUG_TOKEN
+  const cur = readCookie("vs_debug_token");
+  if (cur && cur.trim().length > 0) return;
+
+  // Ask server to mint the cookie (same action as Developer → Inspector toggle)
+  const r = await fetch("/api/admin/debug_cookie", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+
+  if (r.ok) return;
+
+  const t = await r.text().catch(() => "");
+  throw new Error(`debug_cookie ${r.status}: ${t || "unauthorized"}`);
+}
+
+
 async function postTelemetry(events: any[]) {
   const r = await fetch("/api/telemetry/event", {
     method: "POST",
@@ -251,15 +277,16 @@ export default function DiagnosticsPage() {
     const suite_id = "suite:v0";
     const target_model_id = modelId;
 
+    await ensureInspectorCookie();
     try {
       for (const probe of PROBES_V0) {
         // Use existing inspect route so we reuse routing + inspector plumbing.
         const r = await fetch("/api/chat/inspect", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          cache: "no-store",
           body: JSON.stringify({
-            // minimal body; your inspect route already accepts a full chat payload.
-            // We only need a prompt and model hint; route will decide final routing.
             message: probe.prompt,
             model: target_model_id,
             ...(useCookieVantage ? {} : { vantage_id: vantageId }),
