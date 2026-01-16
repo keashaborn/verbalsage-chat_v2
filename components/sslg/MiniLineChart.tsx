@@ -380,7 +380,7 @@ export function MiniLineChart({
             const a = Math.ceil(Math.min(minX, maxX));
             const b = Math.floor(Math.max(minX, maxX));
 
-            const out: JSX.Element[] = [];
+            const out: React.ReactElement[] = [];
             for (let v = a; v <= b; v++) {
               const x = xPosForValue(v);
               out.push(
