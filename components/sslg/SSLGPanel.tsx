@@ -58,7 +58,6 @@ export type SSLGPanelProps = {
   embedded?: boolean;
   enableQueryDefaults?: boolean;
   initialOwnerUserId?: string;
-  initialSubjectId?: string;
   initialTemplateVersionId?: string;
 };
 
@@ -66,12 +65,15 @@ export default function SSLGPanel({
   embedded = false,
   enableQueryDefaults = false,
   initialOwnerUserId = "",
-  initialSubjectId = "client_1",
   initialTemplateVersionId = "",
 }: SSLGPanelProps) {
   const [status, setStatus] = React.useState<string>("");
 
   const [ownerUserId, setOwnerUserId] = React.useState<string>(initialOwnerUserId);
+
+  // Single-user mode (v0): subject is always self.
+  const subjectId = "self";
+
 
   // Derive owner_user_id from Supabase session (browser). Keeps owner_user_id out of the UI.
   React.useEffect(() => {
@@ -88,7 +90,7 @@ export default function SSLGPanel({
     })();
   }, [ownerUserId]);
 
-  const [subjectId, setSubjectId] = React.useState<string>(initialSubjectId);
+
   const [targetVid, setTargetVid] = React.useState<string>(initialTemplateVersionId);
 
   const [targetVersion, setTargetVersion] = React.useState<VersionDoc | null>(null);
@@ -100,9 +102,6 @@ export default function SSLGPanel({
   const [loadingTemplates, setLoadingTemplates] = React.useState(false);
 
   const [templatesAutoTried, setTemplatesAutoTried] = React.useState(false);
-  const [clients, setClients] = React.useState<string[]>(initialSubjectId ? [initialSubjectId] : []);
-  const [loadingClients, setLoadingClients] = React.useState(false);
-  const [clientsAutoTried, setClientsAutoTried] = React.useState(false);
 
   async function loadTemplates() {
     setLoadingTemplates(true);
@@ -123,68 +122,16 @@ export default function SSLGPanel({
     }
   }
 
-  async function loadClients() {
-    setLoadingClients(true);
-    setStatus("");
-    try {
-      if (!ownerUserId.trim()) throw new Error("owner_user_id required");
-
-      const qs = new URLSearchParams();
-      qs.set("owner_user_id", ownerUserId.trim());
-      qs.set("limit", "2000"); // temporary; enough for dev
-      const r = await fetch(`/api/forms/entries/list?${qs.toString()}`, { cache: "no-store" });
-      const t = await r.text().catch(() => "");
-      if (!r.ok) throw new Error(`clients failed: HTTP ${r.status} ${t}`);
-
-      const rows = JSON.parse(t);
-      const uniq = new Set<string>();
-      for (const row of Array.isArray(rows) ? rows : []) {
-        const sid = String(row?.subject_id || "").trim();
-        if (sid) uniq.add(sid);
-      }
-
-      let list = Array.from(uniq).sort((a, b) => a.localeCompare(b));
-      const cur = subjectId.trim();
-      if (cur && !list.includes(cur)) list = [cur, ...list];
-
-      setClients(list);
-      setStatus(list.length ? `loaded ${list.length} clients` : "no clients");
-    } catch (e: any) {
-      setStatus(`error: ${e?.message || String(e)}`);
-      // keep current subjectId usable even if list load fails
-      setClients(subjectId.trim() ? [subjectId.trim()] : []);
-    } finally {
-      setLoadingClients(false);
-    }
-  }
 
   // Optional defaults from querystring (bookmarkable)
   React.useEffect(() => {
     if (!enableQueryDefaults) return;
     try {
       const u = new URL(window.location.href);
-      const s = u.searchParams.get("subject_id") || "client_1";
       const tv = u.searchParams.get("template_version_id") || "";
-      if (s) setSubjectId(s);
       if (tv) setTargetVid(tv);
     } catch { }
   }, [enableQueryDefaults]);
-
-  // Auto-load templates once owner is known (one shot)
-  React.useEffect(() => {
-    if (!ownerUserId.trim()) return;
-    if (templatesAutoTried) return;
-    setTemplatesAutoTried(true);
-    loadTemplates();
-  }, [ownerUserId, templatesAutoTried]);
-
-  // Auto-load clients once owner is known (one shot)
-  React.useEffect(() => {
-    if (!ownerUserId.trim()) return;
-    if (clientsAutoTried) return;
-    setClientsAutoTried(true);
-    loadClients();
-  }, [ownerUserId, clientsAutoTried]);
 
 
 
@@ -423,37 +370,6 @@ export default function SSLGPanel({
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <div className="space-y-1">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client</div>
-            <div className="flex items-center gap-2">
-              <select
-                className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
-                value={subjectId}
-                onChange={(e) => setSubjectId(e.target.value)}
-                title="Select a client"
-              >
-                <option value="">(choose)</option>
-                {clients
-                  .slice()
-                  .sort((a, b) => String(a).localeCompare(String(b)))
-                  .map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-              </select>
-
-              <button
-                className="shrink-0 rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-                onClick={loadClients}
-                disabled={!ownerUserId.trim() || loadingClients}
-                title="Reload clients"
-              >
-                {loadingClients ? "Loading…" : clients.length ? "Reload" : "Load"}
-              </button>
-            </div>
-          </div>
-
           <div className="space-y-1">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program</div>
             <div className="flex items-center gap-2">
