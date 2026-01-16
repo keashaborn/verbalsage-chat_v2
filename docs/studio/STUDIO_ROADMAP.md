@@ -28,3 +28,45 @@ Graph projection defaults:
 - Record action is unambiguous and prominent.
 - Post-save “last event” card with: Undo / Edit / Mark error (all single-click).
 - Subject/program switching requires explicit confirmation (lock/unlock).
+
+## Workout Collect UX (Strength Training) v0
+
+### Navigation / Subject model
+- Default subject is "self" (not a dropdown). Client selector appears only when the user explicitly enters a client context.
+- Hard guardrail: every save displays subject + program + variable; switching subject/program requires explicit user action (lock/unlock).
+
+### Flow
+1) Admin -> Collect (label may change to "Data entry"; route can stay /collect).
+2) Choose Program (e.g., "Push Day").
+3) Exercise Index for that program:
+   - Ordered list of exercises (drag handle to reorder).
+   - Each row shows: exercise name + last recorded set summary (e.g., 185x5) + sets completed today.
+4) Tap an exercise -> Set Entry screen:
+   - Fields: weight, reps, optional notes, optional tags (contingencies/context), optional RPE.
+   - Prefill weight/reps from last set for that exercise; allow quick +/- adjustments.
+   - Primary action: "Save set".
+5) After save:
+   - Show "Saved" card with Undo / Edit / Mark error (overlay semantics).
+   - Start rest timer (default per exercise; configurable).
+   - Return to Exercise Index (immediately or after a short confirmation).
+
+### Data model (source-of-truth events)
+- workout_session (optional grouping entity for a day): owner_user_id, subject_id, program_id, started_at, ended_at, notes.
+- workout_set event (recommended as the canonical measurement):
+  - owner_user_id, subject_id, program_id
+  - measure_key = exercise_id (or exercise slug)
+  - occurred_at, recorded_at
+  - set_index (int), weight, reps, unit
+  - tags[] (context/contingencies), notes
+  - session_id (nullable; links to workout_session)
+- Derived views (never source-of-truth): volume_load per exercise/session, e1RM estimates, celeration/week.
+
+### Error handling / audit
+- Undo / Mark error creates a Void overlay (void_of_entry_id).
+- Edit creates a Correction overlay (correction_of_entry_id with replacement fields).
+- Graphs and summaries default to "latest non-void" projection.
+
+### Anti-mixing invariants (self vs client)
+- API queries MUST always filter on (owner_user_id, subject_id, template_version/program).
+- UI must always render current subject and program in the header.
+- Add a small "current context" pill everywhere: Subject | Program | Variable.
