@@ -391,15 +391,15 @@ export default function SSLGPanel({
       const md = (targetVersion?.metadata || {}) as any;
       const gs = (md.graph_spec_v0 || null) as any;
 
-      const xLabel = String(gs?.x?.label || "Date");
+      const xLabel = String(gs?.x?.label || "");
       const yUnit = String(gs?.y?.unit || "");
-      const yLabel = String(gs?.y?.label || targetVersion?.json_schema?.title || "Y");
+      const yLabel = String(gs?.y?.label || targetVersion?.json_schema?.title || "");
       const yLabelWithUnit = yUnit ? `${yLabel} (${yUnit})` : yLabel;
       const includeZero = gs?.y?.include_zero;
 
       setXMode("date");
-      setXLabelOverride(xLabel);
-      setYLabelOverride(yLabelWithUnit);
+      setXLabelOverride((prev) => (prev.trim() ? prev : xLabel));
+      setYLabelOverride((prev) => (prev.trim() ? prev : yLabelWithUnit));
       setIncludeZeroOverride(includeZero ?? true);
       setYMinOverride("");
       setYMaxOverride("");
@@ -697,8 +697,8 @@ export default function SSLGPanel({
                 </>
               );
             })()}
-            <div className="mt-2 text-xs text-muted-foreground">Local-only (not saved yet).<div>
-          </div >
+            <div className="mt-2 text-xs text-muted-foreground">Local-only (not saved yet).</div>
+          </div>
         </div>
       </div>
     );
