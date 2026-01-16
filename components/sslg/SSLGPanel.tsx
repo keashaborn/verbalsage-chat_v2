@@ -602,34 +602,32 @@ export default function SSLGPanel({
                     />
                   </label>
 
-                  <label className={labelCls}>
+                  <div className={labelCls}>
                     <span className={labelTextCls}>X scale</span>
-                    <div className={labelCls}>
-                      <span className={labelTextCls}>X scale</span>
-                      <div className={checkboxWrapCls}>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name="xmode"
-                            value="trial"
-                            checked={xMode === "trial"}
-                            onChange={() => setXMode("trial")}
-                          />
-                          <span>Trial</span>
-                        </label>
-                        <label className="ml-4 flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name="xmode"
-                            value="date"
-                            checked={xMode === "date"}
-                            onChange={() => setXMode("date")}
-                          />
-                          <span>Date</span>
-                        </label>
-                      </div>
+                    <div className={checkboxWrapCls}>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="xmode"
+                          value="trial"
+                          checked={xMode === "trial"}
+                          onChange={() => setXMode("trial")}
+                        />
+                        <span>Trial</span>
+                      </label>
+
+                      <label className="ml-4 flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="xmode"
+                          value="date"
+                          checked={xMode === "date"}
+                          onChange={() => setXMode("date")}
+                        />
+                        <span>Date</span>
+                      </label>
                     </div>
-                  </label>
+                  </div>
                 </div>
 
                 {/* Y */}
@@ -648,7 +646,7 @@ export default function SSLGPanel({
                     <span className={labelTextCls}>Y min</span>
                     <input
                       className={inputCls}
-                      type="no type"
+                      type="number"
                       value={yMinOverride}
                       onChange={(e) => setYMinOverride(e.target.value)}
                       placeholder="auto"
@@ -660,7 +658,7 @@ export default function SSLGPanel({
                     <span className={labelTextCls}>Y max</span>
                     <input
                       className={inputCls}
-                      type="no type"
+                      type="number"
                       value={yMaxOverride}
                       onChange={(e) => setYMaxOverride(e.target.value)}
                       placeholder="auto"
