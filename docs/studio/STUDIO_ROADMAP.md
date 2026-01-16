@@ -31,9 +31,10 @@ Graph projection defaults:
 
 ## Workout Collect UX (Strength Training) v0
 
-### Navigation / Subject model
-- Default subject is "self" (not a dropdown). Client selector appears only when the user explicitly enters a client context.
-- Hard guardrail: every save displays subject + program + variable; switching subject/program requires explicit user action (lock/unlock).
+### Navigation / Subject model (single-user mode)
+- Subject is implicit: always the logged-in user ("self"). No subject/client selector in UI.
+- Entries still store subject_id for future multi-subject support; UI always uses the self subject_id.
+- Future expansion path: enable additional subject_ids + subject picker + access controls (no schema migration required).
 
 ### Flow
 1) Admin -> Collect (label may change to "Data entry"; route can stay /collect).
@@ -66,7 +67,7 @@ Graph projection defaults:
 - Edit creates a Correction overlay (correction_of_entry_id with replacement fields).
 - Graphs and summaries default to "latest non-void" projection.
 
-### Anti-mixing invariants (self vs client)
+### Anti-mixing invariants (single-user)
 - API queries MUST always filter on (owner_user_id, subject_id, template_version/program).
-- UI must always render current subject and program in the header.
-- Add a small "current context" pill everywhere: Subject | Program | Variable.
+- In single-user mode, subject_id is always the self subject_id derived from the session.
+- UI always renders current context: Program | Variable (subject omitted because it is always self).
