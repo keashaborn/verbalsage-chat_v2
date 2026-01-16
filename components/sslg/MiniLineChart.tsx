@@ -156,73 +156,72 @@ export function MiniLineChart({
   const hasXMax = typeof xMax === "number" && Number.isFinite(xMax);
 
   let minX = hasXMin ? (xMin as number) : 1;
+  // If xMax is not provided, end exactly at the last point (minX + (N-1)).
+  // If xMax IS provided, allow blank space to the right of the last point.
   let maxX = hasXMax ? (xMax as number) : minX + Math.max(0, pts.length - 1);
 
-  if (hasXMin && !hasXMax) maxX = minX + Math.max(0, pts.length - 1);
-  if (!hasXMin && hasXMax) minX = maxX - Math.max(0, pts.length - 1);
+  // If only xMax was provided, back-compute xMin so the last point lands at xMax.
+  if (!hasXMin && hasXMax) {
+    minX = maxX - Math.max(0, pts.length - 1);
+  }
 
   if (minX > maxX) [minX, maxX] = [maxX, minX];
 
   const xSpan = Math.max(1e-9, maxX - minX);
 
-  function tForIndex(i: number): number {
-    if (pts.length <= 1) return 0;
-    return i / (pts.length - 1);
+  // Point-to-X mapping (ABA-style index axis):
+  // each successive point advances by +1 on the X axis.
+  // xMax (if provided) just sets the visible right edge (may extend past last point).
+  function xValueForIndex(i: number): number {
+    return minX + i;
   }
 
   function xForIndex(i: number): number {
-    const t = tForIndex(i);
-    return PLOT_X0 + t * (PLOT_X1 - PLOT_X0);
+    return xPosForValue(xValueForIndex(i));
   }
 
   const hasXTickStep =
     typeof xTickStep === "number" && Number.isFinite(xTickStep) && (xTickStep as number) > 0;
 
   function xTickValues(): number[] {
-    const MAX_TICKS = 11;
+    const step = typeof xTickStep === "number" && Number.isFinite(xTickStep) && xTickStep > 0 ? xTickStep : null;
 
-    if (!hasXTickStep) {
-      // Default: integer ticks only.
-      // Choose an integer step that yields <= MAX_TICKS labels.
-      const MAX_TICKS = 7;
-
-      const lo = Math.round(minX);
-      const hi = Math.round(maxX);
-      const span = Math.max(1, hi - lo);
-
-      // pick a "nice" integer step
-      const rawStep = Math.ceil(span / (MAX_TICKS - 1));
-      const step = Math.max(1, rawStep);
-
+    // If no explicit step: keep a small set of evenly spaced labels.
+    if (!step) {
+      const n = pts.length;
+      if (n <= 1) return [minX];
+      const k = Math.min(7, n); // a few labels
       const out: number[] = [];
-      for (let v = lo; v <= hi; v += step) out.push(v);
-
-      // ensure endpoints
-      if (out[0] !== lo) out.unshift(lo);
-      if (out[out.length - 1] !== hi) out.push(hi);
-
+      for (let j = 0; j < k; j++) {
+        const v = minX + (j * (maxX - minX)) / (k - 1);
+        out.push(v);
+      }
       return out;
     }
 
-    const step = xTickStep as number;
+    // If explicit step: show the exact integer sequence the user asked for,
+    // but cap to avoid unreadable label density.
+    const span = maxX - minX;
+    const count = Math.floor(span / step) + 1;
+
+    // If <= 40 labels, show them all (1..30 at step=1 will show all).
+    const MAX_LABELS = 40;
+
+    // If too many labels, skip labels but keep tick marks (minor ticks already render).
+    const stride = count <= MAX_LABELS ? 1 : Math.ceil(count / MAX_LABELS);
+
     const out: number[] = [];
-    out.push(minX);
-
-    const start = Math.ceil(minX / step) * step;
-    for (let v = start; v < maxX; v += step) out.push(v);
-
-    out.push(maxX);
-
-    const uniq = Array.from(new Set(out.map((v) => Number(v.toFixed(10))))).sort((a, b) => a - b);
-
-    if (uniq.length <= MAX_TICKS) return uniq;
-
-    const sampled: number[] = [];
-    for (let j = 0; j < MAX_TICKS; j++) {
-      const idx = Math.round((j * (uniq.length - 1)) / (MAX_TICKS - 1));
-      sampled.push(uniq[idx]);
+    for (let i = 0; i < count; i += stride) {
+      out.push(minX + i * step);
     }
-    return Array.from(new Set(sampled)).sort((a, b) => a - b);
+
+    // Ensure exact endpoints are present.
+    if (out.length === 0 || Math.abs(out[0] - minX) > 1e-9) out.unshift(minX);
+    const last = out[out.length - 1];
+    if (Math.abs(last - maxX) > 1e-9) out.push(maxX);
+
+    // Dedup + sort
+    return Array.from(new Set(out.map((v) => Number(v.toFixed(10))))).sort((a, b) => a - b);
   }
 
   function xPosForValue(v: number): number {
@@ -373,19 +372,29 @@ export function MiniLineChart({
           <path d={`M ${Y_AXIS_X} ${X_AXIS_Y} H ${W - PAD_RIGHT}`} fill="none" stroke="currentColor" opacity="0.2" />
           <path d={`M ${Y_AXIS_X} ${PAD_TOP} V ${X_AXIS_Y}`} fill="none" stroke="currentColor" opacity="0.2" />
 
-          {/* X ticks: minor tick per point (cap) */}
-          {pts.slice(0, 250).map((_, i) => {
-            const x = xForIndex(i);
-            return (
-              <path
-                key={`xt-min-${i}`}
-                d={`M ${x.toFixed(2)} ${X_AXIS_Y} V ${(X_AXIS_Y + 3).toFixed(2)}`}
-                fill="none"
-                stroke="currentColor"
-                opacity="0.25"
-              />
-            );
-          })}
+          {/* X ticks: minor ticks at each integer unit (cap range for perf) */}
+          {(() => {
+            const span = Math.abs(maxX - minX);
+            if (!Number.isFinite(span) || span > 200) return null;
+
+            const a = Math.ceil(Math.min(minX, maxX));
+            const b = Math.floor(Math.max(minX, maxX));
+
+            const out: JSX.Element[] = [];
+            for (let v = a; v <= b; v++) {
+              const x = xPosForValue(v);
+              out.push(
+                <path
+                  key={`xt-min-${v}`}
+                  d={`M ${x.toFixed(2)} ${X_AXIS_Y} V ${(X_AXIS_Y + 3).toFixed(2)}`}
+                  fill="none"
+                  stroke="currentColor"
+                  opacity="0.25"
+                />
+              );
+            }
+            return out;
+          })()}
 
           {/* X ticks: labeled major ticks (numeric) */}
           {xTickValues().map((v, i) => {
@@ -467,14 +476,6 @@ export function MiniLineChart({
             <circle key={i} cx={xForIndex(i)} cy={yFor(p.y)} r="2.5" fill="currentColor" />
           ))}
         </svg>
-      </div>
-
-      <div className="mt-1 flex items-center justify-center text-[11px] text-muted-foreground">
-        <span>
-          Y: {fmtTick(minY)}
-          {ySuffix || ""} … {fmtTick(maxY)}
-          {ySuffix || ""}
-        </span>
       </div>
 
       <div className="mt-1 text-[11px] text-muted-foreground">{dateLegend}</div>
