@@ -545,132 +545,161 @@ export default function SSLGPanel({
             </button>
           </div>
 
-          {/* X */}
-          <div className="mt-3 grid gap-3 md:grid-cols-12">
-            <label className="md:col-span-3 grid gap-1 text-sm">
-              <span className="text-muted-foreground">X mode</span>
-              <select
-                className="rounded-xl border bg-background px-3 py-2 text-sm"
-                value={xMode}
-                onChange={(e) => setXMode(e.target.value as any)}
-              >
-                <option value="date">Date</option>
-                <option value="trial">Trial</option>
-              </select>
-            </label>
+          {/* unified control styling */}
+          {(() => {
+            const inputCls = "w-full rounded-lg border bg-background px-3 py-2 text-sm";
+            const selectCls = inputCls;
+            const checkboxWrapCls = "flex items-center gap-2 rounded-lg border bg-background px-3 py-2";
+            const subHelpCls = "text-xs text-muted-foreground";
+            const labelCls = "grid gap-1 text-sm";
+            const labelTextCls = "text-muted-foreground";
 
-            <label className="md:col-span-3 grid gap-1 text-sm">
-              <span className="text-muted-foreground">X label</span>
-              <input
-                className="rounded-xl border bg-background px-3 py-2 text-sm"
-                value={xLabelOverride}
-                onChange={(e) => setXLabelOverride(e.target.value)}
-                placeholder={labelPack.xLabel}
-              />
-            </label>
+            return (
+              <>
+                {/* X */}
+                <div className="mt-3 grid gap-3 md:grid-cols-5">
 
-            <label className="md:col-span-2 grid gap-1 text-sm">
-              <span className="text-muted-foreground">X min</span>
-              <input
-                className="rounded-xl border bg-background px-3 py-2 text-sm"
-                value={xMinOverride}
-                onChange={(e) => setXMinOverride(e.target.value)}
-                placeholder="1"
-                inputMode="decimal"
-              />
-            </label>
+                  <label className={labelCls}>
+                    <span className={labelTextCls}>X label</span>
+                    <input
+                      className={inputCls}
+                      value={xLabelOverride}
+                      onChange={(e) => setXLabelOverride(e.target.value)}
+                      placeholder={labelPack.xLabel}
+                    />
+                  </label>
 
-            <label className="md:col-span-2 grid gap-1 text-sm">
-              <span className="text-muted-foreground">X max</span>
-              <input
-                className="rounded-xl border bg-background px-3 py-2 text-sm"
-                value={xMaxOverride}
-                onChange={(e) => setXMaxOverride(e.target.value)}
-                placeholder="auto"
-                inputMode="decimal"
-              />
-            </label>
+                  <label className={labelCls}>
+                    <span className={labelTextCls}>X min</span>
+                    <input
+                      className={inputCls}
+                      value={xMinOverride}
+                      onChange={(e) => setXMinOverride(e.target.value)}
+                      placeholder="1"
+                      inputMode="decimal"
+                    />
+                  </label>
 
-            <label className="md:col-span-2 grid gap-1 text-sm">
-              <span className="text-muted-foreground">X tick step</span>
-              <input
-                className="rounded-xl border bg-background px-3 py-2 text-sm"
-                value={xTickStepOverride}
-                onChange={(e) => setXTickStepOverride(e.target.value)}
-                placeholder="1"
-                inputMode="decimal"
-              />
-            </label>
-          </div>
+                  <label className={labelCls}>
+                    <span className={labelTextCls}>X max</span>
+                    <input
+                      className={inputCls}
+                      value={xMaxOverride}
+                      onChange={(e) => setXMaxOverride(e.target.value)}
+                      placeholder="auto"
+                      inputMode="decimal"
+                    />
+                  </label>
 
-          {/* Y */}
-          <div className="mt-3 grid gap-3 md:grid-cols-12">
-            <label className="md:col-span-4 grid gap-1 text-sm">
-              <span className="text-muted-foreground">Y label</span>
-              <input
-                className="rounded-xl border bg-background px-3 py-2 text-sm"
-                value={yLabelOverride}
-                onChange={(e) => setYLabelOverride(e.target.value)}
-                placeholder={labelPack.yLabelWithUnit}
-              />
-            </label>
+                  <label className={labelCls}>
+                    <span className={labelTextCls}>X tick</span>
+                    <input
+                      className={inputCls}
+                      value={xTickStepOverride}
+                      onChange={(e) => setXTickStepOverride(e.target.value)}
+                      placeholder="1"
+                      inputMode="decimal"
+                    />
+                  </label>
 
-            <label className="md:col-span-2 grid gap-1 text-sm">
-              <span className="text-muted-foreground">Y min</span>
-              <input
-                className="rounded-xl border bg-background px-3 py-2 text-sm"
-                type="number"
-                value={yMinOverride}
-                onChange={(e) => setYMinOverride(e.target.value)}
-                placeholder="auto"
-              />
-            </label>
-
-            <label className="md:col-span-2 grid gap-1 text-sm">
-              <span className="text-muted-foreground">Y max</span>
-              <input
-                className="rounded-xl border bg-background px-3 py-2 text-sm"
-                type="number"
-                value={yMaxOverride}
-                onChange={(e) => setYMaxOverride(e.target.value)}
-                placeholder="auto"
-              />
-            </label>
-
-            <label className="md:col-span-2 grid gap-1 text-sm">
-              <span className="text-muted-foreground">Y tick step</span>
-              <input
-                className="rounded-xl border bg-background px-3 py-2 text-sm"
-                value={yTickStepOverride}
-                onChange={(e) => setYTickStepOverride(e.target.value)}
-                placeholder="e.g. 5"
-                inputMode="decimal"
-              />
-            </label>
-
-            <div className="md:col-span-2 grid gap-1 text-sm">
-              <span className="text-muted-foreground">Y floor</span>
-              <label className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2">
-                <input
-                  className="h-4 w-4"
-                  type="checkbox"
-                  checked={includeZeroOverride}
-                  onChange={(e) => setIncludeZeroOverride(e.target.checked)}
-                  disabled={yMinIsSet}
-                />
-                <span className={yMinIsSet ? "text-muted-foreground" : ""} title="If Y min is auto, clamp the Y-axis floor to 0">
-                  Include 0
-                </span>
-              </label>
-
-              {yMinIsSet ? (
-                <div className="text-xs text-muted-foreground">
-                  Ignored when Y min is set.
+                  <label className={labelCls}>
+                    <span className={labelTextCls}>X scale</span>
+                    <div className={labelCls}>
+                      <span className={labelTextCls}>X scale</span>
+                      <div className={checkboxWrapCls}>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="xmode"
+                            value="trial"
+                            checked={xMode === "trial"}
+                            onChange={() => setXMode("trial")}
+                          />
+                          <span>Trial</span>
+                        </label>
+                        <label className="ml-4 flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="xmode"
+                            value="date"
+                            checked={xMode === "date"}
+                            onChange={() => setXMode("date")}
+                          />
+                          <span>Date</span>
+                        </label>
+                      </div>
+                    </div>
+                  </label>
                 </div>
-              ) : null}
-            </div>
-          </div>
 
+                {/* Y */}
+                <div className="mt-3 grid gap-3 md:grid-cols-5">
+                  <label className={labelCls}>
+                    <span className={labelTextCls}>Y label</span>
+                    <input
+                      className={inputCls}
+                      value={yLabelOverride}
+                      onChange={(e) => setYLabelOverride(e.target.value)}
+                      placeholder={labelPack.yLabelWithUnit}
+                    />
+                  </label>
+
+                  <label className={labelCls}>
+                    <span className={labelTextCls}>Y min</span>
+                    <input
+                      className={inputCls}
+                      type="no type"
+                      value={yMinOverride}
+                      onChange={(e) => setYMinOverride(e.target.value)}
+                      placeholder="auto"
+                      inputMode="decimal"
+                    />
+                  </label>
+
+                  <label className={labelCls}>
+                    <span className={labelTextCls}>Y max</span>
+                    <input
+                      className={inputCls}
+                      type="no type"
+                      value={yMaxOverride}
+                      onChange={(e) => setYMaxOverride(e.target.value)}
+                      placeholder="auto"
+                      inputMode="decimal"
+                    />
+                  </label>
+
+                  <label className={labelCls}>
+                    <span className={labelTextCls}>Y tick</span>
+                    <input
+                      className={inputCls}
+                      value={yTickStepOverride}
+                      onChange={(e) => setYTickStepOverride(e.target.value)}
+                      placeholder="e.g. 5"
+                      inputMode="decimal"
+                    />
+                  </label>
+
+                  <div className={labelCls}>
+                    <span className={labelTextCls}>Y floor</span>
+                    <label className={checkboxWrapCls}>
+                      <input
+                        className="h-4 w-4"
+                        type="checkbox"
+                        checked={includeZeroOverride}
+                        onChange={(e) => setIncludeZeroOverride(e.target.checked)}
+                        disabled={yMinIsSet}
+                      />
+                      <span className={yMinIsSet ? labelTextCls : ""} title="If Y min is auto, clamp the Y-axis floor to 0">
+                        Include 0
+                      </span>
+                    </label>
+
+                    {yMinIsSet ? <div className={subHelpCls}>Ignored when Y min is set.</div> : null}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
           <div className="mt-2 text-xs text-muted-foreground">Local-only (not saved yet).</div>
         </div>
       </div>
