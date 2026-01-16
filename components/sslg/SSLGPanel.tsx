@@ -427,7 +427,7 @@ export default function SSLGPanel({
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client</div>
             <div className="flex items-center gap-2">
               <select
-                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
                 value={subjectId}
                 onChange={(e) => setSubjectId(e.target.value)}
                 title="Select a client"
@@ -458,7 +458,7 @@ export default function SSLGPanel({
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program</div>
             <div className="flex items-center gap-2">
               <select
-                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
                 value={targetVid}
                 onChange={(e) => setTargetVid(e.target.value)}
                 title="Select a program"
