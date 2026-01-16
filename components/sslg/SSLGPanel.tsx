@@ -363,8 +363,8 @@ export default function SSLGPanel({
 
   // Graph controls (local-only; not persisted yet)
   const [xMode, setXMode] = React.useState<"trial" | "date">("date");
-  const [xLabelOverride, setXLabelOverride] = React.useState<string>("Date");
-  const [yLabelOverride, setYLabelOverride] = React.useState<string>("Y");
+  const [xLabelOverride, setXLabelOverride] = React.useState<string>("");
+  const [yLabelOverride, setYLabelOverride] = React.useState<string>("");
   const [includeZeroOverride, setIncludeZeroOverride] = React.useState<boolean>(true);
   // X axis controls (local-only; numeric “trial/index” axis)
   const [xMinOverride, setXMinOverride] = React.useState<string>("1");
@@ -547,160 +547,159 @@ export default function SSLGPanel({
 
           {/* unified control styling */}
           {(() => {
-            const inputCls = "w-full rounded-lg border bg-background px-3 py-2 text-sm";
+            const inputCls = "w-full rounded-xl border bg-background px-3 py-2 text-sm";
             const selectCls = inputCls;
-            const checkboxWrapCls = "flex items-center gap-2 rounded-lg border bg-background px-3 py-2";
+            const checkboxWrapCls = "flex items-center gap-2 rounded-xl border bg-background px-3 py-2";
             const subHelpCls = "text-xs text-muted-foreground";
             const labelCls = "grid gap-1 text-sm";
             const labelTextCls = "text-muted-foreground";
 
             return (
               <>
-                {/* X */}
-                <div className="mt-3 grid gap-3 md:grid-cols-5">
+            {/* X row */}
+              <div className="mt-3 grid gap-3 md:grid-cols-5">
+                <label className={labelCls}>
+                  <span className={labelTextCls}>X label</span>
+                  <input
+                    className={inputCls}
+                    value={xLabelOverride}
+                    onChange={(e) => setXLabelOverride(e.target.value)}
+                    placeholder={labelPack.xLabel}
+                  />
+                </label>
 
-                  <label className={labelCls}>
-                    <span className={labelTextCls}>X label</span>
-                    <input
-                      className={inputCls}
-                      value={xLabelOverride}
-                      onChange={(e) => setXLabelOverride(e.target.value)}
-                      placeholder={labelPack.xLabel}
-                    />
-                  </label>
+                <label className={labelCls}>
+                  <span className={labelTextCls}>X min</span>
+                  <input
+                    className={inputCls}
+                    value={xMinOverride}
+                    onChange={(e) => setXMinOverride(e.target.value)}
+                    placeholder="auto"
+                    inputMode="decimal"
+                  />
+                </label>
 
-                  <label className={labelCls}>
-                    <span className={labelTextCls}>X min</span>
-                    <input
-                      className={inputCls}
-                      value={xMinOverride}
-                      onChange={(e) => setXMinOverride(e.target.value)}
-                      placeholder="1"
-                      inputMode="decimal"
-                    />
-                  </label>
+                <label className={labelCls}>
+                  <span className={labelTextCls}>X max</span>
+                  <input
+                    className={inputCls}
+                    value={xMaxOverride}
+                    onChange={(e) => setXMaxOverride(e.target.value)}
+                    placeholder="auto"
+                    inputMode="decimal"
+                  />
+                </label>
 
-                  <label className={labelCls}>
-                    <span className={labelTextCls}>X max</span>
-                    <input
-                      className={inputCls}
-                      value={xMaxOverride}
-                      onChange={(e) => setXMaxOverride(e.target.value)}
-                      placeholder="auto"
-                      inputMode="decimal"
-                    />
-                  </label>
+                <label className={labelCls}>
+                  <span className={labelTextCls}>X tick</span>
+                  <input
+                    className={inputCls}
+                    value={xTickStepOverride}
+                    onChange={(e) => setXTickStepOverride(e.target.value)}
+                    placeholder="e.g. 1"
+                    inputMode="decimal"
+                  />
+                </label>
 
-                  <label className={labelCls}>
-                    <span className={labelTextCls}>X tick</span>
-                    <input
-                      className={inputCls}
-                      value={xTickStepOverride}
-                      onChange={(e) => setXTickStepOverride(e.target.value)}
-                      placeholder="1"
-                      inputMode="decimal"
-                    />
-                  </label>
-
-                  <div className={labelCls}>
-                    <span className={labelTextCls}>X scale</span>
-                    <div className={checkboxWrapCls}>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="xmode"
-                          value="trial"
-                          checked={xMode === "trial"}
-                          onChange={() => setXMode("trial")}
-                        />
-                        <span>Trial</span>
-                      </label>
-
-                      <label className="ml-4 flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="xmode"
-                          value="date"
-                          checked={xMode === "date"}
-                          onChange={() => setXMode("date")}
-                        />
-                        <span>Date</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Y */}
-                <div className="mt-3 grid gap-3 md:grid-cols-5">
-                  <label className={labelCls}>
-                    <span className={labelTextCls}>Y label</span>
-                    <input
-                      className={inputCls}
-                      value={yLabelOverride}
-                      onChange={(e) => setYLabelOverride(e.target.value)}
-                      placeholder={labelPack.yLabelWithUnit}
-                    />
-                  </label>
-
-                  <label className={labelCls}>
-                    <span className={labelTextCls}>Y min</span>
-                    <input
-                      className={inputCls}
-                      type="number"
-                      value={yMinOverride}
-                      onChange={(e) => setYMinOverride(e.target.value)}
-                      placeholder="auto"
-                      inputMode="decimal"
-                    />
-                  </label>
-
-                  <label className={labelCls}>
-                    <span className={labelTextCls}>Y max</span>
-                    <input
-                      className={inputCls}
-                      type="number"
-                      value={yMaxOverride}
-                      onChange={(e) => setYMaxOverride(e.target.value)}
-                      placeholder="auto"
-                      inputMode="decimal"
-                    />
-                  </label>
-
-                  <label className={labelCls}>
-                    <span className={labelTextCls}>Y tick</span>
-                    <input
-                      className={inputCls}
-                      value={yTickStepOverride}
-                      onChange={(e) => setYTickStepOverride(e.target.value)}
-                      placeholder="e.g. 5"
-                      inputMode="decimal"
-                    />
-                  </label>
-
-                  <div className={labelCls}>
-                    <span className={labelTextCls}>Y floor</span>
-                    <label className={checkboxWrapCls}>
+                <div className={labelCls}>
+                  <span className={labelTextCls}>X scale</span>
+                  <div className={checkboxWrapCls}>
+                    <label className="flex items-center gap-2">
                       <input
-                        className="h-4 w-4"
-                        type="checkbox"
-                        checked={includeZeroOverride}
-                        onChange={(e) => setIncludeZeroOverride(e.target.checked)}
-                        disabled={yMinIsSet}
+                        type="radio"
+                        name="xmode"
+                        value="trial"
+                        checked={xMode === "trial"}
+                        onChange={() => setXMode("trial")}
                       />
-                      <span className={yMinIsSet ? labelTextCls : ""} title="If Y min is auto, clamp the Y-axis floor to 0">
-                        Include 0
-                      </span>
+                      <span>Trial</span>
                     </label>
 
-                    {yMinIsSet ? <div className={subHelpCls}>Ignored when Y min is set.</div> : null}
+                    <label className="ml-4 flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="xmode"
+                        value="date"
+                        checked={xMode === "date"}
+                        onChange={() => setXMode("date")}
+                      />
+                      <span>Date</span>
+                    </label>
                   </div>
                 </div>
-              </>
-            );
-          })()}
-          <div className="mt-2 text-xs text-muted-foreground">Local-only (not saved yet).</div>
-        </div>
-      </div>
-    </div>
-  );
+              </div>
+
+              {/* Y row */}
+              <div className="mt-3 grid gap-3 md:grid-cols-5">
+                <label className={labelCls}>
+                  <span className={labelTextCls}>Y label</span>
+                  <input
+                    className={inputCls}
+                    value={yLabelOverride}
+                    onChange={(e) => setYLabelOverride(e.target.value)}
+                    placeholder={labelPack.yLabelWithUnit}
+                  />
+                </label>
+
+                <label className={labelCls}>
+                  <span className={labelTextCls}>Y min</span>
+                  <input
+                    className={inputCls}
+                    type="number"
+                    value={yMinOverride}
+                    onChange={(e) => setYMinOverride(e.target.value)}
+                    placeholder="auto"
+                    inputMode="decimal"
+                  />
+                </label>
+
+                <label className={labelCls}>
+                  <span className={labelTextCls}>Y max</span>
+                  <input
+                    className={inputCls}
+                    type="number"
+                    value={yMaxOverride}
+                    onChange={(e) => setYMaxOverride(e.target.value)}
+                    placeholder="auto"
+                    inputMode="decimal"
+                  />
+                </label>
+
+                <label className={labelCls}>
+                  <span className={labelTextCls}>Y tick</span>
+                  <input
+                    className={inputCls}
+                    value={yTickStepOverride}
+                    onChange={(e) => setYTickStepOverride(e.target.value)}
+                    placeholder="e.g. 5"
+                    inputMode="decimal"
+                  />
+                </label>
+
+                <div className={labelCls}>
+                  <span className={labelTextCls}>Y floor</span>
+                  <label className={checkboxWrapCls}>
+                    <input
+                      className="h-4 w-4"
+                      type="checkbox"
+                      checked={includeZeroOverride}
+                      onChange={(e) => setIncludeZeroOverride(e.target.checked)}
+                      disabled={yMinIsSet}
+                    />
+                    <span className={yMinIsSet ? labelTextCls : ""} title="If Y min is auto, clamp the Y-axis floor to 0">
+                      Include 0
+                    </span>
+                  </label>
+
+                  {yMinIsSet ? <div className={subHelpCls}>Ignored when Y min is set.</div> : null}
+                </div>
+              </div>
+            </>
+          );
+         })()}
+        <div className="mt-2 text-xs text-muted-foreground">Local-only (not saved yet).<div>
+    </div >
+  </div>
+</div>
+);
 }
