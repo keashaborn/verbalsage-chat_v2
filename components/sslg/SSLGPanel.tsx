@@ -345,8 +345,8 @@ export default function SSLGPanel({
       const includeZero = gs?.y?.include_zero;
 
       setXMode("date");
-      setXLabelOverride((prev) => (prev.trim() ? prev : xLabel));
-      setYLabelOverride((prev) => (prev.trim() ? prev : yLabelWithUnit));
+      setXLabelOverride(xLabel || "Time");
+      setYLabelOverride(yLabelWithUnit || "Behavior")
       setIncludeZeroOverride(includeZero ?? true);
       setYMinOverride("");
       setYMaxOverride("");
@@ -446,9 +446,10 @@ export default function SSLGPanel({
                 setXMinOverride("1");
                 setXMaxOverride("");
                 setXTickStepOverride("1");
-                setXLabelOverride(labelPack.xLabel);
 
+                setXLabelOverride(labelPack.xLabel);
                 setYLabelOverride(labelPack.yLabelWithUnit);
+
                 setIncludeZeroOverride(labelPack.includeZero);
                 setYMinOverride("");
                 setYMaxOverride("");
