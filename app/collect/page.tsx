@@ -848,13 +848,13 @@ export default function CollectPage() {
                         <select
                           className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
                           value={wsWorkout}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setWsWorkout(v);
-                            // switching workout plan -> reset exercise; effect will pick first planned exercise
-                            setWsExercise("");
-                            clearWorkoutSetForExerciseChange();
-                          }}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setWsWorkout(v);
+                              setWsExercise("");
+                              clearWorkoutSetForExerciseChange();
+                              setIsReordering(false);
+                            }}
                         >
                           {workoutLib.workouts.map((w) => (
                             <option key={w.id} value={w.id}>
