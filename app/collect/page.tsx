@@ -530,6 +530,67 @@ export default function CollectPage() {
     return plannedLabelById.get(k) || k;
   }
 
+  // Persisted exercise order per workout (local-only for now)
+  const orderKey = React.useMemo(() => `vs_workout_order:${wsWorkout || ""}`, [wsWorkout]);
+
+  const [exerciseOrder, setExerciseOrder] = React.useState<string[]>([]);
+
+  // When workout changes, load saved order; otherwise default to plan order
+  React.useEffect(() => {
+    const planIds = (activeWorkoutPlan?.exercises || []).map((e) => String(e.id));
+    if (!wsWorkout || !planIds.length) {
+      setExerciseOrder([]);
+      return;
+    }
+
+    try {
+      const raw = localStorage.getItem(orderKey) || "";
+      const saved = raw ? (JSON.parse(raw) as string[]) : [];
+      const savedFiltered = Array.isArray(saved) ? saved.filter((id) => planIds.includes(id)) : [];
+      const missing = planIds.filter((id) => !savedFiltered.includes(id));
+      const merged = [...savedFiltered, ...missing];
+      setExerciseOrder(merged);
+    } catch {
+      setExerciseOrder(planIds);
+    }
+  }, [orderKey, wsWorkout, activeWorkoutPlan?.id]);
+
+  // Persist whenever the order changes
+  React.useEffect(() => {
+    if (!wsWorkout) return;
+    if (!exerciseOrder.length) return;
+    try {
+      localStorage.setItem(orderKey, JSON.stringify(exerciseOrder));
+    } catch { }
+  }, [orderKey, wsWorkout, exerciseOrder]);
+
+  // Apply the order to plannedExercises
+  const orderedPlannedExercises = React.useMemo(() => {
+    const exs = plannedExercises || [];
+    if (!exs.length) return exs;
+    const byId = new Map(exs.map((e) => [String(e.id), e]));
+    const out: typeof exs = [];
+
+    if (exerciseOrder.length) {
+      for (const id of exerciseOrder) {
+        const it = byId.get(String(id));
+        if (it) out.push(it);
+      }
+    }
+
+    // Append anything missing (new exercises) deterministically
+    for (const e of exs) {
+      if (!out.find((x) => String(x.id) === String(e.id))) out.push(e);
+    }
+
+    return out;
+  }, [plannedExercises, exerciseOrder]);
+
+  const orderedExerciseIds = React.useMemo(
+    () => orderedPlannedExercises.map((e) => String(e.id)),
+    [orderedPlannedExercises]
+  );
+
   const lastByExercise = React.useMemo(() => {
     const out = new Map<string, { weight?: number | null; reps?: number | null; rpe?: number | null }>();
     const rows = Array.isArray(programRows) ? programRows : [];
@@ -585,13 +646,17 @@ export default function CollectPage() {
   }
 
   function gotoPlannedExercise(delta: number) {
-    if (!plannedExerciseIds.length) return;
-    const cur = wsExercise.trim();
-    const i = plannedExerciseIds.indexOf(cur);
-    const j = i + delta;
-    if (j < 0 || j >= plannedExerciseIds.length) return;
+    const ids = orderedExerciseIds; // canonical
+    if (!ids.length) return;
 
-    setWsExercise(plannedExerciseIds[j]);
+    const cur = wsExercise.trim();
+    const i = ids.indexOf(cur);
+    if (i < 0) return;
+
+    const j = i + delta;
+    if (j < 0 || j >= ids.length) return;
+
+    setWsExercise(ids[j]);
     clearWorkoutSetForExerciseChange();
   }
 
@@ -812,20 +877,89 @@ export default function CollectPage() {
                         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Exercise</div>
 
                         {plannedExercises.length ? (
-                          <select
-                            className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                            value={wsExercise}
-                            onChange={(e) => {
-                              setWsExercise(e.target.value);
-                              clearWorkoutSetForExerciseChange();
-                            }}
-                          >
-                            {plannedExercises.map((ex) => (
-                              <option key={ex.id} value={ex.id}>
-                                {exerciseLabel(ex.id)}
-                              </option>
-                            ))}
-                          </select>
+                          <>
+                            <select
+                              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                              value={wsExercise}
+                              onChange={(e) => {
+                                setWsExercise(e.target.value);
+                                clearWorkoutSetForExerciseChange();
+                              }}
+                            >
+                              {plannedExercises.map((ex) => (
+                                <option key={ex.id} value={ex.id}>
+                                  {exerciseLabel(ex.id)}
+                                </option>
+                              ))}
+                            </select>
+
+                            {orderedExerciseIds.length ? (
+                              <div className="mt-3">
+                                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reorder exercises (drag)</div>
+
+                                <DndContext
+                                  sensors={useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))}
+                                  collisionDetection={closestCenter}
+                                  onDragEnd={(ev: DragEndEvent) => {
+                                    const activeId = String(ev.active?.id || "");
+                                    const overId = String(ev.over?.id || "");
+                                    if (!activeId || !overId || activeId === overId) return;
+
+                                    setExerciseOrder((prev) => {
+                                      const ids = prev.length ? prev.slice() : plannedExerciseIds.slice();
+                                      const oldIndex = ids.indexOf(activeId);
+                                      const newIndex = ids.indexOf(overId);
+                                      if (oldIndex < 0 || newIndex < 0) return ids;
+                                      return arrayMove(ids, oldIndex, newIndex);
+                                    });
+                                  }}
+                                >
+                                  <SortableContext items={orderedExerciseIds} strategy={verticalListSortingStrategy}>
+                                    <div className="mt-2 space-y-2">
+                                      {orderedExerciseIds.map((id) => (
+                                        <SortableExerciseRow key={id} id={id} label={exerciseLabel(id)} />
+                                      ))}
+                                    </div>
+                                  </SortableContext>
+                                </DndContext>
+                              </div>
+                            ) : null}
+
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                                onClick={() => gotoPlannedExercise(-1)}
+                                disabled={orderedExerciseIds.indexOf(wsExercise.trim()) <= 0}
+                                title="Previous exercise"
+                              >
+                                Prev
+                              </button>
+
+                              <button
+                                type="button"
+                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                                onClick={() => gotoPlannedExercise(1)}
+                                disabled={
+                                  orderedExerciseIds.indexOf(wsExercise.trim()) < 0 ||
+                                  orderedExerciseIds.indexOf(wsExercise.trim()) >= orderedExerciseIds.length - 1
+                                }
+                                title="Next exercise"
+                              >
+                                Next
+                              </button>
+
+                              <button
+                                type="button"
+                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                                onClick={applyLastForCurrentExercise}
+                                disabled={!wsExercise.trim() || !lastByExercise.has(wsExercise.trim())}
+                                title="Overwrite Weight/Reps/RPE from the last recorded set for this exercise"
+                              >
+                                Use last
+                              </button>
+                            </div>
+                          </>
                         ) : (
                           <>
                             <input
@@ -842,42 +976,41 @@ export default function CollectPage() {
                             </datalist>
                           </>
                         )}
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                                onClick={() => gotoPlannedExercise(-1)}
+                                disabled={orderedExerciseIds.indexOf(wsExercise.trim()) <= 0}
+                                title="Previous exercise"
+                              >
+                                Prev
+                              </button>
 
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                            onClick={() => gotoPlannedExercise(-1)}
-                            disabled={plannedExerciseIds.indexOf(wsExercise.trim()) <= 0}
-                            title="Previous exercise"
-                          >
-                            Prev
-                          </button>
+                              <button
+                                type="button"
+                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                                onClick={() => gotoPlannedExercise(1)}
+                                disabled={
+                                  orderedExerciseIds.indexOf(wsExercise.trim()) < 0 ||
+                                  orderedExerciseIds.indexOf(wsExercise.trim()) >= orderedExerciseIds.length - 1
+                                }
+                                title="Next exercise"
+                              >
+                                Next
+                              </button>
 
-                          <button
-                            type="button"
-                            className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                            onClick={() => gotoPlannedExercise(1)}
-                            disabled={
-                              plannedExerciseIds.indexOf(wsExercise.trim()) < 0 ||
-                              plannedExerciseIds.indexOf(wsExercise.trim()) >= plannedExerciseIds.length - 1
-                            }
-                            title="Next exercise"
-                          >
-                            Next
-                          </button>
-
-                          <button
-                            type="button"
-                            className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                            onClick={applyLastForCurrentExercise}
-                            disabled={!wsExercise.trim() || !lastByExercise.has(wsExercise.trim())}
-                            title="Overwrite Weight/Reps/RPE from the last recorded set for this exercise"
-                          >
-                            Use last
-                          </button>
-                        </div>
-                      </div>
+                              <button
+                                type="button"
+                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                                onClick={applyLastForCurrentExercise}
+                                disabled={!wsExercise.trim() || !lastByExercise.has(wsExercise.trim())}
+                                title="Overwrite Weight/Reps/RPE from the last recorded set for this exercise"
+                              >
+                                Use last
+                              </button>
+                            </div>
+                          </div>
 
                       <div className="space-y-1">
                         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Set</div>
