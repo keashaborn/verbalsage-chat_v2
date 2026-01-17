@@ -5,6 +5,31 @@
 - Graphing and analytics are pure projections; they do not create or mutate measurements.
 - Fixes are overlays: void/error + correction. No destructive deletes in normal operation.
 
+## Life Switch IA (Product Navigation)
+
+Goal: separate system admin/developer tooling from the behavior-change product surface.
+
+### Modules
+- Admin: system operations (export, delete memories, diagnostics). Keep existing patterns.
+- Developer: engineering-only diagnostics. Remove Life Switch surfaces from Developer navigation.
+- Life Switch: behavior-change suite (define variables, capture events, graph, studio).
+
+### Left-nav structure (v0)
+- Core nav: Chat, Collect, History (as appropriate).
+- Footer tiles: Life Switch | Admin
+  - Life Switch opens a dedicated side panel / module area.
+
+### Life Switch sections (v0)
+- Capture: Collect (forms entry), Workout, Diet, “Why not?” (non-occurrence).
+- Define: Operational definitions (variable library), measurement protocols (calipers, labs).
+- Graph: SSLG first; later celeration + graph suite.
+- Studio: template/program design, capture UX design, graph_spec_v0, template deletion/cleanup.
+
+### Route mapping (keep nothing hidden)
+- /developer/sslg -> /life-switch/graph/sslg (keep old route with “Moved” banner + link)
+- /developer/forms -> /life-switch/studio/forms (same)
+- Deletion UI lives under Life Switch → Studio; backend deletion is Brains /forms/templates/... with confirm=true.
+
 ### Entry Model v0 (minimum)
 Required:
 - entry_id, owner_user_id, subject_id
