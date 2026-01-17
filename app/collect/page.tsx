@@ -49,13 +49,11 @@ export default function CollectPage() {
   const [status, setStatus] = React.useState<string>("");
 
   const [ownerUserId, setOwnerUserId] = React.useState<string>("");
-  const [clients, setClients] = React.useState<string[]>([]);
-  const [loadingClients, setLoadingClients] = React.useState(false);
 
   const [templates, setTemplates] = React.useState<TemplateListItem[]>([]);
   const [loadingPrograms, setLoadingPrograms] = React.useState(false);
 
-  const [subjectId, setSubjectId] = React.useState<string>("self");
+  const subjectId = "self";
   const [programVid, setProgramVid] = React.useState<string>("");
 
   const [programVersion, setProgramVersion] = React.useState<FormVersion | null>(null);
@@ -125,50 +123,6 @@ export default function CollectPage() {
     }
   }
 
-  async function loadClientsList() {
-    setLoadingClients(true);
-    setStatus("");
-    try {
-      if (!ownerUserId.trim()) throw new Error("owner not ready");
-
-      // Pull recent entries for this owner across programs; build a distinct subject list.
-      // v0: limit=500 (fast, sufficient). Later: add a dedicated /clients endpoint.
-      const qs = new URLSearchParams();
-      qs.set("owner_user_id", ownerUserId.trim());
-      qs.set("limit", "500");
-
-      const r = await fetch(`/api/forms/entries/list?${qs.toString()}`, { cache: "no-store" });
-      const txt = await r.text().catch(() => "");
-      if (!r.ok) throw new Error(`clients failed: HTTP ${r.status} ${txt}`);
-
-      const rows = JSON.parse(txt);
-      const set = new Set<string>();
-      if (Array.isArray(rows)) {
-        for (const it of rows) {
-          const sid = String(it?.subject_id || "").trim();
-          if (sid) set.add(sid);
-        }
-      }
-
-      // Default self first if present; else keep current subjectId.
-      const list = Array.from(set).sort((a, b) => a.localeCompare(b));
-      if (!list.includes("self")) list.unshift("self");
-      setClients(list);
-
-      // Ensure selected subject is valid.
-      if (subjectId.trim() && !list.includes(subjectId.trim())) {
-        setSubjectId(list[0] || "self");
-      }
-
-      setStatus(`loaded ${list.length} clients`);
-    } catch (e: any) {
-      setClients(subjectId.trim() ? [subjectId.trim()] : ["self"]);
-      setStatus(`error: ${e?.message || String(e)}`);
-    } finally {
-      setLoadingClients(false);
-    }
-  }
-
   async function loadProgramVersion(versionId: string) {
     setProgramVersion(null);
     setStatus("");
@@ -200,7 +154,6 @@ export default function CollectPage() {
     if (!ownerUserId.trim()) return;
     // Auto-load once on first ready owner
     loadPrograms();
-    loadClientsList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerUserId]);
 
@@ -525,7 +478,6 @@ export default function CollectPage() {
   const wsRepsNum = wsRepsNumRaw === null ? null : Math.max(0, Math.trunc(wsRepsNumRaw));
   const wsVolume = (wsWeightNum ?? 0) * (wsRepsNum ?? 0);
 
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-3xl px-4 py-6">
@@ -535,41 +487,17 @@ export default function CollectPage() {
             <div className="mt-1 text-sm text-muted-foreground">
               Ultra-minimal data capture. Owner is derived from your login.
             </div>
-          </div>
-          <div className="flex gap-2">
-            <button
-              className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-              onClick={loadClientsList}
-              disabled={!ownerUserId.trim() || loadingClients}
-              title="Reload clients"
-            >
-              {loadingClients ? "Loading…" : "Clients"}
-            </button>
-            <button
-              className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-              onClick={loadPrograms}
-              disabled={!ownerUserId.trim() || loadingPrograms}
-              title="Reload programs"
-            >
-              {loadingPrograms ? "Loading…" : "Programs"}
-            </button>
-          </div>
-        </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
-          <div className="space-y-1">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client</div>
-            <select
-              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
-            >
-              {clients.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <button
+                className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+                onClick={loadPrograms}
+                disabled={!ownerUserId.trim() || loadingPrograms}
+                title="Reload programs"
+              >
+                {loadingPrograms ? "Loading…" : "Programs"}
+              </button>
+            </div>
           </div>
 
           <div className="space-y-1">
