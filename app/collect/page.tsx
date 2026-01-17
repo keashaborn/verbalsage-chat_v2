@@ -405,14 +405,88 @@ export default function CollectPage() {
   const isWorkoutSet =
     mType === "count" && !!props.exercise && !!props.weight && !!props.reps && !!props.set_index;
 
+  // ----------------------------
+  // LifeSwitch workout library (local-only)
+  // Used to drive Workout-plan -> Exercise options.
+  // ----------------------------
+  type WorkoutLibraryResp = {
+    workouts: Array<{
+      id: string;
+      label: string;
+      exercises: Array<{
+        id: string;
+        label?: string;
+        planned_sets?: number;
+        default_weight?: number;
+        default_reps?: number;
+        unit?: string;
+      }>;
+    }>;
+  };
+
+  const [workoutLib, setWorkoutLib] = React.useState<WorkoutLibraryResp | null>(null);
+  const [workoutLibTried, setWorkoutLibTried] = React.useState(false);
+  const [workoutLibErr, setWorkoutLibErr] = React.useState<string>("");
+
+  // One-shot fetch when Workout Set is selected (schema has workout/exercise/etc.)
+  React.useEffect(() => {
+    if (!isWorkoutSet) return;
+    if (!props.workout) return; // schema must support workout field
+    if (workoutLibTried) return;
+
+    setWorkoutLibTried(true);
+
+    (async () => {
+      try {
+        const r = await fetch("/api/lifeswitch/workout_library", { cache: "no-store" });
+        const t = await r.text().catch(() => "");
+        if (!r.ok) throw new Error(`workout_library HTTP ${r.status} ${t}`);
+        const j = JSON.parse(t) as WorkoutLibraryResp;
+        setWorkoutLib(j);
+        setWorkoutLibErr("");
+
+        // Default workout plan if empty
+        if (!wsWorkout.trim() && j?.workouts?.length) {
+          setWsWorkout(String(j.workouts[0]?.id || ""));
+        }
+      } catch (e: any) {
+        setWorkoutLib(null);
+        setWorkoutLibErr(e?.message || String(e));
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWorkoutSet, props.workout, workoutLibTried]);
+
+  const activeWorkoutPlan = React.useMemo(() => {
+    const wid = String(wsWorkout || "").trim();
+    if (!wid || !workoutLib?.workouts?.length) return null;
+    return workoutLib.workouts.find((w) => String(w.id) === wid) || null;
+  }, [wsWorkout, workoutLib]);
+
+  // If a plan is selected and exercise is empty, default to the plan's first exercise
+  React.useEffect(() => {
+    if (!isWorkoutSet) return;
+    const ex = String(wsExercise || "").trim();
+    if (ex) return;
+    const first = activeWorkoutPlan?.exercises?.[0]?.id;
+    if (first) setWsExercise(String(first));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWorkoutSet, activeWorkoutPlan?.id]);
+
   const exerciseOptions = React.useMemo(() => {
+    // If we have a workout plan selected, use its ordered exercise list.
+    if (activeWorkoutPlan?.exercises?.length) {
+      return activeWorkoutPlan.exercises.map((e) => String(e.id)).filter(Boolean);
+    }
+
+    // Fallback: infer from prior entries for this template_version_id
     const set = new Set<string>();
     for (const r of Array.isArray(programRows) ? programRows : []) {
       const ex = String((r as any)?.data?.exercise || "").trim();
       if (ex) set.add(ex);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [programRows]);
+  }, [activeWorkoutPlan, programRows]);
 
   const lastByExercise = React.useMemo(() => {
     const out = new Map<string, { weight?: number | null; reps?: number | null; rpe?: number | null }>();
@@ -575,17 +649,39 @@ export default function CollectPage() {
 
               {isWorkoutSet ? (
                 <div className="mt-4">
-                  {props.workout ? (
-                    <div className="mb-3 space-y-1">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workout</div>
-                      <input
-                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                        value={wsWorkout}
-                        onChange={(e) => setWsWorkout(e.target.value)}
-                        placeholder="push_a"
-                      />
-                    </div>
-                  ) : null}
+                    {props.workout ? (
+                      <div className="mt-3 space-y-1">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workout</div>
+
+                        {workoutLib?.workouts?.length ? (
+                          <select
+                            className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                            value={wsWorkout}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setWsWorkout(v);
+                              // when switching plans, reset exercise so the effect above picks the first one
+                              setWsExercise("");
+                            }}
+                          >
+                            {workoutLib.workouts.map((w) => (
+                              <option key={w.id} value={w.id}>
+                                {w.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                            value={wsWorkout}
+                            onChange={(e) => setWsWorkout(e.target.value)}
+                            placeholder="push_a"
+                          />
+                        )}
+
+                        {workoutLibErr ? <div className="text-xs text-muted-foreground">workout_library: {workoutLibErr}</div> : null}
+                      </div>
+                    ) : null}
 
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="space-y-1">
