@@ -90,6 +90,7 @@ export default function CollectPage() {
   const [wsWeight, setWsWeight] = React.useState<string>("");
   const [wsReps, setWsReps] = React.useState<string>("");
   const [wsRpe, setWsRpe] = React.useState<string>("");
+  const [isReordering, setIsReordering] = React.useState(false);
 
 
   // Count
@@ -357,7 +358,7 @@ export default function CollectPage() {
       // Refresh cached rows so dropdown + set index stay accurate
       try {
         await loadProgramRows(tv);
-      } catch {}
+      } catch { }
     } catch (e: any) {
       setStatus(`error: ${e?.message || String(e)}`);
     }
@@ -534,6 +535,11 @@ export default function CollectPage() {
   const orderKey = React.useMemo(() => `vs_workout_order:${wsWorkout || ""}`, [wsWorkout]);
 
   const [exerciseOrder, setExerciseOrder] = React.useState<string[]>([]);
+
+  // DnD sensors must be created at top-level (hooks cannot run inside JSX)
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
 
   // When workout changes, load saved order; otherwise default to plan order
   React.useEffect(() => {
@@ -790,306 +796,306 @@ export default function CollectPage() {
                 {String(programVersion.json_schema?.title || "Program")} · measurement={mType || "unknown"}
               </div>
 
-                {!isWorkoutSet ? (
-                  <>
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      {props.date ? (
-                        <div className="space-y-1">
-                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Date</div>
-                          <input
-                            className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                            type="date"
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                          />
-                        </div>
-                      ) : null}
-
-                      {showContext ? (
-                        <div className="space-y-1">
-                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Context</div>
-                          <input
-                            className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                            value={context}
-                            onChange={(e) => setContext(e.target.value)}
-                            placeholder="home"
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {showNotes ? (
-                      <div className="mt-3 space-y-1">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</div>
-                        <textarea
-                          className="h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                          value={notes}
-                          onChange={(e) => setNotes(e.target.value)}
-                          placeholder="optional"
+              {!isWorkoutSet ? (
+                <>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {props.date ? (
+                      <div className="space-y-1">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Date</div>
+                        <input
+                          className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                          type="date"
+                          value={date}
+                          onChange={(e) => setDate(e.target.value)}
                         />
                       </div>
                     ) : null}
-                  </>
-                ) : null}
 
-                {isWorkoutSet ? (
-                  <div className="mt-4">
-                    {props.workout ? (
-                      <div className="mt-3 space-y-1">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workout</div>
+                    {showContext ? (
+                      <div className="space-y-1">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Context</div>
+                        <input
+                          className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                          value={context}
+                          onChange={(e) => setContext(e.target.value)}
+                          placeholder="home"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
 
-                        {workoutLib?.workouts?.length ? (
+                  {showNotes ? (
+                    <div className="mt-3 space-y-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</div>
+                      <textarea
+                        className="h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="optional"
+                      />
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+
+              {isWorkoutSet ? (
+                <div className="mt-4">
+                  {props.workout ? (
+                    <div className="mt-3 space-y-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workout</div>
+
+                      {workoutLib?.workouts?.length ? (
+                        <select
+                          className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                          value={wsWorkout}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setWsWorkout(v);
+                            // switching workout plan -> reset exercise; effect will pick first planned exercise
+                            setWsExercise("");
+                            clearWorkoutSetForExerciseChange();
+                          }}
+                        >
+                          {workoutLib.workouts.map((w) => (
+                            <option key={w.id} value={w.id}>
+                              {w.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                          value={wsWorkout}
+                          onChange={(e) => {
+                            setWsWorkout(e.target.value);
+                            clearWorkoutSetForExerciseChange();
+                          }}
+                          placeholder="push_a"
+                        />
+                      )}
+
+                      {workoutLibErr ? <div className="text-xs text-muted-foreground">workout_library: {workoutLibErr}</div> : null}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Exercise</div>
+
+                      {plannedExercises.length ? (
+                        <>
                           <select
                             className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                            value={wsWorkout}
+                            value={wsExercise}
                             onChange={(e) => {
-                              const v = e.target.value;
-                              setWsWorkout(v);
-                              // switching workout plan -> reset exercise; effect will pick first planned exercise
-                              setWsExercise("");
+                              setWsExercise(e.target.value);
                               clearWorkoutSetForExerciseChange();
                             }}
                           >
-                            {workoutLib.workouts.map((w) => (
-                              <option key={w.id} value={w.id}>
-                                {w.label}
+                            {plannedExercises.map((ex) => (
+                              <option key={ex.id} value={ex.id}>
+                                {exerciseLabel(ex.id)}
                               </option>
                             ))}
                           </select>
-                        ) : (
+
+                          {orderedExerciseIds.length ? (
+                            <div className="mt-3">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reorder exercises (drag)</div>
+
+                              <DndContext
+                                sensors={dndSensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={(ev: DragEndEvent) => {
+                                  const activeId = String(ev.active?.id || "");
+                                  const overId = String(ev.over?.id || "");
+                                  if (!activeId || !overId || activeId === overId) return;
+
+                                  setExerciseOrder((prev) => {
+                                    const ids = prev.length ? prev.slice() : plannedExerciseIds.slice();
+                                    const oldIndex = ids.indexOf(activeId);
+                                    const newIndex = ids.indexOf(overId);
+                                    if (oldIndex < 0 || newIndex < 0) return ids;
+                                    return arrayMove(ids, oldIndex, newIndex);
+                                  });
+                                }}
+                              >
+                                <SortableContext items={orderedExerciseIds} strategy={verticalListSortingStrategy}>
+                                  <div className="mt-2 space-y-2">
+                                    {orderedExerciseIds.map((id) => (
+                                      <SortableExerciseRow key={id} id={id} label={exerciseLabel(id)} />
+                                    ))}
+                                  </div>
+                                </SortableContext>
+                              </DndContext>
+                            </div>
+                          ) : null}
+
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                              onClick={() => gotoPlannedExercise(-1)}
+                              disabled={orderedExerciseIds.indexOf(wsExercise.trim()) <= 0}
+                              title="Previous exercise"
+                            >
+                              Prev
+                            </button>
+
+                            <button
+                              type="button"
+                              className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                              onClick={() => gotoPlannedExercise(1)}
+                              disabled={
+                                orderedExerciseIds.indexOf(wsExercise.trim()) < 0 ||
+                                orderedExerciseIds.indexOf(wsExercise.trim()) >= orderedExerciseIds.length - 1
+                              }
+                              title="Next exercise"
+                            >
+                              Next
+                            </button>
+
+                            <button
+                              type="button"
+                              className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                              onClick={applyLastForCurrentExercise}
+                              disabled={!wsExercise.trim() || !lastByExercise.has(wsExercise.trim())}
+                              title="Overwrite Weight/Reps/RPE from the last recorded set for this exercise"
+                            >
+                              Use last
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
                           <input
                             className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                            value={wsWorkout}
-                            onChange={(e) => {
-                              setWsWorkout(e.target.value);
-                              clearWorkoutSetForExerciseChange();
-                            }}
-                            placeholder="push_a"
+                            list="vs_exercise_options"
+                            value={wsExercise}
+                            onChange={(e) => setWsExercise(e.target.value)}
+                            placeholder="bench_press"
                           />
-                        )}
+                          <datalist id="vs_exercise_options">
+                            {exerciseOptions.map((x) => (
+                              <option key={x} value={x} />
+                            ))}
+                          </datalist>
+                        </>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                          onClick={() => gotoPlannedExercise(-1)}
+                          disabled={orderedExerciseIds.indexOf(wsExercise.trim()) <= 0}
+                          title="Previous exercise"
+                        >
+                          Prev
+                        </button>
 
-                        {workoutLibErr ? <div className="text-xs text-muted-foreground">workout_library: {workoutLibErr}</div> : null}
-                      </div>
-                    ) : null}
+                        <button
+                          type="button"
+                          className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                          onClick={() => gotoPlannedExercise(1)}
+                          disabled={
+                            orderedExerciseIds.indexOf(wsExercise.trim()) < 0 ||
+                            orderedExerciseIds.indexOf(wsExercise.trim()) >= orderedExerciseIds.length - 1
+                          }
+                          title="Next exercise"
+                        >
+                          Next
+                        </button>
 
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      <div className="space-y-1">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Exercise</div>
-
-                        {plannedExercises.length ? (
-                          <>
-                            <select
-                              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                              value={wsExercise}
-                              onChange={(e) => {
-                                setWsExercise(e.target.value);
-                                clearWorkoutSetForExerciseChange();
-                              }}
-                            >
-                              {plannedExercises.map((ex) => (
-                                <option key={ex.id} value={ex.id}>
-                                  {exerciseLabel(ex.id)}
-                                </option>
-                              ))}
-                            </select>
-
-                            {orderedExerciseIds.length ? (
-                              <div className="mt-3">
-                                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reorder exercises (drag)</div>
-
-                                <DndContext
-                                  sensors={useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))}
-                                  collisionDetection={closestCenter}
-                                  onDragEnd={(ev: DragEndEvent) => {
-                                    const activeId = String(ev.active?.id || "");
-                                    const overId = String(ev.over?.id || "");
-                                    if (!activeId || !overId || activeId === overId) return;
-
-                                    setExerciseOrder((prev) => {
-                                      const ids = prev.length ? prev.slice() : plannedExerciseIds.slice();
-                                      const oldIndex = ids.indexOf(activeId);
-                                      const newIndex = ids.indexOf(overId);
-                                      if (oldIndex < 0 || newIndex < 0) return ids;
-                                      return arrayMove(ids, oldIndex, newIndex);
-                                    });
-                                  }}
-                                >
-                                  <SortableContext items={orderedExerciseIds} strategy={verticalListSortingStrategy}>
-                                    <div className="mt-2 space-y-2">
-                                      {orderedExerciseIds.map((id) => (
-                                        <SortableExerciseRow key={id} id={id} label={exerciseLabel(id)} />
-                                      ))}
-                                    </div>
-                                  </SortableContext>
-                                </DndContext>
-                              </div>
-                            ) : null}
-
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                                onClick={() => gotoPlannedExercise(-1)}
-                                disabled={orderedExerciseIds.indexOf(wsExercise.trim()) <= 0}
-                                title="Previous exercise"
-                              >
-                                Prev
-                              </button>
-
-                              <button
-                                type="button"
-                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                                onClick={() => gotoPlannedExercise(1)}
-                                disabled={
-                                  orderedExerciseIds.indexOf(wsExercise.trim()) < 0 ||
-                                  orderedExerciseIds.indexOf(wsExercise.trim()) >= orderedExerciseIds.length - 1
-                                }
-                                title="Next exercise"
-                              >
-                                Next
-                              </button>
-
-                              <button
-                                type="button"
-                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                                onClick={applyLastForCurrentExercise}
-                                disabled={!wsExercise.trim() || !lastByExercise.has(wsExercise.trim())}
-                                title="Overwrite Weight/Reps/RPE from the last recorded set for this exercise"
-                              >
-                                Use last
-                              </button>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <input
-                              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                              list="vs_exercise_options"
-                              value={wsExercise}
-                              onChange={(e) => setWsExercise(e.target.value)}
-                              placeholder="bench_press"
-                            />
-                            <datalist id="vs_exercise_options">
-                              {exerciseOptions.map((x) => (
-                                <option key={x} value={x} />
-                              ))}
-                            </datalist>
-                          </>
-                        )}
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                                onClick={() => gotoPlannedExercise(-1)}
-                                disabled={orderedExerciseIds.indexOf(wsExercise.trim()) <= 0}
-                                title="Previous exercise"
-                              >
-                                Prev
-                              </button>
-
-                              <button
-                                type="button"
-                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                                onClick={() => gotoPlannedExercise(1)}
-                                disabled={
-                                  orderedExerciseIds.indexOf(wsExercise.trim()) < 0 ||
-                                  orderedExerciseIds.indexOf(wsExercise.trim()) >= orderedExerciseIds.length - 1
-                                }
-                                title="Next exercise"
-                              >
-                                Next
-                              </button>
-
-                              <button
-                                type="button"
-                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                                onClick={applyLastForCurrentExercise}
-                                disabled={!wsExercise.trim() || !lastByExercise.has(wsExercise.trim())}
-                                title="Overwrite Weight/Reps/RPE from the last recorded set for this exercise"
-                              >
-                                Use last
-                              </button>
-                            </div>
-                          </div>
-
-                      <div className="space-y-1">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Set</div>
-                        <input
-                          className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                          type="number"
-                          min={1}
-                          value={wsSetIndex}
-                          onChange={(e) => setWsSetIndex(e.target.value)}
-                        />
+                        <button
+                          type="button"
+                          className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                          onClick={applyLastForCurrentExercise}
+                          disabled={!wsExercise.trim() || !lastByExercise.has(wsExercise.trim())}
+                          title="Overwrite Weight/Reps/RPE from the last recorded set for this exercise"
+                        >
+                          Use last
+                        </button>
                       </div>
                     </div>
 
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      <div className="space-y-1">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Weight</div>
-                        <input
-                          className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                          type="number"
-                          inputMode="decimal"
-                          value={wsWeight}
-                          onChange={(e) => setWsWeight(e.target.value)}
-                          placeholder="lb"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reps</div>
-                        <input
-                          className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                          type="number"
-                          min={0}
-                          value={wsReps}
-                          onChange={(e) => setWsReps(e.target.value)}
-                          placeholder="reps"
-                        />
-                      </div>
-                    </div>
-
-                    {props.rpe ? (
-                      <div className="mt-3 space-y-1">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">RPE</div>
-                        <input
-                          className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                          type="number"
-                          inputMode="decimal"
-                          value={wsRpe}
-                          onChange={(e) => setWsRpe(e.target.value)}
-                          placeholder="optional"
-                        />
-                      </div>
-                    ) : null}
-
-                    <div className="mt-3 text-sm text-muted-foreground">
-                      Volume (count) = {Number.isFinite(wsVolume) ? Math.round(wsVolume) : "?"}{" "}
-                      {String(((programVersion as any)?.metadata?.graph_spec_v0?.y?.unit || "") as any)}
-                      {loadingProgramRows ? " · syncing…" : ""}
-                    </div>
-
-                    <button
-                      className="mt-3 w-full rounded-2xl bg-muted px-4 py-5 text-lg font-semibold hover:bg-muted/60 disabled:opacity-40"
-                      onClick={recordWorkoutSet}
-                      disabled={
-                        !date.trim() ||
-                        !wsExercise.trim() ||
-                        coerceNumber(wsWeight) === null ||
-                        coerceNumber(wsReps) === null ||
-                        !extractUuid(programVid)
-                      }
-                      title="Submit this set (append-only)"
-                    >
-                      Submit set
-                    </button>
-
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Stores: date, exercise, set_index, weight, reps, count (=weight×reps){props.workout ? ", workout" : ""}.
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Set</div>
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        type="number"
+                        min={1}
+                        value={wsSetIndex}
+                        onChange={(e) => setWsSetIndex(e.target.value)}
+                      />
                     </div>
                   </div>
-                ) : mType === "count" ? (
+
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Weight</div>
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        type="number"
+                        inputMode="decimal"
+                        value={wsWeight}
+                        onChange={(e) => setWsWeight(e.target.value)}
+                        placeholder="lb"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reps</div>
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        type="number"
+                        min={0}
+                        value={wsReps}
+                        onChange={(e) => setWsReps(e.target.value)}
+                        placeholder="reps"
+                      />
+                    </div>
+                  </div>
+
+                  {props.rpe ? (
+                    <div className="mt-3 space-y-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">RPE</div>
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        type="number"
+                        inputMode="decimal"
+                        value={wsRpe}
+                        onChange={(e) => setWsRpe(e.target.value)}
+                        placeholder="optional"
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="mt-3 text-sm text-muted-foreground">
+                    Volume (count) = {Number.isFinite(wsVolume) ? Math.round(wsVolume) : "?"}{" "}
+                    {String(((programVersion as any)?.metadata?.graph_spec_v0?.y?.unit || "") as any)}
+                    {loadingProgramRows ? " · syncing…" : ""}
+                  </div>
+
+                  <button
+                    className="mt-3 w-full rounded-2xl bg-muted px-4 py-5 text-lg font-semibold hover:bg-muted/60 disabled:opacity-40"
+                    onClick={recordWorkoutSet}
+                    disabled={
+                      !date.trim() ||
+                      !wsExercise.trim() ||
+                      coerceNumber(wsWeight) === null ||
+                      coerceNumber(wsReps) === null ||
+                      !extractUuid(programVid)
+                    }
+                    title="Submit this set (append-only)"
+                  >
+                    Submit set
+                  </button>
+
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Stores: date, exercise, set_index, weight, reps, count (=weight×reps){props.workout ? ", workout" : ""}.
+                  </div>
+                </div>
+              ) : mType === "count" ? (
                 <div className="mt-4">
                   <div className="flex items-center gap-2">
                     <div className="text-sm text-muted-foreground">Step</div>
