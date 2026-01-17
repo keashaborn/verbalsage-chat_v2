@@ -14,6 +14,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { SettingsDrawer } from "@/components/admin/SettingsDrawer";
+import { LifeSwitchDrawer } from "@/components/lifeswitch/LifeSwitchDrawer";
 import { BrainsThreadList } from "@/components/threads/BrainsThreadList";
 import Image from "next/image";
 import Link from "next/link";
@@ -57,6 +58,22 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter className="aui-sidebar-footer border-t">
         <SidebarMenu>
           <SidebarMenuItem>
+            <LifeSwitchDrawer
+              trigger={
+                <SidebarMenuButton size="lg">
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-muted text-foreground">
+                    <span className="text-xs font-semibold">LS</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5 leading-none">
+                    <span className="font-semibold">LifeSwitch</span>
+                    <span className="text-xs text-muted-foreground">Studio</span>
+                  </div>
+                </SidebarMenuButton>
+              }
+            />
+          </SidebarMenuItem>
+
+          <SidebarMenuItem>
             <SettingsDrawer
               trigger={
                 <SidebarMenuButton size="lg">
@@ -70,20 +87,6 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
                 </SidebarMenuButton>
               }
             />
-          </SidebarMenuItem>
-
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <a href="/lifeswitch">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-muted text-foreground">
-                  <span className="text-xs font-semibold">LS</span>
-                </div>
-                <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">LifeSwitch</span>
-                  <span className="text-xs text-muted-foreground">Studio</span>
-                </div>
-              </a>
-            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
