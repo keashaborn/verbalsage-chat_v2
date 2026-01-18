@@ -696,14 +696,14 @@ export default function CollectPage() {
       <div
         ref={setNodeRef}
         style={style}
-        className="flex items-center justify-between rounded-xl border bg-background px-3 py-2"
+        className="flex w-full items-center gap-2 rounded-xl border bg-background px-3 py-2"
       >
-        <div className="truncate text-sm">{label}</div>
+        <div className="min-w-0 flex-1 truncate text-sm">{label}</div>
 
         {/* Drag handle */}
         <button
           type="button"
-          className="ml-3 cursor-grab select-none touch-none rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60 active:cursor-grabbing"
+          className="shrink-0 cursor-grab select-none touch-none rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60 active:cursor-grabbing"
           style={{ touchAction: "none" }}
           {...attributes}
           {...listeners}
