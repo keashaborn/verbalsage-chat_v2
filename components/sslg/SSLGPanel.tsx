@@ -244,6 +244,7 @@ export default function SSLGPanel({
   // ----------------------------
   const [workoutFilter, setWorkoutFilter] = React.useState<string>("");
   const [exerciseFilter, setExerciseFilter] = React.useState<string>("");
+  const [aggMode, setAggMode] = React.useState<"raw" | "day_sum" | "day_max">("raw");
 
   const workoutOptions = React.useMemo(() => {
     const s = new Set<string>();
@@ -305,6 +306,24 @@ export default function SSLGPanel({
       .map((it) => ({ x: it.date, phase: it.phase, label: it.label || undefined }));
   }, [phaseRows, targetVid]);
 
+  // Workout-set / count programs may carry multiple numeric fields.
+  // Let the user choose what to plot on Y.
+  type YMetric = "count" | "weight" | "reps" | "rpe";
+
+  const [yMetric, setYMetric] = React.useState<YMetric>("count");
+
+  function yFromRow(d: any, mType: string, metric: YMetric): number | null {
+    if (mType === "duration") {
+      return coerceNumber(d.duration_seconds ?? d.durationSeconds ?? d.duration);
+    }
+    // mType === "count" (includes Workout Set where count = weight*reps)
+    if (metric === "count") return coerceNumber(d.count);
+    if (metric === "weight") return coerceNumber(d.weight);
+    if (metric === "reps") return coerceNumber(d.reps);
+    if (metric === "rpe") return coerceNumber(d.rpe);
+    return null;
+  }
+
   // series: infer measure key from metadata (count vs duration_seconds)
   const series: XYPoint[] = React.useMemo(() => {
     const md = (targetVersion?.metadata || {}) as any;
@@ -327,17 +346,36 @@ export default function SSLGPanel({
       const x = String(d.date || r?.occurred_at || "");
       if (!x) continue;
 
-      let y: number | null = null;
-      if (mType === "duration") y = coerceNumber(d.duration_seconds ?? d.durationSeconds ?? d.duration);
-      else y = coerceNumber(d.count);
+      const y = yFromRow(d, mType, yMetric);;
 
       if (y === null) continue;
       pts.push({ x, y });
     }
 
+    // Aggregation
+    if (aggMode !== "raw") {
+      const byDay = new Map<string, number[]>();
+      for (const p of pts) {
+        const day = String(p.x).slice(0, 10);
+        if (!day) continue;
+        const arr = byDay.get(day) || [];
+        arr.push(p.y);
+        byDay.set(day, arr);
+      }
+
+      const out: XYPoint[] = [];
+      for (const [day, ys] of byDay.entries()) {
+        if (!ys.length) continue;
+        if (aggMode === "day_sum") out.push({ x: day, y: ys.reduce((a, b) => a + b, 0) });
+        else out.push({ x: day, y: Math.max(...ys) });
+      }
+      out.sort((a, b) => String(a.x).localeCompare(String(b.x)));
+      return out;
+    }
+
     pts.sort((a, b) => String(a.x).localeCompare(String(b.x)));
     return pts;
-  }, [effectiveRows, targetVersion, workoutFilter, exerciseFilter]);
+  }, [effectiveRows, targetVersion, yMetric, workoutFilter, exerciseFilter, aggMode]);
 
   // labels from graph_spec_v0 if present
   const labelPack = React.useMemo(() => {
@@ -573,7 +611,7 @@ export default function SSLGPanel({
         </div>
 
         {workoutOptions.length || exerciseOptions.length ? (
-          <div className="mb-3 grid gap-3 md:grid-cols-2">
+          <div className="mb-3 grid gap-3 md:grid-cols-3">
             <label className="grid gap-1 text-sm">
               <span className="text-muted-foreground">Workout filter</span>
               <select
@@ -604,6 +642,31 @@ export default function SSLGPanel({
                     {ex}
                   </option>
                 ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">Aggregation</span>
+              <select
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                value={aggMode}
+                onChange={(e) => setAggMode(e.target.value as any)}
+              >
+                <option value="raw">Raw (each set)</option>
+                <option value="day_sum">Daily sum</option>
+                <option value="day_max">Daily max</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">Y metric</span>
+              <select
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                value={yMetric}
+                onChange={(e) => setYMetric(e.target.value as any)}
+              >
+                <option value="count">Count (volume)</option>
+                <option value="weight">Weight</option>
+                <option value="reps">Reps</option>
+                <option value="rpe">RPE</option>
               </select>
             </label>
           </div>
