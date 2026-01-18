@@ -696,21 +696,21 @@ export default function CollectPage() {
       <div
         ref={setNodeRef}
         style={style}
-        className="flex w-full items-center gap-2 rounded-xl border bg-background px-3 py-2"
+        className="grid w-full max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl border bg-background px-3 py-2"
       >
-        <div className="min-w-0 flex-1 truncate text-sm">{label}</div>
+        <div className="min-w-0 truncate text-sm">{label}</div>
 
         {/* Drag handle */}
         <button
           type="button"
-          className="shrink-0 cursor-grab select-none touch-none rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60 active:cursor-grabbing"
+          className="inline-flex h-8 w-10 items-center justify-center rounded-lg bg-muted text-sm font-semibold cursor-grab select-none touch-none hover:bg-muted/60 active:cursor-grabbing"
           style={{ touchAction: "none" }}
           {...attributes}
           {...listeners}
           aria-label="Drag to reorder"
           title="Drag to reorder"
         >
-          ⠿
+          ⋮⋮
         </button>
       </div>
     );
@@ -853,14 +853,14 @@ export default function CollectPage() {
                         <select
                           className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
                           value={wsWorkout}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setWsWorkout(v);
-                              setWsExercise("");
-                              setWsWorkout(e.target.value);
-                              clearWorkoutSetForExerciseChange();
-                              setIsReordering(false);
-                            }}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setWsWorkout(v);
+                            setWsExercise("");
+                            setWsWorkout(e.target.value);
+                            clearWorkoutSetForExerciseChange();
+                            setIsReordering(false);
+                          }}
                         >
                           {workoutLib.workouts.map((w) => (
                             <option key={w.id} value={w.id}>
@@ -885,138 +885,138 @@ export default function CollectPage() {
                   ) : null}
 
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      <div className="space-y-1">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Exercise</div>
+                    <div className="space-y-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Exercise</div>
 
-                        {plannedExercises.length ? (
-                          <>
-                            <select
-                              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                              value={wsExercise}
-                              onChange={(e) => {
-                                setWsExercise(e.target.value);
-                                clearWorkoutSetForExerciseChange();
-                                setIsReordering(false);
-                              }}
+                      {plannedExercises.length ? (
+                        <>
+                          <select
+                            className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                            value={wsExercise}
+                            onChange={(e) => {
+                              setWsExercise(e.target.value);
+                              clearWorkoutSetForExerciseChange();
+                              setIsReordering(false);
+                            }}
+                          >
+                            {plannedExercises.map((ex) => (
+                              <option key={ex.id} value={ex.id}>
+                                {exerciseLabel(ex.id)}
+                              </option>
+                            ))}
+                          </select>
+
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                              onClick={() => gotoPlannedExercise(-1)}
+                              disabled={orderedExerciseIds.indexOf(wsExercise.trim()) <= 0}
+                              title="Previous exercise"
                             >
-                              {plannedExercises.map((ex) => (
-                                <option key={ex.id} value={ex.id}>
-                                  {exerciseLabel(ex.id)}
-                                </option>
-                              ))}
-                            </select>
+                              Prev
+                            </button>
 
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                                onClick={() => gotoPlannedExercise(-1)}
-                                disabled={orderedExerciseIds.indexOf(wsExercise.trim()) <= 0}
-                                title="Previous exercise"
-                              >
-                                Prev
-                              </button>
+                            <button
+                              type="button"
+                              className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                              onClick={() => gotoPlannedExercise(1)}
+                              disabled={
+                                orderedExerciseIds.indexOf(wsExercise.trim()) < 0 ||
+                                orderedExerciseIds.indexOf(wsExercise.trim()) >= orderedExerciseIds.length - 1
+                              }
+                              title="Next exercise"
+                            >
+                              Next
+                            </button>
 
-                              <button
-                                type="button"
-                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                                onClick={() => gotoPlannedExercise(1)}
-                                disabled={
-                                  orderedExerciseIds.indexOf(wsExercise.trim()) < 0 ||
-                                  orderedExerciseIds.indexOf(wsExercise.trim()) >= orderedExerciseIds.length - 1
-                                }
-                                title="Next exercise"
-                              >
-                                Next
-                              </button>
+                            <button
+                              type="button"
+                              className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                              onClick={applyLastForCurrentExercise}
+                              disabled={!wsExercise.trim() || !lastByExercise.has(wsExercise.trim())}
+                              title="Overwrite Weight/Reps/RPE from the last recorded set for this exercise"
+                            >
+                              Use last
+                            </button>
 
-                              <button
-                                type="button"
-                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                                onClick={applyLastForCurrentExercise}
-                                disabled={!wsExercise.trim() || !lastByExercise.has(wsExercise.trim())}
-                                title="Overwrite Weight/Reps/RPE from the last recorded set for this exercise"
-                              >
-                                Use last
-                              </button>
+                            <button
+                              type="button"
+                              className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                              onClick={() => setIsReordering((v) => !v)}
+                              disabled={!orderedExerciseIds.length}
+                              title="Reorder exercises"
+                            >
+                              {isReordering ? "Done" : "Edit order"}
+                            </button>
+                          </div>
 
-                              <button
-                                type="button"
-                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                                onClick={() => setIsReordering((v) => !v)}
-                                disabled={!orderedExerciseIds.length}
-                                title="Reorder exercises"
-                              >
-                                {isReordering ? "Done" : "Edit order"}
-                              </button>
-                            </div>
-
-                            {isReordering && orderedExerciseIds.length ? (
-                              <div className="mt-3">
-                                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                  Reorder exercises (drag)
-                                </div>
-
-                                <DndContext
-                                  sensors={dndSensors}
-                                  collisionDetection={closestCenter}
-                                  onDragEnd={(ev: DragEndEvent) => {
-                                    const activeId = String(ev.active?.id || "");
-                                    const overId = String(ev.over?.id || "");
-                                    if (!activeId || !overId || activeId === overId) return;
-
-                                    setExerciseOrder((prev) => {
-                                      const ids = prev.length ? prev.slice() : plannedExerciseIds.slice();
-                                      const oldIndex = ids.indexOf(activeId);
-                                      const newIndex = ids.indexOf(overId);
-                                      if (oldIndex < 0 || newIndex < 0) return ids;
-                                      return arrayMove(ids, oldIndex, newIndex);
-                                    });
-                                  }}
-                                >
-                                  <SortableContext items={orderedExerciseIds} strategy={verticalListSortingStrategy}>
-                                    <div className="mt-2 space-y-2">
-                                      {orderedExerciseIds.map((id) => (
-                                        <SortableExerciseRow key={id} id={id} label={exerciseLabel(id)} />
-                                      ))}
-                                    </div>
-                                  </SortableContext>
-                                </DndContext>
+                          {isReordering && orderedExerciseIds.length ? (
+                            <div className="mt-3">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                Reorder exercises (drag)
                               </div>
-                            ) : null}
-                          </>
-                        ) : (
-                          <>
-                            <input
-                              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                              list="vs_exercise_options"
-                              value={wsExercise}
-                              onChange={(e) => {
-                                setWsExercise(e.target.value);
-                                setIsReordering(false);
-                              }}
-                              placeholder="bench_press"
-                            />
-                            <datalist id="vs_exercise_options">
-                              {exerciseOptions.map((x) => (
-                                <option key={x} value={x} />
-                              ))}
-                            </datalist>
 
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                                onClick={applyLastForCurrentExercise}
-                                disabled={!wsExercise.trim() || !lastByExercise.has(wsExercise.trim())}
-                                title="Overwrite Weight/Reps/RPE from the last recorded set for this exercise"
+                              <DndContext
+                                sensors={dndSensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={(ev: DragEndEvent) => {
+                                  const activeId = String(ev.active?.id || "");
+                                  const overId = String(ev.over?.id || "");
+                                  if (!activeId || !overId || activeId === overId) return;
+
+                                  setExerciseOrder((prev) => {
+                                    const ids = prev.length ? prev.slice() : plannedExerciseIds.slice();
+                                    const oldIndex = ids.indexOf(activeId);
+                                    const newIndex = ids.indexOf(overId);
+                                    if (oldIndex < 0 || newIndex < 0) return ids;
+                                    return arrayMove(ids, oldIndex, newIndex);
+                                  });
+                                }}
                               >
-                                Use last
-                              </button>
+                                <SortableContext items={orderedExerciseIds} strategy={verticalListSortingStrategy}>
+                                  <div className="mt-2 space-y-2">
+                                    {orderedExerciseIds.map((id) => (
+                                      <SortableExerciseRow key={id} id={id} label={exerciseLabel(id)} />
+                                    ))}
+                                  </div>
+                                </SortableContext>
+                              </DndContext>
                             </div>
-                          </>
-                        )}
-                      </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <>
+                          <input
+                            className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                            list="vs_exercise_options"
+                            value={wsExercise}
+                            onChange={(e) => {
+                              setWsExercise(e.target.value);
+                              setIsReordering(false);
+                            }}
+                            placeholder="bench_press"
+                          />
+                          <datalist id="vs_exercise_options">
+                            {exerciseOptions.map((x) => (
+                              <option key={x} value={x} />
+                            ))}
+                          </datalist>
+
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                              onClick={applyLastForCurrentExercise}
+                              disabled={!wsExercise.trim() || !lastByExercise.has(wsExercise.trim())}
+                              title="Overwrite Weight/Reps/RPE from the last recorded set for this exercise"
+                            >
+                              Use last
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                     <div className="space-y-1">
                       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Set</div>
                       <input
