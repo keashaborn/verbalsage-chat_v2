@@ -703,13 +703,14 @@ export default function CollectPage() {
         {/* Drag handle */}
         <button
           type="button"
-          className="ml-3 cursor-grab select-none rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60 active:cursor-grabbing"
+          className="ml-3 cursor-grab select-none touch-none rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60 active:cursor-grabbing"
+          style={{ touchAction: "none" }}
           {...attributes}
           {...listeners}
           aria-label="Drag to reorder"
           title="Drag to reorder"
         >
-          ⋮⋮
+          ⠿
         </button>
       </div>
     );
