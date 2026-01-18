@@ -529,6 +529,12 @@ export default function FormsPage() {
   const [phaseNotes, setPhaseNotes] = React.useState<string>("");
   const [phaseSubmitting, setPhaseSubmitting] = React.useState(false);
   const [phaseStatus, setPhaseStatus] = React.useState<string>("");
+  // Test cleanup (History tab) — void entries using ABA Entry Correction
+  const [cleanupN, setCleanupN] = React.useState<string>("50");
+  const [cleanupNotes, setCleanupNotes] = React.useState<string>("test_cleanup");
+  const [cleanupConfirm, setCleanupConfirm] = React.useState<string>("");
+  const [cleanupSubmitting, setCleanupSubmitting] = React.useState(false);
+  const [cleanupStatus, setCleanupStatus] = React.useState<string>("");
 
   // Quick entry state (History tab)
   const [quickDate, setQuickDate] = React.useState<string>(() => new Date().toISOString().slice(0, 10));
@@ -772,6 +778,84 @@ export default function FormsPage() {
     // Draw phase-change lines starting at the 2nd phase start (baseline start is not a “change”)
     return phaseStarts.slice(1).map((p) => ({ x: p.x, label: p.phase }));
   }, [phaseStarts]);
+
+  const cleanupCandidates = React.useMemo(() => {
+    const tv = extractUuid(historyTemplateVersionId);
+    if (!tv) return [] as { id: string; occurred_at: string; date: string }[];
+
+    const nRaw = Number(cleanupN);
+    const n = Number.isFinite(nRaw) ? Math.max(0, Math.trunc(nRaw)) : 0;
+    if (!n) return [] as { id: string; occurred_at: string; date: string }[];
+
+    const rs = Array.isArray(historyRows) ? historyRows : [];
+
+    const tmp = rs
+      .map((r: any) => ({
+        id: String(r?.id || ""),
+        occurred_at: String(r?.occurred_at || ""),
+        date: String(r?.data?.date || "").slice(0, 10),
+      }))
+      .filter((x) => x.id)
+      // Avoid duplicate corrections when re-running cleanup
+      .filter((x) => !correctionByOldEntryId.has(x.id));
+
+    // newest-first (void the newest test runs by default)
+    tmp.sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
+
+    return tmp.slice(0, n);
+  }, [historyTemplateVersionId, historyRows, correctionByOldEntryId, cleanupN]);
+
+  async function bulkVoidCandidates() {
+    setCleanupSubmitting(true);
+    setCleanupStatus("");
+    try {
+      const tv = extractUuid(historyTemplateVersionId);
+      if (!tv) throw new Error("select a target template_version_id in History filter");
+      if (!subjectId.trim()) throw new Error("subject_id required");
+      if (cleanupConfirm.trim() !== "VOID") throw new Error('type "VOID" to confirm');
+      if (!cleanupCandidates.length) throw new Error("no candidates (load history / increase limit)");
+
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data?.user) throw new Error("not signed in");
+      const owner_user_id = data.user.id;
+
+      let ok = 0;
+      for (const c of cleanupCandidates) {
+        const payloadData: Record<string, any> = {
+          target_template_version_id: tv,
+          old_entry_id: c.id,
+          new_entry_id: "", // empty => void
+          reason: "test_cleanup",
+        };
+        if (cleanupNotes.trim()) payloadData.notes = cleanupNotes.trim();
+
+        const r = await fetch("/api/forms/entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            owner_user_id,
+            subject_id: subjectId.trim(),
+            template_version_id: CORRECTION_TEMPLATE_VERSION_ID,
+            data: payloadData,
+          }),
+        });
+
+        const t = await r.text().catch(() => "");
+        if (!r.ok) throw new Error(`void failed for entry_id=${c.id}: HTTP ${r.status} ${t}`);
+        ok += 1;
+      }
+
+      setCleanupStatus(`Voided ${ok} entries (wrote correction rows).`);
+      setCleanupConfirm("");
+
+      // Refresh correctionRows so the graph & effectiveHistoryRows update immediately
+      await loadCorrections(owner_user_id);
+    } catch (e: any) {
+      setCleanupStatus(`Error: ${e?.message || String(e)}`);
+    } finally {
+      setCleanupSubmitting(false);
+    }
+  }
 
   async function loadHistory() {
     setHistoryLoading(true);
@@ -1475,6 +1559,75 @@ export default function FormsPage() {
                 {phaseStatus ? <div className="text-xs text-muted-foreground">{phaseStatus}</div> : null}
               </div>
             </div>
+
+                <div className="space-y-3 rounded-xl border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-semibold">Test cleanup (void entries)</div>
+                    <div className="text-xs text-muted-foreground">ABA Entry Correction</div>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground">
+                    Writes correction rows that void entries for the selected History template version. This does not physically delete data.
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Void last N loaded entries</div>
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        type="number"
+                        min={1}
+                        value={cleanupN}
+                        onChange={(e) => setCleanupN(e.target.value)}
+                      />
+                      <div className="text-xs text-muted-foreground">
+                        Candidates={cleanupCandidates.length}. Increase “History limit” then “Load history” to reach older entries.
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Confirm</div>
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm font-mono"
+                        value={cleanupConfirm}
+                        onChange={(e) => setCleanupConfirm(e.target.value)}
+                        placeholder='type "VOID"'
+                      />
+                      <div className="text-xs text-muted-foreground">Required: Subject ID + History template_version_id</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold">Notes (optional)</div>
+                    <input
+                      className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                      value={cleanupNotes}
+                      onChange={(e) => setCleanupNotes(e.target.value)}
+                      placeholder="why are you voiding these?"
+                    />
+                  </div>
+
+                  <div className="pt-1 flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+                      onClick={bulkVoidCandidates}
+                      disabled={
+                        !ready ||
+                        cleanupSubmitting ||
+                        cleanupConfirm.trim() !== "VOID" ||
+                        !subjectId.trim() ||
+                        !extractUuid(historyTemplateVersionId) ||
+                        cleanupCandidates.length === 0
+                      }
+                      title="Void candidates by writing correction entries"
+                    >
+                      {cleanupSubmitting ? "Voiding…" : "Void candidates"}
+                    </button>
+
+                    {cleanupStatus ? <div className="text-xs text-muted-foreground">{cleanupStatus}</div> : null}
+                  </div>
+                </div>
 
             {(() => {
               const tv = historyTemplateVersionId.trim();
