@@ -79,6 +79,9 @@ export default function CollectPage() {
   const [date, setDate] = React.useState<string>(todayISO());
   const [context, setContext] = React.useState<string>("");
   const [notes, setNotes] = React.useState<string>("");
+  // Phase change (overlay)
+  const [phaseCode, setPhaseCode] = React.useState<string>("A");
+  const [phaseNote, setPhaseNote] = React.useState<string>("");
 
   // Recent entries for selected program (for prefill / next set index)
   const [programRows, setProgramRows] = React.useState<any[]>([]);
@@ -283,10 +286,11 @@ export default function CollectPage() {
     };
   }, []);
 
-  async function submitEntry(data: Record<string, any>) {
+  async function submitEntryToVid(templateVid: string, data: Record<string, any>) {
     if (!ownerUserId.trim()) throw new Error("owner not ready");
     if (!subjectId.trim()) throw new Error("client required");
-    const tv = extractUuid(programVid);
+
+    const tv = extractUuid(templateVid);
     if (!tv) throw new Error("program required");
 
     const payload = {
@@ -305,8 +309,27 @@ export default function CollectPage() {
     const t = await r.text().catch(() => "");
     if (!r.ok) throw new Error(`submit failed: HTTP ${r.status} ${t}`);
 
-    const resp = JSON.parse(t);
-    return resp;
+    return JSON.parse(t);
+  }
+
+  async function submitEntry(data: Record<string, any>) {
+    return submitEntryToVid(programVid, data);
+  }
+
+  async function recordPhaseMarker(phase: string, notes?: string) {
+    // Phase markers are stored as entries in the global Phase template, but must target a specific program/template_version_id.
+    const targetTv = extractUuid(programVid);
+    if (!targetTv) throw new Error("program required");
+    if (!date.trim()) throw new Error("date required");
+
+    const data: Record<string, any> = {
+      date: date.trim(),
+      phase: String(phase || "").trim(),
+      target_template_version_id: targetTv,
+    };
+    if (notes && notes.trim()) data.notes = notes.trim();
+
+    return submitEntryToVid(PHASE_TEMPLATE_VERSION_ID, data);
   }
 
 
@@ -361,6 +384,46 @@ export default function CollectPage() {
       try {
         await loadProgramRows(tv);
       } catch { }
+    } catch (e: any) {
+      setStatus(`error: ${e?.message || String(e)}`);
+    }
+  }
+
+  async function recordPhaseChange() {
+    setStatus("");
+    try {
+      if (!ownerUserId.trim()) throw new Error("owner not ready");
+      if (!subjectId.trim()) throw new Error("client required");
+      const targetTv = extractUuid(programVid);
+      if (!targetTv) throw new Error("program required");
+      if (!date.trim()) throw new Error("date required");
+      const ph = (phaseCode || "").trim();
+      if (!ph) throw new Error("phase required");
+
+      const payload = {
+        owner_user_id: ownerUserId.trim(),
+        subject_id: subjectId.trim(),
+        template_version_id: PHASE_TEMPLATE_VERSION_ID,
+        data: {
+          date: date.trim(),
+          phase: ph,
+          target_template_version_id: targetTv,
+          notes: phaseNote.trim() || undefined,
+        },
+      };
+
+      const r = await fetch("/api/forms/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const t = await r.text().catch(() => "");
+      if (!r.ok) throw new Error(`phase failed: HTTP ${r.status} ${t}`);
+
+      const resp = JSON.parse(t);
+      setStatus(`phase saved entry_id=${resp?.entry_id || "ok"}`);
+      setPhaseNote("");
     } catch (e: any) {
       setStatus(`error: ${e?.message || String(e)}`);
     }
@@ -766,6 +829,24 @@ export default function CollectPage() {
             </div>
           </div>
 
+          <button
+            type="button"
+            className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+            onClick={async () => {
+              try {
+                setStatus("phase: recording…");
+                const resp = await recordPhaseMarker("A", "test");
+                setStatus(`phase: recorded entry_id=${resp?.entry_id || "ok"}`);
+              } catch (e: any) {
+                setStatus(`phase error: ${e?.message || String(e)}`);
+              }
+            }}
+            disabled={!ownerUserId.trim() || !extractUuid(programVid) || !date.trim()}
+            title="Dev: record a phase marker (A) for the current program/date"
+          >
+            Phase marker (test)
+          </button>
+
           <div className="space-y-1">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program</div>
             <select
@@ -842,6 +923,45 @@ export default function CollectPage() {
                   ) : null}
                 </>
               ) : null}
+
+              <details className="mt-3 rounded-xl border p-3">
+                <summary className="cursor-pointer text-sm font-semibold">Phase change</summary>
+
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-muted-foreground">Phase</span>
+                    <input
+                      className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                      value={phaseCode}
+                      onChange={(e) => setPhaseCode(e.target.value)}
+                      placeholder="A"
+                    />
+                  </label>
+
+                  <label className="grid gap-1 text-sm md:col-span-2">
+                    <span className="text-muted-foreground">Notes</span>
+                    <input
+                      className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                      value={phaseNote}
+                      onChange={(e) => setPhaseNote(e.target.value)}
+                      placeholder="optional"
+                    />
+                  </label>
+                </div>
+
+                <button
+                  className="mt-3 w-full rounded-xl bg-muted px-3 py-3 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+                  onClick={recordPhaseChange}
+                  disabled={!ownerUserId.trim() || !subjectId.trim() || !extractUuid(programVid) || !date.trim() || !phaseCode.trim()}
+                  title="Write ABA Phase Change (append-only)"
+                >
+                  Save phase marker
+                </button>
+
+                <div className="mt-2 text-xs text-muted-foreground">
+                  Writes to ABA Phase Change for this program version.
+                </div>
+              </details>
 
               {isWorkoutSet ? (
                 <div className="mt-4">
