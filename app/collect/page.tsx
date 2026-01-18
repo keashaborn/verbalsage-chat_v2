@@ -4,8 +4,9 @@ import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
 import {
   DndContext,
-  PointerSensor,
   closestCenter,
+  PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -17,6 +18,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+
 
 type TemplateListItem = {
   template_id: string;
@@ -538,7 +540,8 @@ export default function CollectPage() {
 
   // DnD sensors must be created at top-level (hooks cannot run inside JSX)
   const dndSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
   );
 
   // When workout changes, load saved order; otherwise default to plan order
@@ -680,6 +683,7 @@ export default function CollectPage() {
       transform,
       transition,
       isDragging,
+
     } = useSortable({ id });
 
     const style: React.CSSProperties = {
