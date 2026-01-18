@@ -245,6 +245,7 @@ export default function SSLGPanel({
   const [workoutFilter, setWorkoutFilter] = React.useState<string>("");
   const [exerciseFilter, setExerciseFilter] = React.useState<string>("");
   const [aggMode, setAggMode] = React.useState<"raw" | "day_sum" | "day_max">("raw");
+  const [includeSeed, setIncludeSeed] = React.useState<boolean>(false);
 
   const workoutOptions = React.useMemo(() => {
     const s = new Set<string>();
@@ -330,6 +331,17 @@ export default function SSLGPanel({
     const mType = String(md?.measurement?.type || md?.program_spec_v0?.measurement?.type || "");
     let rs = Array.isArray(effectiveRows) ? effectiveRows : [];
 
+    const filteredRs = includeSeed
+      ? rs
+      : rs.filter((r) => {
+        const d = (r as any)?.data || {};
+        const day = String(d.date || "").slice(0, 10);
+        const notes = String(d.notes || "").toLowerCase();
+        if (day === "2000-01-01") return false;
+        if (notes === "seed") return false;
+        return true;
+      });
+
     if (workoutFilter.trim()) {
       const wf = workoutFilter.trim();
       rs = rs.filter((r) => String((r as any)?.data?.workout || "").trim() === wf);
@@ -341,7 +353,7 @@ export default function SSLGPanel({
     }
 
     const pts: XYPoint[] = [];
-    for (const r of rs) {
+    for (const r of filteredRs) {
       const d = r?.data || {};
       const x = String(d.date || r?.occurred_at || "");
       if (!x) continue;
@@ -375,7 +387,7 @@ export default function SSLGPanel({
 
     pts.sort((a, b) => String(a.x).localeCompare(String(b.x)));
     return pts;
-  }, [effectiveRows, targetVersion, yMetric, workoutFilter, exerciseFilter, aggMode]);
+  }, [effectiveRows, targetVersion, yMetric, workoutFilter, exerciseFilter, aggMode, includeSeed]);
 
   // labels from graph_spec_v0 if present
   const labelPack = React.useMemo(() => {
@@ -669,6 +681,17 @@ export default function SSLGPanel({
                 <option value="rpe">RPE</option>
               </select>
             </label>
+
+            <label className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm">
+              <input
+                className="h-4 w-4"
+                type="checkbox"
+                checked={includeSeed}
+                onChange={(e) => setIncludeSeed(e.target.checked)}
+              />
+              <span className="text-muted-foreground">Include seed</span>
+            </label>
+
           </div>
         ) : null}
 
