@@ -239,44 +239,87 @@ export default function SSLGPanel({
     return rs.filter((r) => !voidedIds.has(String(r?.id || "")));
   }, [rows, voidedIds]);
 
+  // ----------------------------
+  // Filters (workout / exercise) for dense programs like Workout Set
+  // ----------------------------
+  const [workoutFilter, setWorkoutFilter] = React.useState<string>("");
+  const [exerciseFilter, setExerciseFilter] = React.useState<string>("");
+
+  const workoutOptions = React.useMemo(() => {
+    const s = new Set<string>();
+    for (const r of Array.isArray(effectiveRows) ? effectiveRows : []) {
+      const w = String((r as any)?.data?.workout || "").trim();
+      if (w) s.add(w);
+    }
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
+  }, [effectiveRows]);
+
+  const exerciseOptions = React.useMemo(() => {
+    const s = new Set<string>();
+    for (const r of Array.isArray(effectiveRows) ? effectiveRows : []) {
+      const d = (r as any)?.data || {};
+      const w = String(d.workout || "").trim();
+      if (workoutFilter && w !== workoutFilter) continue;
+      const ex = String(d.exercise || "").trim();
+      if (ex) s.add(ex);
+    }
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
+  }, [effectiveRows, workoutFilter]);
+
+  // Keep exerciseFilter valid when workoutFilter changes
+  React.useEffect(() => {
+    if (!exerciseFilter.trim()) return;
+    if (exerciseOptions.includes(exerciseFilter.trim())) return;
+    setExerciseFilter("");
+  }, [exerciseFilter, exerciseOptions]);
+
   // phases for this target version
-  const phases: PhaseStart[] = React.useMemo(() => {
+  const phases = React.useMemo((): PhaseStart[] => {
     const tv = extractUuid(targetVid);
     if (!tv) return [];
-    const tmp: { x: string; phase: string; label?: string }[] = [];
+
+    const out: { date: string; phase: string; label: string; occurred_at: string }[] = [];
 
     for (const r of Array.isArray(phaseRows) ? phaseRows : []) {
-      const d = r?.data || {};
-      const target =
-        extractUuid(String(d.target_template_version_id || "")) ||
-        String(d.target_template_version_id || "").trim();
-      if (target !== tv) continue;
+      const d = (r as any)?.data || {};
+      const target = String(d.target_template_version_id || "").trim();
+      if (target !== tv) continue; // CRITICAL: only phases for the selected program version
 
-      const x = String(d.date || "").trim();
+      const date = String(d.date || "").trim();
       const phase = String(d.phase || "").trim();
-      const label = String(d.notes || "").trim();
-      if (!x || !phase) continue;
-      tmp.push({ x, phase, label: label || undefined });
+      if (!date || !phase) continue;
+
+      const label = String(d.notes || "").trim(); // use notes as display label
+      out.push({ date, phase, label, occurred_at: String((r as any)?.occurred_at || "") });
     }
 
-    tmp.sort((a, b) => a.x.localeCompare(b.x));
-    // dedup by date+phase (keep first)
-    const seen = new Set<string>();
-    const out: PhaseStart[] = [];
-    for (const it of tmp) {
-      const k = `${it.x}__${it.phase}`;
-      if (seen.has(k)) continue;
-      seen.add(k);
-      out.push(it);
-    }
-    return out;
+    // Deterministic order: date asc then occurred_at asc
+    out.sort((a, b) => a.date.localeCompare(b.date) || a.occurred_at.localeCompare(b.occurred_at));
+
+    // Dedup: same (date, phase) => keep the latest occurred_at
+    const byKey = new Map<string, typeof out[number]>();
+    for (const it of out) byKey.set(`${it.date}__${it.phase}`, it);
+
+    return Array.from(byKey.values())
+      .sort((a, b) => a.date.localeCompare(b.date) || a.occurred_at.localeCompare(b.occurred_at))
+      .map((it) => ({ x: it.date, phase: it.phase, label: it.label || undefined }));
   }, [phaseRows, targetVid]);
 
   // series: infer measure key from metadata (count vs duration_seconds)
   const series: XYPoint[] = React.useMemo(() => {
     const md = (targetVersion?.metadata || {}) as any;
     const mType = String(md?.measurement?.type || md?.program_spec_v0?.measurement?.type || "");
-    const rs = Array.isArray(effectiveRows) ? effectiveRows : [];
+    let rs = Array.isArray(effectiveRows) ? effectiveRows : [];
+
+    if (workoutFilter.trim()) {
+      const wf = workoutFilter.trim();
+      rs = rs.filter((r) => String((r as any)?.data?.workout || "").trim() === wf);
+    }
+
+    if (exerciseFilter.trim()) {
+      const ef = exerciseFilter.trim();
+      rs = rs.filter((r) => String((r as any)?.data?.exercise || "").trim() === ef);
+    }
 
     const pts: XYPoint[] = [];
     for (const r of rs) {
@@ -294,7 +337,7 @@ export default function SSLGPanel({
 
     pts.sort((a, b) => String(a.x).localeCompare(String(b.x)));
     return pts;
-  }, [effectiveRows, targetVersion]);
+  }, [effectiveRows, targetVersion, workoutFilter, exerciseFilter]);
 
   // labels from graph_spec_v0 if present
   const labelPack = React.useMemo(() => {
@@ -330,6 +373,67 @@ export default function SSLGPanel({
   const yTickStepNumRaw = coerceNumber(yTickStepOverride);
   const yTickStepNum = yTickStepNumRaw !== null && yTickStepNumRaw > 0 ? yTickStepNumRaw : null;
 
+  // ----------------------------
+  // Phase marker quick-add (writes to ABA Phase Change template)
+  // ----------------------------
+  const [phaseDate, setPhaseDate] = React.useState<string>("");
+  const [phaseCode, setPhaseCode] = React.useState<string>("A");
+  const [phaseNotes, setPhaseNotes] = React.useState<string>("");
+  const [phasePosting, setPhasePosting] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    // default date to today when program changes
+    if (!phaseDate.trim()) {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        setPhaseDate(today);
+      } catch { }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetVid]);
+
+  async function submitPhaseMarker() {
+    setStatus("");
+    try {
+      const tv = extractUuid(targetVid);
+      if (!tv) throw new Error("select a program first");
+      if (!ownerUserId.trim()) throw new Error("owner_user_id not ready");
+
+      const d = (phaseDate || "").trim();
+      const p = (phaseCode || "").trim().toUpperCase();
+      if (!d) throw new Error("date required");
+      if (!p) throw new Error("phase required");
+
+      setPhasePosting(true);
+
+      const payload = {
+        owner_user_id: ownerUserId.trim(),
+        subject_id: "self",
+        template_version_id: PHASE_TEMPLATE_VERSION_ID,
+        data: {
+          date: d,
+          phase: p,
+          target_template_version_id: tv,
+          notes: (phaseNotes || "").trim() || undefined,
+        },
+      };
+
+      const r = await fetch("/api/forms/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const t = await r.text().catch(() => "");
+      if (!r.ok) throw new Error(`phase submit failed: HTTP ${r.status} ${t}`);
+
+      setStatus("phase marker saved");
+      // refresh graph rows + phase rows
+      await loadAll();
+    } finally {
+      setPhasePosting(false);
+    }
+  }
 
   // Initialize controls from graph_spec_v0 whenever the loaded program version changes.
   React.useEffect(() => {
@@ -414,6 +518,96 @@ export default function SSLGPanel({
           </button>
           <div className="text-sm text-muted-foreground">{status}</div>
         </div>
+
+        {/* Phase marker (writes to ABA Phase Change) */}
+        <div className="mt-4 rounded-xl border p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-semibold">Phase marker</div>
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">Date</span>
+              <input
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                type="date"
+                value={phaseDate}
+                onChange={(e) => setPhaseDate(e.target.value)}
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">Phase</span>
+              <input
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                value={phaseCode}
+                onChange={(e) => setPhaseCode(e.target.value)}
+                placeholder="A"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">Notes</span>
+              <input
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                value={phaseNotes}
+                onChange={(e) => setPhaseNotes(e.target.value)}
+                placeholder="optional"
+              />
+            </label>
+          </div>
+
+          <button
+            type="button"
+            className="mt-3 rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+            onClick={submitPhaseMarker}
+            disabled={!extractUuid(targetVid) || !ownerUserId.trim() || phasePosting}
+            title="Append phase marker for the selected program"
+          >
+            {phasePosting ? "Saving…" : "Save phase marker"}
+          </button>
+
+          <div className="mt-2 text-xs text-muted-foreground">
+            Writes to ABA Phase Change with target_template_version_id = selected program.
+          </div>
+        </div>
+
+        {workoutOptions.length || exerciseOptions.length ? (
+          <div className="mb-3 grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">Workout filter</span>
+              <select
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                value={workoutFilter}
+                onChange={(e) => setWorkoutFilter(e.target.value)}
+              >
+                <option value="">(all)</option>
+                {workoutOptions.map((w) => (
+                  <option key={w} value={w}>
+                    {w}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">Exercise filter</span>
+              <select
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                value={exerciseFilter}
+                onChange={(e) => setExerciseFilter(e.target.value)}
+                disabled={!exerciseOptions.length}
+              >
+                <option value="">(all)</option>
+                {exerciseOptions.map((ex) => (
+                  <option key={ex} value={ex}>
+                    {ex}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : null}
 
         <div className="mt-6">
           <MiniLineChart
