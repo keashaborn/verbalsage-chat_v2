@@ -723,7 +723,7 @@ export default function CollectPage() {
     if (!ids.length) return;
 
     const cur = wsExercise.trim();
-    const i = ids.indexOf(cur);
+    const i = ids.indexOf(cur);<div className="mx-auto w-full ma
     if (i < 0) return;
 
     const j = i + delta;
@@ -733,51 +733,36 @@ export default function CollectPage() {
     clearWorkoutSetForExerciseChange();
   }
 
-  function SortableExerciseRow({
-    id,
-    label,
-  }: {
-    id: string;
-    label: string;
-  }) {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
+function SortableExerciseRow({ id, label }: { id: string; label: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
-    } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
 
-    const style: React.CSSProperties = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.6 : 1,
-    };
-
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        className="grid w-full max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl border bg-background px-3 py-2"
+return (
+  <div
+    ref={setNodeRef}
+    style={style}
+    className="grid w-full max-w-full grid-cols-[minmax(0, 1fr)_auto] items - center gap - 2 rounded - xl border bg - background px - 3 py - 2"
       >
-        <div className="min-w-0 truncate text-sm">{label}</div>
+    <div className="min-w-0 truncate text-sm">{label}</div>
 
-        {/* Drag handle */}
-        <button
-          type="button"
-          className="inline-flex h-8 w-10 items-center justify-center rounded-lg bg-muted text-sm font-semibold cursor-grab select-none touch-none hover:bg-muted/60 active:cursor-grabbing"
-          style={{ touchAction: "none" }}
-          {...attributes}
-          {...listeners}
-          aria-label="Drag to reorder"
-          title="Drag to reorder"
-        >
-          ⋮⋮
-        </button>
-      </div>
-    );
+      <button
+        type="button"
+        className="inline-flex h-8 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold cursor-grab select-none touch-none hover:bg-muted/60 active:cursor-grabbing"
+        style={{ touchAction: "none" }}
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to reorder"
+        title="Drag to reorder"
+      >
+        ⋮⋮
+      </button>
+    </div >
+  );
   }
 
   React.useEffect(() => {
@@ -811,44 +796,45 @@ export default function CollectPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-3xl px-4 py-6">
-        <div className="flex items-start gap-3">
-          <BackButton fallbackHref="/lifeswitch" />
-          <div>
-            <div className="text-xl font-semibold">Collect</div>
-            <div className="mt-1 text-sm text-muted-foreground">
-              Ultra-minimal data capture. Owner is derived from your login.
-            </div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <BackButton fallbackHref="/lifeswitch" />
+            <div>
+              <div className="text-xl font-semibold">Collect</div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                Ultra-minimal data capture. Owner is derived from your login.
+              </div>
 
-            <div className="flex gap-2">
-              <button
-                className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-                onClick={loadPrograms}
-                disabled={!ownerUserId.trim() || loadingPrograms}
-                title="Reload programs"
-              >
-                {loadingPrograms ? "Loading…" : "Programs"}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+                  onClick={loadPrograms}
+                  disabled={!ownerUserId.trim() || loadingPrograms}
+                  title="Reload programs"
+                >
+                  {loadingPrograms ? "Loading…" : "Programs"}
+                </button>
+
+                <button
+                  type="button"
+                  className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+                  onClick={async () => {
+                    try {
+                      setStatus("phase: recording…");
+                      const resp = await recordPhaseMarker("A", "test");
+                      setStatus(`phase: recorded entry_id=${resp?.entry_id || "ok"}`);
+                    } catch (e: any) {
+                      setStatus(`phase error: ${e?.message || String(e)}`);
+                    }
+                  }}
+                  disabled={!ownerUserId.trim() || !extractUuid(programVid) || !date.trim()}
+                  title="Dev: record a phase marker (A) for the current program/date"
+                >
+                  Phase marker (test)
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-
-          <button
-            type="button"
-            className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-            onClick={async () => {
-              try {
-                setStatus("phase: recording…");
-                const resp = await recordPhaseMarker("A", "test");
-                setStatus(`phase: recorded entry_id=${resp?.entry_id || "ok"}`);
-              } catch (e: any) {
-                setStatus(`phase error: ${e?.message || String(e)}`);
-              }
-            }}
-            disabled={!ownerUserId.trim() || !extractUuid(programVid) || !date.trim()}
-            title="Dev: record a phase marker (A) for the current program/date"
-          >
-            Phase marker (test)
-          </button>
 
           <div className="space-y-1">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program</div>
@@ -875,7 +861,6 @@ export default function CollectPage() {
             </select>
           </div>
         </div>
-
         <div className="mt-4 rounded-xl border p-4">
           {!programVersion ? (
             <div className="text-sm text-muted-foreground">Select a program to begin.</div>
@@ -1099,9 +1084,9 @@ export default function CollectPage() {
                               >
                                 <SortableContext items={orderedExerciseIds} strategy={verticalListSortingStrategy}>
                                   <div className="mt-2 space-y-2">
-                                    {orderedExerciseIds.map((id) => (
-                                      <SortableExerciseRow key={id} id={id} label={exerciseLabel(id)} />
-                                    ))}
+                                      {orderedExerciseIds.map((id) => (
+                                        <SortableExerciseRow key={id} id={id} label={exerciseLabel(id)} />
+                                      ))}
                                   </div>
                                 </SortableContext>
                               </DndContext>
