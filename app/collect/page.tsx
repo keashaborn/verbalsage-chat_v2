@@ -746,11 +746,11 @@ export default function CollectPage() {
       <div
         ref={setNodeRef}
         style={style}
-        className="grid w-full max-w-full grid-cols-[minmax(0, 1fr)_auto] items - center gap - 2 rounded - xl border bg - background px - 3 py - 2"
+        className="grid w-full max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl border bg-background px-3 py-2"
       >
       <div className="min-w-0 truncate text-sm">{label}</div>
 
-    {/* Drag handle */ }
+        {/* Drag handle */}
     <button
       type="button"
       className="inline-flex h-8 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold cursor-grab select-none touch-none hover:bg-muted/60 active:cursor-grabbing"
@@ -762,7 +762,7 @@ export default function CollectPage() {
     >
       ⋮⋮
     </button>
-      </div >
+      </div>
     );
   }
 
