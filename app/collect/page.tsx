@@ -759,17 +759,17 @@ export default function CollectPage() {
         <div className="min-w-0 flex-1 truncate text-sm">{label}</div>
 
         {/* Drag handle */}
-    <button
-      type="button"
-      className="inline-flex h-8 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold cursor-grab select-none touch-none hover:bg-muted/60 active:cursor-grabbing"
-      style={{ touchAction: "none" }}
-      {...attributes}
-      {...listeners}
-      aria-label="Drag to reorder"
-      title="Drag to reorder"
-    >
-      ⋮⋮
-    </button>
+        <button
+          type="button"
+          className="inline-flex h-8 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold cursor-grab select-none touch-none hover:bg-muted/60 active:cursor-grabbing"
+          style={{ touchAction: "none" }}
+          {...attributes}
+          {...listeners}
+          aria-label="Drag to reorder"
+          title="Drag to reorder"
+        >
+          ⋮⋮
+        </button>
       </div>
     );
   }
@@ -802,6 +802,31 @@ export default function CollectPage() {
   const wsRepsNum = wsRepsNumRaw === null ? null : Math.max(0, Math.trunc(wsRepsNumRaw));
   const wsVolume = (wsWeightNum ?? 0) * (wsRepsNum ?? 0);
 
+  const recentSets = React.useMemo(() => {
+    if (!isWorkoutSet) return [];
+    const day = String(date || "").slice(0, 10);
+    if (!day) return [];
+
+    const rows = Array.isArray(programRows) ? programRows : [];
+    const out: Array<{ occurred_at: string; data: any }> = [];
+
+    for (const r of rows) {
+      const d = (r as any)?.data || {};
+      if (String(d.date || "").slice(0, 10) !== day) continue;
+
+      // If schema supports workout, only show sets from the selected workout plan
+      if (props.workout && wsWorkout.trim()) {
+        if (String(d.workout || "").trim() !== wsWorkout.trim()) continue;
+      }
+
+      out.push({ occurred_at: String((r as any)?.occurred_at || ""), data: d });
+    }
+
+    // newest first
+    out.sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
+    return out.slice(0, 50);
+  }, [isWorkoutSet, programRows, date, props.workout, wsWorkout]);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-3xl px-4 py-6">
@@ -811,53 +836,53 @@ export default function CollectPage() {
             <div className="text-xl font-semibold">Capture</div>
           </div>
 
-          <div className="flex items-start gap-2">
-            <div className="space-y-1">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program</div>
-              <select
-                className="w-[220px] max-w-[60vw] rounded-xl border bg-background px-3 py-2 text-sm"
-                value={programVid}
-                onChange={(e) => setProgramVid(e.target.value)}
-              >
-                <option value="">(choose)</option>
-                {templates
-                  .filter((t) => {
-                    const vid = String(t.latest_version_id || "").trim();
-                    if (!vid) return false;
-                    if (vid === PHASE_TEMPLATE_VERSION_ID) return false;
-                    if (vid === CORRECTION_TEMPLATE_VERSION_ID) return false;
-                    return true;
-                  })
-                  .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
-                  .map((t) => (
-                    <option key={t.template_id} value={String(t.latest_version_id)}>
-                      {t.name} (v{t.latest_version ?? "?"})
-                    </option>
-                  ))}
-              </select>
-            </div>
+          {/* Actions (top-right) */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+              onClick={loadPrograms}
+              disabled={!ownerUserId.trim() || loadingPrograms}
+              title="Refresh programs"
+            >
+              Refresh
+            </button>
 
-            <div className="mt-[22px] flex items-center gap-2">
-              <button
-                type="button"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-                onClick={loadPrograms}
-                disabled={!ownerUserId.trim() || loadingPrograms}
-                title="Reload programs"
-              >
-                R
-              </button>
-
-              <button
-                type="button"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-lg font-semibold hover:bg-muted/60"
-                onClick={goBack}
-                title="Back"
-              >
-                ×
-              </button>
-            </div>
+            <button
+              type="button"
+              className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
+              onClick={goBack}
+              title="Back"
+            >
+              Back
+            </button>
           </div>
+        </div>
+
+        {/* Program picker (below header) */}
+        <div className="mt-3 space-y-1">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program</div>
+          <select
+            className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+            value={programVid}
+            onChange={(e) => setProgramVid(e.target.value)}
+          >
+            <option value="">(choose)</option>
+            {templates
+              .filter((t) => {
+                const vid = String(t.latest_version_id || "").trim();
+                if (!vid) return false;
+                if (vid === PHASE_TEMPLATE_VERSION_ID) return false;
+                if (vid === CORRECTION_TEMPLATE_VERSION_ID) return false;
+                return true;
+              })
+              .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
+              .map((t) => (
+                <option key={t.template_id} value={String(t.latest_version_id)}>
+                  {(String(t.name || "").includes("Workout Set") ? "My workout" : t.name)} (v{t.latest_version ?? "?"})
+                </option>
+              ))}
+          </select>
         </div>
         <div className="mt-4 rounded-xl border p-4">
           {!programVersion ? (
@@ -1162,16 +1187,13 @@ export default function CollectPage() {
                   </div>
 
                   {props.rpe ? (
-                    <div className="mt-3 space-y-1">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">RPE</div>
+                    <div className="mt-3 flex items-center gap-2 text-sm">
                       <input
-                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                        type="number"
-                        inputMode="decimal"
-                        value={wsRpe}
-                        onChange={(e) => setWsRpe(e.target.value)}
-                        placeholder="optional"
+                        type="checkbox"
+                        checked={wsRpe.trim() === "10"}
+                        onChange={(e) => setWsRpe(e.target.checked ? "10" : "")}
                       />
+                      <span className="text-muted-foreground">Failure (RPE 10)</span>
                     </div>
                   ) : null}
 
@@ -1195,6 +1217,40 @@ export default function CollectPage() {
                   >
                     Submit set
                   </button>
+                    {recentSets.length ? (
+                      <div className="mt-3 rounded-xl border bg-background p-3">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Today’s sets
+                        </div>
+
+                        <div className="mt-2 space-y-1">
+                          {recentSets.map((r, idx) => {
+                            const d = r.data || {};
+                            const ex = String(d.exercise || "").trim();
+                            const wt = coerceNumber(d.weight);
+                            const reps = coerceNumber(d.reps);
+                            const si = coerceNumber(d.set_index);
+                            const note = String(d.notes || "").trim();
+                            const rpe = coerceNumber(d.rpe);
+
+                            const left = `${si ? `Set ${Math.trunc(si)}` : `Set`} · ${exerciseLabel(ex) || ex || "(exercise)"}`;
+                            const mid = `${wt !== null ? wt : "?"} × ${reps !== null ? Math.trunc(reps) : "?"}`;
+                            const rightParts: string[] = [];
+                            if (rpe !== null) rightParts.push(rpe >= 10 ? "Failure" : `RPE ${rpe}`);
+                            if (note) rightParts.push(note);
+
+                            return (
+                              <div key={`${r.occurred_at}-${idx}`} className="flex items-start justify-between gap-3 text-sm">
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate">{left}</div>
+                                  <div className="mt-0.5 text-xs text-muted-foreground">{mid}{rightParts.length ? ` · ${rightParts.join(" · ")}` : ""}</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
 
                   <div className="mt-2 text-xs text-muted-foreground">
                     Stores: date, exercise, set_index, weight, reps, count (=weight×reps){props.workout ? ", workout" : ""}.
