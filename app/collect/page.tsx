@@ -811,7 +811,8 @@ export default function CollectPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-3xl px-4 py-6">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <BackButton fallbackHref="/lifeswitch" />
           <div>
             <div className="text-xl font-semibold">Collect</div>
             <div className="mt-1 text-sm text-muted-foreground">
@@ -829,6 +830,7 @@ export default function CollectPage() {
               </button>
             </div>
           </div>
+        </div>
 
           <button
             type="button"
