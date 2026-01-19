@@ -723,7 +723,7 @@ export default function CollectPage() {
     if (!ids.length) return;
 
     const cur = wsExercise.trim();
-    const i = ids.indexOf(cur); <div className="mx-auto w-full ma
+    const i = ids.indexOf(cur);
     if (i < 0) return;
 
     const j = i + delta;
@@ -746,9 +746,9 @@ export default function CollectPage() {
       <div
         ref={setNodeRef}
         style={style}
-        className="grid w-full max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl border bg-background px-3 py-2"
+        className="flex w-full max-w-full items-center gap-2 rounded-xl border bg-background px-3 py-2"
       >
-      <div className="min-w-0 truncate text-sm">{label}</div>
+        <div className="min-w-0 flex-1 truncate text-sm">{label}</div>
 
         {/* Drag handle */}
     <button
