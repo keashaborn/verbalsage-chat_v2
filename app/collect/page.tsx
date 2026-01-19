@@ -134,6 +134,25 @@ export default function CollectPage() {
     })();
   }, [ownerUserId]);
 
+  async function refreshCapture() {
+    try {
+      setStatus("");
+      setDate(todayISO());
+      setContext("");
+      setNotes("");
+      setIsReordering(false);
+
+      await loadPrograms();
+
+      const tv = extractUuid(programVid);
+      if (tv) {
+        await loadProgramRows(tv);
+      }
+    } catch (e: any) {
+      setStatus(`error: ${e?.message || String(e)}`);
+    }
+  }
+
   async function loadPrograms() {
     setLoadingPrograms(true);
     setStatus("");
@@ -384,7 +403,7 @@ export default function CollectPage() {
       if (notes.trim()) data.notes = notes.trim();
 
       const resp = await submitEntry(data);
-      setStatus(`recorded entry_id=${resp?.entry_id || "ok"}`);
+      setStatus("saved");
 
       // Advance to next set; keep weight/reps for rapid capture
       setWsSetIndex(String(si + 1));
@@ -454,7 +473,7 @@ export default function CollectPage() {
       if (notes.trim()) data.notes = notes.trim();
 
       const resp = await submitEntry(data);
-      setStatus(`recorded entry_id=${resp?.entry_id || "ok"}`);
+      setStatus("saved");
     } catch (e: any) {
       setStatus(`error: ${e?.message || String(e)}`);
     }
@@ -479,7 +498,7 @@ export default function CollectPage() {
       if (notes.trim()) data.notes = notes.trim();
 
       const resp = await submitEntry(data);
-      setStatus(`recorded entry_id=${resp?.entry_id || "ok"}`);
+      setStatus("saved");
     } catch (e: any) {
       setStatus(`error: ${e?.message || String(e)}`);
     }
@@ -840,10 +859,8 @@ export default function CollectPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-              onClick={loadPrograms}
-              disabled={!ownerUserId.trim() || loadingPrograms}
-              title="Refresh programs"
+              className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
+              onClick={refreshCapture}
             >
               Refresh
             </button>
@@ -935,45 +952,6 @@ export default function CollectPage() {
                 </>
               ) : null}
 
-              <details className="mt-3 rounded-xl border p-3">
-                <summary className="cursor-pointer text-sm font-semibold">Phase change</summary>
-
-                <div className="mt-3 grid gap-3 md:grid-cols-3">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-muted-foreground">Phase</span>
-                    <input
-                      className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                      value={phaseCode}
-                      onChange={(e) => setPhaseCode(e.target.value)}
-                      placeholder="A"
-                    />
-                  </label>
-
-                  <label className="grid gap-1 text-sm md:col-span-2">
-                    <span className="text-muted-foreground">Notes</span>
-                    <input
-                      className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                      value={phaseNote}
-                      onChange={(e) => setPhaseNote(e.target.value)}
-                      placeholder="optional"
-                    />
-                  </label>
-                </div>
-
-                <button
-                  className="mt-3 w-full rounded-xl bg-muted px-3 py-3 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-                  onClick={recordPhaseChange}
-                  disabled={!ownerUserId.trim() || !subjectId.trim() || !extractUuid(programVid) || !date.trim() || !phaseCode.trim()}
-                  title="Write ABA Phase Change (append-only)"
-                >
-                  Save phase marker
-                </button>
-
-                <div className="mt-2 text-xs text-muted-foreground">
-                  Writes to ABA Phase Change for this program version.
-                </div>
-              </details>
-
               {isWorkoutSet ? (
                 <div className="mt-4">
                   {props.workout ? (
@@ -1059,16 +1037,6 @@ export default function CollectPage() {
                               title="Next exercise"
                             >
                               Next
-                            </button>
-
-                            <button
-                              type="button"
-                              className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                              onClick={applyLastForCurrentExercise}
-                              disabled={!wsExercise.trim() || !lastByExercise.has(wsExercise.trim())}
-                              title="Overwrite Weight/Reps/RPE from the last recorded set for this exercise"
-                            >
-                              Use last
                             </button>
 
                             <button
@@ -1217,40 +1185,40 @@ export default function CollectPage() {
                   >
                     Submit set
                   </button>
-                    {recentSets.length ? (
-                      <div className="mt-3 rounded-xl border bg-background p-3">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Today’s sets
-                        </div>
-
-                        <div className="mt-2 space-y-1">
-                          {recentSets.map((r, idx) => {
-                            const d = r.data || {};
-                            const ex = String(d.exercise || "").trim();
-                            const wt = coerceNumber(d.weight);
-                            const reps = coerceNumber(d.reps);
-                            const si = coerceNumber(d.set_index);
-                            const note = String(d.notes || "").trim();
-                            const rpe = coerceNumber(d.rpe);
-
-                            const left = `${si ? `Set ${Math.trunc(si)}` : `Set`} · ${exerciseLabel(ex) || ex || "(exercise)"}`;
-                            const mid = `${wt !== null ? wt : "?"} × ${reps !== null ? Math.trunc(reps) : "?"}`;
-                            const rightParts: string[] = [];
-                            if (rpe !== null) rightParts.push(rpe >= 10 ? "Failure" : `RPE ${rpe}`);
-                            if (note) rightParts.push(note);
-
-                            return (
-                              <div key={`${r.occurred_at}-${idx}`} className="flex items-start justify-between gap-3 text-sm">
-                                <div className="min-w-0 flex-1">
-                                  <div className="truncate">{left}</div>
-                                  <div className="mt-0.5 text-xs text-muted-foreground">{mid}{rightParts.length ? ` · ${rightParts.join(" · ")}` : ""}</div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                  {recentSets.length ? (
+                    <div className="mt-3 rounded-xl border bg-background p-3">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Today’s sets
                       </div>
-                    ) : null}
+
+                      <div className="mt-2 space-y-1">
+                        {recentSets.map((r, idx) => {
+                          const d = r.data || {};
+                          const ex = String(d.exercise || "").trim();
+                          const wt = coerceNumber(d.weight);
+                          const reps = coerceNumber(d.reps);
+                          const si = coerceNumber(d.set_index);
+                          const note = String(d.notes || "").trim();
+                          const rpe = coerceNumber(d.rpe);
+
+                          const left = `${si ? `Set ${Math.trunc(si)}` : `Set`} · ${exerciseLabel(ex) || ex || "(exercise)"}`;
+                          const mid = `${wt !== null ? wt : "?"} × ${reps !== null ? Math.trunc(reps) : "?"}`;
+                          const rightParts: string[] = [];
+                          if (rpe !== null) rightParts.push(rpe >= 10 ? "Failure" : `RPE ${rpe}`);
+                          if (note) rightParts.push(note);
+
+                          return (
+                            <div key={`${r.occurred_at}-${idx}`} className="flex items-start justify-between gap-3 text-sm">
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate">{left}</div>
+                                <div className="mt-0.5 text-xs text-muted-foreground">{mid}{rightParts.length ? ` · ${rightParts.join(" · ")}` : ""}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div className="mt-2 text-xs text-muted-foreground">
                     Stores: date, exercise, set_index, weight, reps, count (=weight×reps){props.workout ? ", workout" : ""}.
@@ -1322,7 +1290,9 @@ export default function CollectPage() {
           )}
         </div>
 
-        {status ? <div className="mt-3 text-sm text-muted-foreground">{status}</div> : null}
+        {status && status.toLowerCase().startsWith("error") ? (
+          <div className="mt-3 text-sm text-muted-foreground">{status}</div>
+        ) : null}
       </div>
     </div>
   );
