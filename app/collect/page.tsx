@@ -806,42 +806,46 @@ export default function CollectPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-3xl px-4 py-6">
+        {/* Header */}
         <div className="flex items-start justify-between gap-3">
-          <div>
-              <div className="text-xl font-semibold">Collect</div>
-              <div className="mt-1 text-sm text-muted-foreground">
-                Ultra-minimal data capture. Owner is derived from your login.
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-                  onClick={loadPrograms}
-                  disabled={!ownerUserId.trim() || loadingPrograms}
-                  title="Reload programs"
-                >
-                  {loadingPrograms ? "Loading…" : "Programs"}
-                </button>
-
-                <button
-                  type="button"
-                  className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-                  onClick={async () => {
-                    try {
-                      setStatus("phase: recording…");
-                      const resp = await recordPhaseMarker("A", "test");
-                      setStatus(`phase: recorded entry_id=${resp?.entry_id || "ok"}`);
-                    } catch (e: any) {
-                      setStatus(`phase error: ${e?.message || String(e)}`);
-                    }
-                  }}
-                  disabled={!ownerUserId.trim() || !extractUuid(programVid) || !date.trim()}
-                  title="Dev: record a phase marker (A) for the current program/date"
-                >
-                  Phase marker (test)
-                </button>
-              </div>
+          <div className="space-y-0.5">
+            <div className="text-xl font-semibold">Collect</div>
+            <div className="text-sm text-muted-foreground">
+              Ultra-minimal data capture. Owner is derived from your login.
             </div>
+          </div>
+
+          <BackButton fallbackHref="/seebx" />
+        </div>
+
+        <div className="mt-3 flex items-start justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+              onClick={loadPrograms}
+              disabled={!ownerUserId.trim() || loadingPrograms}
+              title="Reload programs"
+            >
+              {loadingPrograms ? "Loading…" : "Programs"}
+            </button>
+
+            <button
+              type="button"
+              className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+              onClick={async () => {
+                try {
+                  setStatus("phase: recording…");
+                  const resp = await recordPhaseMarker("A", "test");
+                  setStatus(`phase: recorded entry_id=${resp?.entry_id || "ok"}`);
+                } catch (e: any) {
+                  setStatus(`phase error: ${e?.message || String(e)}`);
+                }
+              }}
+              disabled={!ownerUserId.trim() || !extractUuid(programVid) || !date.trim()}
+              title="Dev: record a phase marker (A) for the current program/date"
+            >
+              Phase marker (test)
+            </button>
           </div>
 
           <div className="space-y-1">
@@ -869,6 +873,8 @@ export default function CollectPage() {
             </select>
           </div>
         </div>
+
+
         <div className="mt-4 rounded-xl border p-4">
           {!programVersion ? (
             <div className="text-sm text-muted-foreground">Select a program to begin.</div>
