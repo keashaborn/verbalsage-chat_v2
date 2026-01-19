@@ -190,6 +190,8 @@ export default function PersonalizationPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              <BackButton fallbackHref="/" />
+
               <button
                 type="button"
                 className="rounded-lg border bg-background px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"

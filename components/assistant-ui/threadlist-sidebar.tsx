@@ -18,6 +18,7 @@ import { LifeSwitchDrawer } from "@/components/lifeswitch/LifeSwitchDrawer";
 import { BrainsThreadList } from "@/components/threads/BrainsThreadList";
 import Image from "next/image";
 import Link from "next/link";
+import { SeebxDrawer } from "@/components/seebx/SeebxDrawer";
 
 export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const { isMobile, setOpenMobile } = useSidebar();
@@ -57,22 +58,39 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarFooter className="aui-sidebar-footer border-t">
         <SidebarMenu>
+          {/* LifeSwitch (page link for now) */}
           <SidebarMenuItem>
-            <LifeSwitchDrawer
+            <SidebarMenuButton size="lg" asChild>
+              <a href="/lifeswitch">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-muted text-foreground">
+                  <span className="text-xs font-semibold">LS</span>
+                </div>
+                <div className="flex flex-col gap-0.5 leading-none">
+                  <span className="font-semibold">LifeSwitch</span>
+                  <span className="text-xs text-muted-foreground">Studio</span>
+                </div>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          {/* SeeBx (drawer) */}
+          <SidebarMenuItem>
+            <SeebxDrawer
               trigger={
                 <SidebarMenuButton size="lg">
                   <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-muted text-foreground">
-                    <span className="text-xs font-semibold">LS</span>
+                    <span className="text-xs font-semibold">SB</span>
                   </div>
                   <div className="flex flex-col gap-0.5 leading-none">
-                    <span className="font-semibold">LifeSwitch</span>
-                    <span className="text-xs text-muted-foreground">Studio</span>
+                    <span className="font-semibold">SeeBx</span>
+                    <span className="text-xs text-muted-foreground">Workspace</span>
                   </div>
                 </SidebarMenuButton>
               }
             />
           </SidebarMenuItem>
 
+          {/* Admin (drawer) */}
           <SidebarMenuItem>
             <SettingsDrawer
               trigger={

@@ -64,6 +64,15 @@ function todayISO(): string {
 }
 
 export default function CollectPage() {
+
+  function goBack() {
+    try {
+      if (typeof window !== "undefined" && window.history.length > 1) window.history.back();
+      else window.location.assign("/lifeswitch");
+    } catch {
+      window.location.assign("/lifeswitch");
+    }
+  }
   const [status, setStatus] = React.useState<string>("");
 
   const [ownerUserId, setOwnerUserId] = React.useState<string>("");
@@ -798,9 +807,7 @@ export default function CollectPage() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-3xl px-4 py-6">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <BackButton fallbackHref="/lifeswitch" />
-            <div>
+          <div>
               <div className="text-xl font-semibold">Collect</div>
               <div className="mt-1 text-sm text-muted-foreground">
                 Ultra-minimal data capture. Owner is derived from your login.
