@@ -733,36 +733,37 @@ export default function CollectPage() {
     clearWorkoutSetForExerciseChange();
   }
 
-function SortableExerciseRow({ id, label }: { id: string; label: string }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  function SortableExerciseRow({ id, label }: { id: string; label: string }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.6 : 1,
-  };
+    const style: React.CSSProperties = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.6 : 1,
+    };
 
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="grid w-full max-w-full grid-cols-[minmax(0, 1fr)_auto] items - center gap - 2 rounded - xl border bg - background px - 3 py - 2"
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="grid w-full max-w-full grid-cols-[minmax(0, 1fr)_auto] items - center gap - 2 rounded - xl border bg - background px - 3 py - 2"
       >
       <div className="min-w-0 truncate text-sm">{label}</div>
 
-      <button
-        type="button"
-        className="inline-flex h-8 w-10 items-center justify-center rounded-lg bg-muted text-sm font-semibold cursor-grab select-none touch-none hover:bg-muted/60 active:cursor-grabbing"
-        style={{ touchAction: "none" }}
-        {...attributes}
-        {...listeners}
-        aria-label="Drag to reorder"
-        title="Drag to reorder"
-      >
-        ⋮⋮
-      </button>
-    </div >
-  );
+    {/* Drag handle */ }
+    <button
+      type="button"
+      className="inline-flex h-8 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold cursor-grab select-none touch-none hover:bg-muted/60 active:cursor-grabbing"
+      style={{ touchAction: "none" }}
+      {...attributes}
+      {...listeners}
+      aria-label="Drag to reorder"
+      title="Drag to reorder"
+    >
+      ⋮⋮
+    </button>
+      </div >
+    );
   }
 
   React.useEffect(() => {
