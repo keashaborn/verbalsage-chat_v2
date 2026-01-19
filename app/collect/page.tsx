@@ -723,7 +723,7 @@ export default function CollectPage() {
     if (!ids.length) return;
 
     const cur = wsExercise.trim();
-    const i = ids.indexOf(cur);<div className="mx-auto w-full ma
+    const i = ids.indexOf(cur); <div className="mx-auto w-full ma
     if (i < 0) return;
 
     const j = i + delta;
@@ -742,17 +742,17 @@ function SortableExerciseRow({ id, label }: { id: string; label: string }) {
     opacity: isDragging ? 0.6 : 1,
   };
 
-return (
-  <div
-    ref={setNodeRef}
-    style={style}
-    className="grid w-full max-w-full grid-cols-[minmax(0, 1fr)_auto] items - center gap - 2 rounded - xl border bg - background px - 3 py - 2"
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="grid w-full max-w-full grid-cols-[minmax(0, 1fr)_auto] items - center gap - 2 rounded - xl border bg - background px - 3 py - 2"
       >
-    <div className="min-w-0 truncate text-sm">{label}</div>
+      <div className="min-w-0 truncate text-sm">{label}</div>
 
       <button
         type="button"
-        className="inline-flex h-8 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold cursor-grab select-none touch-none hover:bg-muted/60 active:cursor-grabbing"
+        className="inline-flex h-8 w-10 items-center justify-center rounded-lg bg-muted text-sm font-semibold cursor-grab select-none touch-none hover:bg-muted/60 active:cursor-grabbing"
         style={{ touchAction: "none" }}
         {...attributes}
         {...listeners}
@@ -1084,9 +1084,9 @@ return (
                               >
                                 <SortableContext items={orderedExerciseIds} strategy={verticalListSortingStrategy}>
                                   <div className="mt-2 space-y-2">
-                                      {orderedExerciseIds.map((id) => (
-                                        <SortableExerciseRow key={id} id={id} label={exerciseLabel(id)} />
-                                      ))}
+                                    {orderedExerciseIds.map((id) => (
+                                      <SortableExerciseRow key={id} id={id} label={exerciseLabel(id)} />
+                                    ))}
                                   </div>
                                 </SortableContext>
                               </DndContext>
