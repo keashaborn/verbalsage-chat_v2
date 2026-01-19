@@ -18,7 +18,6 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import BackButton from "@/components/nav/BackButton";
 
 
 type TemplateListItem = {
@@ -809,72 +808,57 @@ export default function CollectPage() {
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-0.5">
-            <div className="text-xl font-semibold">Collect</div>
-            <div className="text-sm text-muted-foreground">
-              Ultra-minimal data capture. Owner is derived from your login.
+            <div className="text-xl font-semibold">Capture</div>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <div className="space-y-1">
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program</div>
+              <select
+                className="w-[220px] max-w-[60vw] rounded-xl border bg-background px-3 py-2 text-sm"
+                value={programVid}
+                onChange={(e) => setProgramVid(e.target.value)}
+              >
+                <option value="">(choose)</option>
+                {templates
+                  .filter((t) => {
+                    const vid = String(t.latest_version_id || "").trim();
+                    if (!vid) return false;
+                    if (vid === PHASE_TEMPLATE_VERSION_ID) return false;
+                    if (vid === CORRECTION_TEMPLATE_VERSION_ID) return false;
+                    return true;
+                  })
+                  .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
+                  .map((t) => (
+                    <option key={t.template_id} value={String(t.latest_version_id)}>
+                      {t.name} (v{t.latest_version ?? "?"})
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="mt-[22px] flex items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+                onClick={loadPrograms}
+                disabled={!ownerUserId.trim() || loadingPrograms}
+                title="Reload programs"
+              >
+                R
+              </button>
+
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-lg font-semibold hover:bg-muted/60"
+                onClick={goBack}
+                title="Back"
+              >
+                ×
+              </button>
             </div>
           </div>
-
-          <BackButton fallbackHref="/seebx" />
         </div>
-
-        <div className="mt-3 flex items-start justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
-            <button
-              className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-              onClick={loadPrograms}
-              disabled={!ownerUserId.trim() || loadingPrograms}
-              title="Reload programs"
-            >
-              {loadingPrograms ? "Loading…" : "Programs"}
-            </button>
-
-            <button
-              type="button"
-              className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-              onClick={async () => {
-                try {
-                  setStatus("phase: recording…");
-                  const resp = await recordPhaseMarker("A", "test");
-                  setStatus(`phase: recorded entry_id=${resp?.entry_id || "ok"}`);
-                } catch (e: any) {
-                  setStatus(`phase error: ${e?.message || String(e)}`);
-                }
-              }}
-              disabled={!ownerUserId.trim() || !extractUuid(programVid) || !date.trim()}
-              title="Dev: record a phase marker (A) for the current program/date"
-            >
-              Phase marker (test)
-            </button>
-          </div>
-
-          <div className="space-y-1">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program</div>
-            <select
-              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-              value={programVid}
-              onChange={(e) => setProgramVid(e.target.value)}
-            >
-              <option value="">(choose)</option>
-              {templates
-                .filter((t) => {
-                  const vid = String(t.latest_version_id || "").trim();
-                  if (!vid) return false;
-                  if (vid === PHASE_TEMPLATE_VERSION_ID) return false;
-                  if (vid === CORRECTION_TEMPLATE_VERSION_ID) return false;
-                  return true;
-                })
-                .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
-                .map((t) => (
-                  <option key={t.template_id} value={String(t.latest_version_id)}>
-                    {t.name} (v{t.latest_version ?? "?"})
-                  </option>
-                ))}
-            </select>
-          </div>
-        </div>
-
-
         <div className="mt-4 rounded-xl border p-4">
           {!programVersion ? (
             <div className="text-sm text-muted-foreground">Select a program to begin.</div>

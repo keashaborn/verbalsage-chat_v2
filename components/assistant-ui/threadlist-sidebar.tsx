@@ -43,9 +43,9 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
               if (isMobile) setOpenMobile(false);
             }}
             className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60"
-            title="Open data collection"
+            title="Open data capture"
           >
-            Collect
+            Capture
           </Link>
         </div>
       </SidebarHeader>
