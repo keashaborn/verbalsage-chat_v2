@@ -88,9 +88,6 @@ export default function CollectPage() {
   const [date, setDate] = React.useState<string>(todayISO());
   const [context, setContext] = React.useState<string>("");
   const [notes, setNotes] = React.useState<string>("");
-  // Phase change (overlay)
-  const [phaseCode, setPhaseCode] = React.useState<string>("A");
-  const [phaseNote, setPhaseNote] = React.useState<string>("");
 
   // Recent entries for selected program (for prefill / next set index)
   const [programRows, setProgramRows] = React.useState<any[]>([]);
@@ -417,45 +414,7 @@ export default function CollectPage() {
     }
   }
 
-  async function recordPhaseChange() {
-    setStatus("");
-    try {
-      if (!ownerUserId.trim()) throw new Error("owner not ready");
-      if (!subjectId.trim()) throw new Error("client required");
-      const targetTv = extractUuid(programVid);
-      if (!targetTv) throw new Error("program required");
-      if (!date.trim()) throw new Error("date required");
-      const ph = (phaseCode || "").trim();
-      if (!ph) throw new Error("phase required");
-
-      const payload = {
-        owner_user_id: ownerUserId.trim(),
-        subject_id: subjectId.trim(),
-        template_version_id: PHASE_TEMPLATE_VERSION_ID,
-        data: {
-          date: date.trim(),
-          phase: ph,
-          target_template_version_id: targetTv,
-          notes: phaseNote.trim() || undefined,
-        },
-      };
-
-      const r = await fetch("/api/forms/entries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const t = await r.text().catch(() => "");
-      if (!r.ok) throw new Error(`phase failed: HTTP ${r.status} ${t}`);
-
-      const resp = JSON.parse(t);
-      setStatus(`phase saved entry_id=${resp?.entry_id || "ok"}`);
-      setPhaseNote("");
-    } catch (e: any) {
-      setStatus(`error: ${e?.message || String(e)}`);
-    }
-  }
+  
 
   async function recordCount() {
     setStatus("");
@@ -734,16 +693,7 @@ export default function CollectPage() {
     // wsSetIndex recalculates via the effect that calls computeNextSetIndex()
   }
 
-  function applyLastForCurrentExercise() {
-    const ex = wsExercise.trim();
-    if (!ex) return;
-    const last = lastByExercise.get(ex);
-    if (!last) return;
-
-    setWsWeight(typeof last.weight === "number" ? String(last.weight) : "");
-    setWsReps(typeof last.reps === "number" ? String(Math.trunc(last.reps)) : "");
-    setWsRpe(typeof last.rpe === "number" ? String(last.rpe) : "");
-  }
+  
 
   function gotoPlannedExercise(delta: number) {
     const ids = orderedExerciseIds; // canonical
@@ -1101,18 +1051,6 @@ export default function CollectPage() {
                               <option key={x} value={x} />
                             ))}
                           </datalist>
-
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                              onClick={applyLastForCurrentExercise}
-                              disabled={!wsExercise.trim() || !lastByExercise.has(wsExercise.trim())}
-                              title="Overwrite Weight/Reps/RPE from the last recorded set for this exercise"
-                            >
-                              Use last
-                            </button>
-                          </div>
                         </>
                       )}
                     </div>
