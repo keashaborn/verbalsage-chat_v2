@@ -18,6 +18,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import BackButton from "@/components/nav/BackButton";
 
 
 type TemplateListItem = {
@@ -810,7 +811,7 @@ export default function CollectPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-3xl px-4 py-6">
-        <div className="flex items-end justify-between gap-3">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-xl font-semibold">Collect</div>
             <div className="mt-1 text-sm text-muted-foreground">
