@@ -85,8 +85,6 @@ export function DeveloperToolsPage() {
 
           <a
             href="/developer/forms"
-            target="_blank"
-            rel="noopener noreferrer"
             className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
           >
             Open
@@ -105,8 +103,6 @@ export function DeveloperToolsPage() {
 
           <a
             href="/developer/sslg"
-            target="_blank"
-            rel="noopener noreferrer"
             className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
           >
             Open
@@ -126,8 +122,6 @@ export function DeveloperToolsPage() {
 
           <a
             href="/developer/diagnostics"
-            target="_blank"
-            rel="noopener noreferrer"
             className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
           >
             Open

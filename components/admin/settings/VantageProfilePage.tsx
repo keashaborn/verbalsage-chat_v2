@@ -505,7 +505,7 @@ export function VantageProfilePage() {
           label="Edit Personalization for this vantage"
           onClick={() => {
             // Uses the current cookie vs_vantage_id (set by header Save on this page)
-            window.open("/personalization", "_blank", "noopener,noreferrer");
+            window.location.assign("/personalization");
           }}
         />
 
