@@ -341,21 +341,7 @@ export default function CollectPage() {
     return submitEntryToVid(programVid, data);
   }
 
-  async function recordPhaseMarker(phase: string, notes?: string) {
-    // Phase markers are stored as entries in the global Phase template, but must target a specific program/template_version_id.
-    const targetTv = extractUuid(programVid);
-    if (!targetTv) throw new Error("program required");
-    if (!date.trim()) throw new Error("date required");
 
-    const data: Record<string, any> = {
-      date: date.trim(),
-      phase: String(phase || "").trim(),
-      target_template_version_id: targetTv,
-    };
-    if (notes && notes.trim()) data.notes = notes.trim();
-
-    return submitEntryToVid(PHASE_TEMPLATE_VERSION_ID, data);
-  }
 
 
   async function recordWorkoutSet() {
