@@ -501,13 +501,15 @@ export function VantageProfilePage() {
           }
         />
 
-        <ActionRow
-          label="Edit Personalization for this vantage"
-          onClick={() => {
-            // Uses the current cookie vs_vantage_id (set by header Save on this page)
-            window.location.assign("/personalization");
-          }}
-        />
+        <div className="pt-1">
+          <button
+            type="button"
+            className="w-full rounded-xl bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60"
+            onClick={() => window.location.assign("/personalization")}
+          >
+            Edit Personalization for this vantage
+          </button>
+        </div>
 
         <Row
           left="Load preset"

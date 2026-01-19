@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { AuthGate } from "@/components/auth/AuthGate";
+import BackButton from "@/components/nav/BackButton";
 
 type InstructionsResp = {
   ok: boolean;
