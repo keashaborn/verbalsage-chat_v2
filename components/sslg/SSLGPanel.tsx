@@ -363,7 +363,9 @@ export default function SSLGPanel({
       const y = yFromRow(d, mType, yMetric);
       if (y === null) continue;
 
-      pts.push({ x, y });
+      const id = String((r as any)?.id || "").trim() || undefined;
+      const occurred_at = String((r as any)?.occurred_at || "").trim() || undefined;
+      pts.push({ x, y, id, occurred_at, data: d });
     }
 
     // Aggregation
@@ -415,6 +417,13 @@ export default function SSLGPanel({
   const [yMinOverride, setYMinOverride] = React.useState<string>("");
   const [yMaxOverride, setYMaxOverride] = React.useState<string>("");
   const [yTickStepOverride, setYTickStepOverride] = React.useState<string>("");
+  const canEditPoints = aggMode === "raw";
+
+  const [editPoint, setEditPoint] = React.useState<XYPoint | null>(null);
+
+  function closeEdit() {
+    setEditPoint(null);
+  }
 
   const xMinNum = coerceNumber(xMinOverride);
   const xMaxNum = coerceNumber(xMaxOverride);
@@ -701,6 +710,7 @@ export default function SSLGPanel({
           <MiniLineChart
             title={yLabelOverride || labelPack.yLabelWithUnit}
             series={series}
+            onPointClick={canEditPoints ? (p) => setEditPoint(p) : undefined}
             xMode={xMode}
             xLabel={xLabelOverride || labelPack.xLabel}
             xMin={xMinNum}

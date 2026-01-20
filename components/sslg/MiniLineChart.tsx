@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-export type XYPoint = { x: string; y: number };
+export type XYPoint = { x: string; y: number; id?: string; occurred_at?: string; data?: any };
 export type XMarker = { x: string; label?: string };
 export type PhaseStart = { x: string; phase: string; label?: string };
 
@@ -21,6 +21,7 @@ function fmtTick(v: number) {
 export function MiniLineChart({
   title,
   series,
+  onPointClick,
   ySuffix,
   xMode = "trial", // "trial" is the canonical ABA axis; "date" only affects legend
   includeZero = true,
@@ -40,6 +41,7 @@ export function MiniLineChart({
 }: {
   title: string;
   series: XYPoint[];
+  onPointClick?: (p: XYPoint, i: number) => void;
   ySuffix?: string;
   xMode?: "trial" | "date";
   includeZero?: boolean;
@@ -473,7 +475,15 @@ export function MiniLineChart({
             <path key={`seg-${i}`} d={d} fill="none" stroke="currentColor" strokeWidth="2" />
           ))}
           {pts.map((p, i) => (
-            <circle key={i} cx={xForIndex(i)} cy={yFor(p.y)} r="2.5" fill="currentColor" />
+            <circle
+              key={p.id ? `pt-${p.id}` : `pt-${i}`}
+              cx={xForIndex(i)}
+              cy={yFor(p.y)}
+              r="2.5"
+              fill="currentColor"
+              className={onPointClick ? "cursor-pointer" : undefined}
+              onClick={onPointClick ? () => onPointClick(p, i) : undefined}
+            />
           ))}
         </svg>
       </div>
