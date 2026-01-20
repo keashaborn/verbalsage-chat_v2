@@ -754,6 +754,42 @@ export default function SSLGPanel({
             </button>
           </div>
 
+          {editPoint ? (
+            <div className="fixed inset-0 z-[1000]">
+              <div className="absolute inset-0 bg-black/60" onClick={closeEdit} />
+              <div className="absolute inset-0 overflow-auto p-4 md:p-8">
+                <div className="mx-auto w-full max-w-lg rounded-2xl border bg-background shadow-xl">
+                  <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+                    <div className="text-sm font-semibold">Edit point</div>
+                    <button
+                      className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
+                      onClick={closeEdit}
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <div className="p-4 space-y-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">entry_id:</span>{" "}
+                      <code className="text-xs">{String(editPoint.id || "")}</code>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">x:</span> {String(editPoint.x)}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">y:</span> {String(editPoint.y)}
+                    </div>
+
+                    <div className="pt-2 text-xs text-muted-foreground">
+                      Next step: “Correct” will write a new entry + a correction row (no deletes, full audit trail).
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           {(() => {
             const inputCls = "w-full rounded-lg border bg-background px-3 py-2 text-sm";
             const checkboxWrapCls = "flex items-center gap-2 rounded-lg border bg-background px-3 py-2";
