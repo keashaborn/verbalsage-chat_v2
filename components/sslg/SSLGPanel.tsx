@@ -331,17 +331,7 @@ export default function SSLGPanel({
     const mType = String(md?.measurement?.type || md?.program_spec_v0?.measurement?.type || "");
     let rs = Array.isArray(effectiveRows) ? effectiveRows : [];
 
-    const filteredRs = includeSeed
-      ? rs
-      : rs.filter((r) => {
-        const d = (r as any)?.data || {};
-        const day = String(d.date || "").slice(0, 10);
-        const notes = String(d.notes || "").toLowerCase();
-        if (day === "2000-01-01") return false;
-        if (notes === "seed") return false;
-        return true;
-      });
-
+    // Apply workout/exercise filters first (so the plotted series matches the UI filters)
     if (workoutFilter.trim()) {
       const wf = workoutFilter.trim();
       rs = rs.filter((r) => String((r as any)?.data?.workout || "").trim() === wf);
@@ -352,15 +342,27 @@ export default function SSLGPanel({
       rs = rs.filter((r) => String((r as any)?.data?.exercise || "").trim() === ef);
     }
 
+    // Seed filtering (default: exclude seed rows)
+    if (!includeSeed) {
+      rs = rs.filter((r) => {
+        const d = (r as any)?.data || {};
+        const day = String(d.date || "").slice(0, 10);
+        const notes = String(d.notes || "").toLowerCase();
+        if (day === "2000-01-01") return false;
+        if (notes === "seed") return false;
+        return true;
+      });
+    }
+
     const pts: XYPoint[] = [];
-    for (const r of filteredRs) {
-      const d = r?.data || {};
-      const x = String(d.date || r?.occurred_at || "");
+    for (const r of rs) {
+      const d = (r as any)?.data || {};
+      const x = String(d.date || (r as any)?.occurred_at || "");
       if (!x) continue;
 
-      const y = yFromRow(d, mType, yMetric);;
-
+      const y = yFromRow(d, mType, yMetric);
       if (y === null) continue;
+
       pts.push({ x, y });
     }
 
