@@ -474,17 +474,36 @@ export function MiniLineChart({
           {paths.map((d, i) => (
             <path key={`seg-${i}`} d={d} fill="none" stroke="currentColor" strokeWidth="2" />
           ))}
-          {pts.map((p, i) => (
-            <circle
-              key={p.id ? `pt-${p.id}` : `pt-${i}`}
-              cx={xForIndex(i)}
-              cy={yFor(p.y)}
-              r="2.5"
-              fill="currentColor"
-              className={onPointClick ? "cursor-pointer" : undefined}
-              onClick={onPointClick ? () => onPointClick(p, i) : undefined}
-            />
-          ))}
+          {pts.map((p, i) => {
+            const clickable = typeof onPointClick === "function";
+            const cx = xForIndex(i);
+            const cy = yFor(p.y);
+
+            return (
+              <g key={`pt-${i}`}>
+                {/* visible dot */}
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r="2.5"
+                  fill="currentColor"
+                  style={clickable ? { cursor: "pointer" } : undefined}
+                  onClick={clickable ? () => onPointClick(p, i) : undefined}
+                />
+                {/* larger invisible hit target */}
+                {clickable ? (
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r="10"
+                    fill="transparent"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => onPointClick(p, i)}
+                  />
+                ) : null}
+              </g>
+            );
+          })}
         </svg>
       </div>
 
