@@ -421,8 +421,189 @@ export default function SSLGPanel({
 
   const [editPoint, setEditPoint] = React.useState<XYPoint | null>(null);
 
+  type CorrectMode = "replace" | "void";
+  const [correctMode, setCorrectMode] = React.useState<CorrectMode>("replace");
+  const [correctDate, setCorrectDate] = React.useState<string>("");
+  const [correctY, setCorrectY] = React.useState<string>("");
+  const [correctReason, setCorrectReason] = React.useState<string>("");
+  const [correctNotes, setCorrectNotes] = React.useState<string>("");
+  const [correctPosting, setCorrectPosting] = React.useState<boolean>(false);
+  const [correctStatus, setCorrectStatus] = React.useState<string>("");
+
+  const measurementType = React.useMemo(() => {
+    const md = (targetVersion?.metadata || {}) as any;
+    return String(md?.measurement?.type || md?.program_spec_v0?.measurement?.type || "");
+  }, [targetVersion?.version_id]);
+
+  function day10(s: string) {
+    const x = String(s || "").trim();
+    return x.length >= 10 ? x.slice(0, 10) : x;
+  }
+
+  function cloneData(v: any) {
+    try {
+      return JSON.parse(JSON.stringify(v || {}));
+    } catch {
+      return { ...(v || {}) };
+    }
+  }
+
+  function applyYToData(base: any, y: number) {
+    const out = cloneData(base || {});
+    if (measurementType === "duration") {
+      if ("duration_seconds" in out) (out as any).duration_seconds = y;
+      else if ("durationSeconds" in out) (out as any).durationSeconds = y;
+      else if ("duration" in out) (out as any).duration = y;
+      else (out as any).duration_seconds = y;
+      return out;
+    }
+
+    if (yMetric === "count") (out as any).count = y;
+    else if (yMetric === "weight") (out as any).weight = y;
+    else if (yMetric === "reps") (out as any).reps = y;
+    else if (yMetric === "rpe") (out as any).rpe = y;
+    else (out as any).count = y;
+
+    return out;
+  }
+
+  React.useEffect(() => {
+    if (!editPoint) return;
+
+    setCorrectStatus("");
+    setCorrectMode("replace");
+
+    const baseDate = day10(String((editPoint as any)?.data?.date || editPoint.x || ""));
+    setCorrectDate(baseDate);
+
+    setCorrectY(Number.isFinite(editPoint.y) ? String(editPoint.y) : "");
+
+    setCorrectReason("");
+    setCorrectNotes("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editPoint?.id]);
+
   function closeEdit() {
     setEditPoint(null);
+    setCorrectStatus("");
+    setCorrectPosting(false);
+  }
+
+  async function submitCorrection() {
+    setCorrectStatus("");
+    try {
+      const tv = extractUuid(targetVid);
+      if (!tv) throw new Error("select a program first");
+      if (!ownerUserId.trim()) throw new Error("owner_user_id not ready");
+      if (!editPoint) throw new Error("no edit point selected");
+
+      const oldIdRaw = String((editPoint as any)?.id || "").trim();
+      const oldId = extractUuid(oldIdRaw) || oldIdRaw;
+      if (!oldId) throw new Error("entry_id missing (cannot correct synthetic/aggregated points)");
+
+      const reason = (correctReason || "").trim();
+      if (!reason) throw new Error("reason required");
+
+      setCorrectPosting(true);
+
+      let newEntryId = "";
+
+      if (correctMode === "replace") {
+        const d = day10(correctDate || String(editPoint.x || ""));
+        if (!d) throw new Error("date required");
+
+        const yNum = coerceNumber(correctY);
+        if (yNum === null) throw new Error("y must be a number");
+
+        const base = cloneData((editPoint as any)?.data || {});
+        (base as any).date = d;
+
+        const newData = applyYToData(base, yNum);
+
+        const createPayload = {
+          owner_user_id: ownerUserId.trim(),
+          subject_id: "self",
+          template_version_id: tv,
+          data: newData,
+        };
+
+        const r1 = await fetch("/api/forms/entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(createPayload),
+        });
+
+        const t1 = await r1.text().catch(() => "");
+        if (!r1.ok) throw new Error(`new entry failed: HTTP ${r1.status} ${t1}`);
+
+        // Parse id from response (BRAINS usually returns the created row).
+        try {
+          const j = JSON.parse(t1);
+          const candidates: any[] = [];
+
+          if (Array.isArray(j) && j.length) candidates.push((j[0] as any)?.id);
+          if (j && typeof j === "object") {
+            candidates.push((j as any).id, (j as any).entry_id, (j as any).entryId);
+            candidates.push((j as any)?.entry?.id, (j as any)?.entry?.entry_id);
+            candidates.push((j as any)?.data?.id);
+          }
+
+          for (const c of candidates) {
+            const s = String(c || "").trim();
+            const id = extractUuid(s) || "";
+            if (id) {
+              newEntryId = id;
+              break;
+            }
+          }
+        } catch {
+          // ignore
+        }
+
+        // Fallback: sometimes the response is a raw uuid string.
+        if (!newEntryId) {
+          const maybe = extractUuid(t1) || "";
+          if (maybe) newEntryId = maybe;
+        }
+
+        if (!newEntryId) {
+          throw new Error(`new entry response missing id; body=${t1.slice(0, 800)}`);
+        }
+      }
+
+      const corrData: Record<string, any> = {
+        target_template_version_id: tv,
+        old_entry_id: oldId,
+        new_entry_id: correctMode === "replace" ? newEntryId : "",
+        reason,
+      };
+      const notes = (correctNotes || "").trim();
+      if (notes) corrData.notes = notes;
+
+      const corrPayload = {
+        owner_user_id: ownerUserId.trim(),
+        subject_id: "self",
+        template_version_id: CORRECTION_TEMPLATE_VERSION_ID,
+        data: corrData,
+      };
+
+      const r2 = await fetch("/api/forms/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(corrPayload),
+      });
+
+      const t2 = await r2.text().catch(() => "");
+      if (!r2.ok) throw new Error(`correction write failed: HTTP ${r2.status} ${t2}`);
+
+      setStatus(correctMode === "void" ? "voided point" : "corrected point");
+      closeEdit();
+      await loadAll();
+    } catch (e: any) {
+      setCorrectStatus(`Error: ${e?.message || String(e)}`);
+    } finally {
+      setCorrectPosting(false);
+    }
   }
 
   const xMinNum = coerceNumber(xMinOverride);
@@ -756,34 +937,171 @@ export default function SSLGPanel({
 
           {editPoint ? (
             <div className="fixed inset-0 z-[1000]">
-              <div className="absolute inset-0 bg-black/60" onClick={closeEdit} />
+              <div
+                className="absolute inset-0 bg-black/60"
+                onClick={() => {
+                  if (!correctPosting) closeEdit();
+                }}
+              />
               <div className="absolute inset-0 overflow-auto p-4 md:p-8">
                 <div className="mx-auto w-full max-w-lg rounded-2xl border bg-background shadow-xl">
                   <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-                    <div className="text-sm font-semibold">Edit point</div>
+                    <div>
+                      <div className="text-sm font-semibold">Edit point</div>
+                      <div className="text-xs text-muted-foreground">
+                        Writes correction rows (and optional replacement entries). No deletes.
+                      </div>
+                    </div>
                     <button
-                      className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
+                      className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
                       onClick={closeEdit}
+                      disabled={correctPosting}
                     >
                       Close
                     </button>
                   </div>
 
-                  <div className="p-4 space-y-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">entry_id:</span>{" "}
-                      <code className="text-xs">{String(editPoint.id || "")}</code>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">x:</span> {String(editPoint.x)}
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">y:</span> {String(editPoint.y)}
+                  <div className="p-4 space-y-3 text-sm">
+                    <div className="grid gap-1">
+                      <span className="text-xs text-muted-foreground">entry_id</span>
+                      <code className="text-xs break-all">{String(editPoint.id || "")}</code>
                     </div>
 
-                    <div className="pt-2 text-xs text-muted-foreground">
-                      Next step: “Correct” will write a new entry + a correction row (no deletes, full audit trail).
+                    <div className="grid gap-1">
+                      <span className="text-xs text-muted-foreground">Current</span>
+                      <div className="text-sm">
+                        x={String(editPoint.x)} · y={String(editPoint.y)}
+                      </div>
                     </div>
+
+                    {!String(editPoint.id || "").trim() ? (
+                      <div className="rounded-lg border px-3 py-2 text-xs text-muted-foreground">
+                        This point has no entry_id. Only raw points backed by a Forms entry can be corrected.
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid gap-2 pt-1">
+                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Action</div>
+
+                          <label className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
+                            <input
+                              type="radio"
+                              name="sslg-correct-mode"
+                              checked={correctMode === "replace"}
+                              onChange={() => setCorrectMode("replace")}
+                              disabled={correctPosting}
+                            />
+                            <span className="text-sm">Replace (new measurement + correction row)</span>
+                          </label>
+
+                          <label className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
+                            <input
+                              type="radio"
+                              name="sslg-correct-mode"
+                              checked={correctMode === "void"}
+                              onChange={() => setCorrectMode("void")}
+                              disabled={correctPosting}
+                            />
+                            <span className="text-sm">Void (correction row only)</span>
+                          </label>
+                        </div>
+
+                        {correctMode === "replace" ? (
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <label className="grid gap-1 text-sm">
+                              <span className="text-muted-foreground">Date</span>
+                              <input
+                                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                                type="date"
+                                value={correctDate}
+                                onChange={(e) => setCorrectDate(e.target.value)}
+                                disabled={correctPosting}
+                              />
+                            </label>
+
+                            <label className="grid gap-1 text-sm">
+                              <span className="text-muted-foreground">
+                                Y ({measurementType === "duration" ? "duration_seconds" : yMetric})
+                              </span>
+                              <input
+                                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                                value={correctY}
+                                onChange={(e) => setCorrectY(e.target.value)}
+                                disabled={correctPosting}
+                                inputMode="decimal"
+                                placeholder={String(editPoint.y)}
+                              />
+                            </label>
+                          </div>
+                        ) : null}
+
+                        <div className="grid gap-3">
+                          <label className="grid gap-1 text-sm">
+                            <span className="text-muted-foreground">Reason (required)</span>
+                            <input
+                              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                              value={correctReason}
+                              onChange={(e) => setCorrectReason(e.target.value)}
+                              disabled={correctPosting}
+                              placeholder="e.g., transcription error"
+                            />
+                          </label>
+
+                          <label className="grid gap-1 text-sm">
+                            <span className="text-muted-foreground">Notes</span>
+                            <input
+                              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                              value={correctNotes}
+                              onChange={(e) => setCorrectNotes(e.target.value)}
+                              disabled={correctPosting}
+                              placeholder="optional"
+                            />
+                          </label>
+                        </div>
+
+                        {correctStatus ? (
+                          <div className="rounded-lg border px-3 py-2 text-xs text-muted-foreground">{correctStatus}</div>
+                        ) : null}
+
+                        <div className="flex items-center justify-end gap-2 pt-2">
+                          <button
+                            type="button"
+                            className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+                            onClick={closeEdit}
+                            disabled={correctPosting}
+                          >
+                            Cancel
+                          </button>
+
+                          <button
+                            type="button"
+                            className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
+                            onClick={submitCorrection}
+                            disabled={
+                              correctPosting ||
+                              !ownerUserId.trim() ||
+                              !extractUuid(targetVid) ||
+                              !String(editPoint.id || "").trim() ||
+                              !correctReason.trim() ||
+                              (correctMode === "replace" && (!correctDate.trim() || coerceNumber(correctY) === null))
+                            }
+                            title={
+                              correctMode === "void"
+                                ? "Write a correction row that voids this entry"
+                                : "Create a replacement entry, then write a correction row linking old->new"
+                            }
+                          >
+                            {correctPosting ? "Saving…" : correctMode === "void" ? "Void" : "Correct"}
+                          </button>
+                        </div>
+
+                        <div className="pt-2 text-xs text-muted-foreground">
+                          {correctMode === "void"
+                            ? "Void writes a correction row with new_entry_id = empty."
+                            : "Correct writes a new measurement entry to the selected program, then writes a correction row (old_entry_id -> new_entry_id)."}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

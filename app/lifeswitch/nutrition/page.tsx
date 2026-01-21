@@ -278,19 +278,19 @@ export default function LifeSwitchNutritionPage() {
           </div>
 
           <div className="mt-3 grid grid-cols-4 gap-2 text-sm">
-            <div className="rounded-md bg-gray-50 p-2">
+            <div className="rounded-md bg-gray-50 p-2 dark:bg-white/5">
               <div className="text-xs opacity-70">kcal</div>
               <div className="font-semibold">{fmt(totals.kcal, 0)}</div>
             </div>
-            <div className="rounded-md bg-gray-50 p-2">
+            <div className="rounded-md bg-gray-50 p-2 dark:bg-white/5">
               <div className="text-xs opacity-70">protein</div>
               <div className="font-semibold">{fmt(totals.p, 0)}g</div>
             </div>
-            <div className="rounded-md bg-gray-50 p-2">
+            <div className="rounded-md bg-gray-50 p-2 dark:bg-white/5">
               <div className="text-xs opacity-70">carbs</div>
               <div className="font-semibold">{fmt(totals.c, 0)}g</div>
             </div>
-            <div className="rounded-md bg-gray-50 p-2">
+            <div className="rounded-md bg-gray-50 p-2 dark:bg-white/5">
               <div className="text-xs opacity-70">fat</div>
               <div className="font-semibold">{fmt(totals.f, 0)}g</div>
             </div>
@@ -323,8 +323,42 @@ export default function LifeSwitchNutritionPage() {
         <div className="rounded-xl border p-3">
           <div className="text-sm font-semibold">Search approved foods</div>
           <div className="mt-2 flex items-center gap-2">
-            <input className="w-full rounded-md border px-3 py-2 text-sm" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search foods…" />
-            <div className="text-xs opacity-70 min-w-[90px] text-right">{loading ? "loading…" : `${rows.length} results`}</div>
+            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
+              <input
+                className="w-full rounded-md border px-3 py-2 text-sm md:col-span-2"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search foods…"
+              />
+
+              <div className="flex gap-2">
+                <select
+                  className="w-full rounded-md border px-2 py-2 text-sm"
+                  value={addMealLabel}
+                  onChange={(e) => setAddMealLabel(e.target.value as any)}
+                  title="Meal"
+                >
+                  <option value="breakfast">breakfast</option>
+                  <option value="lunch">lunch</option>
+                  <option value="dinner">dinner</option>
+                  <option value="snack">snack</option>
+                  <option value="other">other</option>
+                </select>
+
+                <input
+                  className="w-[110px] rounded-md border px-2 py-2 text-sm text-right"
+                  value={addQtyG}
+                  onChange={(e) => setAddQtyG(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="grams"
+                  title="Grams"
+                />
+              </div>
+            </div>
+
+            <div className="mt-2 text-xs opacity-70 text-right">
+              {loading ? "loading…" : `${rows.length} results`} • add: {addMealLabel}, {addQtyG || "—"}g
+            </div>
           </div>
 
           <div className="mt-3 space-y-2 max-h-[520px] overflow-auto">
@@ -337,19 +371,19 @@ export default function LifeSwitchNutritionPage() {
                   Source: {f.source}
                 </div>
                 <div className="mt-2 grid grid-cols-4 gap-2 text-sm">
-                  <div className="rounded-md bg-gray-50 p-2">
+                  <div className="rounded-md bg-gray-50 p-2 dark:bg-white/5">
                     <div className="text-xs opacity-70">kcal</div>
                     <div className="font-semibold">{fmt(f.kcal, 0)}</div>
                   </div>
-                  <div className="rounded-md bg-gray-50 p-2">
+                  <div className="rounded-md bg-gray-50 p-2 dark:bg-white/5">
                     <div className="text-xs opacity-70">P</div>
                     <div className="font-semibold">{fmt(f.protein_g, 1)}</div>
                   </div>
-                  <div className="rounded-md bg-gray-50 p-2">
+                  <div className="rounded-md bg-gray-50 p-2 dark:bg-white/5">
                     <div className="text-xs opacity-70">C</div>
                     <div className="font-semibold">{fmt(f.carbs_g, 1)}</div>
                   </div>
-                  <div className="rounded-md bg-gray-50 p-2">
+                  <div className="rounded-md bg-gray-50 p-2 dark:bg-white/5">
                     <div className="text-xs opacity-70">F</div>
                     <div className="font-semibold">{fmt(f.fat_g, 1)}</div>
                   </div>
