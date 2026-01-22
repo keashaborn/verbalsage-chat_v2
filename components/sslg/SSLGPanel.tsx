@@ -389,7 +389,17 @@ export default function SSLGPanel({
       return out;
     }
 
-    pts.sort((a, b) => String(a.x).localeCompare(String(b.x)));
+    pts.sort((a, b) => {
+      const ax = day10(String(a.x || ""));
+      const bx = day10(String(b.x || ""));
+      if (ax !== bx) return ax.localeCompare(bx);
+
+      const at = String((a as any)?.data?.__vs_sort_ts || (a as any)?.data?.sort_ts || a.occurred_at || "");
+      const bt = String((b as any)?.data?.__vs_sort_ts || (b as any)?.data?.sort_ts || b.occurred_at || "");
+      if (at !== bt) return at.localeCompare(bt);
+
+      return String(a.id || "").localeCompare(String(b.id || ""));
+    });
     return pts;
   }, [effectiveRows, targetVersion, yMetric, workoutFilter, exerciseFilter, aggMode, includeSeed]);
 
@@ -518,6 +528,10 @@ export default function SSLGPanel({
         const base = cloneData((editPoint as any)?.data || {});
         (base as any).date = d;
 
+        // Preserve original in-day ordering across corrections.
+        const sortTs = String((editPoint as any)?.data?.__vs_sort_ts || (editPoint as any)?.occurred_at || "").trim();
+        if (sortTs) (base as any).__vs_sort_ts = sortTs;
+
         const newData = applyYToData(base, yNum);
 
         const createPayload = {
@@ -596,9 +610,9 @@ export default function SSLGPanel({
       const t2 = await r2.text().catch(() => "");
       if (!r2.ok) throw new Error(`correction write failed: HTTP ${r2.status} ${t2}`);
 
+      await loadAll();
       setStatus(correctMode === "void" ? "voided point" : "corrected point");
       closeEdit();
-      await loadAll();
     } catch (e: any) {
       setCorrectStatus(`Error: ${e?.message || String(e)}`);
     } finally {
