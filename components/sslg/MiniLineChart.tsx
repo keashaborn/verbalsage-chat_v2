@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-export type XYPoint = { x: string; y: number; id?: string; occurred_at?: string; data?: any };
+export type XYPoint = { x: string; y: number; id?: string; occurred_at?: string; sort_ts?: string; data?: any };
 export type XMarker = { x: string; label?: string };
 export type PhaseStart = { x: string; phase: string; label?: string };
 
