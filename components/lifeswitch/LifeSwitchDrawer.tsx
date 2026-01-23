@@ -110,7 +110,7 @@ export function LifeSwitchDrawer({ trigger }: LifeSwitchDrawerProps) {
 
             {/* Footer */}
             <div className="border-t p-3 text-xs text-muted-foreground">
-              v0. Drawer hub; routes are stable entry points for LifeSwitch.
+              
             </div>
           </div>
         </Dialog.Content>

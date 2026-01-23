@@ -67,9 +67,9 @@ export default function CollectPage() {
   function goBack() {
     try {
       if (typeof window !== "undefined" && window.history.length > 1) window.history.back();
-      else window.location.assign("/lifeswitch");
+      else window.location.assign("/");
     } catch {
-      window.location.assign("/lifeswitch");
+      window.location.assign("/");
     }
   }
   const [status, setStatus] = React.useState<string>("");
