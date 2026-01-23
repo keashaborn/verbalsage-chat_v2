@@ -75,14 +75,15 @@ export default function NutritionFoodsPage() {
   }, []);
 
   // USDA search
-  const [usdaQ, setUsdaQ] = React.useState("hamburger");
+  const [usdaQ, setUsdaQ] = React.useState("");
   const [usdaLimit, setUsdaLimit] = React.useState("10");
   const [usdaRows, setUsdaRows] = React.useState<UsdaHit[]>([]);
   const [usdaLoading, setUsdaLoading] = React.useState(false);
   const [usdaErr, setUsdaErr] = React.useState<string | null>(null);
 
   // import options
-  const [variant, setVariant] = React.useState("96/4");
+  const [variant, setVariant] = React.useState("");
+  const [importingFdc, setImportingFdc] = React.useState<number | null>(null);
 
   // My Foods list
   const [myFoods, setMyFoods] = React.useState<MyFood[]>([]);
@@ -149,6 +150,19 @@ export default function NutritionFoodsPage() {
     if (owner) void loadMyFoods();
   }, [owner, loadMyFoods]);
 
+  const importedUsdaKeys = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const f of myFoods) {
+      if (!f.is_active) continue;
+      if (f.source_type !== 'usda') continue;
+      const sid = (f.source_id || '').trim();
+      if (!sid) continue;
+      const v = (f.variant || '').trim();
+      set.add(`${sid}::${v}`);
+    }
+    return set;
+  }, [myFoods]);
+
   async function importFromUsda(hit: UsdaHit) {
     setUsdaErr(null);
     if (!owner) {
@@ -161,6 +175,8 @@ export default function NutritionFoodsPage() {
     }
 
     try {
+      setImportingFdc(hit.fdc_id);
+
       const p = new URLSearchParams({
         owner_user_id: owner,
         fdc_id: String(hit.fdc_id),
@@ -176,10 +192,26 @@ export default function NutritionFoodsPage() {
       const t = await r.text();
       if (!r.ok) throw new Error(`import HTTP ${r.status}: ${t.slice(0, 200)}`);
 
-      // refresh My Foods list after import
       await loadMyFoods();
     } catch (e: any) {
       setUsdaErr(String(e?.message || e));
+    } finally {
+      setImportingFdc(null);
+    }
+  }
+
+
+
+  async function deactivateMyFood(my_food_id: string) {
+    if (!owner) return;
+    try {
+      await fetch(`/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/deactivate`, {
+        method: "POST",
+        cache: "no-store",
+      });
+      await loadMyFoods();
+    } catch (e: any) {
+      setMyErr(String(e?.message || e));
     }
   }
 
@@ -211,7 +243,7 @@ export default function NutritionFoodsPage() {
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={usdaQ}
               onChange={(e) => setUsdaQ(e.target.value)}
-              placeholder="e.g. hamburger, ground beef 96% lean, McDonald's hamburger"
+              placeholder='e.g. "salmon, raw", "sockeye salmon", "ground beef 96% lean", "mcdonalds hamburger"'
               onKeyDown={(e) => {
                 if (e.key === "Enter") void searchUsda();
               }}
@@ -258,10 +290,14 @@ export default function NutritionFoodsPage() {
                   <button
                     className="shrink-0 rounded-md border px-3 py-1.5 text-xs"
                     onClick={() => void importFromUsda(h)}
-                    disabled={!owner}
+                    disabled={!owner || importingFdc === h.fdc_id || importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)}
                     title={!owner ? "Sign in to import" : "Import into My Foods"}
                   >
-                    Import
+                    {importingFdc === h.fdc_id
+                      ? "Importing…"
+                      : importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)
+                        ? "Imported"
+                        : "Import"}
                   </button>
                 </div>
               </div>
@@ -319,7 +355,16 @@ export default function NutritionFoodsPage() {
                       {f.source_id ? `:${f.source_id}` : ""}
                     </div>
                   </div>
-                  <div className="shrink-0 text-xs text-muted-foreground">{f.is_verified ? "verified" : "unverified"}</div>
+                  <div className="shrink-0 flex items-center gap-2">
+                    <div className="text-xs text-muted-foreground">{f.is_verified ? "verified" : "unverified"}</div>
+                    <button
+                      className="rounded-md border px-2 py-1 text-xs"
+                      onClick={() => void deactivateMyFood(f.my_food_id)}
+                      title="Remove from My Foods"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-2 grid grid-cols-4 gap-2 text-xs">
