@@ -44,43 +44,73 @@ export function LifeSwitchDrawer({ trigger }: LifeSwitchDrawerProps) {
 
             {/* Body */}
             <div className="flex-1 space-y-3 p-3">
+              <div className="rounded-xl border p-3">
+                <div className="text-sm font-semibold">Nutrition</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Import foods → build meals → build day templates.
+                </div>
+                <div className="mt-3 grid gap-2">
+                  <button
+                    className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
+                    onClick={() => {
+                      setOpen(false);
+                      navTo("/lifeswitch/nutrition/foods");
+                    }}
+                  >
+                    My Foods
+                    <div className="text-xs text-muted-foreground">USDA search + import into your private library.</div>
+                  </button>
+
+                  <button
+                    className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
+                    onClick={() => {
+                      setOpen(false);
+                      navTo("/lifeswitch/nutrition/meals");
+                    }}
+                  >
+                    Meals
+                    <div className="text-xs text-muted-foreground">Meal templates with typical grams per item.</div>
+                  </button>
+
+                  <button
+                    className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
+                    onClick={() => {
+                      setOpen(false);
+                      navTo("/lifeswitch/nutrition/meal-plans");
+                    }}
+                  >
+                    Meal Plans
+                    <div className="text-xs text-muted-foreground">Day templates (targets move to Measurements).</div>
+                  </button>
+                </div>
+              </div>
+
               <button
                 className="w-full rounded-xl border p-3 text-left hover:bg-muted/30"
                 onClick={() => {
                   setOpen(false);
-                  navTo("/collect");
+                  navTo("/lifeswitch/training");
                 }}
               >
-                <div className="text-sm font-semibold">Capture</div>
-                <div className="text-xs text-muted-foreground">Data capture workspace.</div>
+                <div className="text-sm font-semibold">Training</div>
+                <div className="text-xs text-muted-foreground">Workout templates + session logging.</div>
               </button>
 
               <button
                 className="w-full rounded-xl border p-3 text-left hover:bg-muted/30"
                 onClick={() => {
                   setOpen(false);
-                  navTo("/developer/forms");
+                  navTo("/lifeswitch/measurements");
                 }}
               >
-                <div className="text-sm font-semibold">Design</div>
-                <div className="text-xs text-muted-foreground">Program/template design workspace.</div>
-              </button>
-
-              <button
-                className="w-full rounded-xl border p-3 text-left hover:bg-muted/30"
-                onClick={() => {
-                  setOpen(false);
-                  navTo("/developer/sslg");
-                }}
-              >
-                <div className="text-sm font-semibold">SSLG</div>
-                <div className="text-xs text-muted-foreground">Single-subject line graph workspace.</div>
+                <div className="text-sm font-semibold">Measurements</div>
+                <div className="text-xs text-muted-foreground">Biometrics + targets/TDEE (cut/bulk/maintain).</div>
               </button>
             </div>
 
             {/* Footer */}
             <div className="border-t p-3 text-xs text-muted-foreground">
-              v0. Links are temporary; we’ll move routes out of /developer once the Studio nav is stable.
+              v0. Drawer hub; routes are stable entry points for LifeSwitch.
             </div>
           </div>
         </Dialog.Content>

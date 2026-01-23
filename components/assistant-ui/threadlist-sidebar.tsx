@@ -58,19 +58,21 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarFooter className="aui-sidebar-footer border-t">
         <SidebarMenu>
-          {/* LifeSwitch (page link for now) */}
+          {/* LifeSwitch (drawer) */}
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <a href="/lifeswitch">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-muted text-foreground">
-                  <span className="text-xs font-semibold">LS</span>
-                </div>
-                <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">LifeSwitch</span>
-                  <span className="text-xs text-muted-foreground">Studio</span>
-                </div>
-              </a>
-            </SidebarMenuButton>
+            <LifeSwitchDrawer
+              trigger={
+                <SidebarMenuButton size="lg">
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-muted text-foreground">
+                    <span className="text-xs font-semibold">LS</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5 leading-none">
+                    <span className="font-semibold">LifeSwitch</span>
+                    <span className="text-xs text-muted-foreground">Studio</span>
+                  </div>
+                </SidebarMenuButton>
+              }
+            />
           </SidebarMenuItem>
 
           {/* SeeBx (drawer) */}
