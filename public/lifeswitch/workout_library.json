@@ -1,0 +1,422 @@
+{
+  "workouts": [
+    {
+      "id": "chest_and_triceps_push_a",
+      "label": "Chest And Triceps Push A",
+      "exercises": [
+        {
+          "id": "hammer_strength_plate_loaded_incline_press",
+          "label": "Hammer Strength Plate Loaded Incline Press",
+          "planned_sets": 3,
+          "default_weight": 117.0,
+          "default_reps": 14
+        },
+        {
+          "id": "hammer_strength_isolateral_decline_press",
+          "label": "Hammer Strength Isolateral Decline Press",
+          "planned_sets": 3,
+          "default_weight": 176.0,
+          "default_reps": 10
+        },
+        {
+          "id": "hammer_strength_plate_loaded_machine_dips",
+          "label": "Hammer Strength Plate Loaded Machine Dips",
+          "planned_sets": 3,
+          "default_weight": 164.0,
+          "default_reps": 18
+        },
+        {
+          "id": "hammer_stregth_horizontal_bench",
+          "label": "Hammer Stregth Horizontal Bench",
+          "planned_sets": 3,
+          "default_weight": 108.0,
+          "default_reps": 12
+        },
+        {
+          "id": "hammer_strength_plate_loaded_lateral_raise",
+          "label": "Hammer Strength Plate Loaded Lateral Raise",
+          "planned_sets": 3,
+          "default_weight": 45.0,
+          "default_reps": 13
+        },
+        {
+          "id": "long_head_triceps_unilateral_overhead_cable_extension",
+          "label": "Long Head Triceps Unilateral Overhead Cable Extension",
+          "planned_sets": 3,
+          "default_weight": 77.5,
+          "default_reps": 9
+        },
+        {
+          "id": "cable_tricept_pushdown",
+          "label": "Cable Tricept Pushdown",
+          "planned_sets": 3,
+          "default_weight": 77.5,
+          "default_reps": 14
+        },
+        {
+          "id": "tricep_overhead_barbell_extension",
+          "label": "Tricep Overhead Barbell Extension",
+          "planned_sets": 1,
+          "default_weight": 45.0,
+          "default_reps": 14
+        }
+      ]
+    },
+    {
+      "id": "alternative_back",
+      "label": "Alternative Back",
+      "exercises": [
+        {
+          "id": "farmers_carry",
+          "label": "Farmers Carry",
+          "planned_sets": 1,
+          "default_weight": 80.0,
+          "default_reps": 4
+        },
+        {
+          "id": "cable_crossover_lat_pulldown",
+          "label": "Cable Crossover Lat Pulldown",
+          "planned_sets": 4,
+          "default_weight": 85.0,
+          "default_reps": 11
+        },
+        {
+          "id": "hammer_strength_seated_standing_shrug",
+          "label": "Hammer Strength Seated Standing Shrug",
+          "planned_sets": 3,
+          "default_weight": 325.0,
+          "default_reps": 40
+        },
+        {
+          "id": "hammer_strength_seated_bicep_curl",
+          "label": "Hammer Strength Seated Bicep Curl",
+          "planned_sets": 3,
+          "default_weight": 94.0,
+          "default_reps": 15
+        }
+      ]
+    },
+    {
+      "id": "quads_hams_and_gastroc",
+      "label": "Quads Hams And Gastroc",
+      "exercises": [
+        {
+          "id": "hammer_strength_leg_extension",
+          "label": "Hammer Strength Leg Extension",
+          "planned_sets": 3,
+          "default_weight": 94.0,
+          "default_reps": 18
+        },
+        {
+          "id": "hammer_strength_seated_leg_curl",
+          "label": "Hammer Strength Seated Leg Curl",
+          "planned_sets": 3,
+          "default_weight": 75.0,
+          "default_reps": 10
+        },
+        {
+          "id": "standing_smith_machine_calf_raise",
+          "label": "Standing Smith Machine Calf Raise",
+          "planned_sets": 2,
+          "default_weight": 80.0,
+          "default_reps": 40
+        },
+        {
+          "id": "life_fitness_hip_adduction",
+          "label": "Life Fitness Hip Adduction",
+          "planned_sets": 2,
+          "default_weight": 75.0,
+          "default_reps": 15
+        },
+        {
+          "id": "hammer_strength_glute_drive",
+          "label": "Hammer Strength Glute Drive",
+          "planned_sets": 3,
+          "default_weight": 195.0,
+          "default_reps": 10
+        }
+      ]
+    },
+    {
+      "id": "purely_abs_obliques",
+      "label": "Purely Abs Obliques",
+      "exercises": [
+        {
+          "id": "hammer_strength_abdominal_oblique_crunch",
+          "label": "Hammer Strength Abdominal Oblique Crunch",
+          "planned_sets": 3,
+          "default_weight": 70.0,
+          "default_reps": 31
+        }
+      ]
+    },
+    {
+      "id": "focused_back",
+      "label": "Focused Back",
+      "exercises": [
+        {
+          "id": "farmers_carry",
+          "label": "Farmers Carry",
+          "planned_sets": 1,
+          "default_weight": 80.0,
+          "default_reps": 4
+        },
+        {
+          "id": "cable_crossover_lat_pulldown",
+          "label": "Cable Crossover Lat Pulldown",
+          "planned_sets": 3,
+          "default_weight": 85.0,
+          "default_reps": 9
+        },
+        {
+          "id": "hammer_strength_seated_standing_shrug",
+          "label": "Hammer Strength Seated Standing Shrug",
+          "planned_sets": 4,
+          "default_weight": 325.0,
+          "default_reps": 40
+        },
+        {
+          "id": "hammer_strength_seated_bicep_curl",
+          "label": "Hammer Strength Seated Bicep Curl",
+          "planned_sets": 3,
+          "default_weight": 94.0,
+          "default_reps": 15
+        }
+      ]
+    },
+    {
+      "id": "chest_and_triceps_push_b",
+      "label": "Chest And Triceps Push B",
+      "exercises": [
+        {
+          "id": "long_head_triceps_unilateral_overhead_cable_extension",
+          "label": "Long Head Triceps Unilateral Overhead Cable Extension",
+          "planned_sets": 3,
+          "default_weight": 77.5,
+          "default_reps": 10
+        },
+        {
+          "id": "cable_tricept_pushdown",
+          "label": "Cable Tricept Pushdown",
+          "planned_sets": 3,
+          "default_weight": 77.5,
+          "default_reps": 14
+        },
+        {
+          "id": "tricep_overhead_barbell_extension",
+          "label": "Tricep Overhead Barbell Extension",
+          "planned_sets": 3,
+          "default_weight": 45.0,
+          "default_reps": 14
+        },
+        {
+          "id": "hammer_strength_plate_loaded_lateral_raise",
+          "label": "Hammer Strength Plate Loaded Lateral Raise",
+          "planned_sets": 4,
+          "default_weight": 40.0,
+          "default_reps": 23
+        },
+        {
+          "id": "hammer_strength_plate_loaded_machine_dips",
+          "label": "Hammer Strength Plate Loaded Machine Dips",
+          "planned_sets": 3,
+          "default_weight": 164.0,
+          "default_reps": 10
+        },
+        {
+          "id": "hammer_strength_isolateral_decline_press",
+          "label": "Hammer Strength Isolateral Decline Press",
+          "planned_sets": 3,
+          "default_weight": 176.0,
+          "default_reps": 10
+        },
+        {
+          "id": "hammer_strength_plate_loaded_incline_press",
+          "label": "Hammer Strength Plate Loaded Incline Press",
+          "planned_sets": 3,
+          "default_weight": 97.0,
+          "default_reps": 10
+        },
+        {
+          "id": "hammer_stregth_horizontal_bench",
+          "label": "Hammer Stregth Horizontal Bench",
+          "planned_sets": 3,
+          "default_weight": 108.0,
+          "default_reps": 12
+        }
+      ]
+    },
+    {
+      "id": "leg_day_2",
+      "label": "Leg Day 2",
+      "exercises": [
+        {
+          "id": "hammer_strength_leg_extension",
+          "label": "Hammer Strength Leg Extension",
+          "planned_sets": 3,
+          "default_weight": 94.0,
+          "default_reps": 15
+        },
+        {
+          "id": "hammer_strength_seated_leg_curl",
+          "label": "Hammer Strength Seated Leg Curl",
+          "planned_sets": 3,
+          "default_weight": 75.0,
+          "default_reps": 10
+        },
+        {
+          "id": "seated_calf_raise",
+          "label": "Seated Calf Raise",
+          "planned_sets": 1,
+          "default_weight": 40.0,
+          "default_reps": 10
+        },
+        {
+          "id": "standing_smith_machine_calf_raise",
+          "label": "Standing Smith Machine Calf Raise",
+          "planned_sets": 1,
+          "default_weight": 80.0,
+          "default_reps": 13
+        },
+        {
+          "id": "life_fitness_hip_adduction",
+          "label": "Life Fitness Hip Adduction",
+          "planned_sets": 2,
+          "default_weight": 75.0,
+          "default_reps": 20
+        },
+        {
+          "id": "hammer_strength_glute_drive",
+          "label": "Hammer Strength Glute Drive",
+          "planned_sets": 3,
+          "default_weight": 195.0,
+          "default_reps": 8
+        }
+      ]
+    },
+    {
+      "id": "back_and_tricepts_push_pull_a",
+      "label": "Back And Tricepts Push Pull A",
+      "exercises": [
+        {
+          "id": "hammer_strength_seated_standing_shrug",
+          "label": "Hammer Strength Seated Standing Shrug",
+          "planned_sets": 3,
+          "default_weight": 230.0,
+          "default_reps": 30
+        },
+        {
+          "id": "hammer_strength_isolateral_high_row",
+          "label": "Hammer Strength Isolateral High Row",
+          "planned_sets": 3,
+          "default_weight": 192.0,
+          "default_reps": 10
+        },
+        {
+          "id": "dumbbell_lateral_raises",
+          "label": "Dumbbell Lateral Raises",
+          "planned_sets": 3,
+          "default_weight": 15.0,
+          "default_reps": 16
+        },
+        {
+          "id": "hammer_strength_plate_loaded_lateral_raise",
+          "label": "Hammer Strength Plate Loaded Lateral Raise",
+          "planned_sets": 5,
+          "default_weight": 35.0,
+          "default_reps": 15
+        },
+        {
+          "id": "face_pull",
+          "label": "Face Pull",
+          "planned_sets": 4,
+          "default_weight": 27.5,
+          "default_reps": 20
+        },
+        {
+          "id": "long_head_triceps_unilateral_overhead_cable_extension",
+          "label": "Long Head Triceps Unilateral Overhead Cable Extension",
+          "planned_sets": 4,
+          "default_weight": 62.5,
+          "default_reps": 19
+        },
+        {
+          "id": "cable_tricept_pushdown",
+          "label": "Cable Tricept Pushdown",
+          "planned_sets": 3,
+          "default_weight": 67.5,
+          "default_reps": 6
+        },
+        {
+          "id": "hammer_strength_seated_bicep_curl",
+          "label": "Hammer Strength Seated Bicep Curl",
+          "planned_sets": 6,
+          "default_weight": 90.0,
+          "default_reps": 10
+        },
+        {
+          "id": "dumbells_curl",
+          "label": "Dumbells Curl",
+          "planned_sets": 3,
+          "default_weight": 25.0,
+          "default_reps": 12
+        }
+      ]
+    },
+    {
+      "id": "chest_and_triceps_push_c",
+      "label": "Chest And Triceps Push C",
+      "exercises": [
+        {
+          "id": "hammer_strength_isolateral_chest_back",
+          "label": "Hammer Strength Isolateral Chest Back",
+          "planned_sets": 3,
+          "default_weight": 137.0,
+          "default_reps": 8
+        },
+        {
+          "id": "hammer_strength_isolateral_decline_press",
+          "label": "Hammer Strength Isolateral Decline Press",
+          "planned_sets": 3,
+          "default_weight": 216.0,
+          "default_reps": 7
+        },
+        {
+          "id": "hammer_strength_seated_dip",
+          "label": "Hammer Strength Seated Dip",
+          "planned_sets": 3,
+          "default_weight": 164.0,
+          "default_reps": 9
+        },
+        {
+          "id": "hammer_strength_seated_standing_shrug",
+          "label": "Hammer Strength Seated Standing Shrug",
+          "planned_sets": 3,
+          "default_weight": 165.0,
+          "default_reps": 30
+        },
+        {
+          "id": "hammer_strength_plate_loaded_lateral_raise",
+          "label": "Hammer Strength Plate Loaded Lateral Raise",
+          "planned_sets": 5,
+          "default_weight": 30.0,
+          "default_reps": 15
+        },
+        {
+          "id": "long_head_triceps_unilateral_overhead_cable_extension",
+          "label": "Long Head Triceps Unilateral Overhead Cable Extension",
+          "planned_sets": 4,
+          "default_weight": 62.5,
+          "default_reps": 16
+        },
+        {
+          "id": "cable_tricept_pushdown",
+          "label": "Cable Tricept Pushdown",
+          "planned_sets": 3,
+          "default_weight": 62.5,
+          "default_reps": 10
+        }
+      ]
+    }
+  ]
+}
