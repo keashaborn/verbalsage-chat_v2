@@ -1,53 +1,54 @@
 import Link from "next/link";
 
-export default function LifeSwitchPage() {
+export default function LifeSwitchHome() {
   return (
-    <div className="mx-auto max-w-5xl p-4">
-      <div className="text-lg font-semibold">LifeSwitch</div>
-      <div className="mt-1 text-sm text-muted-foreground">
-        Nutrition, training, and biometrics.
+    <div className="mx-auto max-w-4xl p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold">LifeSwitch</h1>
+        <div className="mt-1 text-sm text-muted-foreground">
+          Nutrition, training, and measurements.
+        </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <Link
-          href="/lifeswitch/nutrition/foods"
-          className="rounded-lg border p-4 hover:bg-muted/40"
-        >
-          <div className="text-sm font-medium">Foods</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            USDA search → import → My Foods library
-          </div>
-        </Link>
-
-        <Link
-          href="/lifeswitch/nutrition"
-          className="rounded-lg border p-4 hover:bg-muted/40"
-        >
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-lg border bg-card p-4">
           <div className="text-sm font-medium">Nutrition</div>
           <div className="mt-1 text-xs text-muted-foreground">
-            Meal plans and daily structure (current page)
+            Build a personal food library, then assemble meal plans from it.
           </div>
-        </Link>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30" href="/lifeswitch/nutrition/foods">
+              My Foods
+            </Link>
+            <Link className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30" href="/lifeswitch/nutrition/meal-plans">
+              Meal Plans
+            </Link>
+          </div>
+        </div>
 
-        <Link
-          href="/lifeswitch/training"
-          className="rounded-lg border p-4 hover:bg-muted/40"
-        >
+        <div className="rounded-lg border bg-card p-4">
           <div className="text-sm font-medium">Training</div>
           <div className="mt-1 text-xs text-muted-foreground">
-            Programs and workout logging
+            Workouts and exercise planning.
           </div>
-        </Link>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30" href="/lifeswitch/training">
+              Training
+            </Link>
+          </div>
+        </div>
 
-        <Link
-          href="/lifeswitch/measurements"
-          className="rounded-lg border p-4 hover:bg-muted/40"
-        >
+        <div className="rounded-lg border bg-card p-4">
           <div className="text-sm font-medium">Measurements</div>
           <div className="mt-1 text-xs text-muted-foreground">
-            Body metrics (rename to Biometrics later)
+            Track biometrics over time.
           </div>
-        </Link>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30" href="/lifeswitch/measurements">
+              Measurements
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );
