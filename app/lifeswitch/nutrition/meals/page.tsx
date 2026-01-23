@@ -16,7 +16,21 @@ type MealItem = {
   meal_item_id: string;
   meal_id: string;
   my_food_id: string;
+
+  // quantity modes:
+  // - grams mode: qty_g
+  // - servings mode: my_food_serving_id + qty_servings
   qty_g: number | null;
+  my_food_serving_id: string | null;
+  qty_servings: number | null;
+
+  // server-computed resolved grams (coalesce(qty_g, serving_grams*qty_servings))
+  qty_g_resolved: number | null;
+
+  // serving preset info (if servings mode)
+  serving_name: string | null;
+  serving_grams: number | null;
+
   sort_order: number;
   notes: string | null;
 
@@ -56,13 +70,17 @@ function scaled(per100: number | null, qty_g: number | null) {
   return (per100 * qty_g) / 100.0;
 }
 
+function resolvedQtyG(it: MealItem): number | null {
+  return it.qty_g_resolved ?? it.qty_g;
+}
+
 async function fetchJson(url: string, init?: RequestInit) {
   const r = await fetch(url, { cache: "no-store", ...(init || {}) });
   const t = await r.text();
   let j: any = null;
   try {
     j = t ? JSON.parse(t) : null;
-  } catch {}
+  } catch { }
   if (!r.ok) {
     const detail = j?.detail || j?.error || t?.slice(0, 200) || `HTTP ${r.status}`;
     throw new Error(String(detail));
@@ -114,6 +132,8 @@ export default function MealsPage() {
 
   // add item controls
   const [qtyG, setQtyG] = React.useState("150");
+  const [qtyMode, setQtyMode] = React.useState<"grams" | "serving">("grams");
+  const [qtyServings, setQtyServings] = React.useState("1");
   const [addingId, setAddingId] = React.useState<string | null>(null);
 
   const loadMeals = React.useCallback(async () => {
@@ -179,12 +199,27 @@ export default function MealsPage() {
     setErr(null);
     try {
       setAddingId(my_food_id);
-      const g = Math.max(1, Number((qtyG || "0").trim()) || 0);
       const qs = new URLSearchParams({
         my_food_id,
-        qty_g: String(g),
         sort_order: "1",
       });
+
+      if (qtyMode === "grams") {
+        const g = Number((qtyG || "").trim());
+        if (!Number.isFinite(g) || g <= 0) throw new Error("qty_g must be > 0");
+        qs.set("qty_g", String(g));
+      } else {
+        const n = Number((qtyServings || "").trim());
+        if (!Number.isFinite(n) || n <= 0) throw new Error("qty_servings must be > 0");
+
+        const sv = await fetchJson(`/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/servings`);
+        const arr = Array.isArray(sv) ? sv : [];
+        const chosen = arr.find((x: any) => x?.is_default) || arr[0];
+        if (!chosen?.my_food_serving_id) throw new Error("No serving preset for this food. Add one on Foods page.");
+        qs.set("my_food_serving_id", String(chosen.my_food_serving_id));
+        qs.set("qty_servings", String(n));
+      }
+
       await fetchJson(`/api/lifeswitch/nutrition/meals/${encodeURIComponent(selectedMealId)}/items/add?${qs.toString()}`, { method: "POST" });
       await loadItems(selectedMealId);
     } catch (e: any) {
@@ -199,7 +234,7 @@ export default function MealsPage() {
       let total = 0;
       let any = false;
       for (const it of items) {
-        const v = scaled((it as any)[k], it.qty_g);
+        const v = scaled((it as any)[k], resolvedQtyG(it));
         if (v == null) continue;
         total += v;
         any = true;
@@ -296,11 +331,13 @@ export default function MealsPage() {
                       <div className="mt-0.5 text-xs text-muted-foreground">
                         {it.brand ? it.brand : "—"}
                         {it.variant ? ` · ${it.variant}` : ""}
-                        {it.qty_g != null ? ` · ${it.qty_g}g` : ""}
+                        {it.serving_name && it.qty_servings != null
+                          ? ` · ${it.qty_servings}× ${it.serving_name} (${fmt(resolvedQtyG(it), 0)}g)`
+                          : (resolvedQtyG(it) != null ? ` · ${fmt(resolvedQtyG(it), 0)}g` : "")}
                       </div>
                     </div>
                     <div className="shrink-0 text-xs text-muted-foreground">
-                      kcal {fmt(scaled(it.kcal, it.qty_g), 0)} · P {fmt(scaled(it.protein_g, it.qty_g), 0)} · C {fmt(scaled(it.carbs_g, it.qty_g), 0)} · F {fmt(scaled(it.fat_g, it.qty_g), 0)}
+                      kcal {fmt(scaled(it.kcal, resolvedQtyG(it)), 0)} · P {fmt(scaled(it.protein_g, resolvedQtyG(it)), 0)} · C {fmt(scaled(it.carbs_g, resolvedQtyG(it)), 0)} · F {fmt(scaled(it.fat_g, resolvedQtyG(it)), 0)}
                     </div>
                   </div>
                 </div>
@@ -331,8 +368,38 @@ export default function MealsPage() {
             </button>
           </div>
 
-          <div className="mt-2">
-            <input className="w-full rounded-md border bg-background px-2 py-2 text-sm" value={qtyG} onChange={(e) => setQtyG(e.target.value)} placeholder="typical grams (e.g. 150)" disabled={!owner} />
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <select
+              className="rounded-md border bg-background px-2 py-2 text-sm"
+              value={qtyMode}
+              onChange={(e) => setQtyMode(e.target.value as any)}
+              disabled={!owner}
+            >
+              <option value="grams">grams</option>
+              <option value="serving">servings (default preset)</option>
+            </select>
+
+            {qtyMode === "grams" ? (
+              <input
+                className="w-full rounded-md border bg-background px-2 py-2 text-sm"
+                value={qtyG}
+                onChange={(e) => setQtyG(e.target.value)}
+                placeholder="grams (e.g. 150)"
+                disabled={!owner}
+              />
+            ) : (
+              <input
+                className="w-full rounded-md border bg-background px-2 py-2 text-sm"
+                value={qtyServings}
+                onChange={(e) => setQtyServings(e.target.value)}
+                placeholder="servings (e.g. 2)"
+                disabled={!owner}
+              />
+            )}
+          </div>
+
+          <div className="mt-1 text-xs text-muted-foreground">
+            {qtyMode === "serving" ? "Uses the default serving preset for that food." : "Adds grams to the meal template."}
           </div>
 
           <div className="mt-3 space-y-2">
