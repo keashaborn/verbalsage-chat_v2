@@ -17,7 +17,7 @@ export async function POST(
   const upstream = new URL(
     `${BRAINS_URL}/lifeswitch/nutrition/meals/${encodeURIComponent(meal_id)}/items/${encodeURIComponent(meal_item_id)}/delete`
   );
-  upstream.search = inUrl.search; // passes owner_user_id
+  upstream.search = inUrl.search; // forwards owner_user_id
 
   const r = await fetch(upstream.toString(), {
     method: "POST",
