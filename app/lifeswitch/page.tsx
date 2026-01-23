@@ -1,58 +1,53 @@
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
-
-function Card({
-  title,
-  desc,
-  href,
-}: {
-  title: string;
-  desc: string;
-  href: string;
-}) {
+export default function LifeSwitchPage() {
   return (
-    <Link
-      href={href}
-      className="block rounded-xl border p-4 hover:bg-gray-50 dark:hover:bg-white/5"
-    >
-      <div className="text-base font-semibold">{title}</div>
-      <div className="mt-1 text-sm opacity-80">{desc}</div>
-      <div className="mt-3 text-xs opacity-60">{href}</div>
-    </Link>
-  );
-}
-
-export default function LifeSwitchHubPage() {
-  return (
-    <div className="mx-auto max-w-3xl p-4">
-      <div className="mb-4">
-        <h1 className="text-xl font-semibold">LifeSwitch</h1>
-        <div className="mt-2 text-sm opacity-80">
-          Training and nutrition tools (templates, sessions, and progress).
-        </div>
+    <div className="mx-auto max-w-5xl p-4">
+      <div className="text-lg font-semibold">LifeSwitch</div>
+      <div className="mt-1 text-sm text-muted-foreground">
+        Nutrition, training, and biometrics.
       </div>
 
-      <div className="grid gap-3">
-        <Card
-          title="Nutrition"
-          desc="Approved foods library search, meal plans, daily logging."
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <Link
+          href="/lifeswitch/nutrition/foods"
+          className="rounded-lg border p-4 hover:bg-muted/40"
+        >
+          <div className="text-sm font-medium">Foods</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            USDA search → import → My Foods library
+          </div>
+        </Link>
+
+        <Link
           href="/lifeswitch/nutrition"
-        />
-        <Card
-          title="Training"
-          desc="Workout templates, session logging, volume/progression views."
-          href="/lifeswitch/training"
-        />
-        <Card
-          title="Measurements"
-          desc="Weight, DEXA, tape/circumference, calipers, photos."
-          href="/lifeswitch/measurements"
-        />
-      </div>
+          className="rounded-lg border p-4 hover:bg-muted/40"
+        >
+          <div className="text-sm font-medium">Nutrition</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Meal plans and daily structure (current page)
+          </div>
+        </Link>
 
-      <div className="mt-6 text-xs opacity-60">
-        Note: Training/Measurements pages will be enabled as their schemas land.
+        <Link
+          href="/lifeswitch/training"
+          className="rounded-lg border p-4 hover:bg-muted/40"
+        >
+          <div className="text-sm font-medium">Training</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Programs and workout logging
+          </div>
+        </Link>
+
+        <Link
+          href="/lifeswitch/measurements"
+          className="rounded-lg border p-4 hover:bg-muted/40"
+        >
+          <div className="text-sm font-medium">Measurements</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Body metrics (rename to Biometrics later)
+          </div>
+        </Link>
       </div>
     </div>
   );
