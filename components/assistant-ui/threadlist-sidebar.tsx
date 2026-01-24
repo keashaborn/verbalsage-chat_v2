@@ -68,13 +68,13 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
               trigger={
                 <SidebarMenuButton size="default" className="py-2">
                   <div className="flex items-center">
-                    <div className="relative" style={{ height: 16, width: 140 }}>
+                    <div className="relative translate-y-[0px]" style={{ height: 16, width: 140 }}>
                       <Image
                         src="/brand/ls-wordmark.norm.svg"
                         alt="LifeSwitch"
                         fill
                         sizes="140px"
-                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[1.00] origin-left`}
+                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[.65] origin-left`}
                       />
                     </div>
                   </div>
@@ -89,13 +89,13 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
               trigger={
                 <SidebarMenuButton size="default" className="py-2">
                   <div className="flex items-center">
-                    <div className="relative" style={{ height: 16, width: 140 }}>
+                    <div className="relative translate-y-[1px]" style={{ height: 16, width: 140 }}>
                       <Image
                         src="/brand/seebx-wordmark.norm.svg"
                         alt="Seebx"
                         fill
                         sizes="140px"
-                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[1.00] origin-left`}
+                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[.65] origin-left`}
                       />
                     </div>
                   </div>
@@ -110,7 +110,7 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
               trigger={
                 <SidebarMenuButton size="default" className="py-2">
                   <div className="flex items-center">
-                    <div className="relative" style={{ height: 16, width: 140 }}>
+                    <div className="relative translate-y-[1px]" style={{ height: 16, width: 140 }}>
                       <Image
                         src="/brand/admin-wordmark.norm.svg"
                         alt="Admin"
