@@ -480,6 +480,59 @@ export default function LifeSwitchTrainingPage() {
               placeholder="(click Use on a hit below)"
             />
           </label>
+
+          <div className="mt-4 rounded-xl border p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <div className="text-sm font-semibold">My Exercises</div>
+                <div className="mt-1 text-xs opacity-70">
+                  Local-only pool (v0). Next step: persist to DB as lifeswitch_training.my_exercise.
+                </div>
+              </div>
+              <div className="text-xs opacity-70">count={myExercises.length}</div>
+            </div>
+
+            {myExercises.length ? (
+              <div className="mt-3 overflow-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left opacity-70">
+                      <th className="py-1 pr-2">exercise</th>
+                      <th className="py-1 pr-2">modality</th>
+                      <th className="py-1 pr-2">brand</th>
+                      <th className="py-1 pr-2">matched</th>
+                      <th className="py-1 pr-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {myExercises.map((x) => (
+                      <tr key={x.exercise_id} className="border-t">
+                        <td className="py-1 pr-2">{x.display_name}</td>
+                        <td className="py-1 pr-2">{x.modality}</td>
+                        <td className="py-1 pr-2">{x.brand_name || ""}</td>
+                        <td className="py-1 pr-2">
+                          {x.matched_source ? `${x.matched_source}: ${x.matched_text || ""}` : ""}
+                        </td>
+                        <td className="py-1 pr-2">
+                          <button
+                            type="button"
+                            className="rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60"
+                            onClick={() => removeMyExercise(x.exercise_id)}
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="mt-3 text-xs opacity-70">
+                Empty. Use Exercise catalog search above and click <span className="font-mono">Save</span>.
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="mt-2 flex items-center gap-2 text-xs opacity-70">
