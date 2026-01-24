@@ -20,6 +20,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { SeebxDrawer } from "@/components/seebx/SeebxDrawer";
 
+const BRAND_MARK_H = 14; // px: shared optical height target
+const BRAND_FILTER_SILVER =
+  "grayscale brightness-125 contrast-125 opacity-85"; // tweak later
+
 export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const { isMobile, setOpenMobile } = useSidebar();
   return (
@@ -62,21 +66,17 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <LifeSwitchDrawer
               trigger={
-                <SidebarMenuButton size="lg">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-muted text-foreground">
-                    <span className="text-xs font-semibold">LS</span>
-                  </div>
-                  <div className="flex flex-col gap-0.5 leading-none">
-                    <div className="relative h-4 w-[150px]">
+                <SidebarMenuButton size="default" className="py-2">
+                  <div className="flex items-center">
+                    <div className="relative" style={{ height: 12, width: 110 }}>
                       <Image
                         src="/brand/1%20-%20Life%20Switch%20-%20Word%20Mark%20-%20clr.svg"
                         alt="LifeSwitch"
                         fill
-                        sizes="150px"
-                        className="object-contain object-left"
+                        sizes="108px"
+                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[0.92] origin-left`}
                       />
                     </div>
-                    <span className="text-xs text-muted-foreground">Studio</span>
                   </div>
                 </SidebarMenuButton>
               }
@@ -84,24 +84,20 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenuItem>
 
           {/* SeeBx (drawer) */}
-          <SidebarMenuItem>
+          <SidebarMenuItem className="border-t border-border/40">
             <SeebxDrawer
               trigger={
-                <SidebarMenuButton size="lg">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-muted text-foreground">
-                    <span className="text-xs font-semibold">SB</span>
-                  </div>
-                  <div className="flex flex-col gap-0.5 leading-none">
-                    <div className="relative h-4 w-[150px]">
+                <SidebarMenuButton size="default" className="py-2">
+                  <div className="flex items-center">
+                    <div className="relative" style={{ height: 12, width: 110 }}>
                       <Image
                         src="/brand/a%20-%20SEEBX%20-%20Word%20Mark%20-%20non%20tagline%20-%20clr.svg"
                         alt="Seebx"
                         fill
-                        sizes="150px"
-                        className="object-contain object-left"
+                        sizes="102px"
+                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[0.92] origin-left`}
                       />
                     </div>
-                    <span className="text-xs text-muted-foreground">Workspace</span>
                   </div>
                 </SidebarMenuButton>
               }
@@ -109,24 +105,20 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenuItem>
 
           {/* Admin (drawer) */}
-          <SidebarMenuItem>
+          <SidebarMenuItem className="border-t border-border/40">
             <SettingsDrawer
               trigger={
-                <SidebarMenuButton size="lg">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-muted text-foreground">
-                    <span className="text-xs font-semibold">VS</span>
-                  </div>
-                  <div className="flex flex-col gap-0.5 leading-none">
-                    <div className="relative h-4 w-[150px]">
+                <SidebarMenuButton size="default" className="py-2">
+                  <div className="flex items-center">
+                    <div className="relative" style={{ height: 18, width: 128}}>
                       <Image
                         src="/brand/svgweb.svg"
                         alt="Admin"
                         fill
-                        sizes="150px"
-                        className="object-contain object-left"
+                        sizes="118px"
+                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[1.00] origin-left`}
                       />
                     </div>
-                    <span className="text-xs text-muted-foreground">Settings</span>
                   </div>
                 </SidebarMenuButton>
               }
