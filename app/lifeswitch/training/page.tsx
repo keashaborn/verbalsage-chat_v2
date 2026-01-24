@@ -24,6 +24,18 @@ type WorkoutLibrary = {
   workouts: LibraryWorkout[];
 };
 
+type ExerciseSearchHit = {
+  exercise_id: string;
+  display_name: string;
+  kind: string;
+  modality: string;
+  score?: number;
+  matched_text?: string | null;
+  matched_source?: string | null;
+  brand_name?: string | null;
+  model_name?: string | null;
+};
+
 function pad2(n: number) {
   return n < 10 ? `0${n}` : String(n);
 }
@@ -73,6 +85,48 @@ export default function LifeSwitchTrainingPage() {
   const [preview, setPreview] = React.useState<PlannedWorkoutSetEntry[]>([]);
   const [posting, setPosting] = React.useState<boolean>(false);
   const [status, setStatus] = React.useState<string>("");
+  // DB-backed exercise catalog search (seebx -> Postgres via BRAINS proxy)
+  const [exQ, setExQ] = React.useState<string>("");
+  const [exResults, setExResults] = React.useState<ExerciseSearchHit[]>([]);
+  const [exLoading, setExLoading] = React.useState<boolean>(false);
+  const [exStatus, setExStatus] = React.useState<string>("");
+  const [selectedCanonicalExercise, setSelectedCanonicalExercise] = React.useState<string>("");
+
+  async function runExerciseSearch(q: string) {
+    const qq = String(q || "").trim();
+    setExStatus("");
+    if (!qq) {
+      setExResults([]);
+      return;
+    }
+    setExLoading(true);
+    try {
+      const u = new URL("/api/catalog/exercises/search", window.location.origin);
+      u.searchParams.set("q", qq);
+      u.searchParams.set("limit", "10");
+
+      const r = await fetch(u.toString(), { cache: "no-store" });
+      const t = await r.text().catch(() => "");
+      if (!r.ok) throw new Error(`exercise search failed: HTTP ${r.status} ${t}`);
+
+      const j = JSON.parse(t);
+      setExResults(Array.isArray(j) ? (j as ExerciseSearchHit[]) : []);
+      setExStatus(Array.isArray(j) ? `hits=${j.length}` : "hits=?");
+    } catch (e: any) {
+      setExResults([]);
+      setExStatus(`error: ${e?.message || String(e)}`);
+    } finally {
+      setExLoading(false);
+    }
+  }
+
+  // debounce
+  React.useEffect(() => {
+    const qq = exQ.trim();
+    const h = setTimeout(() => runExerciseSearch(qq), 250);
+    return () => clearTimeout(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exQ]);
 
   React.useEffect(() => {
     (async () => {
@@ -322,6 +376,79 @@ export default function LifeSwitchTrainingPage() {
             fans out Workout Set rows from the selected workout definition.
           </div>
         </div>
+      </div>
+
+      <div className="mt-4 rounded-xl border p-3">
+        <div className="text-sm font-semibold">Exercise catalog (DB)</div>
+        <div className="mt-1 text-xs opacity-70">
+          Queries seebx catalog via <span className="font-mono">/api/catalog/exercises/search</span>. No writes.
+        </div>
+
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <label className="grid gap-1 text-sm">
+            <span className="opacity-70">Search</span>
+            <input
+              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              value={exQ}
+              onChange={(e) => setExQ(e.target.value)}
+              placeholder='e.g., "hammer chest press", "cable pushdown"'
+            />
+          </label>
+
+          <label className="grid gap-1 text-sm">
+            <span className="opacity-70">Selected canonical exercise</span>
+            <input
+              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              value={selectedCanonicalExercise}
+              onChange={(e) => setSelectedCanonicalExercise(e.target.value)}
+              placeholder="(click a hit below)"
+            />
+          </label>
+        </div>
+
+        <div className="mt-2 flex items-center gap-2 text-xs opacity-70">
+          <div>{exLoading ? "searching…" : exStatus}</div>
+          <div className="ml-auto">{exResults.length ? `showing ${exResults.length}` : ""}</div>
+        </div>
+
+        {exResults.length ? (
+          <div className="mt-3 overflow-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left opacity-70">
+                  <th className="py-1 pr-2">exercise</th>
+                  <th className="py-1 pr-2">kind</th>
+                  <th className="py-1 pr-2">modality</th>
+                  <th className="py-1 pr-2">matched</th>
+                  <th className="py-1 pr-2">brand</th>
+                  <th className="py-1 pr-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {exResults.map((h) => (
+                  <tr key={h.exercise_id} className="border-t">
+                    <td className="py-1 pr-2">{h.display_name}</td>
+                    <td className="py-1 pr-2">{h.kind}</td>
+                    <td className="py-1 pr-2">{h.modality}</td>
+                    <td className="py-1 pr-2">
+                      {h.matched_source ? `${h.matched_source}: ${h.matched_text || ""}` : ""}
+                    </td>
+                    <td className="py-1 pr-2">{h.brand_name || ""}</td>
+                    <td className="py-1 pr-2">
+                      <button
+                        type="button"
+                        className="rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60"
+                        onClick={() => setSelectedCanonicalExercise(h.display_name)}
+                      >
+                        Use
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </div>
 
       {preview.length ? (
