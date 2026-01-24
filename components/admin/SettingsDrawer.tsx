@@ -117,7 +117,7 @@ function DrawerInner({
   return (
     <div className="flex h-svh flex-col">
       <div className="sticky top-0 z-10 border-b bg-background">
-        <div className="px-4 py-3">
+        <div className="px-3 py-3">
           <Dialog.Title className="sr-only">Settings</Dialog.Title>
           <Dialog.Description className="sr-only">
             Assistant, interface, account/security, and developer controls.
@@ -138,14 +138,14 @@ function DrawerInner({
                 <div className="w-[28px]" aria-hidden />
               )}
 
-              <div className="min-w-0 flex-1">
+              <div className={`min-w-0 flex-1 ${stack.length > 1 ? "" : "-ml-[28px]"}`}>
                 <div className="relative" style={{ height: 16, width: 140 }}>
                   <Image
-                    src="/brand/svgweb.svg"
+                    src="/brand/verbalsage-wordmark.trim.svg"
                     alt={title}
                     fill
                     sizes="140px"
-                    className={`object-contain object-left ${BRAND_FILTER_SILVER}`}
+                    className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[.65] origin-left`}
                   />
                 </div>
               </div>

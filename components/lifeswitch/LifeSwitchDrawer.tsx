@@ -34,11 +34,11 @@ export function LifeSwitchDrawer({ trigger }: LifeSwitchDrawerProps) {
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="relative" style={{ height: 16, width: 140 }}>
                   <Image
-                    src="/brand/1%20-%20Life%20Switch%20-%20Word%20Mark%20-%20clr.svg"
+                    src="/brand/ls-wordmark.norm.svg"
                     alt="LifeSwitch"
                     fill
                     sizes="140px"
-                    className={`object-contain object-left ${BRAND_FILTER_SILVER}`}
+                    className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[.80] origin-left`}
                   />
                 </div>
 

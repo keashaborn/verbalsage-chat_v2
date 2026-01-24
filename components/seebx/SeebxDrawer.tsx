@@ -33,11 +33,11 @@ export function SeebxDrawer({ trigger }: SeebxDrawerProps) {
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="relative" style={{ height: 16, width: 140 }}>
                   <Image
-                    src="/brand/a%20-%20SEEBX%20-%20Word%20Mark%20-%20non%20tagline%20-%20clr.svg"
+                    src="/brand/seebx-wordmark.norm.svg"
                     alt="Seebx"
                     fill
                     sizes="140px"
-                    className={`object-contain object-left ${BRAND_FILTER_SILVER}`}
+                    className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[.80] origin-left`}
                   />
                 </div>
 
@@ -87,7 +87,6 @@ export function SeebxDrawer({ trigger }: SeebxDrawerProps) {
             </div>
 
             <div className="border-t p-3 text-xs text-muted-foreground">
-              v0. Links are temporary; we’ll move routes out of /developer once the nav is stable.
             </div>
           </div>
         </Dialog.Content>
