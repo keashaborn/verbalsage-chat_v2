@@ -2,6 +2,9 @@
 
 import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import Image from "next/image";
+
+const BRAND_FILTER_SILVER = "grayscale brightness-125 contrast-125 opacity-85";
 
 type SeebxDrawerProps = {
   trigger: React.ReactNode;
@@ -26,19 +29,25 @@ export function SeebxDrawer({ trigger }: SeebxDrawerProps) {
 
           <div className="flex h-svh flex-col">
             {/* Header */}
-            <div className="sticky top-0 z-10 border-b bg-background p-3">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold">SeeBx</div>
-                <Dialog.Close asChild>
-                  <button
-                    className="rounded-lg bg-muted px-2 py-1 text-sm font-semibold hover:bg-muted/60"
-                    aria-label="Close"
-                  >
-                    ×
-                  </button>
+            <div className="sticky top-0 z-10 border-b bg-background">
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="relative" style={{ height: 16, width: 140 }}>
+                  <Image
+                    src="/brand/a%20-%20SEEBX%20-%20Word%20Mark%20-%20non%20tagline%20-%20clr.svg"
+                    alt="Seebx"
+                    fill
+                    sizes="140px"
+                    className={`object-contain object-left ${BRAND_FILTER_SILVER}`}
+                  />
+                </div>
+
+                <Dialog.Close
+                  aria-label="Close"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/50 bg-background/60 text-foreground hover:bg-muted"
+                >
+                  <span className="text-lg leading-none">×</span>
                 </Dialog.Close>
               </div>
-              <div className="mt-1 text-xs text-muted-foreground">Workspace</div>
             </div>
 
             {/* Body */}

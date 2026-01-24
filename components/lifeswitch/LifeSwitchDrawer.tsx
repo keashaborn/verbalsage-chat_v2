@@ -2,10 +2,13 @@
 
 import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import Image from "next/image";
 
 type LifeSwitchDrawerProps = {
   trigger: React.ReactNode;
 };
+
+const BRAND_FILTER_SILVER = "grayscale brightness-125 contrast-125 opacity-85";
 
 function navTo(href: string) {
   // Keep it simple; this is a dev-only UX primitive for now.
@@ -27,19 +30,25 @@ export function LifeSwitchDrawer({ trigger }: LifeSwitchDrawerProps) {
 
           <div className="flex h-svh flex-col">
             {/* Header */}
-            <div className="sticky top-0 z-10 border-b bg-background p-3">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold">LifeSwitch</div>
-                <Dialog.Close asChild>
-                  <button
-                    className="rounded-lg bg-muted px-2 py-1 text-sm font-semibold hover:bg-muted/60"
-                    aria-label="Close"
-                  >
-                    ×
-                  </button>
+            <div className="sticky top-0 z-10 border-b bg-background">
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="relative" style={{ height: 16, width: 140 }}>
+                  <Image
+                    src="/brand/1%20-%20Life%20Switch%20-%20Word%20Mark%20-%20clr.svg"
+                    alt="LifeSwitch"
+                    fill
+                    sizes="140px"
+                    className={`object-contain object-left ${BRAND_FILTER_SILVER}`}
+                  />
+                </div>
+
+                <Dialog.Close
+                  aria-label="Close"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/50 bg-background/60 text-foreground hover:bg-muted"
+                >
+                  <span className="text-lg leading-none">×</span>
                 </Dialog.Close>
               </div>
-              <div className="mt-1 text-xs text-muted-foreground">Studio (workspace)</div>
             </div>
 
             {/* Body */}
@@ -110,7 +119,7 @@ export function LifeSwitchDrawer({ trigger }: LifeSwitchDrawerProps) {
 
             {/* Footer */}
             <div className="border-t p-3 text-xs text-muted-foreground">
-              
+
             </div>
           </div>
         </Dialog.Content>

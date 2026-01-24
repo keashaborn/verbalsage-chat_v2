@@ -68,13 +68,13 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
               trigger={
                 <SidebarMenuButton size="default" className="py-2">
                   <div className="flex items-center">
-                    <div className="relative" style={{ height: 12, width: 110 }}>
+                    <div className="relative" style={{ height: 12, width: 120 }}>
                       <Image
                         src="/brand/1%20-%20Life%20Switch%20-%20Word%20Mark%20-%20clr.svg"
                         alt="LifeSwitch"
                         fill
                         sizes="108px"
-                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[0.92] origin-left`}
+                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[0.95] origin-left`}
                       />
                     </div>
                   </div>
@@ -89,13 +89,13 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
               trigger={
                 <SidebarMenuButton size="default" className="py-2">
                   <div className="flex items-center">
-                    <div className="relative" style={{ height: 12, width: 110 }}>
+                    <div className="relative" style={{ height: 13, width: 120 }}>
                       <Image
                         src="/brand/a%20-%20SEEBX%20-%20Word%20Mark%20-%20non%20tagline%20-%20clr.svg"
                         alt="Seebx"
                         fill
                         sizes="102px"
-                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[0.92] origin-left`}
+                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[0.90] origin-left`}
                       />
                     </div>
                   </div>
@@ -110,7 +110,7 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
               trigger={
                 <SidebarMenuButton size="default" className="py-2">
                   <div className="flex items-center">
-                    <div className="relative" style={{ height: 18, width: 128}}>
+                    <div className="relative" style={{ height: 17, width: 130 }}>
                       <Image
                         src="/brand/svgweb.svg"
                         alt="Admin"
