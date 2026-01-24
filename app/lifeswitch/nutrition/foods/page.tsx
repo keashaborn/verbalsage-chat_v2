@@ -300,8 +300,8 @@ export default function NutritionFoodsPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <div className="text-lg font-semibold">My Foods</div>
           <div className="mt-1 text-sm text-muted-foreground">
             Use USDA search to find foods, import into your private list, then reuse in meal plans.
@@ -310,9 +310,10 @@ export default function NutritionFoodsPage() {
             Note: the public catalog is currently tiny, so local search won’t find “hamburger” until we ingest more rows.
           </div>
         </div>
-        <div className="text-right text-xs text-muted-foreground">
+
+        <div className="min-w-0 w-full sm:w-auto text-left sm:text-right text-xs text-muted-foreground">
           {owner ? <div>signed in</div> : <div>not signed in</div>}
-          <div className="mt-1 max-w-[320px] break-words">{owner ? owner : authErr || "—"}</div>
+          <div className="mt-1 max-w-full break-all font-mono">{owner ? owner : authErr || "—"}</div>
         </div>
       </div>
 
@@ -450,7 +451,7 @@ export default function NutritionFoodsPage() {
 
                     <button
                       className="rounded-md border px-2 py-1 text-xs"
-                      onClick={() => void toggleServingPanel(f.my_food_id)}
+                      onClick={() => void toggleServings(f.my_food_id)}
                       title="Serving presets"
                     >
                       Servings
@@ -458,7 +459,7 @@ export default function NutritionFoodsPage() {
                   </div>
                 </div>
 
-                <div className="mt-2 grid grid-cols-4 gap-2 text-xs">
+                <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                   <div className="rounded-md bg-muted/30 p-2">
                     <div className="opacity-70">kcal/100g</div>
                     <div className="font-semibold">{fmt(f.kcal, 0)}</div>
