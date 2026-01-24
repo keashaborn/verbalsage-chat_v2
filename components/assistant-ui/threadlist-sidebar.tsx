@@ -68,13 +68,13 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
               trigger={
                 <SidebarMenuButton size="default" className="py-2">
                   <div className="flex items-center">
-                    <div className="relative" style={{ height: 12, width: 120 }}>
+                    <div className="relative" style={{ height: 16, width: 140 }}>
                       <Image
-                        src="/brand/1%20-%20Life%20Switch%20-%20Word%20Mark%20-%20clr.svg"
+                        src="/brand/ls-wordmark.norm.svg"
                         alt="LifeSwitch"
                         fill
-                        sizes="108px"
-                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[0.95] origin-left`}
+                        sizes="140px"
+                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[1.00] origin-left`}
                       />
                     </div>
                   </div>
@@ -89,13 +89,13 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
               trigger={
                 <SidebarMenuButton size="default" className="py-2">
                   <div className="flex items-center">
-                    <div className="relative" style={{ height: 13, width: 120 }}>
+                    <div className="relative" style={{ height: 16, width: 140 }}>
                       <Image
-                        src="/brand/a%20-%20SEEBX%20-%20Word%20Mark%20-%20non%20tagline%20-%20clr.svg"
+                        src="/brand/seebx-wordmark.norm.svg"
                         alt="Seebx"
                         fill
-                        sizes="102px"
-                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[0.90] origin-left`}
+                        sizes="140px"
+                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[1.00] origin-left`}
                       />
                     </div>
                   </div>
@@ -110,12 +110,12 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
               trigger={
                 <SidebarMenuButton size="default" className="py-2">
                   <div className="flex items-center">
-                    <div className="relative" style={{ height: 17, width: 130 }}>
+                    <div className="relative" style={{ height: 16, width: 140 }}>
                       <Image
-                        src="/brand/svgweb.svg"
+                        src="/brand/admin-wordmark.norm.svg"
                         alt="Admin"
                         fill
-                        sizes="118px"
+                        sizes="140px"
                         className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[1.00] origin-left`}
                       />
                     </div>
