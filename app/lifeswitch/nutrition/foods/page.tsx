@@ -39,6 +39,16 @@ type MyFood = {
   updated_at: string;
 };
 
+type MyFoodServing = {
+  my_food_serving_id: string;
+  my_food_id: string;
+  name: string;
+  grams: number;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 function fmt(n: number | null, digits = 0) {
   if (n == null || Number.isNaN(n)) return "—";
   return Number(n).toFixed(digits);
@@ -90,6 +100,81 @@ export default function NutritionFoodsPage() {
   const [myFilter, setMyFilter] = React.useState("");
   const [myLoading, setMyLoading] = React.useState(false);
   const [myErr, setMyErr] = React.useState<string | null>(null);
+
+  // Serving presets per My Food (e.g. "slice"=24g, "egg"=50g, "tbsp"=14g)
+  const [servOpen, setServOpen] = React.useState<Record<string, boolean>>({});
+  const [servMap, setServMap] = React.useState<Record<string, MyFoodServing[]>>({});
+  const [servLoading, setServLoading] = React.useState<Record<string, boolean>>({});
+  const [servCreating, setServCreating] = React.useState<Record<string, boolean>>({});
+  const [servErr, setServErr] = React.useState<Record<string, string | null>>({});
+  const [servName, setServName] = React.useState<Record<string, string>>({});
+  const [servGrams, setServGrams] = React.useState<Record<string, string>>({});
+  const [servDefault, setServDefault] = React.useState<Record<string, boolean>>({});
+
+  async function loadServings(my_food_id: string) {
+    setServErr((p) => ({ ...p, [my_food_id]: null }));
+    setServLoading((p) => ({ ...p, [my_food_id]: true }));
+    try {
+      const r = await fetch(`/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/servings`, { cache: "no-store" });
+      const t = await r.text();
+      let j: any = null;
+      try { j = t ? JSON.parse(t) : null; } catch { }
+      if (!r.ok) throw new Error(j?.detail || j?.error || t?.slice(0, 200) || `HTTP ${r.status}`);
+      setServMap((p) => ({ ...p, [my_food_id]: Array.isArray(j) ? j : [] }));
+    } catch (e: any) {
+      setServMap((p) => ({ ...p, [my_food_id]: [] }));
+      setServErr((p) => ({ ...p, [my_food_id]: String(e?.message || e) }));
+    } finally {
+      setServLoading((p) => ({ ...p, [my_food_id]: false }));
+    }
+  }
+
+  async function toggleServings(my_food_id: string) {
+    const next = !(servOpen[my_food_id] ?? false);
+    setServOpen((p) => ({ ...p, [my_food_id]: next }));
+    if (next && servMap[my_food_id] == null) {
+      await loadServings(my_food_id);
+    }
+  }
+
+  async function createServing(my_food_id: string) {
+    const name = (servName[my_food_id] ?? "").trim();
+    const grams = Number((servGrams[my_food_id] ?? "").trim());
+    const isDefault = !!(servDefault[my_food_id] ?? false);
+
+    if (!name) throw new Error("serving name required");
+    if (!Number.isFinite(grams) || grams <= 0) throw new Error("grams must be > 0");
+
+    setServErr((p) => ({ ...p, [my_food_id]: null }));
+    setServCreating((p) => ({ ...p, [my_food_id]: true }));
+    try {
+      const qs = new URLSearchParams({
+        name,
+        grams: String(grams),
+        is_default: isDefault ? "1" : "0",
+      });
+
+      const r = await fetch(
+        `/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/servings/create?${qs.toString()}`,
+        { method: "POST", cache: "no-store" }
+      );
+      const t = await r.text();
+      let j: any = null;
+      try { j = t ? JSON.parse(t) : null; } catch { }
+      if (!r.ok) throw new Error(j?.detail || j?.error || t?.slice(0, 200) || `HTTP ${r.status}`);
+
+      // refresh list + keep panel open
+      setServOpen((p) => ({ ...p, [my_food_id]: true }));
+      await loadServings(my_food_id);
+
+      // keep name but reset default checkbox
+      setServDefault((p) => ({ ...p, [my_food_id]: false }));
+    } catch (e: any) {
+      setServErr((p) => ({ ...p, [my_food_id]: String(e?.message || e) }));
+    } finally {
+      setServCreating((p) => ({ ...p, [my_food_id]: false }));
+    }
+  }
 
   const searchUsda = React.useCallback(async () => {
     const qq = usdaQ.trim();
@@ -199,8 +284,6 @@ export default function NutritionFoodsPage() {
       setImportingFdc(null);
     }
   }
-
-
 
   async function deactivateMyFood(my_food_id: string) {
     if (!owner) return;
@@ -384,6 +467,86 @@ export default function NutritionFoodsPage() {
                     <div className="opacity-70">fat</div>
                     <div className="font-semibold">{fmt(f.fat_g, 1)}g</div>
                   </div>
+
+                  {/* Serving presets (optional) */}
+                  <div className="mt-2 rounded-md border bg-muted/10 p-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs font-medium">Serving presets</div>
+                      <button
+                        className="rounded-md border px-2 py-1 text-xs"
+                        onClick={() => void toggleServings(f.my_food_id)}
+                        disabled={!owner}
+                        title={!owner ? "Sign in required" : "Show / hide servings"}
+                      >
+                        {(servOpen[f.my_food_id] ?? false)
+                          ? "Hide"
+                          : `Show${(servMap[f.my_food_id]?.length ?? 0) ? ` (${servMap[f.my_food_id]!.length})` : ""}`}
+                      </button>
+                    </div>
+
+                    {(servOpen[f.my_food_id] ?? false) ? (
+                      <div className="mt-2">
+                        {servErr[f.my_food_id] ? <div className="text-xs text-red-500">{servErr[f.my_food_id]}</div> : null}
+                        {servLoading[f.my_food_id] ? <div className="text-xs text-muted-foreground">Loading…</div> : null}
+
+                        <div className="space-y-1">
+                          {(servMap[f.my_food_id] || []).map((sv) => (
+                            <div key={sv.my_food_serving_id} className="flex items-center justify-between gap-2 text-xs">
+                              <div className="min-w-0 truncate">
+                                <span className="font-medium">{sv.name}</span>
+                                <span className="text-muted-foreground"> · {fmt(sv.grams, 0)}g</span>
+                                {sv.is_default ? <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px]">default</span> : null}
+                              </div>
+                            </div>
+                          ))}
+                          {(servMap[f.my_food_id]?.length ?? 0) === 0 && !servLoading[f.my_food_id] ? (
+                            <div className="text-xs text-muted-foreground">None yet. Add one below.</div>
+                          ) : null}
+                        </div>
+
+                        <div className="mt-2 grid grid-cols-3 gap-2">
+                          <input
+                            className="rounded-md border bg-background px-2 py-2 text-xs"
+                            value={servName[f.my_food_id] ?? ""}
+                            onChange={(e) => setServName((p) => ({ ...p, [f.my_food_id]: e.target.value }))}
+                            placeholder='name (e.g. "egg", "slice", "tbsp")'
+                            disabled={!owner}
+                          />
+                          <input
+                            className="rounded-md border bg-background px-2 py-2 text-xs text-right"
+                            value={servGrams[f.my_food_id] ?? ""}
+                            onChange={(e) => setServGrams((p) => ({ ...p, [f.my_food_id]: e.target.value }))}
+                            placeholder="grams"
+                            inputMode="decimal"
+                            disabled={!owner}
+                          />
+                          <button
+                            className="rounded-md border px-2 py-2 text-xs"
+                            onClick={() => void createServing(f.my_food_id)}
+                            disabled={!owner || !!servCreating[f.my_food_id]}
+                            title="Create serving preset"
+                          >
+                            {servCreating[f.my_food_id] ? "Saving…" : "Add"}
+                          </button>
+                        </div>
+
+                        <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                          <input
+                            type="checkbox"
+                            checked={!!(servDefault[f.my_food_id] ?? false)}
+                            onChange={(e) => setServDefault((p) => ({ ...p, [f.my_food_id]: e.target.checked }))}
+                            disabled={!owner}
+                          />
+                          Set as default
+                        </label>
+
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          Use labels like “20 fl oz” or “1 slice” and put the measured grams. Liquids can be approximated (ml≈g) or weighed once.
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
                 </div>
               </div>
             ))}
