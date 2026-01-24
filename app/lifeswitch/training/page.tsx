@@ -36,6 +36,38 @@ type ExerciseSearchHit = {
   model_name?: string | null;
 };
 
+type MyExercise = {
+  exercise_id: string;
+  display_name: string;
+  kind: string;
+  modality: string;
+  brand_name?: string | null;
+  model_name?: string | null;
+  // Keep what the user typed / what matched for traceability
+  matched_text?: string | null;
+  matched_source?: string | null;
+};
+
+const LS_MY_EXERCISES_KEY = "lifeswitch_my_exercises_v0";
+
+function lsGet<T>(k: string, fallback: T): T {
+  try {
+    const v = localStorage.getItem(k);
+    if (!v) return fallback;
+    return JSON.parse(v) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function lsSet(k: string, v: any) {
+  try {
+    localStorage.setItem(k, JSON.stringify(v));
+  } catch {
+    // ignore
+  }
+}
+
 function pad2(n: number) {
   return n < 10 ? `0${n}` : String(n);
 }
@@ -91,6 +123,9 @@ export default function LifeSwitchTrainingPage() {
   const [exLoading, setExLoading] = React.useState<boolean>(false);
   const [exStatus, setExStatus] = React.useState<string>("");
   const [selectedCanonicalExercise, setSelectedCanonicalExercise] = React.useState<string>("");
+
+  // “My Exercises” pool (local-only for now; mirrors My Foods direction)
+  const [myExercises, setMyExercises] = React.useState<MyExercise[]>([]);
 
   async function runExerciseSearch(q: string) {
     const qq = String(q || "").trim();
@@ -158,6 +193,43 @@ export default function LifeSwitchTrainingPage() {
       }
     })();
   }, []);
+
+  React.useEffect(() => {
+    // local-only persistence
+    const saved = typeof window !== "undefined" ? lsGet<MyExercise[]>(LS_MY_EXERCISES_KEY, []) : [];
+    setMyExercises(Array.isArray(saved) ? saved : []);
+  }, []);
+
+  function addMyExercise(hit: ExerciseSearchHit) {
+    const ex: MyExercise = {
+      exercise_id: hit.exercise_id,
+      display_name: hit.display_name,
+      kind: hit.kind,
+      modality: hit.modality,
+      brand_name: hit.brand_name ?? null,
+      model_name: hit.model_name ?? null,
+      matched_text: hit.matched_text ?? null,
+      matched_source: hit.matched_source ?? null,
+    };
+
+    setMyExercises((prev) => {
+      const exists = prev.some((p) => p.exercise_id === ex.exercise_id);
+      const next = exists ? prev : [...prev, ex];
+      lsSet(LS_MY_EXERCISES_KEY, next);
+      return next;
+    });
+
+    setSelectedCanonicalExercise(ex.display_name);
+    setExStatus(`saved: ${ex.display_name}`);
+  }
+
+  function removeMyExercise(exercise_id: string) {
+    setMyExercises((prev) => {
+      const next = prev.filter((p) => p.exercise_id !== exercise_id);
+      lsSet(LS_MY_EXERCISES_KEY, next);
+      return next;
+    });
+  }
 
   const workouts = React.useMemo(() => {
     const ws = lib?.workouts || [];
@@ -399,9 +471,13 @@ export default function LifeSwitchTrainingPage() {
             <span className="opacity-70">Selected canonical exercise</span>
             <input
               className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-              value={selectedCanonicalExercise}
+              value={
+                selectedCanonicalExercise
+                  ? (exResults.find((x) => x.exercise_id === selectedCanonicalExercise)?.display_name || selectedCanonicalExercise)
+                  : ""
+              }
               onChange={(e) => setSelectedCanonicalExercise(e.target.value)}
-              placeholder="(click a hit below)"
+              placeholder="(click Use on a hit below)"
             />
           </label>
         </div>
@@ -426,7 +502,10 @@ export default function LifeSwitchTrainingPage() {
               </thead>
               <tbody>
                 {exResults.map((h) => (
-                  <tr key={h.exercise_id} className="border-t">
+                  <tr
+                    key={h.exercise_id}
+                    className={`border-t ${selectedCanonicalExercise === h.exercise_id ? "bg-muted/30" : ""}`}
+                  >
                     <td className="py-1 pr-2">{h.display_name}</td>
                     <td className="py-1 pr-2">{h.kind}</td>
                     <td className="py-1 pr-2">{h.modality}</td>
@@ -438,9 +517,9 @@ export default function LifeSwitchTrainingPage() {
                       <button
                         type="button"
                         className="rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60"
-                        onClick={() => setSelectedCanonicalExercise(h.display_name)}
+                        onClick={() => setSelectedCanonicalExercise(h.exercise_id)}
                       >
-                        Use
+                        {selectedCanonicalExercise === h.exercise_id ? "Selected" : "Use"}
                       </button>
                     </td>
                   </tr>
