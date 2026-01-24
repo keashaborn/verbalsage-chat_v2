@@ -3,6 +3,7 @@
 import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { supabase } from "@/lib/supabaseClient";
+import Image from "next/image";
 
 import { PersonalizationPanel } from "@/components/admin/PersonalizationPanel";
 import { VoicePanel } from "@/components/admin/VoicePanel";
@@ -15,6 +16,8 @@ import { DeveloperToolsPage } from "@/components/admin/settings/DeveloperToolsPa
 
 import { SettingsRow } from "@/components/admin/settings/SettingsRow";
 import { SettingsStoreProvider, useSettingsStore } from "@/components/admin/settings/store";
+
+const BRAND_FILTER_SILVER = "grayscale brightness-125 contrast-125 opacity-85";
 
 function initialsFromName(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -113,50 +116,62 @@ function DrawerInner({
 
   return (
     <div className="flex h-svh flex-col">
-      <div className="sticky top-0 z-10 border-b bg-background p-3">
-        <Dialog.Title className="sr-only">Settings</Dialog.Title>
-        <Dialog.Description className="sr-only">
-          Assistant, interface, account/security, and developer controls.
-        </Dialog.Description>
+      <div className="sticky top-0 z-10 border-b bg-background">
+        <div className="px-4 py-3">
+          <Dialog.Title className="sr-only">Settings</Dialog.Title>
+          <Dialog.Description className="sr-only">
+            Assistant, interface, account/security, and developer controls.
+          </Dialog.Description>
 
-        <div className="flex items-center justify-between">
-          <div className="flex min-w-0 items-center gap-2">
-            {stack.length > 1 ? (
+          <div className="flex items-center justify-between">
+            <div className="flex min-w-0 items-center gap-2">
+              {stack.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={pop}
+                  className="rounded-lg px-2 py-1 text-sm text-muted-foreground hover:bg-muted"
+                  aria-label="Back"
+                >
+                  ‹
+                </button>
+              ) : (
+                <div className="w-[28px]" aria-hidden />
+              )}
+
+              <div className="min-w-0 flex-1">
+                <div className="relative" style={{ height: 16, width: 140 }}>
+                  <Image
+                    src="/brand/svgweb.svg"
+                    alt={title}
+                    fill
+                    sizes="140px"
+                    className={`object-contain object-left ${BRAND_FILTER_SILVER}`}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={pop}
-                className="rounded-lg px-2 py-1 text-sm text-muted-foreground hover:bg-muted"
-                aria-label="Back"
+                className="rounded-lg px-3 py-1.5 text-sm font-semibold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={save}
+                disabled={!dirty}
+                title={dirty ? "Save Vantage changes" : "No Vantage changes to save"}
               >
-                ‹
+                Save Vantage
               </button>
-            ) : (
-              <div className="w-[28px]" aria-hidden />
-            )}
 
-            <div className="min-w-0 truncate text-sm font-semibold">{title}</div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded-lg px-3 py-1.5 text-sm font-semibold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-              onClick={save}
-              disabled={!dirty}
-              title={dirty ? "Save Vantage changes" : "No Vantage changes to save"}
-            >
-              Save Vantage
-            </button>
-
-            <Dialog.Close asChild>
-              <button
-                type="button"
-                className="rounded-lg px-2 py-1 text-sm text-muted-foreground hover:bg-muted"
-                aria-label="Close"
-              >
-                ✕
-              </button>
-            </Dialog.Close>
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  className="rounded-lg px-2 py-1 text-sm text-muted-foreground hover:bg-muted"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </Dialog.Close>
+            </div>
           </div>
         </div>
       </div>
