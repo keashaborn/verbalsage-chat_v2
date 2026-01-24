@@ -504,7 +504,7 @@ export default function LifeSwitchTrainingPage() {
                 {exResults.map((h) => (
                   <tr
                     key={h.exercise_id}
-                    className={`border-t ${selectedCanonicalExercise === h.exercise_id ? "bg-muted/30" : ""}`}
+                    className={`border-t ${myExercises.some((x) => x.exercise_id === h.exercise_id) ? "bg-muted/30" : ""}`}
                   >
                     <td className="py-1 pr-2">{h.display_name}</td>
                     <td className="py-1 pr-2">{h.kind}</td>
@@ -517,7 +517,7 @@ export default function LifeSwitchTrainingPage() {
                       <button
                         type="button"
                         className="rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60"
-                        onClick={() => setSelectedCanonicalExercise(h.exercise_id)}
+                        onClick={() => addMyExercise(h)}
                       >
                         {selectedCanonicalExercise === h.exercise_id ? "Selected" : "Use"}
                       </button>
