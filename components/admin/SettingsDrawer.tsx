@@ -123,35 +123,35 @@ function DrawerInner({
             Assistant, interface, account/security, and developer controls.
           </Dialog.Description>
 
-          <div className="flex items-center justify-between">
+          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+            {/* LEFT */}
             <div className="flex min-w-0 items-center gap-2">
-              {stack.length > 1 ? (
-                <button
-                  type="button"
-                  onClick={pop}
-                  className="rounded-lg px-2 py-1 text-sm text-muted-foreground hover:bg-muted"
-                  aria-label="Back"
-                >
-                  ‹
-                </button>
-              ) : (
-                <div className="w-[28px]" aria-hidden />
-              )}
+              <button
+                type="button"
+                onClick={pop}
+                className={`rounded-lg px-2 py-1 text-sm text-muted-foreground hover:bg-muted ${stack.length > 1 ? "" : "invisible pointer-events-none"
+                  }`}
+                aria-label="Back"
+              >
+                ‹
+              </button>
 
-              <div className={`min-w-0 flex-1 ${stack.length > 1 ? "" : "-ml-[28px]"}`}>
-                <div className="relative" style={{ height: 16, width: 140 }}>
-                  <Image
-                    src="/brand/verbalsage-wordmark.trim.svg"
-                    alt={title}
-                    fill
-                    sizes="140px"
-                    className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[.65] origin-left`}
-                  />
-                </div>
+              <div className="relative translate-y-[1px]" style={{ height: 16, width: 140 }}>
+                <Image
+                  src="/brand/admin-wordmark.norm.svg"
+                  alt="Admin"
+                  fill
+                  sizes="140px"
+                  className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[1.00] origin-left`}
+                />
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* CENTER: intentionally empty */}
+            <div />
+
+            {/* RIGHT */}
+            <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
                 className="rounded-lg px-3 py-1.5 text-sm font-semibold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
@@ -159,7 +159,7 @@ function DrawerInner({
                 disabled={!dirty}
                 title={dirty ? "Save Vantage changes" : "No Vantage changes to save"}
               >
-                Save Vantage
+                Save
               </button>
 
               <Dialog.Close asChild>
