@@ -135,6 +135,7 @@ export default function MealsPage() {
   const [qtyMode, setQtyMode] = React.useState<"grams" | "serving">("grams");
   const [qtyServings, setQtyServings] = React.useState("1");
   const [addingId, setAddingId] = React.useState<string | null>(null);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
   const loadMeals = React.useCallback(async () => {
     if (!owner) return;
@@ -226,6 +227,24 @@ export default function MealsPage() {
       setErr(String(e?.message || e));
     } finally {
       setAddingId(null);
+    }
+  }
+
+  async function deleteItem(meal_item_id: string) {
+    if (!owner || !selectedMealId) return;
+    setErr(null);
+    try {
+      setDeletingId(meal_item_id);
+      const qs = new URLSearchParams({ owner_user_id: owner });
+      await fetchJson(
+        `/api/lifeswitch/nutrition/meals/${encodeURIComponent(selectedMealId)}/items/${encodeURIComponent(meal_item_id)}/delete?${qs.toString()}`,
+        { method: "POST" }
+      );
+      await loadItems(selectedMealId);
+    } catch (e: any) {
+      setErr(String(e?.message || e));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -336,8 +355,19 @@ export default function MealsPage() {
                           : (resolvedQtyG(it) != null ? ` · ${fmt(resolvedQtyG(it), 0)}g` : "")}
                       </div>
                     </div>
-                    <div className="shrink-0 text-xs text-muted-foreground">
-                      kcal {fmt(scaled(it.kcal, resolvedQtyG(it)), 0)} · P {fmt(scaled(it.protein_g, resolvedQtyG(it)), 0)} · C {fmt(scaled(it.carbs_g, resolvedQtyG(it)), 0)} · F {fmt(scaled(it.fat_g, resolvedQtyG(it)), 0)}
+                    <div className="flex shrink-0 items-start gap-2">
+                      <div className="pt-0.5 text-xs text-muted-foreground">
+                        kcal {fmt(scaled(it.kcal, resolvedQtyG(it)), 0)} · P {fmt(scaled(it.protein_g, resolvedQtyG(it)), 0)} · C {fmt(scaled(it.carbs_g, resolvedQtyG(it)), 0)} · F {fmt(scaled(it.fat_g, resolvedQtyG(it)), 0)}
+                      </div>
+
+                      <button
+                        className="rounded-md border px-2 py-1 text-xs"
+                        onClick={() => void deleteItem(it.meal_item_id)}
+                        disabled={!owner || deletingId === it.meal_item_id}
+                        title="Remove from meal"
+                      >
+                        {deletingId === it.meal_item_id ? "…" : "Delete"}
+                      </button>
                     </div>
                   </div>
                 </div>
