@@ -91,7 +91,7 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
                   <div className="flex items-center">
                     <div className="relative translate-y-[1px]" style={{ height: 16, width: 140 }}>
                       <Image
-                        src="/brand/seebx-wordmark.norm.svg"
+                        src="/brand/seebx-wordmark.svg"
                         alt="Seebx"
                         fill
                         sizes="140px"

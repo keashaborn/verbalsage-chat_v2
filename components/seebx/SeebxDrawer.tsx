@@ -31,13 +31,13 @@ export function SeebxDrawer({ trigger }: SeebxDrawerProps) {
             {/* Header */}
             <div className="sticky top-0 z-10 border-b bg-background">
               <div className="flex items-center justify-between px-4 py-3">
-                <div className="relative" style={{ height: 16, width: 140 }}>
+                <div className="relative" style={{ height: 10, width: 130 }}>
                   <Image
-                    src="/brand/seebx-wordmark.norm.svg"
+                    src="/brand/seebx-wordmark.svg"
                     alt="Seebx"
                     fill
                     sizes="140px"
-                    className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[.80] origin-left`}
+                    className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[1.25] origin-left`}
                   />
                 </div>
 
