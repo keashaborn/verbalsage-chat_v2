@@ -447,6 +447,14 @@ export default function NutritionFoodsPage() {
                     >
                       Delete
                     </button>
+
+                    <button
+                      className="rounded-md border px-2 py-1 text-xs"
+                      onClick={() => void toggleServingPanel(f.my_food_id)}
+                      title="Serving presets"
+                    >
+                      Servings
+                    </button>
                   </div>
                 </div>
 
