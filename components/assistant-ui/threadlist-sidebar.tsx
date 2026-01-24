@@ -67,7 +67,15 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     <span className="text-xs font-semibold">LS</span>
                   </div>
                   <div className="flex flex-col gap-0.5 leading-none">
-                    <span className="font-semibold">LifeSwitch</span>
+                    <div className="relative h-4 w-[150px]">
+                      <Image
+                        src="/brand/1%20-%20Life%20Switch%20-%20Word%20Mark%20-%20clr.svg"
+                        alt="LifeSwitch"
+                        fill
+                        sizes="150px"
+                        className="object-contain object-left"
+                      />
+                    </div>
                     <span className="text-xs text-muted-foreground">Studio</span>
                   </div>
                 </SidebarMenuButton>
@@ -84,7 +92,15 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     <span className="text-xs font-semibold">SB</span>
                   </div>
                   <div className="flex flex-col gap-0.5 leading-none">
-                    <span className="font-semibold">SeeBx</span>
+                    <div className="relative h-4 w-[150px]">
+                      <Image
+                        src="/brand/a%20-%20SEEBX%20-%20Word%20Mark%20-%20non%20tagline%20-%20clr.svg"
+                        alt="Seebx"
+                        fill
+                        sizes="150px"
+                        className="object-contain object-left"
+                      />
+                    </div>
                     <span className="text-xs text-muted-foreground">Workspace</span>
                   </div>
                 </SidebarMenuButton>
@@ -101,7 +117,15 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     <span className="text-xs font-semibold">VS</span>
                   </div>
                   <div className="flex flex-col gap-0.5 leading-none">
-                    <span className="font-semibold">Admin</span>
+                    <div className="relative h-4 w-[150px]">
+                      <Image
+                        src="/brand/svgweb.svg"
+                        alt="Admin"
+                        fill
+                        sizes="150px"
+                        className="object-contain object-left"
+                      />
+                    </div>
                     <span className="text-xs text-muted-foreground">Settings</span>
                   </div>
                 </SidebarMenuButton>
