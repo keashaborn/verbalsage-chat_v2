@@ -371,14 +371,14 @@ export default function NutritionFoodsPage() {
           <div className="mt-2 space-y-2">
             {usdaRows.map((h) => (
               <div key={String(h.fdc_id)} className="rounded-md border p-2">
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{h.description || "(no description)"}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
+                    <div className="mt-0.5 text-xs text-muted-foreground break-all sm:break-words">
                       {(h.brand_owner || h.brand_name || "unbranded") + " · " + (h.data_type || "unknown")}{" "}
                       {h.published_date ? " · " + h.published_date : ""} · fdc_id {h.fdc_id}
                     </div>
-                    {h.gtin_upc ? <div className="mt-0.5 text-xs text-muted-foreground">upc {h.gtin_upc}</div> : null}
+                    {h.gtin_upc ? <div className="mt-0.5 text-xs text-muted-foreground break-all sm:break-words">upc {h.gtin_upc}</div> : null}
                   </div>
 
                   <button
@@ -439,10 +439,10 @@ export default function NutritionFoodsPage() {
           <div className="mt-2 space-y-2">
             {myFoods.map((f) => (
               <div key={f.my_food_id} className="rounded-md border p-2">
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{f.display_name}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
+                    <div className="mt-0.5 text-xs text-muted-foreground break-all sm:break-words">
                       {f.brand ? f.brand : "—"}
                       {f.variant ? ` · ${f.variant}` : ""}
                       {f.source ? ` · ${f.source}` : ""}
