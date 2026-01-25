@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 
 type UsdaHit = {
   fdc_id: number;
@@ -322,7 +323,7 @@ export default function NutritionFoodsPage() {
         <section className="rounded-lg border p-3">
           <div className="text-sm font-medium">Search USDA (FoodData Central)</div>
 
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <input
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={usdaQ}
@@ -337,7 +338,7 @@ export default function NutritionFoodsPage() {
             </button>
           </div>
 
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
             <input
               className="rounded-md border bg-background px-2 py-2 text-sm"
               value={variant}
@@ -404,7 +405,7 @@ export default function NutritionFoodsPage() {
             </button>
           </div>
 
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <input
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={myFilter}
