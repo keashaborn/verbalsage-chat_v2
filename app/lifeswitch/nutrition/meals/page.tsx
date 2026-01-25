@@ -284,7 +284,7 @@ export default function MealsPage() {
         <section className="rounded-lg border p-3">
           <div className="text-sm font-medium">Meals</div>
 
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <select
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={selectedMealId}
@@ -303,7 +303,7 @@ export default function MealsPage() {
             </button>
           </div>
 
-          <div className="mt-3 grid grid-cols-4 gap-2 text-xs">
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
             <div className="rounded-md bg-muted/30 p-2">
               <div className="opacity-70">kcal</div>
               <div className="font-semibold">{fmt(totals.kcal, 0)}</div>
@@ -344,10 +344,10 @@ export default function MealsPage() {
             <div className="mt-2 space-y-2">
               {items.map((it) => (
                 <div key={it.meal_item_id} className="rounded-md border p-2">
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">{it.display_name}</div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">
+                      <div className="mt-0.5 text-xs text-muted-foreground break-all sm:break-words">
                         {it.brand ? it.brand : "—"}
                         {it.variant ? ` · ${it.variant}` : ""}
                         {it.serving_name && it.qty_servings != null
@@ -382,7 +382,7 @@ export default function MealsPage() {
           <div className="text-sm font-medium">Add foods to meal</div>
           <div className="mt-1 text-xs text-muted-foreground">Search your My Foods and set a typical grams amount.</div>
 
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <input
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={q}
@@ -435,10 +435,10 @@ export default function MealsPage() {
           <div className="mt-3 space-y-2">
             {hits.map((f) => (
               <div key={f.my_food_id} className="rounded-md border p-2">
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{f.display_name}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
+                    <div className="mt-0.5 text-xs text-muted-foreground break-all sm:break-words">
                       {f.brand ? f.brand : "—"}
                       {f.variant ? ` · ${f.variant}` : ""}
                       {f.source_type ? ` · ${f.source_type}` : ""}
