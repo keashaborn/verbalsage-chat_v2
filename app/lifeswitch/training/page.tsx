@@ -126,6 +126,7 @@ export default function LifeSwitchTrainingPage() {
 
   // “My Exercises” pool (local-only for now; mirrors My Foods direction)
   const [myExercises, setMyExercises] = React.useState<MyExercise[]>([]);
+  const saved = myExercises.some((x) => x.exercise_id === h.exercise_id);
 
   async function runExerciseSearch(q: string) {
     const qq = String(q || "").trim();
@@ -219,7 +220,7 @@ export default function LifeSwitchTrainingPage() {
       return next;
     });
 
-    setSelectedCanonicalExercise(ex.display_name);
+    setSelectedCanonicalExercise(ex.exercise_id);
     setExStatus(`saved: ${ex.display_name}`);
   }
 
@@ -473,7 +474,11 @@ export default function LifeSwitchTrainingPage() {
               className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
               value={
                 selectedCanonicalExercise
-                  ? (exResults.find((x) => x.exercise_id === selectedCanonicalExercise)?.display_name || selectedCanonicalExercise)
+                  ? (
+                    exResults.find((x) => x.exercise_id === selectedCanonicalExercise)?.display_name ||
+                    myExercises.find((x) => x.exercise_id === selectedCanonicalExercise)?.display_name ||
+                    selectedCanonicalExercise
+                  )
                   : ""
               }
               onChange={(e) => setSelectedCanonicalExercise(e.target.value)}
@@ -569,10 +574,11 @@ export default function LifeSwitchTrainingPage() {
                     <td className="py-1 pr-2">
                       <button
                         type="button"
-                        className="rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60"
+                        className="rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
                         onClick={() => addMyExercise(h)}
+                        disabled={saved}
                       >
-                        {selectedCanonicalExercise === h.exercise_id ? "Selected" : "Use"}
+                        {saved ? "Saved" : "Save"}
                       </button>
                     </td>
                   </tr>
