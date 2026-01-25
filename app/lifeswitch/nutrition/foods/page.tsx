@@ -304,12 +304,6 @@ export default function NutritionFoodsPage() {
       <div className="mb-3 flex justify-end">
         <Link href="/lifeswitch/nutrition" className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">Back</Link>
       </div>
-
-      <div className="mb-3 flex justify-end">
-        <Link href="/lifeswitch" className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">
-          Back
-        </Link>
-      </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="text-lg font-semibold">My Foods</div>
@@ -324,12 +318,6 @@ export default function NutritionFoodsPage() {
         <div className="min-w-0 w-full sm:w-auto text-left sm:text-right text-xs text-muted-foreground">
           <div className="flex items-center justify-between gap-2 sm:justify-end">
             <div>{owner ? <span>signed in</span> : <span>not signed in</span>}</div>
-            <Link
-              href="/lifeswitch"
-              className="rounded-md border px-2 py-1 text-xs text-foreground hover:bg-muted/30"
-            >
-              Back
-            </Link>
           </div>
 
           <div className="mt-1 max-w-full break-all font-mono">{owner ? owner : authErr || "—"}</div>
