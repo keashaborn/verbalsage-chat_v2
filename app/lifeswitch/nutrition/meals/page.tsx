@@ -363,8 +363,10 @@ export default function MealsPage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-start gap-2">
-                      <div className="pt-0.5 text-xs text-muted-foreground">
-                        kcal {fmt(scaled(it.kcal, resolvedQtyG(it)), 0)} · P {fmt(scaled(it.protein_g, resolvedQtyG(it)), 0)} · C {fmt(scaled(it.carbs_g, resolvedQtyG(it)), 0)} · F {fmt(scaled(it.fat_g, resolvedQtyG(it)), 0)}
+                      <div className="pt-0.5 text-xs text-muted-foreground break-words">
+                        <span className="whitespace-normal">
+                          kcal {fmt(scaled(it.kcal, resolvedQtyG(it)), 0)} · P {fmt(scaled(it.protein_g, resolvedQtyG(it)), 0)} · C {fmt(scaled(it.carbs_g, resolvedQtyG(it)), 0)} · F {fmt(scaled(it.fat_g, resolvedQtyG(it)), 0)}
+                        </span>
                       </div>
 
                       <button

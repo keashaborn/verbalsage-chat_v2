@@ -520,7 +520,7 @@ export default function NutritionFoodsPage() {
                           ) : null}
                         </div>
 
-                        <div className="mt-2 grid grid-cols-3 gap-2">
+                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
                           <input
                             className="rounded-md border bg-background px-2 py-2 text-xs"
                             value={servName[f.my_food_id] ?? ""}

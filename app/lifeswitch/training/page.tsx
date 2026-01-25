@@ -126,7 +126,7 @@ export default function LifeSwitchTrainingPage() {
 
   // “My Exercises” pool (local-only for now; mirrors My Foods direction)
   const [myExercises, setMyExercises] = React.useState<MyExercise[]>([]);
-  const saved = myExercises.some((x) => x.exercise_id === h.exercise_id);
+
 
   async function runExerciseSearch(q: string) {
     const qq = String(q || "").trim();
@@ -559,30 +559,29 @@ export default function LifeSwitchTrainingPage() {
                 </tr>
               </thead>
               <tbody>
-                {exResults.map((h) => (
-                  <tr
-                    key={h.exercise_id}
-                    className={`border-t ${myExercises.some((x) => x.exercise_id === h.exercise_id) ? "bg-muted/30" : ""}`}
-                  >
-                    <td className="py-1 pr-2">{h.display_name}</td>
-                    <td className="py-1 pr-2">{h.kind}</td>
-                    <td className="py-1 pr-2">{h.modality}</td>
-                    <td className="py-1 pr-2">
-                      {h.matched_source ? `${h.matched_source}: ${h.matched_text || ""}` : ""}
-                    </td>
-                    <td className="py-1 pr-2">{h.brand_name || ""}</td>
-                    <td className="py-1 pr-2">
-                      <button
-                        type="button"
-                        className="rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                        onClick={() => addMyExercise(h)}
-                        disabled={saved}
-                      >
-                        {saved ? "Saved" : "Save"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {exResults.map((h) => {
+                  const saved = myExercises.some((x) => x.exercise_id === h.exercise_id);
+
+                  return (
+                    <tr key={h.exercise_id} className={`border-t ${saved ? "bg-muted/30" : ""}`}>
+                      <td className="py-1 pr-2">{h.display_name}</td>
+                      <td className="py-1 pr-2">{h.kind}</td>
+                      <td className="py-1 pr-2">{h.modality}</td>
+                      <td className="py-1 pr-2">{h.matched_source ? `${h.matched_source}: ${h.matched_text || ""}` : ""}</td>
+                      <td className="py-1 pr-2">{h.brand_name || ""}</td>
+                      <td className="py-1 pr-2">
+                        <button
+                          type="button"
+                          className="rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
+                          onClick={() => addMyExercise(h)}
+                          disabled={saved}
+                        >
+                          {saved ? "Saved" : "Save"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
