@@ -265,7 +265,7 @@ export default function MealsPage() {
   }, [items]);
 
   return (
-    <div className="mx-auto max-w-5xl p-4">
+    <div className="mx-auto max-w-5xl p-4 overflow-x-hidden">
 
       <div className="mb-3 flex justify-end">
         <Link href="/lifeswitch/nutrition" className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">
@@ -331,7 +331,7 @@ export default function MealsPage() {
 
           <div className="mt-4 rounded-md border bg-muted/20 p-3">
             <div className="text-sm font-medium">Create meal</div>
-            <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
               <input className="rounded-md border bg-background px-2 py-2 text-sm" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Meal name" />
               <select className="rounded-md border bg-background px-2 py-2 text-sm" value={createType} onChange={(e) => setCreateType(e.target.value as any)}>
                 <option value="breakfast">breakfast</option>
@@ -405,7 +405,7 @@ export default function MealsPage() {
             </button>
           </div>
 
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
             <select
               className="rounded-md border bg-background px-2 py-2 text-sm"
               value={qtyMode}
