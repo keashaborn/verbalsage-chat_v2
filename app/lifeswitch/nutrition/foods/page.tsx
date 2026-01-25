@@ -313,7 +313,16 @@ export default function NutritionFoodsPage() {
         </div>
 
         <div className="min-w-0 w-full sm:w-auto text-left sm:text-right text-xs text-muted-foreground">
-          {owner ? <div>signed in</div> : <div>not signed in</div>}
+          <div className="flex items-center justify-between gap-2 sm:justify-end">
+            <div>{owner ? <span>signed in</span> : <span>not signed in</span>}</div>
+            <Link
+              href="/lifeswitch/nutrition"
+              className="rounded-md border px-2 py-1 text-xs text-foreground hover:bg-muted/30"
+            >
+              Back
+            </Link>
+          </div>
+
           <div className="mt-1 max-w-full break-all font-mono">{owner ? owner : authErr || "—"}</div>
         </div>
       </div>
