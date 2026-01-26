@@ -286,12 +286,12 @@ export default function MealsPage() {
 
       {err ? <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900">{err}</div> : null}
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid gap-4 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1">
         {/* Left: meal selection + items */}
         <section className="rounded-lg border p-3">
           <div className="text-sm font-medium">Meals</div>
 
-          <div className="mt-2 flex flex-col gap-2 lg:flex-row">
+          <div className="mt-2 flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col">
             <select
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={selectedMealId}
@@ -331,7 +331,7 @@ export default function MealsPage() {
 
           <div className="mt-4 rounded-md border bg-muted/20 p-3">
             <div className="text-sm font-medium">Create meal</div>
-            <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2">
+            <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1 gap-2">
               <input className="rounded-md border bg-background px-2 py-2 text-sm" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Meal name" />
               <select className="rounded-md border bg-background px-2 py-2 text-sm" value={createType} onChange={(e) => setCreateType(e.target.value as any)}>
                 <option value="breakfast">breakfast</option>
@@ -351,7 +351,7 @@ export default function MealsPage() {
             <div className="mt-2 space-y-2">
               {items.map((it) => (
                 <div key={it.meal_item_id} className="rounded-md border p-2">
-                  <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">{it.display_name}</div>
                       <div className="mt-0.5 text-xs text-muted-foreground break-all lg:break-words">
@@ -391,7 +391,7 @@ export default function MealsPage() {
           <div className="text-sm font-medium">Add foods to meal</div>
           <div className="mt-1 text-xs text-muted-foreground">Search your My Foods and set a typical grams amount.</div>
 
-          <div className="mt-2 flex flex-col gap-2 lg:flex-row">
+          <div className="mt-2 flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col">
             <input
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={q}
@@ -407,7 +407,7 @@ export default function MealsPage() {
             </button>
           </div>
 
-          <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1 gap-2">
             <select
               className="rounded-md border bg-background px-2 py-2 text-sm"
               value={qtyMode}
@@ -444,7 +444,7 @@ export default function MealsPage() {
           <div className="mt-3 space-y-2">
             {hits.map((f) => (
               <div key={f.my_food_id} className="rounded-md border p-2">
-                <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col lg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{f.display_name}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground break-all lg:break-words">
