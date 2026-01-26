@@ -320,7 +320,7 @@ export default function NutritionFoodsPage() {
             <div>{owner ? <span>signed in</span> : <span>not signed in</span>}</div>
           </div>
 
-          <div className="mt-1 max-w-full break-all font-mono">{owner ? owner : authErr || "—"}</div>
+          <div className="mt-1 max-w-full min-w-0 break-all font-mono">{owner ? owner : authErr || "—"}</div>
         </div>
       </div>
 
@@ -466,7 +466,7 @@ export default function NutritionFoodsPage() {
                   </div>
                 </div>
 
-                <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="mt-2 rounded-md border bg-muted/10 p-2 col-span-2 sm:col-span-4">
                   <div className="rounded-md bg-muted/30 p-2">
                     <div className="opacity-70">kcal/100g</div>
                     <div className="font-semibold">{fmt(f.kcal, 0)}</div>
