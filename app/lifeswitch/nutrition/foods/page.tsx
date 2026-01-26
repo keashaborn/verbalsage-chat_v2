@@ -304,7 +304,7 @@ export default function NutritionFoodsPage() {
       <div className="mb-3 flex justify-end">
         <Link href="/lifeswitch" className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">Back</Link>
       </div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
           <div className="text-lg font-semibold">My Foods</div>
           <div className="mt-1 text-sm text-muted-foreground">
@@ -315,8 +315,8 @@ export default function NutritionFoodsPage() {
           </div>
         </div>
 
-        <div className="min-w-0 w-full sm:w-auto text-left sm:text-right text-xs text-muted-foreground">
-          <div className="flex items-center justify-between gap-2 sm:justify-end">
+        <div className="min-w-0 w-full md:w-auto text-left md:text-right text-xs text-muted-foreground">
+          <div className="flex items-center justify-between gap-2 md:justify-end">
             <div>{owner ? <span>signed in</span> : <span>not signed in</span>}</div>
           </div>
 
@@ -329,7 +329,7 @@ export default function NutritionFoodsPage() {
         <section className="rounded-lg border p-3">
           <div className="text-sm font-medium">Search USDA (FoodData Central)</div>
 
-          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-2 flex flex-col gap-2 md:flex-row">
             <input
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={usdaQ}
@@ -344,7 +344,7 @@ export default function NutritionFoodsPage() {
             </button>
           </div>
 
-          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
             <input
               className="rounded-md border bg-background px-2 py-2 text-sm"
               value={variant}
@@ -368,14 +368,14 @@ export default function NutritionFoodsPage() {
           <div className="mt-2 space-y-2">
             {usdaRows.map((h) => (
               <div key={String(h.fdc_id)} className="rounded-md border p-2">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{h.description || "(no description)"}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground break-all sm:break-words">
+                    <div className="mt-0.5 text-xs text-muted-foreground break-all md:break-words">
                       {(h.brand_owner || h.brand_name || "unbranded") + " · " + (h.data_type || "unknown")}{" "}
                       {h.published_date ? " · " + h.published_date : ""} · fdc_id {h.fdc_id}
                     </div>
-                    {h.gtin_upc ? <div className="mt-0.5 text-xs text-muted-foreground break-all sm:break-words">upc {h.gtin_upc}</div> : null}
+                    {h.gtin_upc ? <div className="mt-0.5 text-xs text-muted-foreground break-all md:break-words">upc {h.gtin_upc}</div> : null}
                   </div>
 
                   <button
@@ -411,7 +411,7 @@ export default function NutritionFoodsPage() {
             </button>
           </div>
 
-          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-2 flex flex-col gap-2 md:flex-row">
             <input
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={myFilter}
@@ -436,10 +436,10 @@ export default function NutritionFoodsPage() {
           <div className="mt-2 space-y-2">
             {myFoods.map((f) => (
               <div key={f.my_food_id} className="rounded-md border p-2">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{f.display_name}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground break-all sm:break-words">
+                    <div className="mt-0.5 text-xs text-muted-foreground break-all md:break-words">
                       {f.brand ? f.brand : "—"}
                       {f.variant ? ` · ${f.variant}` : ""}
                       {f.source ? ` · ${f.source}` : ""}
@@ -466,7 +466,7 @@ export default function NutritionFoodsPage() {
                   </div>
                 </div>
 
-                <div className="mt-2 rounded-md border bg-muted/10 p-2 col-span-2 sm:col-span-4">
+                <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                   <div className="rounded-md bg-muted/30 p-2">
                     <div className="opacity-70">kcal/100g</div>
                     <div className="font-semibold">{fmt(f.kcal, 0)}</div>
@@ -485,7 +485,7 @@ export default function NutritionFoodsPage() {
                   </div>
 
                   {/* Serving presets (optional) */}
-                  <div className="mt-2 rounded-md border bg-muted/10 p-2">
+                  <div className="rounded-md border bg-muted/10 p-2 col-span-2 md:col-span-4">
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-xs font-medium">Serving presets</div>
                       <button
@@ -520,7 +520,7 @@ export default function NutritionFoodsPage() {
                           ) : null}
                         </div>
 
-                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
                           <input
                             className="rounded-md border bg-background px-2 py-2 text-xs"
                             value={servName[f.my_food_id] ?? ""}
