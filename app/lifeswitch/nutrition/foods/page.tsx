@@ -304,7 +304,7 @@ export default function NutritionFoodsPage() {
       <div className="mb-3 flex justify-end">
         <Link href="/lifeswitch" className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">Back</Link>
       </div>
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="text-lg font-semibold">My Foods</div>
           <div className="mt-1 text-sm text-muted-foreground">
@@ -315,8 +315,8 @@ export default function NutritionFoodsPage() {
           </div>
         </div>
 
-        <div className="min-w-0 w-full md:w-auto text-left md:text-right text-xs text-muted-foreground">
-          <div className="flex items-center justify-between gap-2 md:justify-end">
+        <div className="min-w-0 w-full lg:w-auto text-left lg:text-righttext-xs text-muted-foreground">
+          <div className="flex items-center justify-between gap-2 lg:justify-end">
             <div>{owner ? <span>signed in</span> : <span>not signed in</span>}</div>
           </div>
 
@@ -344,7 +344,7 @@ export default function NutritionFoodsPage() {
             </button>
           </div>
 
-          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2">
             <input
               className="rounded-md border bg-background px-2 py-2 text-sm"
               value={variant}
@@ -368,7 +368,7 @@ export default function NutritionFoodsPage() {
           <div className="mt-2 space-y-2">
             {usdaRows.map((h) => (
               <div key={String(h.fdc_id)} className="rounded-md border p-2">
-                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{h.description || "(no description)"}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground break-all md:break-words">
@@ -436,7 +436,7 @@ export default function NutritionFoodsPage() {
           <div className="mt-2 space-y-2">
             {myFoods.map((f) => (
               <div key={f.my_food_id} className="rounded-md border p-2">
-                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div className="flex flex-col gap-2 lg:flex-rowlg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{f.display_name}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground break-all md:break-words">
@@ -466,7 +466,7 @@ export default function NutritionFoodsPage() {
                   </div>
                 </div>
 
-                <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <div className="mt-2 grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
                   <div className="rounded-md bg-muted/30 p-2">
                     <div className="opacity-70">kcal/100g</div>
                     <div className="font-semibold">{fmt(f.kcal, 0)}</div>
@@ -520,7 +520,7 @@ export default function NutritionFoodsPage() {
                           ) : null}
                         </div>
 
-                        <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div className="mt-2 grid grid-cols-1 lg:grid-cols-3 gap-2">
                           <input
                             className="rounded-md border bg-background px-2 py-2 text-xs"
                             value={servName[f.my_food_id] ?? ""}

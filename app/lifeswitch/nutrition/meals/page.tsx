@@ -310,7 +310,7 @@ export default function MealsPage() {
             </button>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+          <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
             <div className="rounded-md bg-muted/30 p-2">
               <div className="opacity-70">kcal</div>
               <div className="font-semibold">{fmt(totals.kcal, 0)}</div>
@@ -331,7 +331,7 @@ export default function MealsPage() {
 
           <div className="mt-4 rounded-md border bg-muted/20 p-3">
             <div className="text-sm font-medium">Create meal</div>
-            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2">
               <input className="rounded-md border bg-background px-2 py-2 text-sm" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Meal name" />
               <select className="rounded-md border bg-background px-2 py-2 text-sm" value={createType} onChange={(e) => setCreateType(e.target.value as any)}>
                 <option value="breakfast">breakfast</option>
@@ -351,10 +351,10 @@ export default function MealsPage() {
             <div className="mt-2 space-y-2">
               {items.map((it) => (
                 <div key={it.meal_item_id} className="rounded-md border p-2">
-                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">{it.display_name}</div>
-                      <div className="mt-0.5 text-xs text-muted-foreground break-all md:break-words">
+                      <div className="mt-0.5 text-xs text-muted-foreground break-all lg:break-words">
                         {it.brand ? it.brand : "—"}
                         {it.variant ? ` · ${it.variant}` : ""}
                         {it.serving_name && it.qty_servings != null
@@ -407,7 +407,7 @@ export default function MealsPage() {
             </button>
           </div>
 
-          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2">
             <select
               className="rounded-md border bg-background px-2 py-2 text-sm"
               value={qtyMode}
@@ -444,10 +444,10 @@ export default function MealsPage() {
           <div className="mt-3 space-y-2">
             {hits.map((f) => (
               <div key={f.my_food_id} className="rounded-md border p-2">
-                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{f.display_name}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground break-all md:break-words">
+                    <div className="mt-0.5 text-xs text-muted-foreground break-all lg:break-words">
                       {f.brand ? f.brand : "—"}
                       {f.variant ? ` · ${f.variant}` : ""}
                       {f.source_type ? ` · ${f.source_type}` : ""}
