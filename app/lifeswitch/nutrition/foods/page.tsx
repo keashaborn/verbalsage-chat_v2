@@ -315,7 +315,7 @@ export default function NutritionFoodsPage() {
           </div>
         </div>
 
-        <div className="min-w-0 w-full lg:w-auto text-left lg:text-righttext-xs text-muted-foreground">
+        <div className="min-w-0 w-full lg:w-auto text-left lg:text-right text-xs text-muted-foreground">
           <div className="flex items-center justify-between gap-2 lg:justify-end">
             <div>{owner ? <span>signed in</span> : <span>not signed in</span>}</div>
           </div>
@@ -329,7 +329,7 @@ export default function NutritionFoodsPage() {
         <section className="rounded-lg border p-3">
           <div className="text-sm font-medium">Search USDA (FoodData Central)</div>
 
-          <div className="mt-2 flex flex-col gap-2 md:flex-row">
+          <div className="mt-2 flex flex-col gap-2 lg:flex-row">
             <input
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={usdaQ}
@@ -411,7 +411,7 @@ export default function NutritionFoodsPage() {
             </button>
           </div>
 
-          <div className="mt-2 flex flex-col gap-2 md:flex-row">
+          <div className="mt-2 flex flex-col gap-2 lg:flex-row">
             <input
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={myFilter}
@@ -436,10 +436,10 @@ export default function NutritionFoodsPage() {
           <div className="mt-2 space-y-2">
             {myFoods.map((f) => (
               <div key={f.my_food_id} className="rounded-md border p-2">
-                <div className="flex flex-col gap-2 lg:flex-rowlg:items-start lg:justify-between">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{f.display_name}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground break-all md:break-words">
+                    <div className="mt-0.5 text-xs text-muted-foreground break-all lg:break-words">
                       {f.brand ? f.brand : "—"}
                       {f.variant ? ` · ${f.variant}` : ""}
                       {f.source ? ` · ${f.source}` : ""}

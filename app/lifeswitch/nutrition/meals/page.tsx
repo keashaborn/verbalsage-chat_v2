@@ -291,7 +291,7 @@ export default function MealsPage() {
         <section className="rounded-lg border p-3">
           <div className="text-sm font-medium">Meals</div>
 
-          <div className="mt-2 flex flex-col gap-2 md:flex-row">
+          <div className="mt-2 flex flex-col gap-2 lg:flex-row">
             <select
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={selectedMealId}
@@ -391,7 +391,7 @@ export default function MealsPage() {
           <div className="text-sm font-medium">Add foods to meal</div>
           <div className="mt-1 text-xs text-muted-foreground">Search your My Foods and set a typical grams amount.</div>
 
-          <div className="mt-2 flex flex-col gap-2 md:flex-row">
+          <div className="mt-2 flex flex-col gap-2 lg:flex-row">
             <input
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={q}
