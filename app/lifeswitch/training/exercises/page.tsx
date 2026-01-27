@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 
 const WORKOUT_SET_VID = "1a2cad49-4972-43d7-9ba8-6031cd3c7657";
@@ -350,6 +351,11 @@ export default function LifeSwitchTrainingPage() {
 
   return (
     <div className="mx-auto max-w-3xl p-4">
+      <div className="mb-3 flex justify-end">
+        <Link href="/lifeswitch/training" className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">
+          Back
+        </Link>
+      </div>
       <h1 className="text-xl font-semibold">LifeSwitch • Training</h1>
 
       <div className="mt-2 text-sm opacity-80">

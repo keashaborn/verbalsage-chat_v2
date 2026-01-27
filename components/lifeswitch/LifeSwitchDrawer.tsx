@@ -94,16 +94,47 @@ export function LifeSwitchDrawer({ trigger }: LifeSwitchDrawerProps) {
                 </div>
               </div>
 
-              <button
-                className="w-full rounded-xl border p-3 text-left hover:bg-muted/30"
-                onClick={() => {
-                  setOpen(false);
-                  navTo("/lifeswitch/training");
-                }}
-              >
+              <div className="rounded-xl border p-3">
                 <div className="text-sm font-semibold">Training</div>
-                <div className="text-xs text-muted-foreground">Workout templates + session logging.</div>
-              </button>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Search exercises → build workouts → log sessions.
+                </div>
+
+                <div className="mt-3 grid gap-2">
+                  <button
+                    className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
+                    onClick={() => {
+                      setOpen(false);
+                      navTo("/lifeswitch/training/exercises");
+                    }}
+                  >
+                    Exercises
+                    <div className="text-xs text-muted-foreground">Search catalog + manage My Exercises.</div>
+                  </button>
+
+                  <button
+                    className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
+                    onClick={() => {
+                      setOpen(false);
+                      navTo("/lifeswitch/training/workouts");
+                    }}
+                  >
+                    Workouts
+                    <div className="text-xs text-muted-foreground">Workout templates built from My Exercises.</div>
+                  </button>
+
+                  <button
+                    className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
+                    onClick={() => {
+                      setOpen(false);
+                      navTo("/lifeswitch/training/calendar");
+                    }}
+                  >
+                    Calendar
+                    <div className="text-xs text-muted-foreground">Daily log + quick entry.</div>
+                  </button>
+                </div>
+              </div>
 
               <button
                 className="w-full rounded-xl border p-3 text-left hover:bg-muted/30"
