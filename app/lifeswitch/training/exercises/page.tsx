@@ -352,7 +352,7 @@ export default function LifeSwitchTrainingPage() {
   return (
     <div className="mx-auto max-w-3xl p-4">
       <div className="mb-3 flex justify-end">
-        <Link href="/lifeswitch/training" className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">
+        <Link href="/lifeswitch" className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">
           Back
         </Link>
       </div>
