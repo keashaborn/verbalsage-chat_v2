@@ -351,79 +351,64 @@ export default function LifeSwitchTrainingPage() {
 
   return (
     <div className="mx-auto max-w-3xl p-4">
-      <h1 className="text-xl font-semibold">Training · Exercises</h1>
+      <h1 className="text-xl font-semibold">My Exercises</h1>
       <div className="mt-1 text-sm text-muted-foreground">
-        Search the catalog and save your personal exercise library.
+        Search the catalog, then save exercises you actually use.
       </div>
 
-      <div className="mt-8">
-        <div className="text-sm font-semibold">Exercise catalog (DB)</div>
-        <div className="mt-1 text-xs opacity-70">
+      <div className="mt-3 grid gap-3">
+        <label className="grid gap-1 text-sm">
+          <span className="opacity-70">Search</span>
+          <input
+            className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+            value={exQ}
+            onChange={(e) => setExQ(e.target.value)}
+            placeholder='e.g., "hammer chest press", "cable pushdown"'
+          />
+        </label>
+
+        <div className="text-xs text-muted-foreground">
+          {exLoading ? "searching…" : exStatus}
+          {exResults.length ? ` · showing ${exResults.length}` : ""}
         </div>
 
-        <div className="mt-3 grid gap-3">
-          <label className="grid gap-1 text-sm">
-            <span className="opacity-70">Search</span>
-            <input
-              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-              value={exQ}
-              onChange={(e) => setExQ(e.target.value)}
-              placeholder='e.g., "hammer chest press", "cable pushdown"'
-            />
-          </label>
+        {exResults.length ? (
+          <div className="divide-y divide-muted/20">
+            {exResults.map((h) => {
+              const saved = myExercises.some((x) => x.exercise_id === h.exercise_id);
 
-          <div className="text-xs text-muted-foreground">
-            {exLoading ? "searching…" : exStatus}
-            {exResults.length ? ` · showing ${exResults.length}` : ""}
-          </div>
-
-          {exQ.trim() ? (
-            exResults.length ? (
-              <div className="divide-y divide-muted/20">
-                {exResults.map((h) => {
-                  const saved = myExercises.some((x) => x.exercise_id === h.exercise_id);
-
-                  return (
-                    <div key={h.exercise_id} className="py-3 flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium break-words">{h.display_name}</div>
-                        <div className="mt-1 text-xs text-muted-foreground break-words">
-                          {h.modality}
-                          {h.kind ? ` · ${h.kind}` : ""}
-                          {h.brand_name ? ` · ${h.brand_name}` : ""}
-                          {h.matched_source ? ` · ${h.matched_source}` : ""}
-                        </div>
-                        {h.matched_text ? (
-                          <div className="mt-1 text-xs opacity-80 break-words">{h.matched_text}</div>
-                        ) : null}
-                      </div>
-
-                      <button
-                        type="button"
-                        className="shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
-                        onClick={() => addMyExercise(h)}
-                        disabled={saved}
-                      >
-                        {saved ? "Saved" : "Save"}
-                      </button>
+              return (
+                <div key={h.exercise_id} className="py-3 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{h.display_name}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {h.modality}
+                      {h.kind ? ` · ${h.kind}` : ""}
+                      {h.brand_name ? ` · ${h.brand_name}` : ""}
+                      {h.matched_source ? ` · ${h.matched_source}` : ""}
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">No matches.</div>
-            )
-          ) : null}
-        </div>
+                    {h.matched_text ? (
+                      <div className="mt-1 text-xs opacity-80 truncate">{h.matched_text}</div>
+                    ) : null}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                    onClick={() => addMyExercise(h)}
+                    disabled={saved}
+                  >
+                    {saved ? "Saved" : "Save"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
 
         <div className="mt-10">
           <div className="flex items-center justify-between gap-2">
-            <div>
-              <div className="text-sm font-semibold">My Exercises</div>
-              <div className="mt-1 text-xs opacity-70">
-                Local-only pool (v0). Next step: persist to DB as lifeswitch_training.my_exercise.
-              </div>
-            </div>
+            <div className="text-sm font-semibold">Current exercises</div>
             <div className="text-xs opacity-70">count={myExercises.length}</div>
           </div>
 
@@ -432,13 +417,14 @@ export default function LifeSwitchTrainingPage() {
               {myExercises.map((x) => (
                 <div key={x.exercise_id} className="py-3 flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-sm font-medium break-words">{x.display_name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground break-words">
+                    <div className="text-sm font-medium truncate">{x.display_name}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
                       {x.modality}
                       {x.brand_name ? ` · ${x.brand_name}` : ""}
                       {x.matched_source ? ` · ${x.matched_source}` : ""}
                     </div>
                   </div>
+
                   <button
                     type="button"
                     className="shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30"
@@ -455,7 +441,6 @@ export default function LifeSwitchTrainingPage() {
             </div>
           )}
         </div>
-
       </div>
     </div>
   );
