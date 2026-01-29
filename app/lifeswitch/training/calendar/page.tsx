@@ -177,46 +177,39 @@ export default function TrainingCalendarPage() {
         Log feed (MVP). Next: month calendar strip + stats + click-through session detail + repeat.
       </div>
 
-      <div className="mt-4 rounded-xl border p-3 text-xs">
-        <div className="opacity-70">auth:</div>
-        <div className="font-mono">{ownerUserId ? ownerUserId : "not signed in"}</div>
-        <div className="mt-2 opacity-70">status:</div>
-        <div className="font-mono">{status}</div>
-        <div className="mt-2 opacity-70">sessions:</div>
-        <div className="font-mono">{sessions.length}</div>
-      </div>
+      <details className="mt-3 text-xs text-muted-foreground">
+        <summary className="cursor-pointer select-none opacity-70 hover:opacity-100">Debug</summary>
+        <div className="mt-2 space-y-1 font-mono">
+          <div>auth: {ownerUserId ? ownerUserId : "not signed in"}</div>
+          <div>status: {status}</div>
+          <div>sessions: {sessions.length}</div>
+        </div>
+      </details>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-6">
         {loading ? (
-          <div className="rounded-xl border p-4 text-sm text-muted-foreground">Loading…</div>
+          <div className="text-sm text-muted-foreground">Loading…</div>
         ) : sessions.length ? (
-          sessions.map((s) => (
-            <div key={s.key} className="rounded-xl border p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold">{s.workout}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {s.date} · sets={s.set_count} · exercises={s.exercise_count} · volume={s.volume}
-                  </div>
-                  {s.exercises_preview.length ? (
-                    <div className="mt-2 text-xs opacity-80">
-                      {s.exercises_preview.join(" · ")}
-                      {s.exercise_count > s.exercises_preview.length ? " …" : ""}
-                    </div>
-                  ) : null}
+          <div className="divide-y divide-muted/20">
+            {sessions.map((s) => (
+              <div key={s.key} className="-mx-2 px-2 py-4">
+                <div className="text-sm font-semibold">{s.workout}</div>
+
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {s.date} · sets={s.set_count} · exercises={s.exercise_count} · volume={s.volume}
                 </div>
 
-                {/* later: link to /lifeswitch/training/session?... */}
-                <button className="shrink-0 rounded-md border px-3 py-1.5 text-xs opacity-60" disabled>
-                  Open
-                </button>
+                {s.exercises_preview.length ? (
+                  <div className="mt-2 text-xs opacity-80">
+                    {s.exercises_preview.join(" · ")}
+                    {s.exercise_count > s.exercises_preview.length ? " …" : ""}
+                  </div>
+                ) : null}
               </div>
-            </div>
-          ))
-        ) : (
-          <div className="rounded-xl border p-4 text-sm text-muted-foreground">
-            No sessions found yet (0 rows). Post a session first.
+            ))}
           </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">No sessions found yet (0 rows). Post a session first.</div>
         )}
       </div>
     </div>
