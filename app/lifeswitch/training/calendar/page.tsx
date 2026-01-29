@@ -389,20 +389,41 @@ export default function TrainingCalendarPage() {
               </div>
 
               <div className="mt-8">
-                {m.sessions.map((s, sidx) => (
-                  <div key={s.key} className={sidx ? "mt-8 pt-8 border-t border-muted/20" : ""}>
-                    <div className="text-lg font-semibold">{s.workout}</div>
-                    <div className="mt-1 text-sm text-muted-foreground">
-                      {s.date} · sets={s.set_count} · exercises={s.exercise_count} · volume={s.volume}
-                    </div>
-                    {s.exercises_preview.length ? (
-                      <div className="mt-2 text-sm opacity-80">
-                        {s.exercises_preview.join(" · ")}
-                        {s.exercise_count > s.exercises_preview.length ? " …" : ""}
+                {m.sessions.map((s, sidx) => {
+                  const href =
+                    "/lifeswitch/training/session?date=" +
+                    encodeURIComponent(s.date) +
+                    "&workout=" +
+                    encodeURIComponent(s.workout);
+
+                  return (
+                    <Link
+                      key={s.key}
+                      href={href}
+                      className={[
+                        "block",
+                        sidx ? "mt-8 pt-8 border-t border-muted/20" : "",
+                        // minimalist affordances: no box, just subtle hover + focus ring
+                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    >
+                      <div className="text-lg font-semibold hover:underline underline-offset-4">
+                        {s.workout}
                       </div>
-                    ) : null}
-                  </div>
-                ))}
+                      <div className="mt-1 text-sm text-muted-foreground">
+                        {s.date} · sets={s.set_count} · exercises={s.exercise_count} · volume={s.volume}
+                      </div>
+                      {s.exercises_preview.length ? (
+                        <div className="mt-2 text-sm opacity-80">
+                          {s.exercises_preview.join(" · ")}
+                          {s.exercise_count > s.exercises_preview.length ? " …" : ""}
+                        </div>
+                      ) : null}
+                    </Link>
+                  );
+                })}
               </div>
             </section>
           ))
