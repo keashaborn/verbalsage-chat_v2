@@ -5,28 +5,9 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 
 const WORKOUT_SET_VID = "1a2cad49-4972-43d7-9ba8-6031cd3c7657";
-const SUBJECT_ID = "self";
 
-type LibraryExercise = {
-  id: string;
-  label: string;
-  planned_sets: number;
-  default_weight: number;
-  default_reps: number;
-};
-
-type LibraryWorkout = {
-  id: string;
-  label: string;
-  exercises: LibraryExercise[];
-};
-
-type WorkoutLibrary = {
-  workouts: LibraryWorkout[];
-};
-
-type PlannedWorkoutSetEntry = {
-  date: string;
+type WorkoutSetData = {
+  date: string; // YYYY-MM-DD
   workout: string;
   exercise: string;
   set_index: number;
@@ -34,197 +15,157 @@ type PlannedWorkoutSetEntry = {
   reps: number;
   count: number;
   __vs_sort_ts: string;
-  notes?: string;
-  context?: string;
 };
 
-function pad2(n: number) {
-  return n < 10 ? `0${n}` : String(n);
+type FormsEntry = {
+  id: string;
+  owner_user_id: string;
+  subject_id: string;
+  template_version_id: string;
+  occurred_at: string;
+  data: WorkoutSetData;
+};
+
+type Session = {
+  key: string; // `${date}||${workout}`
+  date: string;
+  workout: string;
+  sets: FormsEntry[];
+  set_count: number;
+  exercise_count: number;
+  volume: number; // sum(count)
+  exercises_preview: string[];
+};
+
+function uniqPreserveOrder(xs: string[]) {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const x of xs) {
+    const k = String(x || "").trim();
+    if (!k) continue;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(k);
+  }
+  return out;
 }
 
-function todayLocalYYYYMMDD() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = pad2(d.getMonth() + 1);
-  const day = pad2(d.getDate());
-  return `${y}-${m}-${day}`;
-}
-
-// Deterministic per-day ordering key (lexicographic ISO-ish string).
-// idx=0 -> 08:00Z, idx=1 -> 08:01Z, etc.
-function sortTsForDay(dateYYYYMMDD: string, idx: number) {
-  const baseMinutes = 8 * 60;
-  const minutes = baseMinutes + idx;
-  const hh = Math.floor(minutes / 60);
-  const mm = minutes % 60;
-  return `${dateYYYYMMDD}T${pad2(hh)}:${pad2(mm)}:00Z`;
+function safeNum(x: any, fallback = 0) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : fallback;
 }
 
 export default function TrainingCalendarPage() {
   const [ownerUserId, setOwnerUserId] = React.useState<string>("");
-
-  const [lib, setLib] = React.useState<WorkoutLibrary | null>(null);
-  const [libStatus, setLibStatus] = React.useState<string>("loading…");
-
-  const [workoutId, setWorkoutId] = React.useState<string>("");
-  const [date, setDate] = React.useState<string>(todayLocalYYYYMMDD());
-  const [context, setContext] = React.useState<string>("");
-  const [notes, setNotes] = React.useState<string>("");
-
-  const [preview, setPreview] = React.useState<PlannedWorkoutSetEntry[]>([]);
-  const [posting, setPosting] = React.useState<boolean>(false);
-  const [status, setStatus] = React.useState<string>("");
+  const [status, setStatus] = React.useState<string>("auth: loading…");
+  const [rows, setRows] = React.useState<FormsEntry[]>([]);
+  const [loading, setLoading] = React.useState<boolean>(true);
 
   React.useEffect(() => {
+    let cancelled = false;
+
     (async () => {
+      setLoading(true);
+      setStatus("auth: loading…");
+
       try {
         const { data, error } = await supabase.auth.getUser();
-        if (error || !data?.user?.id) throw new Error("not signed in");
-        setOwnerUserId(data.user.id);
-      } catch (e: any) {
-        setOwnerUserId("");
-        setStatus(`auth: ${e?.message || String(e)}`);
-      }
-    })();
-  }, []);
+        if (error || !data?.user?.id) {
+          setOwnerUserId("");
+          setRows([]);
+          setStatus("auth: not signed in");
+          return;
+        }
 
-  React.useEffect(() => {
-    (async () => {
-      setLibStatus("loading…");
-      try {
-        const r = await fetch("/api/lifeswitch/workout_library", { cache: "no-store" });
+        const uid = data.user.id;
+        if (cancelled) return;
+        setOwnerUserId(uid);
+
+        setStatus("loading workout sets…");
+
+        const u = new URL("/api/forms/entries/list", window.location.origin);
+        u.searchParams.set("owner_user_id", uid);
+        u.searchParams.set("template_version_id", WORKOUT_SET_VID);
+        u.searchParams.set("limit", "2000"); // client-side filter for now
+
+        const r = await fetch(u.toString(), { cache: "no-store" });
         const t = await r.text().catch(() => "");
-        if (!r.ok) throw new Error(`workout_library failed: HTTP ${r.status} ${t}`);
-        const j = JSON.parse(t) as WorkoutLibrary;
-        if (!j || !Array.isArray(j.workouts)) throw new Error("invalid workout_library JSON (missing workouts[])");
-        setLib(j);
-        setLibStatus(`loaded (${j.workouts.length} workouts)`);
+        if (!r.ok) throw new Error(`entries/list failed: HTTP ${r.status} ${t.slice(0, 400)}`);
+
+        const j = JSON.parse(t);
+        const next = Array.isArray(j) ? (j as FormsEntry[]) : [];
+
+        if (cancelled) return;
+        setRows(next);
+        setStatus(`loaded ${next.length} sets`);
       } catch (e: any) {
-        setLib(null);
-        setLibStatus(`error: ${e?.message || String(e)}`);
+        if (cancelled) return;
+        setRows([]);
+        setStatus(`error: ${e?.message || String(e)}`);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const workouts = React.useMemo(() => {
-    const ws = lib?.workouts || [];
-    return ws.slice().sort((a, b) => String(a.label).localeCompare(String(b.label)));
-  }, [lib]);
+  const sessions = React.useMemo(() => {
+    const byKey = new Map<string, FormsEntry[]>();
 
-  const selectedWorkout = React.useMemo(() => {
-    if (!workoutId) return null;
-    return (lib?.workouts || []).find((w) => w.id === workoutId) || null;
-  }, [lib, workoutId]);
+    for (const r of rows) {
+      const d = r?.data;
+      const date = String(d?.date || "").trim();
+      const workout = String(d?.workout || "").trim();
+      if (!date || !workout) continue;
 
-  function buildPlannedEntries(w: LibraryWorkout, dateYYYYMMDD: string): PlannedWorkoutSetEntry[] {
-    const out: PlannedWorkoutSetEntry[] = [];
-    let globalIdx = 0;
-
-    for (const ex of Array.isArray(w.exercises) ? w.exercises : []) {
-      const plannedSets = Math.max(0, Math.floor(Number(ex.planned_sets || 0)));
-      const baseW = Number(ex.default_weight || 0);
-      const baseR = Math.max(1, Math.floor(Number(ex.default_reps || 1)));
-
-      for (let s = 1; s <= plannedSets; s++) {
-        // Simple, deterministic “set progression” (tweak later):
-        // +2.5 lbs each set, -1 rep each set (floor at 1)
-        const weight = Number((baseW + (s - 1) * 2.5).toFixed(2));
-        const reps = Math.max(1, baseR - (s - 1));
-        const count = Number((weight * reps).toFixed(2));
-
-        const row: PlannedWorkoutSetEntry = {
-          date: dateYYYYMMDD,
-          workout: w.label,
-          exercise: ex.label,
-          set_index: s,
-          weight,
-          reps,
-          count,
-          __vs_sort_ts: sortTsForDay(dateYYYYMMDD, globalIdx),
-        };
-
-        if (context.trim()) row.context = context.trim();
-        if (notes.trim()) row.notes = notes.trim();
-
-        out.push(row);
-        globalIdx++;
-      }
+      const key = `${date}||${workout}`;
+      const arr = byKey.get(key) || [];
+      arr.push(r);
+      byKey.set(key, arr);
     }
+
+    const out: Session[] = [];
+    for (const [key, sets] of byKey.entries()) {
+      // sort sets by deterministic per-day key (fallback to occurred_at)
+      sets.sort((a, b) => {
+        const sa = String(a?.data?.__vs_sort_ts || a?.occurred_at || "");
+        const sb = String(b?.data?.__vs_sort_ts || b?.occurred_at || "");
+        return sa.localeCompare(sb);
+      });
+
+      const first = sets[0];
+      const date = String(first?.data?.date || "");
+      const workout = String(first?.data?.workout || "");
+      const vol = sets.reduce((acc, x) => acc + safeNum(x?.data?.count, 0), 0);
+
+      const exercises = uniqPreserveOrder(sets.map((x) => String(x?.data?.exercise || "")));
+      out.push({
+        key,
+        date,
+        workout,
+        sets,
+        set_count: sets.length,
+        exercise_count: exercises.length,
+        volume: Number(vol.toFixed(2)),
+        exercises_preview: exercises.slice(0, 4),
+      });
+    }
+
+    // newest date first, then workout name
+    out.sort((a, b) => {
+      const c = String(b.date).localeCompare(String(a.date));
+      if (c !== 0) return c;
+      return String(a.workout).localeCompare(String(b.workout));
+    });
 
     return out;
-  }
-
-  function doPreview() {
-    setStatus("");
-    if (!selectedWorkout) {
-      setPreview([]);
-      setStatus("select a workout");
-      return;
-    }
-    if (!date.trim()) {
-      setPreview([]);
-      setStatus("date required");
-      return;
-    }
-    const rows = buildPlannedEntries(selectedWorkout, date.trim());
-    setPreview(rows);
-    setStatus(`preview: ${rows.length} Workout Set rows`);
-  }
-
-  async function postSession() {
-    setStatus("");
-    if (!ownerUserId.trim()) {
-      setStatus("auth: not signed in");
-      return;
-    }
-    if (!selectedWorkout) {
-      setStatus("select a workout");
-      return;
-    }
-    if (!date.trim()) {
-      setStatus("date required");
-      return;
-    }
-
-    const rows = buildPlannedEntries(selectedWorkout, date.trim());
-    setPreview(rows);
-
-    if (rows.length === 0) {
-      setStatus("nothing to post (0 planned rows)");
-      return;
-    }
-
-    setPosting(true);
-    try {
-      let ok = 0;
-      for (const row of rows) {
-        const payload = {
-          owner_user_id: ownerUserId.trim(),
-          subject_id: SUBJECT_ID,
-          template_version_id: WORKOUT_SET_VID,
-          data: row,
-        };
-
-        const r = await fetch("/api/forms/entries", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const t = await r.text().catch(() => "");
-        if (!r.ok) throw new Error(`POST failed after ${ok} ok: HTTP ${r.status} ${t.slice(0, 1200)}`);
-        ok += 1;
-      }
-      setStatus(`posted: ${rows.length}/${rows.length} Workout Set rows`);
-    } catch (e: any) {
-      setStatus(`error: ${e?.message || String(e)}`);
-    } finally {
-      setPosting(false);
-    }
-  }
+  }, [rows]);
 
   return (
-    <div className="mx-auto max-w-5xl p-4 overflow-x-hidden">
+    <div className="mx-auto max-w-5xl p-4">
       <div className="mb-3 flex justify-end">
         <Link href="/lifeswitch" className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">
           Back
@@ -233,138 +174,50 @@ export default function TrainingCalendarPage() {
 
       <div className="text-lg font-semibold">Training · Calendar</div>
       <div className="mt-1 text-sm text-muted-foreground">
-        WIP: month calendar + daily session list. For now this page hosts the quick entry + post pipeline.
+        Log feed (MVP). Next: month calendar strip + stats + click-through session detail + repeat.
       </div>
 
-      <div className="mt-4 rounded-xl border p-3">
-        <div className="text-sm font-semibold">Status</div>
-        <div className="mt-2 text-xs">
-          <div>
-            <span className="opacity-70">auth:</span>{" "}
-            {ownerUserId ? <span className="font-mono">{ownerUserId}</span> : <span className="opacity-70">not signed in</span>}
-          </div>
-          <div>
-            <span className="opacity-70">workout_library:</span> {libStatus}
-          </div>
-          {status ? <div className="mt-2 font-mono">{status}</div> : null}
-        </div>
+      <div className="mt-4 rounded-xl border p-3 text-xs">
+        <div className="opacity-70">auth:</div>
+        <div className="font-mono">{ownerUserId ? ownerUserId : "not signed in"}</div>
+        <div className="mt-2 opacity-70">status:</div>
+        <div className="font-mono">{status}</div>
+        <div className="mt-2 opacity-70">sessions:</div>
+        <div className="font-mono">{sessions.length}</div>
       </div>
 
-      <div className="mt-4 rounded-xl border p-3">
-        <div className="text-sm font-semibold">Quick entry</div>
+      <div className="mt-4 space-y-3">
+        {loading ? (
+          <div className="rounded-xl border p-4 text-sm text-muted-foreground">Loading…</div>
+        ) : sessions.length ? (
+          sessions.map((s) => (
+            <div key={s.key} className="rounded-xl border p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold">{s.workout}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {s.date} · sets={s.set_count} · exercises={s.exercise_count} · volume={s.volume}
+                  </div>
+                  {s.exercises_preview.length ? (
+                    <div className="mt-2 text-xs opacity-80">
+                      {s.exercises_preview.join(" · ")}
+                      {s.exercise_count > s.exercises_preview.length ? " …" : ""}
+                    </div>
+                  ) : null}
+                </div>
 
-        <div className="mt-3 grid gap-3">
-          <label className="grid gap-1">
-            <div className="text-xs opacity-70">Workout</div>
-            <select
-              className="rounded-md border px-2 py-1 text-sm"
-              value={workoutId}
-              onChange={(e) => setWorkoutId(e.target.value)}
-              disabled={!lib || posting}
-            >
-              <option value="">Select…</option>
-              {workouts.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="grid gap-1">
-            <div className="text-xs opacity-70">Date</div>
-            <input
-              className="rounded-md border px-2 py-1 text-sm"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              disabled={posting}
-            />
-          </label>
-
-          <label className="grid gap-1">
-            <div className="text-xs opacity-70">Context (optional)</div>
-            <input
-              className="rounded-md border px-2 py-1 text-sm"
-              value={context}
-              onChange={(e) => setContext(e.target.value)}
-              placeholder="gym / home / etc"
-              disabled={posting}
-            />
-          </label>
-
-          <label className="grid gap-1">
-            <div className="text-xs opacity-70">Notes (optional)</div>
-            <input
-              className="rounded-md border px-2 py-1 text-sm"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g., plan / seed / template import"
-              disabled={posting}
-            />
-          </label>
-
-          <div className="flex gap-2">
-            <button
-              className="rounded-md border px-3 py-1 text-sm"
-              onClick={doPreview}
-              disabled={posting || !selectedWorkout || !date.trim()}
-            >
-              Preview
-            </button>
-
-            <button
-              className="rounded-md bg-black px-3 py-1 text-sm text-white disabled:opacity-50"
-              onClick={postSession}
-              disabled={posting || !ownerUserId.trim() || !selectedWorkout || !date.trim()}
-              title={!ownerUserId.trim() ? "Sign in first" : ""}
-            >
-              {posting ? "Posting…" : "Post session"}
-            </button>
+                {/* later: link to /lifeswitch/training/session?... */}
+                <button className="shrink-0 rounded-md border px-3 py-1.5 text-xs opacity-60" disabled>
+                  Open
+                </button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="rounded-xl border p-4 text-sm text-muted-foreground">
+            No sessions found yet (0 rows). Post a session first.
           </div>
-
-          <div className="text-xs opacity-70">
-            Writes to <span className="font-mono">{WORKOUT_SET_VID}</span> (Workout Set template). This is the quick entry pipe; the
-            log UI lands below next.
-          </div>
-        </div>
-      </div>
-
-      {preview.length ? (
-        <div className="mt-4 rounded-xl border p-3">
-          <div className="text-sm font-semibold">Preview ({preview.length} rows)</div>
-          <div className="mt-2 overflow-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-left opacity-70">
-                  <th className="py-1 pr-2">sort_ts</th>
-                  <th className="py-1 pr-2">exercise</th>
-                  <th className="py-1 pr-2">set</th>
-                  <th className="py-1 pr-2">wt</th>
-                  <th className="py-1 pr-2">reps</th>
-                  <th className="py-1 pr-2">count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {preview.slice(0, 30).map((r, i) => (
-                  <tr key={`${r.__vs_sort_ts}-${i}`} className="border-t">
-                    <td className="py-1 pr-2 font-mono">{r.__vs_sort_ts}</td>
-                    <td className="py-1 pr-2">{r.exercise}</td>
-                    <td className="py-1 pr-2">{r.set_index}</td>
-                    <td className="py-1 pr-2">{r.weight}</td>
-                    <td className="py-1 pr-2">{r.reps}</td>
-                    <td className="py-1 pr-2">{r.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {preview.length > 30 ? <div className="mt-2 text-xs opacity-70">Showing first 30 rows.</div> : null}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="mt-4 rounded-lg border bg-card p-4 text-sm text-muted-foreground">
-        Placeholder: month calendar strip + stats (workouts/volume/time) + session list + click-through + repeat.
+        )}
       </div>
     </div>
   );
