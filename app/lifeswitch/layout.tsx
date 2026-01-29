@@ -20,42 +20,44 @@ export default function LifeSwitchLayout({ children }: { children: ReactNode }) 
       </header>
 
       {/* Content */}
-      <main className="mx-auto max-w-5xl px-4 pb-20 pt-4">{children}</main>
+      <main className="mx-auto max-w-5xl px-4 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))]">
+        {children}
+      </main>
 
       {/* Bottom tabs (fixed; LifeSwitch only) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/90 backdrop-blur">
-        <div className="mx-auto grid max-w-5xl grid-cols-5 px-2 py-2 text-xs">
-          <Link
-            href="/lifeswitch"
-            className="rounded-md px-3 py-2 text-center hover:bg-muted/30"
-          >
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto grid max-w-5xl grid-cols-5 px-2 pt-2">
+          <Link href="/lifeswitch" className="rounded-md py-3 text-center text-sm hover:bg-muted/30 active:bg-muted/40">
             Home
           </Link>
           <Link
             href="/lifeswitch/training/calendar"
-            className="rounded-md px-3 py-2 text-center hover:bg-muted/30"
+            className="rounded-md py-3 text-center text-sm hover:bg-muted/30 active:bg-muted/40"
           >
             Calendar
           </Link>
           <Link
             href="/lifeswitch/training/exercises"
-            className="rounded-md px-3 py-2 text-center hover:bg-muted/30"
+            className="rounded-md py-3 text-center text-sm hover:bg-muted/30 active:bg-muted/40"
           >
             Exercises
           </Link>
           <Link
             href="/lifeswitch/training/workouts"
-            className="rounded-md px-3 py-2 text-center hover:bg-muted/30"
+            className="rounded-md py-3 text-center text-sm hover:bg-muted/30 active:bg-muted/40"
           >
             Workouts
           </Link>
           <Link
             href="/lifeswitch/measurements"
-            className="rounded-md px-3 py-2 text-center hover:bg-muted/30"
+            className="rounded-md py-3 text-center text-sm hover:bg-muted/30 active:bg-muted/40"
           >
             Measurements
           </Link>
         </div>
+
+        {/* extra line under tabs + a little breathing room */}
+        <div className="mx-auto max-w-5xl border-t border-muted/20" />
       </nav>
     </div>
   );

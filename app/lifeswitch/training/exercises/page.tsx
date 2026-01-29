@@ -356,7 +356,7 @@ export default function LifeSwitchTrainingPage() {
         Search the catalog and save your personal exercise library.
       </div>
 
-      <div className="mt-4 rounded-xl border p-3">
+      <div className="mt-8">
         <div className="text-sm font-semibold">Exercise catalog (DB)</div>
         <div className="mt-1 text-xs opacity-70">
         </div>
@@ -372,25 +372,20 @@ export default function LifeSwitchTrainingPage() {
             />
           </label>
 
-          <label className="grid gap-1 text-sm">
-            <span className="opacity-70">Selected canonical exercise</span>
-            <input
-              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-              value={
-                selectedCanonicalExercise
-                  ? (
-                    exResults.find((x) => x.exercise_id === selectedCanonicalExercise)?.display_name ||
-                    myExercises.find((x) => x.exercise_id === selectedCanonicalExercise)?.display_name ||
-                    selectedCanonicalExercise
-                  )
-                  : ""
-              }
-              onChange={(e) => setSelectedCanonicalExercise(e.target.value)}
-              placeholder="(click Use on a hit below)"
-            />
-          </label>
+          <div className="text-sm">
+            <div className="text-xs opacity-70">Selected</div>
+            <div className="mt-1">
+              {selectedCanonicalExercise
+                ? (
+                  exResults.find((x) => x.exercise_id === selectedCanonicalExercise)?.display_name ||
+                  myExercises.find((x) => x.exercise_id === selectedCanonicalExercise)?.display_name ||
+                  selectedCanonicalExercise
+                )
+                : <span className="opacity-60">(none)</span>}
+            </div>
+          </div>
 
-          <div className="mt-4 rounded-xl border p-3">
+          <div className="mt-8">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <div className="text-sm font-semibold">My Exercises</div>
@@ -402,43 +397,28 @@ export default function LifeSwitchTrainingPage() {
             </div>
 
             {myExercises.length ? (
-              <div className="mt-3 overflow-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-left opacity-70">
-                      <th className="py-1 pr-2">exercise</th>
-                      <th className="py-1 pr-2">modality</th>
-                      <th className="py-1 pr-2">brand</th>
-                      <th className="py-1 pr-2">matched</th>
-                      <th className="py-1 pr-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {myExercises.map((x) => (
-                      <tr key={x.exercise_id} className="border-t">
-                        <td className="py-1 pr-2">{x.display_name}</td>
-                        <td className="py-1 pr-2">{x.modality}</td>
-                        <td className="py-1 pr-2">{x.brand_name || ""}</td>
-                        <td className="py-1 pr-2">
-                          {x.matched_source ? `${x.matched_source}: ${x.matched_text || ""}` : ""}
-                        </td>
-                        <td className="py-1 pr-2">
-                          <button
-                            type="button"
-                            className="rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60"
-                            onClick={() => removeMyExercise(x.exercise_id)}
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="mt-3 divide-y divide-muted/20">
+                {myExercises.map((x) => (
+                  <div key={x.exercise_id} className="py-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{x.display_name}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {x.modality}{x.brand_name ? ` · ${x.brand_name}` : ""}{x.matched_source ? ` · ${x.matched_source}` : ""}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30"
+                      onClick={() => removeMyExercise(x.exercise_id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="mt-3 text-xs opacity-70">
-                Empty. Use Exercise catalog search above and click <span className="font-mono">Save</span>.
+              <div className="mt-3 text-sm text-muted-foreground">
+                Empty. Search above and click <span className="font-mono">Save</span>.
               </div>
             )}
           </div>
