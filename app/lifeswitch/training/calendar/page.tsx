@@ -343,12 +343,6 @@ export default function TrainingCalendarPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-4">
-      <div className="mb-3 flex justify-end">
-        <Link href="/lifeswitch" className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">
-          Back
-        </Link>
-      </div>
-
       <div className="text-lg font-semibold">Training · Calendar</div>
       <div className="mt-1 text-sm text-muted-foreground">
         Month calendar + monthly totals, then session feed. Next: click-through session detail + repeat.
@@ -373,17 +367,17 @@ export default function TrainingCalendarPage() {
             <section key={m.ym} className={idx ? "mt-10 pt-10 border-t border-muted/20" : ""}>
               <div className="text-base font-semibold">{m.label}</div>
 
-              <div className="mt-4 grid grid-cols-[1fr_8.5rem] gap-4 items-start">
+              <div className="mt-4 grid grid-cols-[1fr_7.25rem] gap-3 items-start">
                 <MonthCalendar ym={m.ym} workoutDates={m.workoutDates} today={today} />
 
-                <div className="text-right">
-                  <div className="text-2xl font-semibold">{m.workouts}</div>
+                <div className="rounded-lg border border-muted/20 p-3 justify-self-center self-center text-center w-[7.25rem]">
+                  <div className="text-xl font-semibold">{m.workouts}</div>
                   <div className="text-xs opacity-70">WORKOUTS</div>
 
-                  <div className="mt-4 text-2xl font-semibold">{formatK(m.volume)}</div>
+                  <div className="mt-4 text-xl font-semibold">{formatK(m.volume)}</div>
                   <div className="text-xs opacity-70">VOLUME</div>
 
-                  <div className="mt-4 text-2xl font-semibold">{formatDuration(m.time_seconds)}</div>
+                  <div className="mt-4 text-xl font-semibold">{formatDuration(m.time_seconds)}</div>
                   <div className="text-xs opacity-70">TIME</div>
                 </div>
               </div>
