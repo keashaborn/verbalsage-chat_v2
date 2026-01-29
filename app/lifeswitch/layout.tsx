@@ -36,7 +36,7 @@ export default function LifeSwitchLayout({ children }: { children: ReactNode }) 
       </header>
 
       {/* Content */}
-      <main className="mx-auto max-w-5xl px-4 pb-8 pt-4">{children}</main>
+      <main className="mx-auto max-w-5xl px-4 pb-8 pt-4 overflow-x-hidden">{children}</main>
     </div>
   );
 }

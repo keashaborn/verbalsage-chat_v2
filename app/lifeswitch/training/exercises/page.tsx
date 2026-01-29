@@ -350,7 +350,7 @@ export default function LifeSwitchTrainingPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-4">
+    <div className="mx-auto max-w-3xl p-4 overflow-x-hidden">
       <h1 className="text-xl font-semibold">My Exercises</h1>
       <div className="mt-1 text-sm text-muted-foreground">
         Search the catalog, then save exercises you actually use.
@@ -381,14 +381,14 @@ export default function LifeSwitchTrainingPage() {
                 <div key={h.exercise_id} className="py-3 flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-sm font-medium truncate">{h.display_name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
+                    <div className="mt-1 text-xs text-muted-foreground break-all">
                       {h.modality}
                       {h.kind ? ` · ${h.kind}` : ""}
                       {h.brand_name ? ` · ${h.brand_name}` : ""}
                       {h.matched_source ? ` · ${h.matched_source}` : ""}
                     </div>
                     {h.matched_text ? (
-                      <div className="mt-1 text-xs opacity-80 truncate">{h.matched_text}</div>
+                      <div className="mt-1 text-xs opacity-80 break-all">{h.matched_text}</div>
                     ) : null}
                   </div>
 
@@ -418,7 +418,7 @@ export default function LifeSwitchTrainingPage() {
                 <div key={x.exercise_id} className="py-3 flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-sm font-medium truncate">{x.display_name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
+                    <div className="mt-1 text-xs text-muted-foreground break-all">
                       {x.modality}
                       {x.brand_name ? ` · ${x.brand_name}` : ""}
                       {x.matched_source ? ` · ${x.matched_source}` : ""}
