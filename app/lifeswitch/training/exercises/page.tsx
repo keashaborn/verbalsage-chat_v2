@@ -361,7 +361,7 @@ export default function LifeSwitchTrainingPage() {
         <div className="mt-1 text-xs opacity-70">
         </div>
 
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <div className="mt-3 grid gap-3">
           <label className="grid gap-1 text-sm">
             <span className="opacity-70">Search</span>
             <input
@@ -372,104 +372,90 @@ export default function LifeSwitchTrainingPage() {
             />
           </label>
 
-          <div className="text-sm">
-            <div className="text-xs opacity-70">Selected</div>
-            <div className="mt-1">
-              {selectedCanonicalExercise
-                ? (
-                  exResults.find((x) => x.exercise_id === selectedCanonicalExercise)?.display_name ||
-                  myExercises.find((x) => x.exercise_id === selectedCanonicalExercise)?.display_name ||
-                  selectedCanonicalExercise
-                )
-                : <span className="opacity-60">(none)</span>}
-            </div>
+          <div className="text-xs text-muted-foreground">
+            {exLoading ? "searching…" : exStatus}
+            {exResults.length ? ` · showing ${exResults.length}` : ""}
           </div>
 
-          <div className="mt-8">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <div className="text-sm font-semibold">My Exercises</div>
-                <div className="mt-1 text-xs opacity-70">
-                  Local-only pool (v0). Next step: persist to DB as lifeswitch_training.my_exercise.
-                </div>
-              </div>
-              <div className="text-xs opacity-70">count={myExercises.length}</div>
-            </div>
-
-            {myExercises.length ? (
-              <div className="mt-3 divide-y divide-muted/20">
-                {myExercises.map((x) => (
-                  <div key={x.exercise_id} className="py-3 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">{x.display_name}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {x.modality}{x.brand_name ? ` · ${x.brand_name}` : ""}{x.matched_source ? ` · ${x.matched_source}` : ""}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30"
-                      onClick={() => removeMyExercise(x.exercise_id)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-3 text-sm text-muted-foreground">
-                Empty. Search above and click <span className="font-mono">Save</span>.
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-2 flex items-center gap-2 text-xs opacity-70">
-          <div>{exLoading ? "searching…" : exStatus}</div>
-          <div className="ml-auto">{exResults.length ? `showing ${exResults.length}` : ""}</div>
-        </div>
-
-        {exResults.length ? (
-          <div className="mt-3 overflow-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-left opacity-70">
-                  <th className="py-1 pr-2">exercise</th>
-                  <th className="py-1 pr-2">kind</th>
-                  <th className="py-1 pr-2">modality</th>
-                  <th className="py-1 pr-2">matched</th>
-                  <th className="py-1 pr-2">brand</th>
-                  <th className="py-1 pr-2"></th>
-                </tr>
-              </thead>
-              <tbody>
+          {exQ.trim() ? (
+            exResults.length ? (
+              <div className="divide-y divide-muted/20">
                 {exResults.map((h) => {
                   const saved = myExercises.some((x) => x.exercise_id === h.exercise_id);
 
                   return (
-                    <tr key={h.exercise_id} className={`border-t ${saved ? "bg-muted/30" : ""}`}>
-                      <td className="py-1 pr-2">{h.display_name}</td>
-                      <td className="py-1 pr-2">{h.kind}</td>
-                      <td className="py-1 pr-2">{h.modality}</td>
-                      <td className="py-1 pr-2">{h.matched_source ? `${h.matched_source}: ${h.matched_text || ""}` : ""}</td>
-                      <td className="py-1 pr-2">{h.brand_name || ""}</td>
-                      <td className="py-1 pr-2">
-                        <button
-                          type="button"
-                          className="rounded-lg bg-muted px-2 py-1 text-xs font-semibold hover:bg-muted/60 disabled:opacity-40"
-                          onClick={() => addMyExercise(h)}
-                          disabled={saved}
-                        >
-                          {saved ? "Saved" : "Save"}
-                        </button>
-                      </td>
-                    </tr>
+                    <div key={h.exercise_id} className="py-3 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium break-words">{h.display_name}</div>
+                        <div className="mt-1 text-xs text-muted-foreground break-words">
+                          {h.modality}
+                          {h.kind ? ` · ${h.kind}` : ""}
+                          {h.brand_name ? ` · ${h.brand_name}` : ""}
+                          {h.matched_source ? ` · ${h.matched_source}` : ""}
+                        </div>
+                        {h.matched_text ? (
+                          <div className="mt-1 text-xs opacity-80 break-words">{h.matched_text}</div>
+                        ) : null}
+                      </div>
+
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                        onClick={() => addMyExercise(h)}
+                        disabled={saved}
+                      >
+                        {saved ? "Saved" : "Save"}
+                      </button>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">No matches.</div>
+            )
+          ) : null}
+        </div>
+
+        <div className="mt-10">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="text-sm font-semibold">My Exercises</div>
+              <div className="mt-1 text-xs opacity-70">
+                Local-only pool (v0). Next step: persist to DB as lifeswitch_training.my_exercise.
+              </div>
+            </div>
+            <div className="text-xs opacity-70">count={myExercises.length}</div>
           </div>
-        ) : null}
+
+          {myExercises.length ? (
+            <div className="mt-3 divide-y divide-muted/20">
+              {myExercises.map((x) => (
+                <div key={x.exercise_id} className="py-3 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium break-words">{x.display_name}</div>
+                    <div className="mt-1 text-xs text-muted-foreground break-words">
+                      {x.modality}
+                      {x.brand_name ? ` · ${x.brand_name}` : ""}
+                      {x.matched_source ? ` · ${x.matched_source}` : ""}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30"
+                    onClick={() => removeMyExercise(x.exercise_id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 text-sm text-muted-foreground">
+              Empty. Search above and click <span className="font-mono">Save</span>.
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   );
