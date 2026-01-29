@@ -301,12 +301,12 @@ export default function TrainingWorkoutsPage() {
               />
               {q.trim() ? (
                 hits.length ? (
-                  <div className="mt-2 divide-y divide-muted/20 rounded-xl border border-muted/20">
+                  <div className="mt-2 divide-y divide-muted/20">
                     {hits.map((h) => (
                       <button
                         key={h.exercise_id}
                         type="button"
-                        className="w-full px-3 py-3 text-left hover:bg-muted/20"
+                        className="w-full py-3 text-left hover:bg-muted/20"
                         onClick={() => addExerciseToSelected(h.exercise_id)}
                       >
                         <div className="text-sm font-medium">{h.display_name}</div>
@@ -349,7 +349,7 @@ export default function TrainingWorkoutsPage() {
                         <div className="flex shrink-0 items-center gap-2">
                           <button
                             type="button"
-                            className="rounded-md border px-2 py-2 text-sm hover:bg-muted/30"
+                            className="rounded-md p-2 hover:bg-muted/20 active:bg-muted/30"
                             onClick={() => moveExercise(e.exercise_id, -1)}
                             title="Move up"
                           >
@@ -357,7 +357,7 @@ export default function TrainingWorkoutsPage() {
                           </button>
                           <button
                             type="button"
-                            className="rounded-md border px-2 py-2 text-sm hover:bg-muted/30"
+                            className="rounded-md p-2 hover:bg-muted/20 active:bg-muted/30"
                             onClick={() => moveExercise(e.exercise_id, 1)}
                             title="Move down"
                           >
@@ -365,7 +365,7 @@ export default function TrainingWorkoutsPage() {
                           </button>
                           <button
                             type="button"
-                            className="rounded-md border px-2 py-2 text-sm hover:bg-muted/30"
+                            className="rounded-md p-2 hover:bg-muted/20 active:bg-muted/30"
                             onClick={() => removeExerciseFromSelected(e.exercise_id)}
                             title="Remove"
                           >
@@ -374,31 +374,31 @@ export default function TrainingWorkoutsPage() {
                         </div>
                       </div>
 
-                      <div className="mt-3 grid grid-cols-3 gap-2">
-                        <label className="grid gap-1">
-                          <div className="text-[11px] text-muted-foreground">sets</div>
+                      <div className="mt-3 flex items-end gap-4 text-sm">
+                        <label className="flex items-baseline gap-2">
+                          <span className="text-[11px] text-muted-foreground">sets</span>
                           <input
-                            className="rounded-xl border bg-background px-3 py-2 text-sm"
+                            className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
                             inputMode="numeric"
                             value={String(e.planned_sets)}
                             onChange={(ev) => updateExercise(e.exercise_id, { planned_sets: Number(ev.target.value || 0) })}
                           />
                         </label>
 
-                        <label className="grid gap-1">
-                          <div className="text-[11px] text-muted-foreground">wt</div>
+                        <label className="flex items-baseline gap-2">
+                          <span className="text-[11px] text-muted-foreground">wt</span>
                           <input
-                            className="rounded-xl border bg-background px-3 py-2 text-sm"
+                            className="w-16 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
                             inputMode="decimal"
                             value={String(e.default_weight)}
                             onChange={(ev) => updateExercise(e.exercise_id, { default_weight: Number(ev.target.value || 0) })}
                           />
                         </label>
 
-                        <label className="grid gap-1">
-                          <div className="text-[11px] text-muted-foreground">reps</div>
+                        <label className="flex items-baseline gap-2">
+                          <span className="text-[11px] text-muted-foreground">reps</span>
                           <input
-                            className="rounded-xl border bg-background px-3 py-2 text-sm"
+                            className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
                             inputMode="numeric"
                             value={String(e.default_reps)}
                             onChange={(ev) => updateExercise(e.exercise_id, { default_reps: Number(ev.target.value || 0) })}
@@ -408,7 +408,7 @@ export default function TrainingWorkoutsPage() {
 
                       <div className="mt-2">
                         <input
-                          className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                          className="w-full bg-transparent border-b border-muted/30 px-1 py-2 text-sm focus:outline-none focus:border-ring"
                           value={e.flags || ""}
                           onChange={(ev) => updateExercise(e.exercise_id, { flags: ev.target.value })}
                           placeholder='flags (optional): "dropset", "superset:A", "warmup"'
