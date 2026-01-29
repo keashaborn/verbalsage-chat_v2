@@ -367,18 +367,21 @@ export default function TrainingCalendarPage() {
             <section key={m.ym} className={idx ? "mt-10 pt-10 border-t border-muted/20" : ""}>
               <div className="text-base font-semibold">{m.label}</div>
 
-              <div className="mt-4 grid grid-cols-[1fr_7.25rem] gap-3 items-start">
+              <div className="mt-4 grid grid-cols-[1fr_6.5rem] gap-2 items-start">
                 <MonthCalendar ym={m.ym} workoutDates={m.workoutDates} today={today} />
 
-                <div className="rounded-lg border border-muted/20 p-3 justify-self-center self-center text-center w-[7.25rem]">
-                  <div className="text-xl font-semibold">{m.workouts}</div>
-                  <div className="text-xs opacity-70">WORKOUTS</div>
+                {/* stats: compact + centered in its column */}
+                <div className="flex justify-center">
+                  <div className="w-[6.25rem] rounded-xl border border-muted/20 px-2 py-2 text-center">
+                    <div className="text-sm font-semibold leading-none">{m.workouts}</div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">WORKOUTS</div>
 
-                  <div className="mt-4 text-xl font-semibold">{formatK(m.volume)}</div>
-                  <div className="text-xs opacity-70">VOLUME</div>
+                    <div className="mt-2 text-sm font-semibold leading-none">{formatK(m.volume)}</div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">VOLUME</div>
 
-                  <div className="mt-4 text-xl font-semibold">{formatDuration(m.time_seconds)}</div>
-                  <div className="text-xs opacity-70">TIME</div>
+                    <div className="mt-2 text-sm font-semibold leading-none">{formatDuration(m.time_seconds)}</div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">TIME</div>
+                  </div>
                 </div>
               </div>
 

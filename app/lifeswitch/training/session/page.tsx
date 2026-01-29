@@ -147,15 +147,6 @@ export default function TrainingSessionPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-4">
-      <div className="mb-3 flex justify-end">
-        <Link
-          href="/lifeswitch/training/calendar"
-          className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30"
-        >
-          Back
-        </Link>
-      </div>
-
       <div className="text-lg font-semibold">{workout || "Session"}</div>
       <div className="mt-1 text-sm text-muted-foreground">
         {date ? date : "—"} · sets={summary.setCount} · exercises={summary.exerciseCount} · volume={summary.volume} · time=—

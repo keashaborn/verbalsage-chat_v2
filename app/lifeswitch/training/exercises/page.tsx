@@ -351,116 +351,14 @@ export default function LifeSwitchTrainingPage() {
 
   return (
     <div className="mx-auto max-w-3xl p-4">
-      <div className="mb-3 flex justify-end">
-        <Link href="/lifeswitch" className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">
-          Back
-        </Link>
-      </div>
-      <h1 className="text-xl font-semibold">LifeSwitch • Training</h1>
-
-      <div className="mt-2 text-sm opacity-80">
-        Workout library → generates <span className="font-mono">Workout Set</span> entries with deterministic{" "}
-        <span className="font-mono">__vs_sort_ts</span> ordering for SSLG.
-      </div>
-
-      <div className="mt-4 rounded-xl border p-3">
-        <div className="text-sm font-semibold">Status</div>
-        <div className="mt-2 text-xs">
-          <div>
-            <span className="opacity-70">auth:</span>{" "}
-            {ownerUserId ? <span className="font-mono">{ownerUserId}</span> : <span className="opacity-70">not signed in</span>}
-          </div>
-          <div>
-            <span className="opacity-70">workout_library:</span> {libStatus}
-          </div>
-          {status ? <div className="mt-2 font-mono">{status}</div> : null}
-        </div>
-      </div>
-
-      <div className="mt-4 rounded-xl border p-3">
-        <div className="text-sm font-semibold">Create session</div>
-
-        <div className="mt-3 grid gap-3">
-          <label className="grid gap-1">
-            <div className="text-xs opacity-70">Workout</div>
-            <select
-              className="rounded-md border px-2 py-1 text-sm"
-              value={workoutId}
-              onChange={(e) => setWorkoutId(e.target.value)}
-              disabled={!lib || posting}
-            >
-              <option value="">Select…</option>
-              {workouts.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="grid gap-1">
-            <div className="text-xs opacity-70">Date</div>
-            <input
-              className="rounded-md border px-2 py-1 text-sm"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              disabled={posting}
-            />
-          </label>
-
-          <label className="grid gap-1">
-            <div className="text-xs opacity-70">Context (optional)</div>
-            <input
-              className="rounded-md border px-2 py-1 text-sm"
-              value={context}
-              onChange={(e) => setContext(e.target.value)}
-              placeholder="gym / home / etc"
-              disabled={posting}
-            />
-          </label>
-
-          <label className="grid gap-1">
-            <div className="text-xs opacity-70">Notes (optional)</div>
-            <input
-              className="rounded-md border px-2 py-1 text-sm"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g., plan / seed / template import"
-              disabled={posting}
-            />
-          </label>
-
-          <div className="flex gap-2">
-            <button
-              className="rounded-md border px-3 py-1 text-sm"
-              onClick={doPreview}
-              disabled={posting || !selectedWorkout || !date.trim()}
-            >
-              Preview
-            </button>
-
-            <button
-              className="rounded-md bg-black px-3 py-1 text-sm text-white disabled:opacity-50"
-              onClick={postSession}
-              disabled={posting || !ownerUserId.trim() || !selectedWorkout || !date.trim()}
-              title={!ownerUserId.trim() ? "Sign in first" : ""}
-            >
-              {posting ? "Posting…" : "Post session"}
-            </button>
-          </div>
-
-          <div className="text-xs opacity-70">
-            Writes to <span className="font-mono">{WORKOUT_SET_VID}</span> (Workout Set template). Library stays static; this page
-            fans out Workout Set rows from the selected workout definition.
-          </div>
-        </div>
+      <h1 className="text-xl font-semibold">Training · Exercises</h1>
+      <div className="mt-1 text-sm text-muted-foreground">
+        Search the catalog and save your personal exercise library.
       </div>
 
       <div className="mt-4 rounded-xl border p-3">
         <div className="text-sm font-semibold">Exercise catalog (DB)</div>
         <div className="mt-1 text-xs opacity-70">
-          Queries seebx catalog via <span className="font-mono">/api/catalog/exercises/search</span>. No writes.
         </div>
 
         <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -593,39 +491,6 @@ export default function LifeSwitchTrainingPage() {
           </div>
         ) : null}
       </div>
-
-      {preview.length ? (
-        <div className="mt-4 rounded-xl border p-3">
-          <div className="text-sm font-semibold">Preview ({preview.length} rows)</div>
-          <div className="mt-2 overflow-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-left opacity-70">
-                  <th className="py-1 pr-2">sort_ts</th>
-                  <th className="py-1 pr-2">exercise</th>
-                  <th className="py-1 pr-2">set</th>
-                  <th className="py-1 pr-2">wt</th>
-                  <th className="py-1 pr-2">reps</th>
-                  <th className="py-1 pr-2">count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {preview.slice(0, 30).map((r, i) => (
-                  <tr key={`${r.__vs_sort_ts}-${i}`} className="border-t">
-                    <td className="py-1 pr-2 font-mono">{r.__vs_sort_ts}</td>
-                    <td className="py-1 pr-2">{r.exercise}</td>
-                    <td className="py-1 pr-2">{r.set_index}</td>
-                    <td className="py-1 pr-2">{r.weight}</td>
-                    <td className="py-1 pr-2">{r.reps}</td>
-                    <td className="py-1 pr-2">{r.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {preview.length > 30 ? <div className="mt-2 text-xs opacity-70">Showing first 30 rows.</div> : null}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
