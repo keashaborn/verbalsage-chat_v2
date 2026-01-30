@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { ChevronUp, ChevronDown, Plus, Trash2 } from "lucide-react";
 
-type MyExercise = {
+type MyExerciseRow = {
+  my_exercise_id: string;
+  owner_user_id: string;
   exercise_id: string;
   display_name: string;
   kind: string;
@@ -12,48 +14,49 @@ type MyExercise = {
   model_name?: string | null;
   matched_text?: string | null;
   matched_source?: string | null;
-};
-
-type WorkoutTemplateExercise = {
-  exercise_id: string;
-  planned_sets: number;      // default 3
-  default_weight: number;    // lbs, default 0
-  default_reps: number;      // default 10
-  flags?: string;            // e.g. "dropset", "superset:A", "warmup"
-};
-
-type WorkoutTemplate = {
-  workout_id: string;
-  name: string;
-  notes?: string;
-  exercises: WorkoutTemplateExercise[];
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 };
 
-const LS_WORKOUT_TEMPLATES_KEY = "lifeswitch_workout_templates_v0";
+type WorkoutTemplateRow = {
+  workout_template_id: string;
+  owner_user_id: string;
+  name: string;
+  notes?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
 
-function lsGet<T>(k: string, fallback: T): T {
-  try {
-    const v = localStorage.getItem(k);
-    if (!v) return fallback;
-    return JSON.parse(v) as T;
-  } catch {
-    return fallback;
-  }
-}
+type WorkoutTemplateExerciseRow = {
+  workout_template_exercise_id: string;
+  workout_template_id: string;
+  exercise_id: string;
+  sort_order: number;
+  planned_sets: number;
+  default_weight: number;
+  default_reps: number;
+  flags?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
 
-function lsSet(k: string, v: any) {
+async function fetchJson(url: string, init?: RequestInit) {
+  const r = await fetch(url, { cache: "no-store", ...(init || {}) });
+  const t = await r.text();
+  let j: any = null;
   try {
-    localStorage.setItem(k, JSON.stringify(v));
+    j = t ? JSON.parse(t) : null;
   } catch {
     // ignore
   }
-}
-
-function uuidLike() {
-  // good enough for local IDs
-  return crypto?.randomUUID ? crypto.randomUUID() : `wkt_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  if (!r.ok) {
+    const detail = j?.detail || j?.error || t?.slice(0, 300) || `HTTP ${r.status}`;
+    throw new Error(String(detail));
+  }
+  return j;
 }
 
 function norm(s: string) {
@@ -61,18 +64,20 @@ function norm(s: string) {
 }
 
 export default function TrainingWorkoutsPage() {
-  const [myExercises, setMyExercises] = React.useState<MyExercise[]>([]);
-  const [templates, setTemplates] = React.useState<WorkoutTemplate[]>([]);
-  const [selectedId, setSelectedId] = React.useState<string>("");
-
-  // create form
-  const [newName, setNewName] = React.useState<string>("");
-
-  // add-exercise search
-  const [q, setQ] = React.useState<string>("");
-
   const [owner, setOwner] = React.useState<string | null>(null);
   const [authErr, setAuthErr] = React.useState<string | null>(null);
+
+  const [myExercises, setMyExercises] = React.useState<MyExerciseRow[]>([]);
+  const [templates, setTemplates] = React.useState<WorkoutTemplateRow[]>([]);
+  const [selectedId, setSelectedId] = React.useState<string>("");
+
+  const [templateExercises, setTemplateExercises] = React.useState<WorkoutTemplateExerciseRow[]>([]);
+  const [myLoading, setMyLoading] = React.useState(false);
+  const [tplLoading, setTplLoading] = React.useState(false);
+  const [exLoading, setExLoading] = React.useState(false);
+
+  const [newName, setNewName] = React.useState<string>("");
+  const [q, setQ] = React.useState<string>("");
 
   React.useEffect(() => {
     (async () => {
@@ -98,15 +103,14 @@ export default function TrainingWorkoutsPage() {
     })();
   }, []);
 
-  const [myLoading, setMyLoading] = React.useState(false);
-
   const loadMyExercises = React.useCallback(async () => {
     if (!owner) return;
     setMyLoading(true);
     try {
       const qs = new URLSearchParams({ owner_user_id: owner });
       const j = (await fetchJson(`/api/lifeswitch/training/my_exercises?${qs.toString()}`)) as any;
-      setMyExercises(Array.isArray(j) ? (j as MyExercise[]) : []);
+      const arr = Array.isArray(j) ? (j as MyExerciseRow[]) : [];
+      setMyExercises(arr.filter((x) => x.is_active));
     } catch {
       setMyExercises([]);
     } finally {
@@ -114,25 +118,71 @@ export default function TrainingWorkoutsPage() {
     }
   }, [owner]);
 
-  React.useEffect(() => {
-    if (owner) void loadMyExercises();
-  }, [owner, loadMyExercises]);
+  const loadTemplates = React.useCallback(async () => {
+    if (!owner) return;
+    setTplLoading(true);
+    try {
+      const qs = new URLSearchParams({ owner_user_id: owner });
+      const j = (await fetchJson(`/api/lifeswitch/training/workout_templates?${qs.toString()}`)) as any;
+      const arr = Array.isArray(j) ? (j as WorkoutTemplateRow[]) : [];
+      const active = arr.filter((x) => x.is_active);
+      active.sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
+      setTemplates(active);
+      if (!selectedId && active.length) setSelectedId(active[0].workout_template_id);
+    } catch {
+      setTemplates([]);
+    } finally {
+      setTplLoading(false);
+    }
+  }, [owner, selectedId]);
+
+  const loadTemplateExercises = React.useCallback(
+    async (workout_template_id: string) => {
+      if (!owner) return;
+      if (!workout_template_id) {
+        setTemplateExercises([]);
+        return;
+      }
+      setExLoading(true);
+      try {
+        const qs = new URLSearchParams({ owner_user_id: owner });
+        const j = (await fetchJson(
+          `/api/lifeswitch/training/workout_templates/${encodeURIComponent(workout_template_id)}/exercises?${qs.toString()}`
+        )) as any;
+        const arr = Array.isArray(j) ? (j as WorkoutTemplateExerciseRow[]) : [];
+        const active = arr.filter((x) => x.is_active);
+        active.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        setTemplateExercises(active);
+      } catch {
+        setTemplateExercises([]);
+      } finally {
+        setExLoading(false);
+      }
+    },
+    [owner]
+  );
 
   React.useEffect(() => {
-    // TEMP: templates still local until step 2
-    const ts = lsGet<WorkoutTemplate[]>(LS_WORKOUT_TEMPLATES_KEY, []);
-    const arr = Array.isArray(ts) ? ts : [];
-    arr.sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
-    setTemplates(arr);
-    if (!selectedId && arr.length) setSelectedId(arr[0].workout_id);
-  }, []);
+    if (!owner) return;
+    void loadMyExercises();
+    void loadTemplates();
+  }, [owner, loadMyExercises, loadTemplates]);
+
+  React.useEffect(() => {
+    if (!owner) return;
+    if (!selectedId) {
+      setTemplateExercises([]);
+      return;
+    }
+    void loadTemplateExercises(selectedId);
+  }, [owner, selectedId, loadTemplateExercises]);
 
   const selected = React.useMemo(() => {
-    return templates.find((t) => t.workout_id === selectedId) || null;
+    return templates.find((t) => t.workout_template_id === selectedId) || null;
   }, [templates, selectedId]);
 
   const myExercisesById = React.useMemo(() => {
-    const m = new Map<string, MyExercise>();
+    const m = new Map<string, MyExerciseRow>();
     for (const x of myExercises) m.set(x.exercise_id, x);
     return m;
   }, [myExercises]);
@@ -140,105 +190,156 @@ export default function TrainingWorkoutsPage() {
   const hits = React.useMemo(() => {
     const qq = norm(q);
     if (!qq) return [];
-    // search within My Exercises only (curated set)
-    const out = myExercises
-      .filter((x) => norm(x.display_name).includes(qq))
-      .slice(0, 20);
-    return out;
+    return myExercises.filter((x) => norm(x.display_name).includes(qq)).slice(0, 20);
   }, [q, myExercises]);
 
-  function persist(next: WorkoutTemplate[]) {
-    setTemplates(next);
-    lsSet(LS_WORKOUT_TEMPLATES_KEY, next);
-  }
-
-  function createTemplate() {
+  async function createTemplate() {
+    if (!owner) return;
     const name = newName.trim();
     if (!name) return;
 
-    const now = new Date().toISOString();
-    const t: WorkoutTemplate = {
-      workout_id: uuidLike(),
-      name,
-      notes: "",
-      exercises: [],
-      created_at: now,
-      updated_at: now,
-    };
+    const qs = new URLSearchParams({ owner_user_id: owner });
+    await fetchJson(`/api/lifeswitch/training/workout_templates/upsert?${qs.toString()}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, notes: "" }),
+    });
 
-    const next = [t, ...templates];
-    persist(next);
-    setSelectedId(t.workout_id);
     setNewName("");
+    await loadTemplates();
   }
 
-  async function fetchJson(url: string, init?: RequestInit) {
-    const r = await fetch(url, { cache: "no-store", ...(init || {}) });
-    const t = await r.text();
-    let j: any = null;
-    try {
-      j = t ? JSON.parse(t) : null;
-    } catch {
-      // ignore
-    }
-    if (!r.ok) {
-      const detail = j?.detail || j?.error || t?.slice(0, 300) || `HTTP ${r.status}`;
-      throw new Error(String(detail));
-    }
-    return j;
+  async function updateSelected(patch: { name?: string; notes?: string | null }) {
+    if (!owner || !selected) return;
+    const qs = new URLSearchParams({ owner_user_id: owner });
+    await fetchJson(`/api/lifeswitch/training/workout_templates/upsert?${qs.toString()}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workout_template_id: selected.workout_template_id,
+        name: patch.name ?? selected.name,
+        notes: patch.notes ?? selected.notes ?? "",
+      }),
+    });
+    await loadTemplates();
   }
 
-  function updateSelected(patch: Partial<WorkoutTemplate>) {
-    if (!selected) return;
-    const now = new Date().toISOString();
-    const next = templates.map((t) =>
-      t.workout_id === selected.workout_id ? { ...t, ...patch, updated_at: now } : t
+  async function deactivateTemplate(workout_template_id: string) {
+    if (!owner) return;
+    const qs = new URLSearchParams({ owner_user_id: owner });
+    await fetchJson(
+      `/api/lifeswitch/training/workout_templates/${encodeURIComponent(workout_template_id)}/deactivate?${qs.toString()}`,
+      { method: "POST" }
     );
-    persist(next);
+    if (selectedId === workout_template_id) setSelectedId("");
+    await loadTemplates();
   }
 
-  function deleteTemplate(workout_id: string) {
-    const next = templates.filter((t) => t.workout_id !== workout_id);
-    persist(next);
-    if (selectedId === workout_id) setSelectedId(next[0]?.workout_id || "");
-  }
+  async function addExerciseToSelected(exercise_id: string) {
+    if (!owner || !selected) return;
+    if (templateExercises.some((e) => e.exercise_id === exercise_id)) return;
 
-  function addExerciseToSelected(exercise_id: string) {
-    if (!selected) return;
-    const exists = selected.exercises.some((e) => e.exercise_id === exercise_id);
-    if (exists) return;
+    const qs = new URLSearchParams({ owner_user_id: owner });
+    const maxSort = templateExercises.length ? Math.max(...templateExercises.map((x) => x.sort_order || 0)) : 0;
 
-    const nextExercises = [
-      ...selected.exercises,
-      { exercise_id, planned_sets: 3, default_weight: 0, default_reps: 10, flags: "" },
-    ];
-    updateSelected({ exercises: nextExercises });
+    await fetchJson(
+      `/api/lifeswitch/training/workout_templates/${encodeURIComponent(selected.workout_template_id)}/exercises/upsert?${qs.toString()}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          exercise_id,
+          planned_sets: 3,
+          default_weight: 0,
+          default_reps: 10,
+          flags: "",
+          sort_order: maxSort + 10,
+        }),
+      }
+    );
+
     setQ("");
+    await loadTemplateExercises(selected.workout_template_id);
   }
 
-  function removeExerciseFromSelected(exercise_id: string) {
-    if (!selected) return;
-    const nextExercises = selected.exercises.filter((e) => e.exercise_id !== exercise_id);
-    updateSelected({ exercises: nextExercises });
+  async function removeExerciseFromSelected(workout_template_exercise_id: string) {
+    if (!owner || !selected) return;
+    const qs = new URLSearchParams({ owner_user_id: owner });
+
+    await fetchJson(
+      `/api/lifeswitch/training/workout_templates/${encodeURIComponent(
+        selected.workout_template_id
+      )}/exercises/${encodeURIComponent(workout_template_exercise_id)}/delete?${qs.toString()}`,
+      { method: "POST" }
+    );
+
+    await loadTemplateExercises(selected.workout_template_id);
   }
 
-  function moveExercise(exercise_id: string, dir: -1 | 1) {
+  async function reorderExercises(next: WorkoutTemplateExerciseRow[]) {
+    if (!owner || !selected) return;
+    const qs = new URLSearchParams({ owner_user_id: owner });
+
+    for (let i = 0; i < next.length; i++) {
+      const row = next[i];
+      await fetchJson(
+        `/api/lifeswitch/training/workout_templates/${encodeURIComponent(selected.workout_template_id)}/exercises/upsert?${qs.toString()}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workout_template_exercise_id: row.workout_template_exercise_id,
+            exercise_id: row.exercise_id,
+            planned_sets: row.planned_sets,
+            default_weight: row.default_weight,
+            default_reps: row.default_reps,
+            flags: row.flags ?? "",
+            sort_order: (i + 1) * 10,
+          }),
+        }
+      );
+    }
+
+    await loadTemplateExercises(selected.workout_template_id);
+  }
+
+  async function moveExercise(workout_template_exercise_id: string, dir: -1 | 1) {
     if (!selected) return;
-    const idx = selected.exercises.findIndex((e) => e.exercise_id === exercise_id);
+    const idx = templateExercises.findIndex((e) => e.workout_template_exercise_id === workout_template_exercise_id);
     if (idx < 0) return;
     const j = idx + dir;
-    if (j < 0 || j >= selected.exercises.length) return;
-    const copy = selected.exercises.slice();
+    if (j < 0 || j >= templateExercises.length) return;
+    const copy = templateExercises.slice();
     const tmp = copy[idx];
     copy[idx] = copy[j];
     copy[j] = tmp;
-    updateSelected({ exercises: copy });
+    await reorderExercises(copy);
   }
 
-  function updateExercise(exercise_id: string, patch: Partial<WorkoutTemplateExercise>) {
-    if (!selected) return;
-    const copy = selected.exercises.map((e) => (e.exercise_id === exercise_id ? { ...e, ...patch } : e));
-    updateSelected({ exercises: copy });
+  async function updateExercise(workout_template_exercise_id: string, patch: Partial<WorkoutTemplateExerciseRow>) {
+    if (!owner || !selected) return;
+    const row = templateExercises.find((x) => x.workout_template_exercise_id === workout_template_exercise_id);
+    if (!row) return;
+    const qs = new URLSearchParams({ owner_user_id: owner });
+
+    await fetchJson(
+      `/api/lifeswitch/training/workout_templates/${encodeURIComponent(selected.workout_template_id)}/exercises/upsert?${qs.toString()}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workout_template_exercise_id,
+          exercise_id: row.exercise_id,
+          planned_sets: patch.planned_sets ?? row.planned_sets,
+          default_weight: patch.default_weight ?? row.default_weight,
+          default_reps: patch.default_reps ?? row.default_reps,
+          flags: (patch.flags ?? row.flags ?? "") as any,
+          sort_order: patch.sort_order ?? row.sort_order,
+        }),
+      }
+    );
+
+    await loadTemplateExercises(selected.workout_template_id);
   }
 
   if (authErr) {
@@ -260,7 +361,6 @@ export default function TrainingWorkoutsPage() {
         Build workout templates from <span className="font-medium">My Exercises</span>.
       </div>
 
-      {/* Create */}
       <div className="mt-6 flex items-center gap-2">
         <input
           className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
@@ -268,28 +368,30 @@ export default function TrainingWorkoutsPage() {
           onChange={(e) => setNewName(e.target.value)}
           placeholder='New workout name (e.g. "Pull A", "Leg Day 1")'
           onKeyDown={(e) => {
-            if (e.key === "Enter") createTemplate();
+            if (e.key === "Enter") void createTemplate();
           }}
         />
         <button
           type="button"
           className="shrink-0 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-          onClick={createTemplate}
-          disabled={!newName.trim()}
+          onClick={() => void createTemplate()}
+          disabled={!newName.trim() || !owner}
           title="Create workout"
         >
           <Plus className="h-4 w-4" />
         </button>
       </div>
 
-      {/* List */}
       <div className="mt-6">
-        <div className="text-sm font-semibold">Your workouts</div>
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-semibold">Your workouts</div>
+          <div className="text-xs text-muted-foreground">{tplLoading ? "…" : `count=${templates.length}`}</div>
+        </div>
 
         {templates.length ? (
           <div className="mt-2 divide-y divide-muted/20">
             {templates.map((t) => {
-              const active = t.workout_id === selectedId;
+              const active = t.workout_template_id === selectedId;
               const cls = [
                 "py-3 flex items-start justify-between gap-3",
                 "cursor-pointer",
@@ -299,19 +401,19 @@ export default function TrainingWorkoutsPage() {
 
               return (
                 <div
-                  key={t.workout_id}
+                  key={t.workout_template_id}
                   className={cls}
-                  onClick={() => setSelectedId(t.workout_id)}
+                  onClick={() => setSelectedId(t.workout_template_id)}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") setSelectedId(t.workout_id);
+                    if (e.key === "Enter" || e.key === " ") setSelectedId(t.workout_template_id);
                   }}
                 >
                   <div className="min-w-0">
                     <div className="text-sm font-medium truncate">{t.name}</div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      exercises={t.exercises.length}
+                      updated={String(t.updated_at || "").slice(0, 10)}
                     </div>
                   </div>
 
@@ -320,9 +422,10 @@ export default function TrainingWorkoutsPage() {
                     className="shrink-0 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
                     onClick={(e) => {
                       e.stopPropagation();
-                      deleteTemplate(t.workout_id);
+                      void deactivateTemplate(t.workout_template_id);
                     }}
-                    title="Delete workout"
+                    title="Deactivate workout"
+                    disabled={!owner}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -335,7 +438,6 @@ export default function TrainingWorkoutsPage() {
         )}
       </div>
 
-      {/* Editor */}
       {selected ? (
         <div className="mt-8">
           <div className="text-sm font-semibold">Edit</div>
@@ -345,7 +447,7 @@ export default function TrainingWorkoutsPage() {
             <input
               className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
               value={selected.name}
-              onChange={(e) => updateSelected({ name: e.target.value })}
+              onChange={(e) => void updateSelected({ name: e.target.value })}
               placeholder="Workout name"
             />
           </div>
@@ -355,12 +457,11 @@ export default function TrainingWorkoutsPage() {
             <input
               className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
               value={selected.notes || ""}
-              onChange={(e) => updateSelected({ notes: e.target.value })}
+              onChange={(e) => void updateSelected({ notes: e.target.value })}
               placeholder="(optional)"
             />
           </div>
 
-          {/* Add exercises */}
           <div className="mt-6">
             <div className="text-sm font-semibold">Add exercises</div>
             <div className="mt-2">
@@ -378,11 +479,13 @@ export default function TrainingWorkoutsPage() {
                         key={h.exercise_id}
                         type="button"
                         className="w-full py-3 text-left hover:bg-muted/20"
-                        onClick={() => addExerciseToSelected(h.exercise_id)}
+                        onClick={() => void addExerciseToSelected(h.exercise_id)}
                       >
                         <div className="text-sm font-medium">{h.display_name}</div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          {h.modality}{h.kind ? ` · ${h.kind}` : ""}{h.brand_name ? ` · ${h.brand_name}` : ""}
+                          {h.modality}
+                          {h.kind ? ` · ${h.kind}` : ""}
+                          {h.brand_name ? ` · ${h.brand_name}` : ""}
                         </div>
                       </button>
                     ))}
@@ -394,26 +497,26 @@ export default function TrainingWorkoutsPage() {
             </div>
           </div>
 
-          {/* Template exercises */}
           <div className="mt-8">
             <div className="flex items-center justify-between gap-2">
               <div className="text-sm font-semibold">Exercises in this workout</div>
-              <div className="text-xs text-muted-foreground">count={selected.exercises.length}</div>
+              <div className="text-xs text-muted-foreground">{exLoading ? "…" : `count=${templateExercises.length}`}</div>
             </div>
 
-            {selected.exercises.length ? (
+            {templateExercises.length ? (
               <div className="mt-2 divide-y divide-muted/20">
-                {selected.exercises.map((e) => {
+                {templateExercises.map((e) => {
                   const meta = myExercisesById.get(e.exercise_id);
                   const title = meta?.display_name || e.exercise_id;
 
                   return (
-                    <div key={e.exercise_id} className="py-3">
+                    <div key={e.workout_template_exercise_id} className="py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="text-sm font-medium truncate">{title}</div>
                           <div className="mt-1 text-xs text-muted-foreground">
-                            {meta?.modality || ""}{meta?.kind ? ` · ${meta.kind}` : ""}
+                            {meta?.modality || ""}
+                            {meta?.kind ? ` · ${meta.kind}` : ""}
                           </div>
                         </div>
 
@@ -421,7 +524,7 @@ export default function TrainingWorkoutsPage() {
                           <button
                             type="button"
                             className="rounded-md p-2 hover:bg-muted/20 active:bg-muted/30"
-                            onClick={() => moveExercise(e.exercise_id, -1)}
+                            onClick={() => void moveExercise(e.workout_template_exercise_id, -1)}
                             title="Move up"
                           >
                             <ChevronUp className="h-4 w-4" />
@@ -429,7 +532,7 @@ export default function TrainingWorkoutsPage() {
                           <button
                             type="button"
                             className="rounded-md p-2 hover:bg-muted/20 active:bg-muted/30"
-                            onClick={() => moveExercise(e.exercise_id, 1)}
+                            onClick={() => void moveExercise(e.workout_template_exercise_id, 1)}
                             title="Move down"
                           >
                             <ChevronDown className="h-4 w-4" />
@@ -437,7 +540,7 @@ export default function TrainingWorkoutsPage() {
                           <button
                             type="button"
                             className="rounded-md p-2 hover:bg-muted/20 active:bg-muted/30"
-                            onClick={() => removeExerciseFromSelected(e.exercise_id)}
+                            onClick={() => void removeExerciseFromSelected(e.workout_template_exercise_id)}
                             title="Remove"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -452,7 +555,9 @@ export default function TrainingWorkoutsPage() {
                             className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
                             inputMode="numeric"
                             value={String(e.planned_sets)}
-                            onChange={(ev) => updateExercise(e.exercise_id, { planned_sets: Number(ev.target.value || 0) })}
+                            onChange={(ev) =>
+                              void updateExercise(e.workout_template_exercise_id, { planned_sets: Number(ev.target.value || 0) })
+                            }
                           />
                         </label>
 
@@ -462,7 +567,9 @@ export default function TrainingWorkoutsPage() {
                             className="w-16 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
                             inputMode="decimal"
                             value={String(e.default_weight)}
-                            onChange={(ev) => updateExercise(e.exercise_id, { default_weight: Number(ev.target.value || 0) })}
+                            onChange={(ev) =>
+                              void updateExercise(e.workout_template_exercise_id, { default_weight: Number(ev.target.value || 0) })
+                            }
                           />
                         </label>
 
@@ -472,7 +579,9 @@ export default function TrainingWorkoutsPage() {
                             className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
                             inputMode="numeric"
                             value={String(e.default_reps)}
-                            onChange={(ev) => updateExercise(e.exercise_id, { default_reps: Number(ev.target.value || 0) })}
+                            onChange={(ev) =>
+                              void updateExercise(e.workout_template_exercise_id, { default_reps: Number(ev.target.value || 0) })
+                            }
                           />
                         </label>
                       </div>
@@ -481,7 +590,7 @@ export default function TrainingWorkoutsPage() {
                         <input
                           className="w-full bg-transparent border-b border-muted/30 px-1 py-2 text-sm focus:outline-none focus:border-ring"
                           value={e.flags || ""}
-                          onChange={(ev) => updateExercise(e.exercise_id, { flags: ev.target.value })}
+                          onChange={(ev) => void updateExercise(e.workout_template_exercise_id, { flags: ev.target.value })}
                           placeholder='flags (optional): "dropset", "superset:A", "warmup"'
                         />
                       </div>
@@ -490,11 +599,11 @@ export default function TrainingWorkoutsPage() {
                 })}
               </div>
             ) : (
-              <div className="mt-2 text-sm text-muted-foreground">
-                Empty. Search My Exercises above and add a few.
-              </div>
+              <div className="mt-2 text-sm text-muted-foreground">Empty. Search My Exercises above and add a few.</div>
             )}
           </div>
+
+          <div className="mt-3 text-xs text-muted-foreground">{myLoading ? "Loading My Exercises…" : ""}</div>
         </div>
       ) : null}
     </div>
