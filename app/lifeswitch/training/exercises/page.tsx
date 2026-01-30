@@ -1,29 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
-
-const WORKOUT_SET_VID = "1a2cad49-4972-43d7-9ba8-6031cd3c7657";
-const SUBJECT_ID = "self";
-
-type LibraryExercise = {
-  id: string;
-  label: string;
-  planned_sets: number;
-  default_weight: number;
-  default_reps: number;
-};
-
-type LibraryWorkout = {
-  id: string;
-  label: string;
-  exercises: LibraryExercise[];
-};
-
-type WorkoutLibrary = {
-  workouts: LibraryWorkout[];
-};
 
 type ExerciseSearchHit = {
   exercise_id: string;
@@ -37,366 +14,224 @@ type ExerciseSearchHit = {
   model_name?: string | null;
 };
 
-type MyExercise = {
+type MyExerciseRow = {
+  my_exercise_id: string;
+  owner_user_id: string;
   exercise_id: string;
   display_name: string;
   kind: string;
   modality: string;
   brand_name?: string | null;
   model_name?: string | null;
-  // Keep what the user typed / what matched for traceability
   matched_text?: string | null;
   matched_source?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
-const LS_MY_EXERCISES_KEY = "lifeswitch_my_exercises_v0";
-
-function lsGet<T>(k: string, fallback: T): T {
+async function fetchJson(url: string, init?: RequestInit) {
+  const r = await fetch(url, { cache: "no-store", ...(init || {}) });
+  const t = await r.text();
+  let j: any = null;
   try {
-    const v = localStorage.getItem(k);
-    if (!v) return fallback;
-    return JSON.parse(v) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function lsSet(k: string, v: any) {
-  try {
-    localStorage.setItem(k, JSON.stringify(v));
+    j = t ? JSON.parse(t) : null;
   } catch {
     // ignore
   }
-}
-
-function pad2(n: number) {
-  return n < 10 ? `0${n}` : String(n);
-}
-
-function todayLocalYYYYMMDD() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = pad2(d.getMonth() + 1);
-  const day = pad2(d.getDate());
-  return `${y}-${m}-${day}`;
-}
-
-// Deterministic per-day ordering key (lexicographic ISO-ish string).
-// idx=0 -> 08:00Z, idx=1 -> 08:01Z, etc.
-function sortTsForDay(dateYYYYMMDD: string, idx: number) {
-  const baseMinutes = 8 * 60;
-  const minutes = baseMinutes + idx;
-  const hh = Math.floor(minutes / 60);
-  const mm = minutes % 60;
-  return `${dateYYYYMMDD}T${pad2(hh)}:${pad2(mm)}:00Z`;
-}
-
-type PlannedWorkoutSetEntry = {
-  date: string;
-  workout: string;
-  exercise: string;
-  set_index: number;
-  weight: number;
-  reps: number;
-  count: number;
-  __vs_sort_ts: string;
-  notes?: string;
-  context?: string;
-};
-
-export default function LifeSwitchTrainingPage() {
-  const [ownerUserId, setOwnerUserId] = React.useState<string>("");
-
-  const [lib, setLib] = React.useState<WorkoutLibrary | null>(null);
-  const [libStatus, setLibStatus] = React.useState<string>("loading…");
-
-  const [workoutId, setWorkoutId] = React.useState<string>("");
-  const [date, setDate] = React.useState<string>(todayLocalYYYYMMDD());
-  const [context, setContext] = React.useState<string>("");
-  const [notes, setNotes] = React.useState<string>("");
-
-  const [preview, setPreview] = React.useState<PlannedWorkoutSetEntry[]>([]);
-  const [posting, setPosting] = React.useState<boolean>(false);
-  const [status, setStatus] = React.useState<string>("");
-  // DB-backed exercise catalog search (seebx -> Postgres via BRAINS proxy)
-  const [exQ, setExQ] = React.useState<string>("");
-  const [exResults, setExResults] = React.useState<ExerciseSearchHit[]>([]);
-  const [exLoading, setExLoading] = React.useState<boolean>(false);
-  const [exStatus, setExStatus] = React.useState<string>("");
-  const [selectedCanonicalExercise, setSelectedCanonicalExercise] = React.useState<string>("");
-
-  // “My Exercises” pool (local-only for now; mirrors My Foods direction)
-  const [myExercises, setMyExercises] = React.useState<MyExercise[]>([]);
-
-
-  async function runExerciseSearch(q: string) {
-    const qq = String(q || "").trim();
-    setExStatus("");
-    if (!qq) {
-      setExResults([]);
-      return;
-    }
-    setExLoading(true);
-    try {
-      const u = new URL("/api/catalog/exercises/search", window.location.origin);
-      u.searchParams.set("q", qq);
-      u.searchParams.set("limit", "10");
-
-      const r = await fetch(u.toString(), { cache: "no-store" });
-      const t = await r.text().catch(() => "");
-      if (!r.ok) throw new Error(`exercise search failed: HTTP ${r.status} ${t}`);
-
-      const j = JSON.parse(t);
-      setExResults(Array.isArray(j) ? (j as ExerciseSearchHit[]) : []);
-      setExStatus(Array.isArray(j) ? `hits=${j.length}` : "hits=?");
-    } catch (e: any) {
-      setExResults([]);
-      setExStatus(`error: ${e?.message || String(e)}`);
-    } finally {
-      setExLoading(false);
-    }
+  if (!r.ok) {
+    const detail = j?.detail || j?.error || t?.slice(0, 300) || `HTTP ${r.status}`;
+    throw new Error(String(detail));
   }
+  return j;
+}
 
-  // debounce
+function norm(s: string) {
+  return String(s || "").trim().toLowerCase();
+}
+
+export default function TrainingExercisesPage() {
+  const [owner, setOwner] = React.useState<string | null>(null);
+  const [authErr, setAuthErr] = React.useState<string | null>(null);
+
   React.useEffect(() => {
-    const qq = exQ.trim();
-    const h = setTimeout(() => runExerciseSearch(qq), 250);
+    (async () => {
+      try {
+        const j = await fetchJson("/api/auth/whoami");
+        if (!j?.ok) {
+          setOwner(null);
+          setAuthErr(j?.error || "not signed in");
+          return;
+        }
+        const sub = String(j.sub || "").trim();
+        if (!sub) {
+          setOwner(null);
+          setAuthErr("missing sub");
+          return;
+        }
+        setOwner(sub);
+        setAuthErr(null);
+      } catch (e: any) {
+        setOwner(null);
+        setAuthErr(String(e?.message || e));
+      }
+    })();
+  }, []);
+
+  // My Exercises (DB)
+  const [myExercises, setMyExercises] = React.useState<MyExerciseRow[]>([]);
+  const [myLoading, setMyLoading] = React.useState(false);
+
+  const loadMyExercises = React.useCallback(async () => {
+    if (!owner) return;
+    setMyLoading(true);
+    try {
+      const qs = new URLSearchParams({ owner_user_id: owner });
+      const j = (await fetchJson(`/api/lifeswitch/training/my_exercises?${qs.toString()}`)) as MyExerciseRow[];
+      setMyExercises(Array.isArray(j) ? j : []);
+    } catch {
+      setMyExercises([]);
+    } finally {
+      setMyLoading(false);
+    }
+  }, [owner]);
+
+  React.useEffect(() => {
+    if (owner) void loadMyExercises();
+  }, [owner, loadMyExercises]);
+
+  // Catalog search (global)
+  const [q, setQ] = React.useState("");
+  const [hits, setHits] = React.useState<ExerciseSearchHit[]>([]);
+  const [hitsLoading, setHitsLoading] = React.useState(false);
+  const [hitsStatus, setHitsStatus] = React.useState<string>("");
+
+  React.useEffect(() => {
+    const qq = q.trim();
+    const h = setTimeout(async () => {
+      if (!qq) {
+        setHits([]);
+        setHitsStatus("");
+        return;
+      }
+      setHitsLoading(true);
+      setHitsStatus("");
+      try {
+        const u = new URL("/api/catalog/exercises/search", window.location.origin);
+        u.searchParams.set("q", qq);
+        u.searchParams.set("limit", "25");
+        const j = (await fetchJson(u.toString())) as ExerciseSearchHit[];
+        const arr = Array.isArray(j) ? j : [];
+        setHits(arr);
+        setHitsStatus(`hits=${arr.length}`);
+      } catch (e: any) {
+        setHits([]);
+        setHitsStatus(`error: ${String(e?.message || e)}`);
+      } finally {
+        setHitsLoading(false);
+      }
+    }, 250);
     return () => clearTimeout(h);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exQ]);
+  }, [q]);
 
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const { data, error } = await supabase.auth.getUser();
-        if (error || !data?.user?.id) throw new Error("not signed in");
-        setOwnerUserId(data.user.id);
-      } catch (e: any) {
-        setOwnerUserId("");
-        setStatus(`auth: ${e?.message || String(e)}`);
-      }
-    })();
-  }, []);
+  const savedIds = React.useMemo(() => {
+    const s = new Set<string>();
+    for (const r of myExercises) {
+      if (r.is_active) s.add(String(r.exercise_id));
+    }
+    return s;
+  }, [myExercises]);
 
-  React.useEffect(() => {
-    (async () => {
-      setLibStatus("loading…");
-      try {
-        const r = await fetch("/api/lifeswitch/workout_library", { cache: "no-store" });
-        const t = await r.text().catch(() => "");
-        if (!r.ok) throw new Error(`workout_library failed: HTTP ${r.status} ${t}`);
-        const j = JSON.parse(t) as WorkoutLibrary;
-        if (!j || !Array.isArray(j.workouts)) throw new Error("invalid workout_library JSON (missing workouts[])");
-        setLib(j);
-        setLibStatus(`loaded (${j.workouts.length} workouts)`);
-      } catch (e: any) {
-        setLib(null);
-        setLibStatus(`error: ${e?.message || String(e)}`);
-      }
-    })();
-  }, []);
+  async function saveExercise(h: ExerciseSearchHit) {
+    if (!owner) return;
+    const qs = new URLSearchParams({ owner_user_id: owner });
 
-  React.useEffect(() => {
-    // local-only persistence
-    const saved = typeof window !== "undefined" ? lsGet<MyExercise[]>(LS_MY_EXERCISES_KEY, []) : [];
-    setMyExercises(Array.isArray(saved) ? saved : []);
-  }, []);
-
-  function addMyExercise(hit: ExerciseSearchHit) {
-    const ex: MyExercise = {
-      exercise_id: hit.exercise_id,
-      display_name: hit.display_name,
-      kind: hit.kind,
-      modality: hit.modality,
-      brand_name: hit.brand_name ?? null,
-      model_name: hit.model_name ?? null,
-      matched_text: hit.matched_text ?? null,
-      matched_source: hit.matched_source ?? null,
+    // Body matches what we store; Brains router decides insert/update.
+    const payload = {
+      exercise_id: h.exercise_id,
+      display_name: h.display_name,
+      kind: h.kind,
+      modality: h.modality,
+      brand_name: h.brand_name ?? null,
+      model_name: h.model_name ?? null,
+      matched_text: h.matched_text ?? null,
+      matched_source: h.matched_source ?? null,
     };
 
-    setMyExercises((prev) => {
-      const exists = prev.some((p) => p.exercise_id === ex.exercise_id);
-      const next = exists ? prev : [...prev, ex];
-      lsSet(LS_MY_EXERCISES_KEY, next);
-      return next;
+    await fetchJson(`/api/lifeswitch/training/my_exercises/upsert?${qs.toString()}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
 
-    setSelectedCanonicalExercise(ex.exercise_id);
-    setExStatus(`saved: ${ex.display_name}`);
+    await loadMyExercises();
   }
 
-  function removeMyExercise(exercise_id: string) {
-    setMyExercises((prev) => {
-      const next = prev.filter((p) => p.exercise_id !== exercise_id);
-      lsSet(LS_MY_EXERCISES_KEY, next);
-      return next;
-    });
+  async function removeExercise(row: MyExerciseRow) {
+    if (!owner) return;
+    const qs = new URLSearchParams({ owner_user_id: owner });
+    await fetchJson(
+      `/api/lifeswitch/training/my_exercises/${encodeURIComponent(row.my_exercise_id)}/deactivate?${qs.toString()}`,
+      { method: "POST" }
+    );
+    await loadMyExercises();
   }
 
-  const workouts = React.useMemo(() => {
-    const ws = lib?.workouts || [];
-    return ws.slice().sort((a, b) => String(a.label).localeCompare(String(b.label)));
-  }, [lib]);
-
-  const selectedWorkout = React.useMemo(() => {
-    if (!workoutId) return null;
-    return (lib?.workouts || []).find((w) => w.id === workoutId) || null;
-  }, [lib, workoutId]);
-
-  function buildPlannedEntries(w: LibraryWorkout, dateYYYYMMDD: string): PlannedWorkoutSetEntry[] {
-    const out: PlannedWorkoutSetEntry[] = [];
-    let globalIdx = 0;
-
-    for (const ex of Array.isArray(w.exercises) ? w.exercises : []) {
-      const plannedSets = Math.max(0, Math.floor(Number(ex.planned_sets || 0)));
-      const baseW = Number(ex.default_weight || 0);
-      const baseR = Math.max(1, Math.floor(Number(ex.default_reps || 1)));
-
-      for (let s = 1; s <= plannedSets; s++) {
-        // Simple, deterministic “set progression” (you can change later):
-        // +2.5 lbs each set, -1 rep each set (floor at 1)
-        const weight = Number((baseW + (s - 1) * 2.5).toFixed(2));
-        const reps = Math.max(1, baseR - (s - 1));
-        const count = Number((weight * reps).toFixed(2));
-
-        const row: PlannedWorkoutSetEntry = {
-          date: dateYYYYMMDD,
-          workout: w.label,
-          exercise: ex.label,
-          set_index: s,
-          weight,
-          reps,
-          count,
-          __vs_sort_ts: sortTsForDay(dateYYYYMMDD, globalIdx),
-        };
-
-        if (context.trim()) row.context = context.trim();
-        if (notes.trim()) row.notes = notes.trim();
-
-        out.push(row);
-        globalIdx++;
-      }
-    }
-    return out;
-  }
-
-  function doPreview() {
-    setStatus("");
-    if (!selectedWorkout) {
-      setPreview([]);
-      setStatus("select a workout");
-      return;
-    }
-    if (!date.trim()) {
-      setPreview([]);
-      setStatus("date required");
-      return;
-    }
-    const rows = buildPlannedEntries(selectedWorkout, date.trim());
-    setPreview(rows);
-    setStatus(`preview: ${rows.length} Workout Set rows`);
-  }
-
-  async function postSession() {
-    setStatus("");
-    if (!ownerUserId.trim()) {
-      setStatus("auth: not signed in");
-      return;
-    }
-    if (!selectedWorkout) {
-      setStatus("select a workout");
-      return;
-    }
-    if (!date.trim()) {
-      setStatus("date required");
-      return;
-    }
-
-    const rows = buildPlannedEntries(selectedWorkout, date.trim());
-    setPreview(rows);
-
-    if (rows.length === 0) {
-      setStatus("nothing to post (0 planned rows)");
-      return;
-    }
-
-    setPosting(true);
-    try {
-      let ok = 0;
-      for (const row of rows) {
-        const payload = {
-          owner_user_id: ownerUserId.trim(),
-          subject_id: SUBJECT_ID,
-          template_version_id: WORKOUT_SET_VID,
-          data: row,
-        };
-
-        const r = await fetch("/api/forms/entries", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const t = await r.text().catch(() => "");
-        if (!r.ok) throw new Error(`POST failed after ${ok} ok: HTTP ${r.status} ${t.slice(0, 1200)}`);
-        ok += 1;
-      }
-      setStatus(`posted: ${rows.length}/${rows.length} Workout Set rows`);
-    } catch (e: any) {
-      setStatus(`error: ${e?.message || String(e)}`);
-    } finally {
-      setPosting(false);
-    }
+  // If you’re not signed in, show that clearly (matches nutrition pattern)
+  if (authErr) {
+    return (
+      <div className="mx-auto max-w-3xl p-4">
+        <h1 className="text-xl font-semibold">My Exercises</h1>
+        <div className="mt-2 rounded-md border p-3 text-sm">
+          <div className="font-medium">Not signed in</div>
+          <div className="mt-1 text-muted-foreground">/api/auth/whoami: {authErr}</div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-4 overflow-x-hidden">
+    <div className="mx-auto max-w-3xl p-4">
       <h1 className="text-xl font-semibold">My Exercises</h1>
-      <div className="mt-1 text-sm text-muted-foreground">
-        Search the catalog, then save exercises you actually use.
-      </div>
 
-      <div className="mt-3 grid gap-3">
-        <label className="grid gap-1 text-sm">
-          <span className="opacity-70">Search</span>
-          <input
-            className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-            value={exQ}
-            onChange={(e) => setExQ(e.target.value)}
-            placeholder='e.g., "hammer chest press", "cable pushdown"'
-          />
-        </label>
-
+      {/* Search */}
+      <div className="mt-3 grid gap-2">
+        <input
+          className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder='Search exercises (global catalog) e.g. "hammer decline", "lat pulldown"'
+        />
         <div className="text-xs text-muted-foreground">
-          {exLoading ? "searching…" : exStatus}
-          {exResults.length ? ` · showing ${exResults.length}` : ""}
+          {hitsLoading ? "searching…" : hitsStatus}
+          {owner ? "" : " · not signed in"}
         </div>
 
-        {exResults.length ? (
+        {hits.length ? (
           <div className="divide-y divide-muted/20">
-            {exResults.map((h) => {
-              const saved = myExercises.some((x) => x.exercise_id === h.exercise_id);
-
+            {hits.map((h) => {
+              const saved = savedIds.has(String(h.exercise_id));
               return (
-                <div key={h.exercise_id} className="py-3 flex items-start justify-between gap-3">
+                <div key={h.exercise_id} className="py-3 flex items-start justify-between gap-3 min-w-0">
                   <div className="min-w-0">
                     <div className="text-sm font-medium truncate">{h.display_name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground break-all">
+                    <div className="mt-1 text-xs text-muted-foreground truncate">
                       {h.modality}
                       {h.kind ? ` · ${h.kind}` : ""}
                       {h.brand_name ? ` · ${h.brand_name}` : ""}
                       {h.matched_source ? ` · ${h.matched_source}` : ""}
                     </div>
                     {h.matched_text ? (
-                      <div className="mt-1 text-xs opacity-80 break-all">{h.matched_text}</div>
+                      <div className="mt-1 text-xs opacity-80 truncate">{h.matched_text}</div>
                     ) : null}
                   </div>
 
                   <button
                     type="button"
                     className="shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
-                    onClick={() => addMyExercise(h)}
-                    disabled={saved}
+                    onClick={() => void saveExercise(h)}
+                    disabled={!owner || saved}
+                    title={!owner ? "Sign in required" : saved ? "Already saved" : "Save to My Exercises"}
                   >
                     {saved ? "Saved" : "Save"}
                   </button>
@@ -405,42 +240,44 @@ export default function LifeSwitchTrainingPage() {
             })}
           </div>
         ) : null}
+      </div>
 
-        <div className="mt-10">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold">Current exercises</div>
-            <div className="text-xs opacity-70">count={myExercises.length}</div>
-          </div>
-
-          {myExercises.length ? (
-            <div className="mt-3 divide-y divide-muted/20">
-              {myExercises.map((x) => (
-                <div key={x.exercise_id} className="py-3 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">{x.display_name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground break-all">
-                      {x.modality}
-                      {x.brand_name ? ` · ${x.brand_name}` : ""}
-                      {x.matched_source ? ` · ${x.matched_source}` : ""}
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30"
-                    onClick={() => removeMyExercise(x.exercise_id)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-3 text-sm text-muted-foreground">
-              Empty. Search above and click <span className="font-mono">Save</span>.
-            </div>
-          )}
+      {/* Current exercises */}
+      <div className="mt-10">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-sm font-semibold">Current exercises</div>
+          <div className="text-xs text-muted-foreground">{myLoading ? "…" : `count=${myExercises.length}`}</div>
         </div>
+
+        {myExercises.length ? (
+          <div className="mt-2 divide-y divide-muted/20">
+            {myExercises.map((x) => (
+              <div key={x.my_exercise_id} className="py-3 flex items-start justify-between gap-3 min-w-0">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate">{x.display_name}</div>
+                  <div className="mt-1 text-xs text-muted-foreground truncate">
+                    {x.modality}
+                    {x.kind ? ` · ${x.kind}` : ""}
+                    {x.brand_name ? ` · ${x.brand_name}` : ""}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30"
+                  onClick={() => void removeExercise(x)}
+                  disabled={!owner}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-2 text-sm text-muted-foreground">
+            Empty. Search above and click <span className="font-mono">Save</span>.
+          </div>
+        )}
       </div>
     </div>
   );
