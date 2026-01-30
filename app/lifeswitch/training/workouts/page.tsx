@@ -31,7 +31,6 @@ type WorkoutTemplate = {
   updated_at: string;
 };
 
-const LS_MY_EXERCISES_KEY = "lifeswitch_my_exercises_v0";
 const LS_WORKOUT_TEMPLATES_KEY = "lifeswitch_workout_templates_v0";
 
 function lsGet<T>(k: string, fallback: T): T {
@@ -72,13 +71,57 @@ export default function TrainingWorkoutsPage() {
   // add-exercise search
   const [q, setQ] = React.useState<string>("");
 
-  React.useEffect(() => {
-    const ex = lsGet<MyExercise[]>(LS_MY_EXERCISES_KEY, []);
-    setMyExercises(Array.isArray(ex) ? ex : []);
+  const [owner, setOwner] = React.useState<string | null>(null);
+  const [authErr, setAuthErr] = React.useState<string | null>(null);
 
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const j = await fetchJson("/api/auth/whoami");
+        if (!j?.ok) {
+          setOwner(null);
+          setAuthErr(j?.error || "not signed in");
+          return;
+        }
+        const sub = String(j.sub || "").trim();
+        if (!sub) {
+          setOwner(null);
+          setAuthErr("missing sub");
+          return;
+        }
+        setOwner(sub);
+        setAuthErr(null);
+      } catch (e: any) {
+        setOwner(null);
+        setAuthErr(String(e?.message || e));
+      }
+    })();
+  }, []);
+
+  const [myLoading, setMyLoading] = React.useState(false);
+
+  const loadMyExercises = React.useCallback(async () => {
+    if (!owner) return;
+    setMyLoading(true);
+    try {
+      const qs = new URLSearchParams({ owner_user_id: owner });
+      const j = (await fetchJson(`/api/lifeswitch/training/my_exercises?${qs.toString()}`)) as any;
+      setMyExercises(Array.isArray(j) ? (j as MyExercise[]) : []);
+    } catch {
+      setMyExercises([]);
+    } finally {
+      setMyLoading(false);
+    }
+  }, [owner]);
+
+  React.useEffect(() => {
+    if (owner) void loadMyExercises();
+  }, [owner, loadMyExercises]);
+
+  React.useEffect(() => {
+    // TEMP: templates still local until step 2
     const ts = lsGet<WorkoutTemplate[]>(LS_WORKOUT_TEMPLATES_KEY, []);
     const arr = Array.isArray(ts) ? ts : [];
-    // newest first
     arr.sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
     setTemplates(arr);
     if (!selectedId && arr.length) setSelectedId(arr[0].workout_id);
@@ -127,6 +170,22 @@ export default function TrainingWorkoutsPage() {
     persist(next);
     setSelectedId(t.workout_id);
     setNewName("");
+  }
+
+  async function fetchJson(url: string, init?: RequestInit) {
+    const r = await fetch(url, { cache: "no-store", ...(init || {}) });
+    const t = await r.text();
+    let j: any = null;
+    try {
+      j = t ? JSON.parse(t) : null;
+    } catch {
+      // ignore
+    }
+    if (!r.ok) {
+      const detail = j?.detail || j?.error || t?.slice(0, 300) || `HTTP ${r.status}`;
+      throw new Error(String(detail));
+    }
+    return j;
   }
 
   function updateSelected(patch: Partial<WorkoutTemplate>) {
@@ -180,6 +239,18 @@ export default function TrainingWorkoutsPage() {
     if (!selected) return;
     const copy = selected.exercises.map((e) => (e.exercise_id === exercise_id ? { ...e, ...patch } : e));
     updateSelected({ exercises: copy });
+  }
+
+  if (authErr) {
+    return (
+      <div className="mx-auto max-w-3xl p-4">
+        <div className="text-xl font-semibold">Training · Workouts</div>
+        <div className="mt-2 rounded-md border p-3 text-sm">
+          <div className="font-medium">Not signed in</div>
+          <div className="mt-1 text-muted-foreground">/api/auth/whoami: {authErr}</div>
+        </div>
+      </div>
+    );
   }
 
   return (
