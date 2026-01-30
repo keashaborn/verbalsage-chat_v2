@@ -1,0 +1,40 @@
+import { NextRequest } from "next/server";
+import { randomUUID } from "crypto";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const BRAINS_URL = (process.env.BRAINS_URL || "http://172.31.32.171:8088").replace(/\/+$/, "");
+
+export async function POST(req: NextRequest, ctx: { params: Promise<{ my_exercise_id: string }> }) {
+  const rid = req.headers.get("x-request-id") || randomUUID();
+  const { my_exercise_id } = await ctx.params;
+
+  const inUrl = new URL(req.url);
+  const upstream = new URL(
+    `${BRAINS_URL}/lifeswitch/training/my_exercises/${encodeURIComponent(my_exercise_id)}/deactivate`
+  );
+  upstream.search = inUrl.search; // owner_user_id
+
+  try {
+    const r = await fetch(upstream.toString(), {
+      method: "POST",
+      headers: { "x-request-id": rid },
+      cache: "no-store",
+    });
+
+    const body = await r.text();
+    return new Response(body, {
+      status: r.status,
+      headers: {
+        "content-type": r.headers.get("content-type") || "application/json; charset=utf-8",
+        "x-request-id": rid,
+      },
+    });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: "brains_unreachable", detail: String(e) }), {
+      status: 502,
+      headers: { "content-type": "application/json; charset=utf-8", "x-request-id": rid },
+    });
+  }
+}
