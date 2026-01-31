@@ -234,8 +234,11 @@ export default function TrainingExercisesPage() {
             {hits.map((h) => {
               const saved = savedIds.has(String(h.exercise_id));
               return (
-                <div key={h.exercise_id} className="py-3 flex items-start justify-between gap-3 min-w-0">
-                  <div className="flex-1 min-w-0">
+                <div
+                  key={h.exercise_id}
+                  className="py-3 flex w-full items-start justify-between gap-3"
+                >
+                  <div className="flex-1 min-w-0 pr-20">
                     <div className="text-sm font-medium truncate">{h.display_name}</div>
                     <div className="mt-1 text-xs text-muted-foreground truncate">
                       {h.modality}
@@ -247,10 +250,10 @@ export default function TrainingExercisesPage() {
                       <div className="mt-1 text-xs opacity-80 truncate">{h.matched_text}</div>
                     ) : null}
                   </div>
-
+                  <div className="ml-3 shrink-0 text-[10px] opacity-60">BTN</div>
                   <button
                     type="button"
-                    className="shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                    className="ml-3 shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
                     onClick={() => void saveExercise(h)}
                     disabled={!owner || saved}
                     title={!owner ? "Sign in required" : saved ? "Already saved" : "Save to My Exercises"}
