@@ -40,8 +40,18 @@ async function fetchJson(url: string, init?: RequestInit) {
     // ignore
   }
   if (!r.ok) {
-    const detail = j?.detail || j?.error || t?.slice(0, 300) || `HTTP ${r.status}`;
-    throw new Error(String(detail));
+    const detail = j?.detail ?? j?.error ?? t?.slice(0, 300) ?? `HTTP ${r.status}`;
+    const detailStr =
+      typeof detail === "string"
+        ? detail
+        : (() => {
+          try {
+            return JSON.stringify(detail);
+          } catch {
+            return String(detail);
+          }
+        })();
+    throw new Error(detailStr || `HTTP ${r.status}`);
   }
   return j;
 }
@@ -105,6 +115,7 @@ export default function TrainingExercisesPage() {
   const [hits, setHits] = React.useState<ExerciseSearchHit[]>([]);
   const [hitsLoading, setHitsLoading] = React.useState(false);
   const [hitsStatus, setHitsStatus] = React.useState<string>("");
+  const [saveErr, setSaveErr] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const qq = q.trim();
@@ -144,27 +155,32 @@ export default function TrainingExercisesPage() {
 
   async function saveExercise(h: ExerciseSearchHit) {
     if (!owner) return;
-    const qs = new URLSearchParams({ owner_user_id: owner });
+    setSaveErr(null);
 
-    // Body matches what we store; Brains router decides insert/update.
-    const payload = {
-      exercise_id: h.exercise_id,
-      display_name: h.display_name,
-      kind: h.kind,
-      modality: h.modality,
-      brand_name: h.brand_name ?? null,
-      model_name: h.model_name ?? null,
-      matched_text: h.matched_text ?? null,
-      matched_source: h.matched_source ?? null,
-    };
+    // Backend expects these in query (FastAPI 422 loc=["query",...])
+    const qs = new URLSearchParams();
+    qs.set("owner_user_id", owner);
+    qs.set("exercise_id", String(h.exercise_id || "").trim());
+    qs.set("display_name", String(h.display_name || "").trim());
 
-    await fetchJson(`/api/lifeswitch/training/my_exercises/upsert?${qs.toString()}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    // include these too to avoid the next round of 422 if they’re required
+    if (h.kind) qs.set("kind", String(h.kind));
+    if (h.modality) qs.set("modality", String(h.modality));
+    if (h.brand_name) qs.set("brand_name", String(h.brand_name));
+    if (h.model_name) qs.set("model_name", String(h.model_name));
+    if (h.matched_source) qs.set("matched_source", String(h.matched_source));
 
-    await loadMyExercises();
+    // DO NOT send matched_text in query (can be long and blow URL)
+    // If we later want it, we’ll change backend to accept JSON body.
+
+    try {
+      await fetchJson(`/api/lifeswitch/training/my_exercises/upsert?${qs.toString()}`, {
+        method: "POST",
+      });
+      await loadMyExercises();
+    } catch (e: any) {
+      setSaveErr(String(e?.message || e));
+    }
   }
 
   async function removeExercise(row: MyExerciseRow) {
@@ -206,6 +222,12 @@ export default function TrainingExercisesPage() {
           {hitsLoading ? "searching…" : hitsStatus}
           {owner ? "" : " · not signed in"}
         </div>
+        {saveErr ? (
+          <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs">
+            <div className="font-medium">Save failed</div>
+            <div className="mt-1 opacity-80">{saveErr}</div>
+          </div>
+        ) : null}
 
         {hits.length ? (
           <div className="divide-y divide-muted/20">
@@ -213,7 +235,7 @@ export default function TrainingExercisesPage() {
               const saved = savedIds.has(String(h.exercise_id));
               return (
                 <div key={h.exercise_id} className="py-3 flex items-start justify-between gap-3 min-w-0">
-                  <div className="min-w-0">
+                  <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{h.display_name}</div>
                     <div className="mt-1 text-xs text-muted-foreground truncate">
                       {h.modality}
@@ -253,7 +275,7 @@ export default function TrainingExercisesPage() {
           <div className="mt-2 divide-y divide-muted/20">
             {myExercises.map((x) => (
               <div key={x.my_exercise_id} className="py-3 flex items-start justify-between gap-3 min-w-0">
-                <div className="min-w-0">
+                <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{x.display_name}</div>
                   <div className="mt-1 text-xs text-muted-foreground truncate">
                     {x.modality}
