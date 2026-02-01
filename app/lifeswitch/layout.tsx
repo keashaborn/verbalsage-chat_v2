@@ -1,28 +1,10 @@
 // app/lifeswitch/layout.tsx
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ChevronLeft, Home, CalendarDays, Dumbbell, ClipboardList, Ruler } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { WorkspaceMenu } from "@/components/nav/WorkspaceMenu";
+import { LifeSwitchModeNav } from "@/components/lifeswitch/LifeSwitchModeNav";
 
-function Tab({
-  href,
-  label,
-  Icon,
-}: {
-  href: string;
-  label: string;
-  Icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-[10px] hover:bg-muted/30 active:bg-muted/40"
-    >
-      <Icon className="h-5 w-5" />
-      <span className="leading-none">{label}</span>
-    </Link>
-  );
-}
 
 export default function LifeSwitchLayout({ children }: { children: ReactNode }) {
   return (
@@ -33,7 +15,7 @@ export default function LifeSwitchLayout({ children }: { children: ReactNode }) 
           <div className="flex items-center gap-2">
             {/* "Up" to LifeSwitch home (predictable, not history-based) */}
             <Link
-              href="/lifeswitch"
+              href="/lifeswitch/nutrition"
               aria-label="Back to LifeSwitch"
               className="rounded-md border px-2 py-1.5 text-xs hover:bg-muted/30 active:bg-muted/40"
             >
@@ -41,7 +23,7 @@ export default function LifeSwitchLayout({ children }: { children: ReactNode }) 
             </Link>
 
             {/* Brand also navigates home */}
-            <Link href="/lifeswitch" className="text-sm font-semibold tracking-wide hover:opacity-80">
+            <Link href="/lifeswitch/nutrition" className="text-sm font-semibold tracking-wide hover:opacity-80">
               LifeSwitch
             </Link>
           </div>
@@ -57,16 +39,7 @@ export default function LifeSwitchLayout({ children }: { children: ReactNode }) 
       </main>
 
       {/* Universal bottom nav (now applies to Nutrition too) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto grid max-w-5xl grid-cols-5 px-2 pt-2">
-          <Tab href="/lifeswitch" label="Home" Icon={Home} />
-          <Tab href="/lifeswitch/training/calendar" label="Calendar" Icon={CalendarDays} />
-          <Tab href="/lifeswitch/training/exercises" label="Exercises" Icon={Dumbbell} />
-          <Tab href="/lifeswitch/training/workouts" label="Workouts" Icon={ClipboardList} />
-          <Tab href="/lifeswitch/measurements" label="Measure" Icon={Ruler} />
-        </div>
-        <div className="mx-auto max-w-5xl border-t border-muted/20" />
-      </nav>
+      <LifeSwitchModeNav />
     </div>
   );
 }
