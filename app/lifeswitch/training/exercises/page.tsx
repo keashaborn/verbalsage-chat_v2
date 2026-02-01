@@ -236,9 +236,9 @@ export default function TrainingExercisesPage() {
               return (
                 <div
                   key={h.exercise_id}
-                  className="py-3 flex w-full items-start justify-between gap-3"
+                  className="py-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
                 >
-                  <div className="flex-1 min-w-0 pr-20">
+                  <div className="min-w-0 sm:flex-1">
                     <div className="text-sm font-medium truncate">{h.display_name}</div>
                     <div className="mt-1 text-xs text-muted-foreground truncate">
                       {h.modality}
@@ -246,20 +246,20 @@ export default function TrainingExercisesPage() {
                       {h.brand_name ? ` · ${h.brand_name}` : ""}
                       {h.matched_source ? ` · ${h.matched_source}` : ""}
                     </div>
-                    {h.matched_text ? (
-                      <div className="mt-1 text-xs opacity-80 truncate">{h.matched_text}</div>
-                    ) : null}
+                    {h.matched_text ? <div className="mt-1 text-xs opacity-80 truncate">{h.matched_text}</div> : null}
                   </div>
-                  <div className="ml-3 shrink-0 text-[10px] opacity-60">BTN</div>
-                  <button
-                    type="button"
-                    className="ml-3 shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
-                    onClick={() => void saveExercise(h)}
-                    disabled={!owner || saved}
-                    title={!owner ? "Sign in required" : saved ? "Already saved" : "Save to My Exercises"}
-                  >
-                    {saved ? "Saved" : "Save"}
-                  </button>
+
+                  <div className="flex justify-end sm:ml-3 sm:shrink-0">
+                    <button
+                      type="button"
+                      className="w-full sm:w-auto rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                      onClick={() => void saveExercise(h)}
+                      disabled={!owner || saved}
+                      title={!owner ? "Sign in required" : saved ? "Already saved" : "Save to My Exercises"}
+                    >
+                      {saved ? "Saved" : "Save"}
+                    </button>
+                  </div>
                 </div>
               );
             })}
