@@ -1,5 +1,5 @@
 "use client";
 import FoodsUI from "@/components/lifeswitch/nutrition/FoodsPage";
-export default function NutritionFoodsPage() {
+export default function NutritionDesignFoods() {
   return <FoodsUI />;
 }
