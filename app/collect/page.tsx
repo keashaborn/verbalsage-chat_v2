@@ -64,14 +64,6 @@ function todayISO(): string {
 
 export default function CollectPage() {
 
-  function goBack() {
-    try {
-      if (typeof window !== "undefined" && window.history.length > 1) window.history.back();
-      else window.location.assign("/");
-    } catch {
-      window.location.assign("/");
-    }
-  }
   const [status, setStatus] = React.useState<string>("");
 
   const [ownerUserId, setOwnerUserId] = React.useState<string>("");
@@ -1190,6 +1182,5 @@ export default function CollectPage() {
           <div className="mt-3 text-sm text-muted-foreground">{status}</div>
         ) : null}
       </div>
-    </div>
   );
 }
