@@ -34,7 +34,7 @@ export function WorkspaceMenu({ label = "Menu" }: WorkspaceMenuProps) {
         <Link href="/collect" onClick={close} className={item}>
           Capture
         </Link>
-        <Link href="/lifeswitch/nutrition" onClick={close} className={item}>
+        <Link href="/lifeswitch/nutrition/log" onClick={close} className={item}>
           LifeSwitch
         </Link>
 
@@ -44,13 +44,13 @@ export function WorkspaceMenu({ label = "Menu" }: WorkspaceMenuProps) {
           LifeSwitch Domains
         </div>
 
-        <Link href="/lifeswitch/nutrition" onClick={close} className={item}>
+        <Link href="/lifeswitch/nutrition/log" onClick={close} className={item}>
           Nutrition
         </Link>
-        <Link href="/lifeswitch/training" onClick={close} className={item}>
+        <Link href="/lifeswitch/training/log" onClick={close} className={item}>
           Training
         </Link>
-        <Link href="/lifeswitch/measurements" onClick={close} className={item}>
+        <Link href="/lifeswitch/measurements/log" onClick={close} className={item}>
           Measurements
         </Link>
       </div>
