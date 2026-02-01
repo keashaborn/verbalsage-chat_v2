@@ -13,14 +13,20 @@ export async function POST(req: NextRequest) {
   const upstream = new URL(`${BRAINS_URL}/lifeswitch/nutrition/log/entry`);
   upstream.search = inUrl.search;
 
+  const body = await req.text();
+
   const r = await fetch(upstream.toString(), {
     method: "POST",
-    headers: { "x-request-id": rid },
+    headers: {
+      "x-request-id": rid,
+      "content-type": req.headers.get("content-type") || "application/json; charset=utf-8",
+    },
+    body,
     cache: "no-store",
   });
 
-  const body = await r.text();
-  return new Response(body, {
+  const out = await r.text();
+  return new Response(out, {
     status: r.status,
     headers: {
       "content-type": r.headers.get("content-type") || "application/json; charset=utf-8",

@@ -3,9 +3,11 @@
 import * as React from "react";
 
 const DOW = ["S", "M", "T", "W", "T", "F", "S"];
-const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-function pad2(n: number) { return n < 10 ? `0${n}` : String(n); }
+function pad2(n: number) {
+  return n < 10 ? `0${n}` : String(n);
+}
 function todayLocalYYYYMMDD() {
   const d = new Date();
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -17,9 +19,16 @@ function monthLabel(ym: string) {
   const month1 = Number(mm[2]);
   return `${MONTHS[Math.max(1, Math.min(12, month1)) - 1] || "Unknown"}, ${year}`;
 }
-function daysInMonthUTC(year: number, month1: number) { return new Date(Date.UTC(year, month1, 0)).getUTCDate(); }
-function firstDowUTC(year: number, month1: number) { return new Date(Date.UTC(year, month1 - 1, 1)).getUTCDay(); }
-function safeNum(x: any, fallback = 0) { const n = Number(x); return Number.isFinite(n) ? n : fallback; }
+function daysInMonthUTC(year: number, month1: number) {
+  return new Date(Date.UTC(year, month1, 0)).getUTCDate();
+}
+function firstDowUTC(year: number, month1: number) {
+  return new Date(Date.UTC(year, month1 - 1, 1)).getUTCDay();
+}
+function safeNum(x: any, fallback = 0) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : fallback;
+}
 function formatK(n: number) {
   const x = safeNum(n, 0);
   const abs = Math.abs(x);
@@ -32,7 +41,7 @@ async function fetchJson(url: string, init?: RequestInit) {
   const r = await fetch(url, { cache: "no-store", ...(init || {}) });
   const t = await r.text().catch(() => "");
   let j: any = null;
-  try { j = t ? JSON.parse(t) : null; } catch {}
+  try { j = t ? JSON.parse(t) : null; } catch { }
   if (!r.ok) {
     const detail = j?.detail || j?.error || t?.slice(0, 200) || `HTTP ${r.status}`;
     throw new Error(String(detail));
@@ -41,8 +50,8 @@ async function fetchJson(url: string, init?: RequestInit) {
 }
 
 type DaySummary = {
-  day: string;
-  raw: any;
+  day: string; // YYYY-MM-DD
+  raw: any;    // backend payload (unknown shape for now)
   kcal: number | null;
   protein_g: number | null;
   carbs_g: number | null;
@@ -50,8 +59,15 @@ type DaySummary = {
   hit: boolean;
 };
 
-function extractTotals(raw: any) {
-  const candidates = [raw, raw?.totals, raw?.summary, raw?.day, raw?.data].filter(Boolean);
+function extractTotals(raw: any): { kcal: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null } {
+  // Try common shapes; fall back to nulls.
+  const candidates = [
+    raw,
+    raw?.totals,
+    raw?.summary,
+    raw?.day,
+    raw?.data,
+  ].filter(Boolean);
 
   function pick(keys: string[]) {
     for (const c of candidates) {
@@ -66,7 +82,6 @@ function extractTotals(raw: any) {
   const protein_g = pick(["protein_g", "protein", "protein_total_g"]);
   const carbs_g = pick(["carbs_g", "carbs", "carbohydrates_g", "carbs_total_g"]);
   const fat_g = pick(["fat_g", "fat", "fat_total_g"]);
-
   return {
     kcal: kcal == null ? null : safeNum(kcal, 0),
     protein_g: protein_g == null ? null : safeNum(protein_g, 0),
@@ -95,7 +110,9 @@ function MonthCalendar(props: { ym: string; hitDates: Set<string>; anyDates: Set
   return (
     <div className="min-w-0">
       <div className="grid grid-cols-7 text-center text-[11px] opacity-70">
-        {DOW.map((d) => <div key={d} className="py-1">{d}</div>)}
+        {DOW.map((d) => (
+          <div key={d} className="py-1">{d}</div>
+        ))}
       </div>
 
       <div className="grid grid-cols-7 text-center text-sm">
@@ -121,7 +138,7 @@ function MonthCalendar(props: { ym: string; hitDates: Set<string>; anyDates: Set
 }
 
 export default function NutritionLogPage() {
-  // v0 targets (later stored in Biometrics/Targets)
+  // Targets (v0 constants; later stored in Biometrics/Targets)
   const TARGET_PROTEIN_G = 180;
   const TARGET_KCAL = 2200;
 
@@ -149,15 +166,18 @@ export default function NutritionLogPage() {
         setOwner(uid);
         setStatus("loading days…");
 
+        // Fetch last 60 days (v0). Later: month-range endpoint.
         const N = 60;
         const base = new Date();
         const dayList: string[] = [];
         for (let i = 0; i < N; i++) {
           const d = new Date(base.getTime() - i * 24 * 3600 * 1000);
-          dayList.push(`${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`);
+          const iso = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+          dayList.push(iso);
         }
-        dayList.sort((a, b) => b.localeCompare(a));
+        dayList.sort((a, b) => b.localeCompare(a)); // newest first
 
+        // Concurrency limit to avoid flooding
         const out: DaySummary[] = [];
         const chunkSize = 10;
 
@@ -169,11 +189,14 @@ export default function NutritionLogPage() {
               u.searchParams.set("owner_user_id", uid);
               u.searchParams.set("day", day);
               const raw = await fetchJson(u.toString());
+
               const t = extractTotals(raw);
+              const protein_g = t.protein_g;
+              const kcal = t.kcal;
 
               const hit =
-                (t.protein_g != null ? t.protein_g >= TARGET_PROTEIN_G : false) &&
-                (t.kcal != null ? t.kcal <= TARGET_KCAL : false);
+                (protein_g != null ? protein_g >= TARGET_PROTEIN_G : false) &&
+                (kcal != null ? kcal <= TARGET_KCAL : false);
 
               return { day, raw, ...t, hit } as DaySummary;
             })
@@ -295,6 +318,8 @@ export default function NutritionLogPage() {
                     <div className="mt-1 text-sm text-muted-foreground break-words">
                       kcal={d.kcal ?? "—"} · protein={d.protein_g ?? "—"}g · carbs={d.carbs_g ?? "—"}g · fat={d.fat_g ?? "—"}g
                     </div>
+
+                    {/* v0: show raw keys count so we can learn schema without browser-specific tooling */}
                     <div className="mt-1 text-xs text-muted-foreground">
                       raw_keys={d.raw && typeof d.raw === "object" ? Object.keys(d.raw).length : "?"}
                     </div>
