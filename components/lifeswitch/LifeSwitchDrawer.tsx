@@ -3,6 +3,7 @@
 import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import Image from "next/image";
+import Link from "next/link";
 
 type LifeSwitchDrawerProps = {
   trigger: React.ReactNode;
@@ -10,9 +11,26 @@ type LifeSwitchDrawerProps = {
 
 const BRAND_FILTER_SILVER = "grayscale brightness-125 contrast-125 opacity-85";
 
-function navTo(href: string) {
-  // Keep it simple; this is a dev-only UX primitive for now.
-  window.location.assign(href);
+function NavItem({
+  href,
+  title,
+  desc,
+}: {
+  href: string;
+  title: string;
+  desc?: string;
+}) {
+  return (
+    <Dialog.Close asChild>
+      <Link
+        href={href}
+        className="block w-full rounded-lg border px-3 py-2 text-left hover:bg-muted/30 active:bg-muted/40"
+      >
+        <div className="text-sm font-medium">{title}</div>
+        {desc ? <div className="text-xs text-muted-foreground">{desc}</div> : null}
+      </Link>
+    </Dialog.Close>
+  );
 }
 
 export function LifeSwitchDrawer({ trigger }: LifeSwitchDrawerProps) {
@@ -58,50 +76,28 @@ export function LifeSwitchDrawer({ trigger }: LifeSwitchDrawerProps) {
                 <div className="mt-1 text-xs text-muted-foreground">
                   Import foods → build meals → build day templates.
                 </div>
+
                 <div className="mt-3 grid gap-2">
-                  <button
-                    className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
-                    onClick={() => {
-                      setOpen(false);
-                      navTo("/lifeswitch/nutrition/foods");
-                    }}
-                  >
-                    <button
-                      className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
-                      onClick={() => {
-                        setOpen(false);
-                        navTo("/lifeswitch/nutrition");
-                      }}
-                    >
-                      Nutrition Home
-                      <div className="text-xs text-muted-foreground">Log, quick actions, and entry points for nutrition.</div>
-                    </button>
-
-                    My Foods
-                    <div className="text-xs text-muted-foreground">USDA search + import into your private library.</div>
-                  </button>
-
-                  <button
-                    className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
-                    onClick={() => {
-                      setOpen(false);
-                      navTo("/lifeswitch/nutrition/meals");
-                    }}
-                  >
-                    Meals
-                    <div className="text-xs text-muted-foreground">Meal templates with typical grams per item.</div>
-                  </button>
-
-                  <button
-                    className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
-                    onClick={() => {
-                      setOpen(false);
-                      navTo("/lifeswitch/nutrition/meal-plans");
-                    }}
-                  >
-                    Meal Plans
-                    <div className="text-xs text-muted-foreground">Day templates (targets move to Measurements).</div>
-                  </button>
+                  <NavItem
+                    href="/lifeswitch/nutrition"
+                    title="Nutrition Home"
+                    desc="Log, quick actions, and entry points for nutrition."
+                  />
+                  <NavItem
+                    href="/lifeswitch/nutrition/foods"
+                    title="My Foods"
+                    desc="USDA search + import into your private library."
+                  />
+                  <NavItem
+                    href="/lifeswitch/nutrition/meals"
+                    title="Meals"
+                    desc="Meal templates with typical grams per item."
+                  />
+                  <NavItem
+                    href="/lifeswitch/nutrition/meal-plans"
+                    title="Meal Plans"
+                    desc="Day templates (targets move to Measurements)."
+                  />
                 </div>
               </div>
 
@@ -112,67 +108,34 @@ export function LifeSwitchDrawer({ trigger }: LifeSwitchDrawerProps) {
                 </div>
 
                 <div className="mt-3 grid gap-2">
-                  <button
-                    className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
-                    onClick={() => {
-                      setOpen(false);
-                      navTo("/lifeswitch/training/exercises");
-                    }}
-                  >
-                    <button
-                      className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
-                      onClick={() => {
-                        setOpen(false);
-                        navTo("/lifeswitch/training");
-                      }}
-                    >
-                      Training Home
-                      <div className="text-xs text-muted-foreground">Log, quick actions, and entry points for training.</div>
-                    </button>
-
-                    Exercises
-                    <div className="text-xs text-muted-foreground">Search catalog + manage My Exercises.</div>
-                  </button>
-
-                  <button
-                    className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
-                    onClick={() => {
-                      setOpen(false);
-                      navTo("/lifeswitch/training/workouts");
-                    }}
-                  >
-                    Workouts
-                    <div className="text-xs text-muted-foreground">Workout templates built from My Exercises.</div>
-                  </button>
-
-                  <button
-                    className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
-                    onClick={() => {
-                      setOpen(false);
-                      navTo("/lifeswitch/training/calendar");
-                    }}
-                  >
-                    Calendar
-                    <div className="text-xs text-muted-foreground">Daily log + quick entry.</div>
-                  </button>
+                  <NavItem
+                    href="/lifeswitch/training"
+                    title="Training Home"
+                    desc="Log, quick actions, and entry points for training."
+                  />
+                  <NavItem
+                    href="/lifeswitch/training/exercises"
+                    title="Exercises"
+                    desc="Search catalog + manage My Exercises."
+                  />
+                  <NavItem
+                    href="/lifeswitch/training/workouts"
+                    title="Workouts"
+                    desc="Workout templates built from My Exercises."
+                  />
+                  <NavItem
+                    href="/lifeswitch/training/calendar"
+                    title="Calendar"
+                    desc="Daily log + quick entry."
+                  />
                 </div>
               </div>
 
-              <button
-                className="w-full rounded-xl border p-3 text-left hover:bg-muted/30"
-                onClick={() => {
-                  setOpen(false);
-                  navTo("/lifeswitch/measurements");
-                }}
-              >
-                <div className="text-sm font-semibold">Measurements</div>
-                <div className="text-xs text-muted-foreground">Biometrics + targets/TDEE (cut/bulk/maintain).</div>
-              </button>
-            </div>
-
-            {/* Footer */}
-            <div className="border-t p-3 text-xs text-muted-foreground">
-
+              <NavItem
+                href="/lifeswitch/measurements"
+                title="Measurements"
+                desc="Biometrics + targets/TDEE (cut/bulk/maintain)."
+              />
             </div>
           </div>
         </Dialog.Content>
