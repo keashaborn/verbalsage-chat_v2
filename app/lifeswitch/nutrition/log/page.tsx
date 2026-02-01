@@ -121,7 +121,6 @@ function MonthCalendar(props: { ym: string; hitDates: Set<string>; anyDates: Set
 }
 
 export default function NutritionLogPage() {
-  // v0 targets (later stored in Biometrics/Targets)
   const TARGET_PROTEIN_G = 180;
   const TARGET_KCAL = 2200;
 
@@ -298,6 +297,13 @@ export default function NutritionLogPage() {
                     <div className="mt-1 text-xs text-muted-foreground">
                       raw_keys={d.raw && typeof d.raw === "object" ? Object.keys(d.raw).length : "?"}
                     </div>
+
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-xs text-muted-foreground">Raw</summary>
+                      <pre className="mt-2 max-h-64 overflow-auto rounded-xl border border-muted/20 bg-background/50 p-3 text-[11px] leading-snug text-muted-foreground">
+                        {JSON.stringify(d.raw, null, 2).slice(0, 4000)}
+                      </pre>
+                    </details>
                   </div>
                 ))}
               </div>
