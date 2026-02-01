@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ChevronLeft, Home, CalendarDays, Dumbbell, ClipboardList, Ruler } from "lucide-react";
+import { WorkspaceMenu } from "@/components/nav/WorkspaceMenu";
 
 function Tab({
   href,
@@ -20,40 +21,6 @@ function Tab({
       <Icon className="h-5 w-5" />
       <span className="leading-none">{label}</span>
     </Link>
-  );
-}
-
-function LifeSwitchMenu() {
-  return (
-    <details className="relative">
-      <summary className="list-none cursor-pointer rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">
-        LifeSwitch ▾
-      </summary>
-
-      <div className="absolute right-0 mt-2 w-44 overflow-hidden rounded-xl border bg-background shadow-lg">
-        <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Workspace
-        </div>
-        <Link href="/" className="block px-3 py-2 text-sm hover:bg-muted/30">
-          Back to Chat
-        </Link>
-
-        <div className="my-1 border-t border-muted/20" />
-
-        <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Domains
-        </div>
-        <Link href="/lifeswitch/nutrition" className="block px-3 py-2 text-sm hover:bg-muted/30">
-          Nutrition
-        </Link>
-        <Link href="/lifeswitch/training" className="block px-3 py-2 text-sm hover:bg-muted/30">
-          Training
-        </Link>
-        <Link href="/lifeswitch/measurements" className="block px-3 py-2 text-sm hover:bg-muted/30">
-          Measurements
-        </Link>
-      </div>
-    </details>
   );
 }
 
@@ -80,7 +47,7 @@ export default function LifeSwitchLayout({ children }: { children: ReactNode }) 
           </div>
 
           {/* Replace Exit with workspace/domain menu */}
-          <LifeSwitchMenu />
+          <WorkspaceMenu label="LifeSwitch" />
         </div>
       </header>
 
