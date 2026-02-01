@@ -400,7 +400,7 @@ export default function CollectPage() {
     }
   }
 
-  
+
 
   async function recordCount() {
     setStatus("");
@@ -679,7 +679,7 @@ export default function CollectPage() {
     // wsSetIndex recalculates via the effect that calls computeNextSetIndex()
   }
 
-  
+
 
   function gotoPlannedExercise(delta: number) {
     const ids = orderedExerciseIds; // canonical
@@ -783,37 +783,9 @@ export default function CollectPage() {
   }, [isWorkoutSet, programRows, date, props.workout, wsWorkout]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto w-full max-w-3xl px-4 py-6">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-0.5">
-            <div className="text-xl font-semibold">Capture</div>
-          </div>
-
-          {/* Actions (top-right) */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
-              onClick={refreshCapture}
-            >
-              Refresh
-            </button>
-
-            <button
-              type="button"
-              className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
-              onClick={goBack}
-              title="Back"
-            >
-              Back
-            </button>
-          </div>
-        </div>
-
-        {/* Program picker (below header) */}
-        <div className="mt-3 space-y-1">
+    <div className="mx-auto w-full max-w-3xl px-0 py-2">
+      {/* Program picker */}
+      <div className="space-y-1">
           <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program</div>
           <select
             className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
