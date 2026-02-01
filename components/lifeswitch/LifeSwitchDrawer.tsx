@@ -66,6 +66,17 @@ export function LifeSwitchDrawer({ trigger }: LifeSwitchDrawerProps) {
                       navTo("/lifeswitch/nutrition/foods");
                     }}
                   >
+                    <button
+                      className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
+                      onClick={() => {
+                        setOpen(false);
+                        navTo("/lifeswitch/nutrition");
+                      }}
+                    >
+                      Nutrition Home
+                      <div className="text-xs text-muted-foreground">Log, quick actions, and entry points for nutrition.</div>
+                    </button>
+
                     My Foods
                     <div className="text-xs text-muted-foreground">USDA search + import into your private library.</div>
                   </button>
@@ -108,6 +119,17 @@ export function LifeSwitchDrawer({ trigger }: LifeSwitchDrawerProps) {
                       navTo("/lifeswitch/training/exercises");
                     }}
                   >
+                    <button
+                      className="w-full rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30"
+                      onClick={() => {
+                        setOpen(false);
+                        navTo("/lifeswitch/training");
+                      }}
+                    >
+                      Training Home
+                      <div className="text-xs text-muted-foreground">Log, quick actions, and entry points for training.</div>
+                    </button>
+
                     Exercises
                     <div className="text-xs text-muted-foreground">Search catalog + manage My Exercises.</div>
                   </button>

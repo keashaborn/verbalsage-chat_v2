@@ -3,11 +3,6 @@ import Link from "next/link";
 export default function LifeSwitchHomePage() {
   return (
     <div className="mx-auto max-w-5xl p-4 overflow-x-hidden">
-      <div className="mb-3 flex justify-end">
-        <Link href="/" className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">
-          Back
-        </Link>
-      </div>
 
       <div className="text-lg font-semibold">Life Switch</div>
       <div className="mt-1 text-sm text-muted-foreground">
