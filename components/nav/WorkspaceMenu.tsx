@@ -29,13 +29,10 @@ export function WorkspaceMenu({ label = "Menu" }: WorkspaceMenuProps) {
         </div>
 
         <Link href="/" onClick={close} className={item}>
-          Back to Chat
+          Chat
         </Link>
         <Link href="/collect" onClick={close} className={item}>
           Capture
-        </Link>
-        <Link href="/lifeswitch/nutrition/log" onClick={close} className={item}>
-          LifeSwitch
         </Link>
 
         <div className="my-1 border-t border-muted/20" />
@@ -50,8 +47,11 @@ export function WorkspaceMenu({ label = "Menu" }: WorkspaceMenuProps) {
         <Link href="/lifeswitch/training/log" onClick={close} className={item}>
           Training
         </Link>
-        <Link href="/lifeswitch/measurements/log" onClick={close} className={item}>
-          Measurements
+        <Link href="/lifeswitch/behavior/log" onClick={close} className={item}>
+          Behavior
+        </Link>
+        <Link href="/lifeswitch/verbal/log" onClick={close} className={item}>
+          Verbal Behavior
         </Link>
       </div>
     </details>
