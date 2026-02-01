@@ -1,5 +1,5 @@
 "use client";
 import ExercisesUI from "@/components/lifeswitch/training/ExercisesPage";
-export default function TrainingExercisesPage() {
+export default function TrainingDesignExercises() {
   return <ExercisesUI />;
 }
