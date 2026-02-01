@@ -6,6 +6,7 @@ import { useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { TextStreamChatTransport } from "ai";
 import { ThreadViewer } from "@/components/threads/ThreadViewer";
 import { BrainsChatPane } from "@/components/threads/BrainsChatPane";
+import { WorkspaceMenu } from "@/components/nav/WorkspaceMenu";
 
 import { Thread } from "@/components/assistant-ui/thread";
 import {
@@ -38,14 +39,18 @@ export const Assistant = () => {
         <div className="flex h-svh w-full pr-0.5">
           <ThreadListSidebar />
           <SidebarInset>
-            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-              <SidebarTrigger />
-              <Separator orientation="vertical" className="mr-2 h-4" />
-              <img
-                src="/brand/svgweb.svg"
-                alt="Verbal Sage"
-                className="h-5 w-auto opacity-90"
-              />
+            <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
+              <div className="flex items-center gap-2">
+                <SidebarTrigger />
+                <Separator orientation="vertical" className="mr-2 h-4" />
+                <img
+                  src="/brand/svgweb.svg"
+                  alt="Verbal Sage"
+                  className="h-5 w-auto opacity-90"
+                />
+              </div>
+
+              <WorkspaceMenu label="Workspace" />
             </header>
             <div className="flex-1 overflow-hidden">
               <BrainsChatPane />
