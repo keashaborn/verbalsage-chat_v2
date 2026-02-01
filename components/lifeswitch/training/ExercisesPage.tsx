@@ -236,17 +236,21 @@ export default function TrainingExercisesPage() {
               return (
                 <div
                   key={h.exercise_id}
-                  className="py-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+                  className="py-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3 min-w-0"
                 >
                   <div className="min-w-0 sm:flex-1">
                     <div className="text-sm font-medium truncate">{h.display_name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground truncate">
+                    <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal">
                       {h.modality}
                       {h.kind ? ` · ${h.kind}` : ""}
                       {h.brand_name ? ` · ${h.brand_name}` : ""}
                       {h.matched_source ? ` · ${h.matched_source}` : ""}
                     </div>
-                    {h.matched_text ? <div className="mt-1 text-xs opacity-80 truncate">{h.matched_text}</div> : null}
+                    {h.matched_text ? (
+                      <div className="mt-1 text-xs opacity-80 break-words whitespace-normal">
+                        {h.matched_text}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="flex justify-end sm:ml-3 sm:shrink-0">
@@ -280,7 +284,7 @@ export default function TrainingExercisesPage() {
               <div key={x.my_exercise_id} className="py-3 flex items-start justify-between gap-3 min-w-0">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{x.display_name}</div>
-                  <div className="mt-1 text-xs text-muted-foreground truncate">
+                  <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal">
                     {x.modality}
                     {x.kind ? ` · ${x.kind}` : ""}
                     {x.brand_name ? ` · ${x.brand_name}` : ""}

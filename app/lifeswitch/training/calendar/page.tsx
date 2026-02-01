@@ -344,7 +344,7 @@ export default function TrainingCalendarPage() {
   return (
     <div className="mx-auto max-w-5xl p-4">
       <div className="text-lg font-semibold">Training · Calendar</div>
-      <div className="mt-1 text-sm text-muted-foreground">
+      <div className="mt-1 text-sm text-muted-foreground break-words">
         Month calendar + monthly totals, then session feed. Next: click-through session detail + repeat.
       </div>
 
@@ -409,11 +409,11 @@ export default function TrainingCalendarPage() {
                       <div className="text-lg font-semibold hover:underline underline-offset-4">
                         {s.workout}
                       </div>
-                      <div className="mt-1 text-sm text-muted-foreground">
+                      <div className="mt-1 text-sm text-muted-foreground break-words">
                         {s.date} · sets={s.set_count} · exercises={s.exercise_count} · volume={s.volume}
                       </div>
                       {s.exercises_preview.length ? (
-                        <div className="mt-2 text-sm opacity-80">
+                        <div className="mt-2 text-sm opacity-80 break-words whitespace-normal">
                           {s.exercises_preview.join(" · ")}
                           {s.exercise_count > s.exercises_preview.length ? " …" : ""}
                         </div>

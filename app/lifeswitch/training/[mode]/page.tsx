@@ -5,15 +5,16 @@ const MODES = new Set(["log", "design", "capture", "plan", "analyze"]);
 export default function TrainingModePage({ params }: { params: { mode?: string } }) {
   const mode = (params?.mode || "").toLowerCase();
 
-  if (!MODES.has(mode)) redirect("/lifeswitch/training/log");
+  // Never fall back to /lifeswitch/training/log to avoid self-loop.
+  if (!MODES.has(mode)) redirect("/lifeswitch/training/calendar");
 
   if (mode === "capture") redirect("/collect?domain=training");
   if (mode === "design") redirect("/lifeswitch/training/design");
 
-  // Keep current behavior until we build proper Plan/Analyze pages.
-  if (mode === "plan") redirect("/lifeswitch/training/plan");
+  // For now: map log/analyze to calendar until analyze exists
   if (mode === "log") redirect("/lifeswitch/training/calendar");
+  if (mode === "plan") redirect("/lifeswitch/training/plan");
   if (mode === "analyze") redirect("/lifeswitch/training/analyze");
 
-  redirect("/lifeswitch/training/log");
+  redirect("/lifeswitch/training/calendar");
 }
