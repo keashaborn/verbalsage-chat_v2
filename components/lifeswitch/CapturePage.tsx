@@ -62,16 +62,20 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-import { useSearchParams } from "next/navigation";
 
 type CaptureDomain = "nutrition" | "training" | "behavior" | "verbal" | "measurements";
 
 export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
-  const sp = useSearchParams();
-  const domainFromQuery = (sp?.get("domain") || "").trim().toLowerCase();
-  const effectiveDomain = (domain || (domainFromQuery as any) || "").trim().toLowerCase();
-
-  const [status, setStatus] = React.useState<string>("");
+  const [queryDomain, setQueryDomain] = React.useState<string>("");
+  React.useEffect(() => {
+    try {
+      if (typeof window === "undefined") return;
+      const sp = new URLSearchParams(window.location.search || "");
+      setQueryDomain(String(sp.get("domain") || "").trim().toLowerCase());
+    } catch {}
+  }, []);
+  const effectiveDomain = String(domain || queryDomain || "").trim().toLowerCase();
+const [status, setStatus] = React.useState<string>("");
 
   const [ownerUserId, setOwnerUserId] = React.useState<string>("");
 
