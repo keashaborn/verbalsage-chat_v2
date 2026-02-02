@@ -9,9 +9,9 @@ export default function BehaviorDesign() {
       </div>
 
       <div className="mt-6 grid gap-3">
-        <Link href="/developer/forms" className="rounded-xl border p-4 hover:bg-muted/30">
-          <div className="text-sm font-semibold">Forms Builder</div>
-          <div className="mt-1 text-xs text-muted-foreground">Create / edit data collection forms (v0).</div>
+        <Link href="/lifeswitch/behavior/design/measures" className="rounded-xl border p-4 hover:bg-muted/30">
+          <div className="text-sm font-semibold">Define measures</div>
+          <div className="mt-1 text-xs text-muted-foreground">Create data collection forms (LLM-assisted, v0).</div>
         </Link>
 
         <Link href="/lifeswitch/behavior/plan" className="rounded-xl border p-4 hover:bg-muted/30">
