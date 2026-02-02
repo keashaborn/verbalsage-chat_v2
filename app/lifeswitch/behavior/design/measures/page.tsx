@@ -11,7 +11,7 @@ export default function BehaviorMeasuresPage() {
       </div>
 
       <div className="mt-6">
-        <FormsBuilderPage />
+        <FormsBuilderPage defaultLifeSwitchDomain="behavior" />
       </div>
     </div>
   );
