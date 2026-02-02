@@ -50,6 +50,31 @@ type DaySummary = {
   hit: boolean;
 };
 
+function hasAnyData(raw: any, t: { kcal: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null }) {
+  // totals-based
+  if ((t.kcal ?? 0) > 0) return true;
+  if ((t.protein_g ?? 0) > 0) return true;
+  if ((t.carbs_g ?? 0) > 0) return true;
+  if ((t.fat_g ?? 0) > 0) return true;
+
+  // structure-based (common backend shapes)
+  const candidates = [
+    raw?.entries,
+    raw?.items,
+    raw?.meals,
+    raw?.log,
+    raw?.data?.entries,
+    raw?.result?.entries,
+  ];
+
+  for (const c of candidates) {
+    if (Array.isArray(c) && c.length > 0) return true;
+  }
+
+  // sometimes payload is { ok, detail } / { ok, day } without entries
+  return false;
+}
+
 function extractTotals(raw: any) {
   const candidates = [raw, raw?.totals, raw?.summary, raw?.day, raw?.data].filter(Boolean);
 
@@ -170,11 +195,14 @@ export default function NutritionLogPage() {
               const raw = await fetchJson(u.toString());
               const t = extractTotals(raw);
 
+              const any = hasAnyData(raw, t);
+
               const hit =
+                any &&
                 (t.protein_g != null ? t.protein_g >= TARGET_PROTEIN_G : false) &&
                 (t.kcal != null ? t.kcal <= TARGET_KCAL : false);
 
-              return { day, raw, ...t, hit } as DaySummary;
+              return { day, raw, ...t, hit } as DaySummary & { any: boolean };
             })
           );
           out.push(...results);
@@ -222,7 +250,7 @@ export default function NutritionLogPage() {
     for (const [ym, ds] of byMonth.entries()) {
       ds.sort((a, b) => b.day.localeCompare(a.day));
       const hitDates = new Set(ds.filter((x) => x.hit).map((x) => x.day));
-      const anyDates = new Set(ds.filter((x) => (x.kcal ?? 0) > 0 || (x.protein_g ?? 0) > 0).map((x) => x.day));
+      const anyDates = new Set(ds.filter((x: any) => x.any).map((x) => x.day));
       const hitCount = ds.filter((x) => x.hit).length;
 
       out.push({
@@ -286,7 +314,7 @@ export default function NutritionLogPage() {
               </div>
 
               <div className="mt-8">
-                {m.days.slice(0, 20).map((d, didx) => (
+                {m.days.filter((d: any) => d.any).slice(0, 20).map((d, didx) => (
                   <div key={d.day} className={didx ? "mt-6 pt-6 border-t border-muted/20" : ""}>
                     <div className="text-lg font-semibold">
                       {d.day} {d.hit ? "· HIT" : ""}
@@ -301,7 +329,7 @@ export default function NutritionLogPage() {
                     <details className="mt-2">
                       <summary className="cursor-pointer text-xs text-muted-foreground">Raw</summary>
                       <pre className="mt-2 max-h-64 overflow-auto rounded-xl border border-muted/20 bg-background/50 p-3 text-[11px] leading-snug text-muted-foreground">
-                        {JSON.stringify(d.raw, null, 2).slice(0, 4000)}
+                        {JSON.stringify(d.raw, null, 2).slice(0, 3000)}
                       </pre>
                     </details>
                   </div>
