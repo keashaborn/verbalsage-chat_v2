@@ -6,7 +6,7 @@ export default function NutritionModePage({ params }: { params: { mode?: string 
   const mode = (params?.mode || "").toLowerCase();
 
   if (!MODES.has(mode)) redirect("/lifeswitch/nutrition/design");
-  if (mode === "capture") redirect("/collect?domain=nutrition");
+  if (mode === "capture") redirect("/lifeswitch/nutrition/capture");
   if (mode === "design") redirect("/lifeswitch/nutrition/design");
   if (mode === "plan") redirect("/lifeswitch/nutrition/plan");
   if (mode === "log") redirect("/lifeswitch/nutrition/log");
