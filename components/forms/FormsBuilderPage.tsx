@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabaseClient";
 import Form from "@rjsf/core";
 import validator from "@rjsf/validator-ajv8";
 import HistoryPanel from "@/components/forms/builder/HistoryPanel";
+import FillPanel from "@/components/forms/builder/FillPanel";
+import PublishPanel from "@/components/forms/builder/PublishPanel";
 
 
 
@@ -1210,145 +1212,40 @@ export default function FormsPage() {
           </button>
         </div>
 
-        {tab === "publish" ? (
-          <div className="mt-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">Publish</div>
-              <button
-                className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-                onClick={publish}
-                disabled={!ready || publishing}
-              >
-                {publishing ? "Publishing…" : "Publish"}
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-sm font-semibold">Name</div>
-              <input
-                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-sm font-semibold">Template ID (optional)</div>
-              <div className="text-xs text-muted-foreground">
-                Leave blank to create a new template. If set, Publish creates a new version.
-              </div>
-              <input
-                className="w-full rounded-xl border bg-background px-3 py-2 font-mono text-xs"
-                value={templateId}
-                onChange={(e) => setTemplateId(e.target.value)}
-                placeholder="uuid"
-              />
-              {lastVersionId ? (
-                <div className="text-xs text-muted-foreground">Last version_id: {lastVersionId}</div>
-              ) : null}
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-sm font-semibold">JSON Schema</div>
-              <textarea
-                className="h-72 w-full rounded-xl border bg-background px-3 py-2 font-mono text-xs"
-                value={schemaText}
-                onChange={(e) => setSchemaText(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-sm font-semibold">UI Schema (optional)</div>
-              <textarea
-                className="h-28 w-full rounded-xl border bg-background px-3 py-2 font-mono text-xs"
-                value={uiSchemaText}
-                onChange={(e) => setUiSchemaText(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-sm font-semibold">Metadata (optional)</div>
-              <textarea
-                className="h-24 w-full rounded-xl border bg-background px-3 py-2 font-mono text-xs"
-                value={metadataText}
-                onChange={(e) => setMetadataText(e.target.value)}
-              />
-            </div>
-
-            {publishStatus ? <div className="text-sm text-muted-foreground">{publishStatus}</div> : null}
-          </div>
-        ) : tab === "fill" ? (
-          <div className="mt-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">Fill + Submit</div>
-              <button
-                className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-                onClick={loadTemplates}
-                disabled={!ready || loadingTemplates}
-              >
-                {loadingTemplates ? "Loading…" : "Load my templates"}
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-sm font-semibold">Select template version</div>
-              <select
-                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                value={selectedVersionId}
-                onChange={(e) => loadVersion(e.target.value)}
-              >
-                <option value="">(choose)</option>
-                {templates
-                  .filter((t) => t.latest_version_id)
-                  .map((t) => (
-                    <option key={t.template_id} value={t.latest_version_id as string}>
-                      {t.name} (v{t.latest_version ?? "?"})
-                    </option>
-                  ))}
-              </select>
-              <div className="text-xs text-muted-foreground">
-                v1 supports primitive fields (string/number/integer/boolean) and enum dropdowns. Arrays/objects beyond 1 level will be unsupported until we add a real schema renderer.
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-sm font-semibold">Subject ID</div>
-              <input
-                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                value={subjectId}
-                onChange={(e) => setSubjectId(e.target.value)}
-              />
-            </div>
-
-            {version ? (
-              <div className="space-y-4 rounded-xl border p-4">
-                <div className="text-sm font-semibold">
-                  {(version.json_schema?.title || "Form")} (template_version_id={version.version_id})
-                </div>
-
-                <Form
-                  schema={version.json_schema}
-                  uiSchema={version.ui_schema || {}}
-                  validator={validator}
-                  formData={formData}
-                  onChange={(e) => setFormData(e.formData)}
-                  onSubmit={() => submitEntry()}
-                >
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
-                      disabled={submitting}
-                    >
-                      {submitting ? "Submitting…" : "Submit entry"}
-                    </button>
-                  </div>
-                </Form>
-              </div>
-            ) : null}
-
-            {fillStatus ? <div className="text-sm text-muted-foreground">{fillStatus}</div> : null}
-          </div>
+        <PublishPanel
+          ready={ready}
+          publish={publish}
+          publishing={publishing}
+          name={name}
+          setName={setName}
+          templateId={templateId}
+          setTemplateId={setTemplateId}
+          lastVersionId={lastVersionId}
+          schemaText={schemaText}
+          setSchemaText={setSchemaText}
+          uiSchemaText={uiSchemaText}
+          setUiSchemaText={setUiSchemaText}
+          metadataText={metadataText}
+          setMetadataText={setMetadataText}
+          publishStatus={publishStatus}
+        />
+        {tab === "fill" ? (
+            <FillPanel
+              ready={ready}
+              loadTemplates={loadTemplates}
+              loadingTemplates={loadingTemplates}
+              templates={templates}
+              selectedVersionId={selectedVersionId}
+              loadVersion={loadVersion}
+              subjectId={subjectId}
+              setSubjectId={setSubjectId}
+              version={version}
+              formData={formData}
+              setFormData={setFormData}
+              submitEntry={submitEntry}
+              submitting={submitting}
+              fillStatus={fillStatus}
+            />
 
           ) : (
             <HistoryPanel
