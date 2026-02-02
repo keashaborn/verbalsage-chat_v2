@@ -11,7 +11,6 @@ import FillPanel from "@/components/forms/builder/FillPanel";
 import PublishPanel from "@/components/forms/builder/PublishPanel";
 
 
-
 function renderFieldInput(
   key: string,
   prop: any,
@@ -430,7 +429,9 @@ function MiniLineChart({
   );
 }
 
-export default function FormsPage() {
+export default function FormsPage(
+  { defaultLifeSwitchDomain = "" }: { defaultLifeSwitchDomain?: string }
+) {
   const [ready, setReady] = React.useState(false);
   const [userId, setUserId] = React.useState<string | null>(null);
 
@@ -1018,7 +1019,23 @@ export default function FormsPage() {
 
       const json_schema = safeJsonParse(schemaText, "json_schema");
       const ui_schema = uiSchemaText.trim() ? safeJsonParse(uiSchemaText, "ui_schema") : {};
-      const metadata = metadataText.trim() ? safeJsonParse(metadataText, "metadata") : {};
+      let metadata = metadataText.trim() ? safeJsonParse(metadataText, "metadata") : {};
+      // Enforce LifeSwitch tagging (Behavior measures should be discoverable by Capture/Analyze)
+      try {
+        const md: any = (metadata && typeof metadata === "object") ? metadata : {};
+        const ls: any = (md.lifeswitch && typeof md.lifeswitch === "object") ? md.lifeswitch : {};
+
+        // defaultLifeSwitchDomain comes from the wrapper route (behavior measures page)
+        if (!ls.domain && defaultLifeSwitchDomain) ls.domain = defaultLifeSwitchDomain;
+
+        // classify this template as a measure definition
+        if (!ls.kind) ls.kind = "measure";
+
+        md.lifeswitch = ls;
+        metadata = md;
+      } catch {
+        // leave metadata as-is
+      }
 
       const payload: any = {
         owner_user_id,
@@ -1027,6 +1044,7 @@ export default function FormsPage() {
         ui_schema,
         metadata,
       };
+
       if (templateId.trim()) payload.template_id = templateId.trim();
 
       const r = await fetch("/api/forms/publish", {
