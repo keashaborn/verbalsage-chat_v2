@@ -6,6 +6,7 @@ import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Form from "@rjsf/core";
 import validator from "@rjsf/validator-ajv8";
+import HistoryPanel from "@/components/forms/builder/HistoryPanel";
 
 
 
