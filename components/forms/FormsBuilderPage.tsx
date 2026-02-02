@@ -1398,26 +1398,6 @@ export default function FormsPage() {
               countSeries={countSeries}
               phaseStarts={phaseStarts}
 
-              quickSubmitting={quickSubmitting}
-              version={version}
-              loadVersion={loadVersion}
-              quickDate={quickDate}
-              setQuickDate={setQuickDate}
-              quickCount={quickCount}
-              setQuickCount={setQuickCount}
-              quickContext={quickContext}
-              setQuickContext={setQuickContext}
-              quickNotes={quickNotes}
-              setQuickNotes={setQuickNotes}
-              quickDurationSec={quickDurationSec}
-              setQuickDurationSec={setQuickDurationSec}
-              durationRunning={durationRunning}
-              startDuration={startDuration}
-              stopDuration={stopDuration}
-              resetDuration={resetDuration}
-              submitQuick={submitQuick}
-
-              historyRows={historyRows}
             />
           )}
       </div>
