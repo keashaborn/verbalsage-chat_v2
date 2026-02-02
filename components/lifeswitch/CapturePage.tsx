@@ -81,6 +81,8 @@ const [status, setStatus] = React.useState<string>("");
 
   const [templates, setTemplates] = React.useState<TemplateListItem[]>([]);
   const [loadingPrograms, setLoadingPrograms] = React.useState(false);
+  const [showAllTemplates, setShowAllTemplates] = React.useState(false);
+  const [versionMetaByVid, setVersionMetaByVid] = React.useState<Record<string, any>>({});
 
   const subjectId = "self";
   const [programVid, setProgramVid] = React.useState<string>("");
@@ -166,6 +168,25 @@ const [status, setStatus] = React.useState<string>("");
       const j = JSON.parse(t);
       const list: TemplateListItem[] = Array.isArray(j) ? j : [];
       setTemplates(list);
+
+      // Fetch latest-version metadata for domain filtering (best-effort)
+      try {
+        const meta: Record<string, any> = {};
+        const vids = list
+          .map((t) => String(t.latest_version_id || "").trim())
+          .filter((x) => x && x !== PHASE_TEMPLATE_VERSION_ID && x !== CORRECTION_TEMPLATE_VERSION_ID);
+
+        for (const vid of vids) {
+          try {
+            const vr = await fetch(`/api/forms/versions/${encodeURIComponent(vid)}`, { cache: "no-store" });
+            const vt = await vr.text().catch(() => "");
+            if (!vr.ok) continue;
+            const vj = vt ? JSON.parse(vt) : null;
+            meta[vid] = vj?.metadata || {};
+          } catch { }
+        }
+        setVersionMetaByVid(meta);
+      } catch { }
       setStatus(list.length ? `loaded ${list.length} programs` : "no programs");
     } catch (e: any) {
       setTemplates([]);
@@ -790,30 +811,53 @@ const [status, setStatus] = React.useState<string>("");
   return (
     <div className="mx-auto w-full max-w-3xl px-0 py-2">
       {/* Program picker */}
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={showAllTemplates}
+          onChange={(e) => setShowAllTemplates(e.target.checked)}
+        />
+        <span>
+          show all templates{effectiveDomain ? ` (domain=${effectiveDomain})` : ""}
+        </span>
+      </label>
+
       <div className="space-y-1">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Program</div>
-          <select
-            className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-            value={programVid}
-            onChange={(e) => setProgramVid(e.target.value)}
-          >
-            <option value="">(choose)</option>
-            {templates
-              .filter((t) => {
-                const vid = String(t.latest_version_id || "").trim();
-                if (!vid) return false;
-                if (vid === PHASE_TEMPLATE_VERSION_ID) return false;
-                if (vid === CORRECTION_TEMPLATE_VERSION_ID) return false;
-                return true;
-              })
-              .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
-              .map((t) => (
-                <option key={t.template_id} value={String(t.latest_version_id)}>
-                  {(String(t.name || "").includes("Workout Set") ? "My workout" : t.name)} (v{t.latest_version ?? "?"})
-                </option>
-              ))}
-          </select>
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Program
         </div>
+
+        <select
+          className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+          value={programVid}
+          onChange={(e) => setProgramVid(e.target.value)}
+        >
+          <option value="">(choose)</option>
+
+          {templates
+            .filter((t) => {
+              const vid = String(t.latest_version_id || "").trim();
+              if (!vid) return false;
+              if (vid === PHASE_TEMPLATE_VERSION_ID) return false;
+              if (vid === CORRECTION_TEMPLATE_VERSION_ID) return false;
+
+              // Domain filter (unless showAllTemplates or no domain provided)
+              if (!showAllTemplates && effectiveDomain) {
+                const md = versionMetaByVid[vid] || {};
+                const d = String(md?.lifeswitch?.domain || "").trim().toLowerCase();
+                if (d !== effectiveDomain) return false;
+              }
+
+              return true;
+            })
+            .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
+            .map((t) => (
+              <option key={t.template_id} value={String(t.latest_version_id)}>
+                {(String(t.name || "").includes("Workout Set") ? "My workout" : t.name)} (v{t.latest_version ?? "?"})
+              </option>
+            ))}
+        </select>
+      </div>
         <div className="mt-4 rounded-xl border p-4">
           {!programVersion ? (
             <div className="text-sm text-muted-foreground">Select a program to begin.</div>
