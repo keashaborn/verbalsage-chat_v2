@@ -1212,91 +1212,87 @@ export default function FormsPage() {
           </button>
         </div>
 
-        <PublishPanel
-          ready={ready}
-          publish={publish}
-          publishing={publishing}
-          name={name}
-          setName={setName}
-          templateId={templateId}
-          setTemplateId={setTemplateId}
-          lastVersionId={lastVersionId}
-          schemaText={schemaText}
-          setSchemaText={setSchemaText}
-          uiSchemaText={uiSchemaText}
-          setUiSchemaText={setUiSchemaText}
-          metadataText={metadataText}
-          setMetadataText={setMetadataText}
-          publishStatus={publishStatus}
-        />
-        {tab === "fill" ? (
-            <FillPanel
-              ready={ready}
-              loadTemplates={loadTemplates}
-              loadingTemplates={loadingTemplates}
-              templates={templates}
-              selectedVersionId={selectedVersionId}
-              loadVersion={loadVersion}
-              subjectId={subjectId}
-              setSubjectId={setSubjectId}
-              version={version}
-              formData={formData}
-              setFormData={setFormData}
-              submitEntry={submitEntry}
-              submitting={submitting}
-              fillStatus={fillStatus}
-            />
-
-          ) : (
-            <HistoryPanel
-              ready={ready}
-              historyXMode={historyXMode}
-              setHistoryXMode={setHistoryXMode}
-              historyLimit={historyLimit}
-              setHistoryLimit={setHistoryLimit}
-              loadHistory={loadHistory}
-              historyLoading={historyLoading}
-              templates={templates}
-              PHASE_TEMPLATE_VERSION_ID={PHASE_TEMPLATE_VERSION_ID}
-              loadTemplates={loadTemplates}
-              loadingTemplates={loadingTemplates}
-              historyTemplateVersionId={historyTemplateVersionId}
-              setHistoryTemplateVersionId={setHistoryTemplateVersionId}
-              selectedVersionId={selectedVersionId}
-
-              phaseLoading={phaseLoading}
-              loadPhases={loadPhases}
-              phaseDate={phaseDate}
-              setPhaseDate={setPhaseDate}
-              phaseLabel={phaseLabel}
-              setPhaseLabel={setPhaseLabel}
-              phaseNotes={phaseNotes}
-              setPhaseNotes={setPhaseNotes}
-              submitPhaseMarker={submitPhaseMarker}
-              phaseSubmitting={phaseSubmitting}
-              phaseStatus={phaseStatus}
-
-              cleanupN={cleanupN}
-              setCleanupN={setCleanupN}
-              cleanupCandidates={cleanupCandidates}
-              cleanupConfirm={cleanupConfirm}
-              setCleanupConfirm={setCleanupConfirm}
-              cleanupNotes={cleanupNotes}
-              setCleanupNotes={setCleanupNotes}
-              bulkVoidCandidates={bulkVoidCandidates}
-              cleanupSubmitting={cleanupSubmitting}
-              cleanupStatus={cleanupStatus}
-              extractUuid={extractUuid}
-              subjectId={subjectId}
-              setSubjectId={setSubjectId}
-
-              historyVersion={historyVersion}
-              durationSeries={durationSeries}
-              countSeries={countSeries}
-              phaseStarts={phaseStarts}
-
-            />
-          )}
+        {tab === "publish" ? (
+          <PublishPanel
+            ready={ready}
+            publish={publish}
+            publishing={publishing}
+            name={name}
+            setName={setName}
+            templateId={templateId}
+            setTemplateId={setTemplateId}
+            lastVersionId={lastVersionId ?? ""}
+            schemaText={schemaText}
+            setSchemaText={setSchemaText}
+            uiSchemaText={uiSchemaText}
+            setUiSchemaText={setUiSchemaText}
+            metadataText={metadataText}
+            setMetadataText={setMetadataText}
+            publishStatus={publishStatus}
+          />
+        ) : tab === "fill" ? (
+          <FillPanel
+            ready={ready}
+            loadTemplates={loadTemplates}
+            loadingTemplates={loadingTemplates}
+            templates={templates}
+            selectedVersionId={selectedVersionId}
+            loadVersion={loadVersion}
+            subjectId={subjectId}
+            setSubjectId={setSubjectId}
+            version={version}
+            formData={formData}
+            setFormData={setFormData}
+            submitEntry={submitEntry}
+            submitting={submitting}
+            fillStatus={fillStatus}
+          />
+        ) : (
+          <HistoryPanel
+            ready={ready}
+            historyXMode={historyXMode}
+            setHistoryXMode={setHistoryXMode}
+            historyLimit={historyLimit}
+            setHistoryLimit={setHistoryLimit}
+            loadHistory={loadHistory}
+            historyLoading={historyLoading}
+            templates={templates}
+            PHASE_TEMPLATE_VERSION_ID={PHASE_TEMPLATE_VERSION_ID}
+            loadTemplates={loadTemplates}
+            loadingTemplates={loadingTemplates}
+            historyTemplateVersionId={historyTemplateVersionId}
+            setHistoryTemplateVersionId={setHistoryTemplateVersionId}
+            selectedVersionId={selectedVersionId}
+            phaseLoading={phaseLoading}
+            loadPhases={loadPhases}
+            phaseDate={phaseDate}
+            setPhaseDate={setPhaseDate}
+            phaseLabel={phaseLabel}
+            setPhaseLabel={setPhaseLabel}
+            phaseNotes={phaseNotes}
+            setPhaseNotes={setPhaseNotes}
+            submitPhaseMarker={submitPhaseMarker}
+            phaseSubmitting={phaseSubmitting}
+            phaseStatus={phaseStatus}
+            cleanupN={cleanupN}
+            setCleanupN={setCleanupN}
+            cleanupCandidates={cleanupCandidates}
+            cleanupConfirm={cleanupConfirm}
+            setCleanupConfirm={setCleanupConfirm}
+            cleanupNotes={cleanupNotes}
+            setCleanupNotes={setCleanupNotes}
+            bulkVoidCandidates={bulkVoidCandidates}
+            cleanupSubmitting={cleanupSubmitting}
+            cleanupStatus={cleanupStatus}
+            extractUuid={extractUuid}
+            subjectId={subjectId}
+            setSubjectId={setSubjectId}
+            historyVersion={historyVersion}
+            durationSeries={durationSeries}
+            countSeries={countSeries}
+            phaseStarts={phaseStarts}
+          />
+        )}
       </div>
     </div>
   );
