@@ -6,7 +6,7 @@ export default function BehaviorModePage({ params }: { params: { mode?: string }
   const mode = (params?.mode || "").toLowerCase();
   if (!MODES.has(mode)) redirect("/lifeswitch/behavior/design");
 
-  if (mode === "capture") redirect("/lifeswitch/behavior/capture");
+  if (mode === "capture") redirect("/collect?domain=behavior");
   if (mode === "design") redirect("/lifeswitch/behavior/design");
   if (mode === "analyze") redirect("/lifeswitch/behavior/analyze");
   if (mode === "log") redirect("/lifeswitch/behavior/log");
