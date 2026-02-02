@@ -251,6 +251,7 @@ export default function NutritionLogPage() {
       ds.sort((a, b) => b.day.localeCompare(a.day));
       const hitDates = new Set(ds.filter((x) => x.hit).map((x) => x.day));
       const anyDates = new Set(ds.filter((x: any) => x.any).map((x) => x.day));
+      if (anyDates.size === 0) continue;
       const hitCount = ds.filter((x) => x.hit).length;
 
       out.push({

@@ -781,12 +781,11 @@ export default function SSLGPanel({
             <div className="text-sm font-semibold">Phase marker</div>
           </div>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <div className="mt-3 grid gap-3 md:grid-cols-3 min-w-0 overflow-x-hidden">
             <label className="grid gap-1 text-sm">
               <span className="text-muted-foreground">Date</span>
               <input
-                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                type="date"
+                className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 text-sm"
                 value={phaseDate}
                 onChange={(e) => setPhaseDate(e.target.value)}
               />
