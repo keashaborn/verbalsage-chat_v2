@@ -60,7 +60,7 @@ export function LifeSwitchModeNav() {
   const mode = normalizeModeFromPath(pathname);
 
   // Capture is global, but we preserve domain as a query param for filtering.
-  const captureHref = `/collect?domain=${encodeURIComponent(domain)}`;
+  const captureHref = `/lifeswitch/${domain}/capture`;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
@@ -81,7 +81,7 @@ export function LifeSwitchModeNav() {
           href={captureHref}
           label="Capture"
           Icon={PlusSquare}
-          active={false}
+          active={mode === "capture"}
         />
         <Tab
           href={`/lifeswitch/${domain}/plan`}
