@@ -303,19 +303,8 @@ export default function NutritionFoodsPage() {
         <div className="min-w-0">
           <div className="text-lg font-semibold">My Foods</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Use USDA search to find foods, import into your private list, then reuse in meal plans.
+            Search USDA (FoodData Central) → import → use in meals/meal plans.
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            Note: the public catalog is currently tiny, so local search won’t find “hamburger” until we ingest more rows.
-          </div>
-        </div>
-
-        <div className="min-w-0 w-full lg:w-auto text-left lg:text-right text-xs text-muted-foreground">
-          <div className="flex items-center justify-between gap-2 lg:justify-end">
-            <div>{owner ? <span>signed in</span> : <span>not signed in</span>}</div>
-          </div>
-
-          <div className="mt-1 max-w-full min-w-0 break-all font-mono">{owner ? owner : authErr || "—"}</div>
         </div>
       </div>
 
