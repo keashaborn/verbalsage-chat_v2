@@ -300,12 +300,7 @@ export default function NutritionFoodsPage() {
   return (
     <div className="mx-auto max-w-5xl p-4 overflow-x-hidden">
       <div className="flex flex-col gap-3 lg:flex-row [@media(pointer:coarse)]:flex-col lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <div className="text-lg font-semibold">My Foods</div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            Search USDA (FoodData Central) → import → use in meals/meal plans.
-          </div>
-        </div>
+        <div className="min-w-0" />
       </div>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1">
@@ -410,7 +405,7 @@ export default function NutritionFoodsPage() {
         {/* MY FOODS */}
         <div>
           <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-medium">My Foods (private)</div>
+            <div className="text-sm font-medium">Foods</div>
             <button className="rounded-md border px-3 py-1.5 text-xs" onClick={() => void loadMyFoods()} disabled={!owner || myLoading}>
               {myLoading ? "Loading…" : "Refresh"}
             </button>
@@ -418,10 +413,6 @@ export default function NutritionFoodsPage() {
 
           {!owner ? <div className="mt-2 text-xs text-muted-foreground">Sign in to view/save My Foods.</div> : null}
           {myErr ? <div className="mt-2 text-xs text-red-500">{myErr}</div> : null}
-
-          <div className="mt-3 text-xs text-muted-foreground">
-            rows: <span className="font-semibold">{myFoods.length}</span>
-          </div>
 
           <div className="mt-3 divide-y divide-muted/20">
             {myFoods.map((f) => (
