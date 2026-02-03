@@ -322,12 +322,20 @@ export default function NutritionFoodsPage() {
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1">
         {/* USDA SEARCH */}
-        <section className="rounded-lg border p-3">
-          <div className="text-sm font-medium">Search USDA (FoodData Central)</div>
+        <div>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold">Search USDA (FoodData Central)</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                results: <span className="font-semibold">{usdaRows.length}</span>
+              </div>
+            </div>
+            {usdaErr ? <div className="text-xs text-red-500">{usdaErr}</div> : null}
+          </div>
 
-          <div className="mt-2 flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col">
+          <div className="mt-3 flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col">
             <input
-              className="w-full rounded-md border bg-background px-2 py-2 text-sm"
+              className="w-full min-w-0 rounded-xl border bg-background px-3 py-2 text-sm"
               value={usdaQ}
               onChange={(e) => setUsdaQ(e.target.value)}
               placeholder='e.g. "salmon, raw", "sockeye salmon", "ground beef 96% lean", "mcdonalds hamburger"'
@@ -335,68 +343,78 @@ export default function NutritionFoodsPage() {
                 if (e.key === "Enter") void searchUsda();
               }}
             />
-            <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void searchUsda()} disabled={usdaLoading}>
+            <button
+              className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+              onClick={() => void searchUsda()}
+              disabled={usdaLoading}
+            >
               {usdaLoading ? "Searching…" : "Search"}
             </button>
           </div>
 
           <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1 gap-2">
             <input
-              className="rounded-md border bg-background px-2 py-2 text-sm"
+              className="min-w-0 rounded-xl border bg-background px-3 py-2 text-sm"
               value={variant}
               onChange={(e) => setVariant(e.target.value)}
               placeholder='variant (optional) e.g. "96/4", "lean", "brand X"'
             />
             <input
-              className="rounded-md border bg-background px-2 py-2 text-sm"
+              className="min-w-0 rounded-xl border bg-background px-3 py-2 text-sm"
               value={usdaLimit}
               onChange={(e) => setUsdaLimit(e.target.value)}
               placeholder="limit (1-50)"
             />
           </div>
 
-          {usdaErr && <div className="mt-2 text-xs text-red-500">{usdaErr}</div>}
+          {/* Flat list */}
+          {(!usdaLoading && usdaRows.length === 0) ? (
+            <div className="mt-3 text-xs text-muted-foreground">
+              No results yet. Enter a query and click Search.
+            </div>
+          ) : null}
 
-          <div className="mt-3 text-xs text-muted-foreground">
-            results: <span className="font-semibold">{usdaRows.length}</span>
-          </div>
-
-          <div className="mt-2 space-y-2">
-            {usdaRows.map((h) => (
-              <div key={String(h.fdc_id)} className="rounded-md border p-2">
-                <div className="flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col lg:items-start lg:justify-between">
+          {usdaRows.length ? (
+            <div className="mt-3 divide-y divide-muted/20">
+              {usdaRows.map((h) => (
+                <div
+                  key={String(h.fdc_id)}
+                  className="py-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between"
+                >
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{h.description || "(no description)"}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground break-all md:break-words">
+                    <div className="mt-0.5 text-xs text-muted-foreground break-words">
                       {(h.brand_owner || h.brand_name || "unbranded") + " · " + (h.data_type || "unknown")}{" "}
                       {h.published_date ? " · " + h.published_date : ""} · fdc_id {h.fdc_id}
                     </div>
-                    {h.gtin_upc ? <div className="mt-0.5 text-xs text-muted-foreground break-all md:break-words">upc {h.gtin_upc}</div> : null}
+                    {h.gtin_upc ? (
+                      <div className="mt-0.5 text-xs text-muted-foreground break-words">upc {h.gtin_upc}</div>
+                    ) : null}
                   </div>
 
-                  <button
-                    className="shrink-0 rounded-md border px-3 py-1.5 text-xs"
-                    onClick={() => void importFromUsda(h)}
-                    disabled={!owner || importingFdc === h.fdc_id || importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)}
-                    title={!owner ? "Sign in to import" : "Import into My Foods"}
-                  >
-                    {importingFdc === h.fdc_id
-                      ? "Importing…"
-                      : importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)
-                        ? "Imported"
-                        : "Import"}
-                  </button>
+                  <div className="flex justify-end lg:ml-3 lg:shrink-0">
+                    <button
+                      className="w-full lg:w-auto rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                      onClick={() => void importFromUsda(h)}
+                      disabled={
+                        !owner ||
+                        importingFdc === h.fdc_id ||
+                        importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)
+                      }
+                      title={!owner ? "Sign in to import" : "Import into My Foods"}
+                    >
+                      {importingFdc === h.fdc_id
+                        ? "Importing…"
+                        : importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)
+                          ? "Imported"
+                          : "Import"}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-
-            {!usdaLoading && usdaRows.length === 0 ? (
-              <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
-                No results yet. Enter a query and click Search.
-              </div>
-            ) : null}
-          </div>
-        </section>
+              ))}
+            </div>
+          ) : null}
+        </div>
 
         {/* MY FOODS */}
         <section className="rounded-lg border p-3">
