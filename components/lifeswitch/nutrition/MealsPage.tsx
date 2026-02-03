@@ -266,9 +266,9 @@ export default function MealsPage() {
   return (
     <div className="mx-auto max-w-5xl p-4 overflow-x-hidden">
 
-      <div className="text-lg font-semibold">Nutrition · Meals</div>
+      <div className="text-lg font-semibold">Nutrition · Combos</div>
       <div className="mt-1 text-sm text-muted-foreground">
-        Meal templates. Set your typical grams per food here. Scheduling comes later.
+        Reusable food bundles. Default is grams.
       </div>
 
       {authErr ? (
@@ -324,7 +324,7 @@ export default function MealsPage() {
           </div>
 
           <div className="mt-4 rounded-md border bg-muted/20 p-3">
-            <div className="text-sm font-medium">Create meal</div>
+            <div className="text-sm font-medium">Create combo</div>
             <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1 gap-2">
               <input className="rounded-md border bg-background px-2 py-2 text-sm" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Meal name" />
               <select className="rounded-md border bg-background px-2 py-2 text-sm" value={createType} onChange={(e) => setCreateType(e.target.value as any)}>
@@ -341,7 +341,7 @@ export default function MealsPage() {
           </div>
 
           <div className="mt-4">
-            <div className="text-sm font-medium">Meal items</div>
+            <div className="text-sm font-medium">Combo items</div>
             <div className="mt-2 space-y-2">
               {items.map((it) => (
                 <div key={it.meal_item_id} className="py-3 border-t border-muted/20">
@@ -382,42 +382,36 @@ export default function MealsPage() {
 
         {/* Right: My Foods picker */}
         <section className="mt-6">
-          <div className="text-sm font-medium">Add foods to meal</div>
-          <div className="mt-1 text-xs text-muted-foreground">Search your My Foods and set a typical grams amount.</div>
+          <div className="text-sm font-medium">Add items</div>
 
           <div className="mt-2 flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col">
             <input
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder='search My Foods (e.g. "salmon", "bread", "oats")'
+              placeholder='Search My Foods'
               disabled={!owner}
               onKeyDown={(e) => {
                 if (e.key === "Enter") void searchMyFoods();
               }}
             />
-            <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void searchMyFoods()} disabled={!owner || loading}>
+            <button
+              className="rounded-md border px-3 py-2 text-sm"
+              onClick={() => void searchMyFoods()}
+              disabled={!owner || loading}
+            >
               {loading ? "…" : "Search"}
             </button>
           </div>
 
-          <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1 gap-2">
-            <select
-              className="rounded-md border bg-background px-2 py-2 text-sm"
-              value={qtyMode}
-              onChange={(e) => setQtyMode(e.target.value as any)}
-              disabled={!owner}
-            >
-              <option value="grams">grams</option>
-              <option value="serving">servings (default preset)</option>
-            </select>
-
+          {/* Default: grams only. Servings mode is available under Advanced. */}
+          <div className="mt-2 grid grid-cols-1 gap-2">
             {qtyMode === "grams" ? (
               <input
                 className="w-full rounded-md border bg-background px-2 py-2 text-sm"
                 value={qtyG}
                 onChange={(e) => setQtyG(e.target.value)}
-                placeholder="grams (e.g. 150)"
+                placeholder="grams"
                 disabled={!owner}
               />
             ) : (
@@ -425,15 +419,30 @@ export default function MealsPage() {
                 className="w-full rounded-md border bg-background px-2 py-2 text-sm"
                 value={qtyServings}
                 onChange={(e) => setQtyServings(e.target.value)}
-                placeholder="servings (e.g. 2)"
+                placeholder="servings"
                 disabled={!owner}
               />
             )}
           </div>
 
-          <div className="mt-1 text-xs text-muted-foreground">
-            {qtyMode === "serving" ? "Uses the default serving preset for that food." : "Adds grams to the meal template."}
-          </div>
+          <details className="mt-2">
+            <summary className="cursor-pointer text-xs text-muted-foreground">Advanced</summary>
+            <div className="mt-2 grid gap-2">
+              <select
+                className="w-full rounded-md border bg-background px-2 py-2 text-sm"
+                value={qtyMode}
+                onChange={(e) => setQtyMode(e.target.value as any)}
+                disabled={!owner}
+              >
+                <option value="grams">grams</option>
+                <option value="serving">servings (default preset)</option>
+              </select>
+
+              <div className="text-xs text-muted-foreground">
+                Servings uses the default preset for that food.
+              </div>
+            </div>
+          </details>
 
           <div className="mt-3 space-y-2">
             {hits.map((f) => (
