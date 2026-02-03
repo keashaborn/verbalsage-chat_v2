@@ -12,7 +12,7 @@ export default function NutritionDesignLayout({ children }: { children: ReactNod
       <SegmentTabs
         segments={[
           { href: "/lifeswitch/nutrition/design/foods", label: "Foods" },
-          { href: "/lifeswitch/nutrition/design/meals", label: "Meals" },
+          { href: "/lifeswitch/nutrition/design/meals", label: "Combos" },
         ]}
       />
 

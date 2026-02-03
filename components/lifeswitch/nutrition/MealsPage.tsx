@@ -283,16 +283,33 @@ export default function MealsPage() {
       <div className="mt-4 grid gap-4 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1">
         {/* Left: meal selection + items */}
         <section className="mt-6">
-          <div className="text-sm font-medium">Meals</div>
+          <div className="text-sm font-medium">Combos</div>
 
           <div className="mt-2 flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col">
+            <div className="mt-4 rounded-md border bg-muted/20 p-3">
+              <div className="text-sm font-medium">Create combo</div>
+              <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1 gap-2">
+                <input className="rounded-md border bg-background px-2 py-2 text-sm" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Meal name" />
+                <select className="rounded-md border bg-background px-2 py-2 text-sm" value={createType} onChange={(e) => setCreateType(e.target.value as any)}>
+                  <option value="breakfast">breakfast</option>
+                  <option value="lunch">lunch</option>
+                  <option value="dinner">dinner</option>
+                  <option value="snack">snack</option>
+                  <option value="other">other</option>
+                </select>
+              </div>
+              <button className="mt-2 w-full rounded-md border px-3 py-2 text-sm" onClick={() => void createMeal()} disabled={!owner}>
+                Save combo
+              </button>
+            </div>
+
             <select
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={selectedMealId}
               onChange={(e) => setSelectedMealId(e.target.value)}
               disabled={!owner}
             >
-              <option value="">(select meal)</option>
+              <option value="">(select combo)</option>
               {meals.map((m) => (
                 <option key={m.meal_id} value={m.meal_id}>
                   {m.meal_type} · {m.name}
@@ -322,24 +339,6 @@ export default function MealsPage() {
               <div className="font-semibold">{fmt(totals.f, 0)}g</div>
             </div>
           </div>
-
-          <div className="mt-4 rounded-md border bg-muted/20 p-3">
-            <div className="text-sm font-medium">Create combo</div>
-            <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1 gap-2">
-              <input className="rounded-md border bg-background px-2 py-2 text-sm" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Meal name" />
-              <select className="rounded-md border bg-background px-2 py-2 text-sm" value={createType} onChange={(e) => setCreateType(e.target.value as any)}>
-                <option value="breakfast">breakfast</option>
-                <option value="lunch">lunch</option>
-                <option value="dinner">dinner</option>
-                <option value="snack">snack</option>
-                <option value="other">other</option>
-              </select>
-            </div>
-            <button className="mt-2 w-full rounded-md border px-3 py-2 text-sm" onClick={() => void createMeal()} disabled={!owner}>
-              Save meal
-            </button>
-          </div>
-
           <div className="mt-4">
             <div className="text-sm font-medium">Combo items</div>
             <div className="mt-2 space-y-2">
@@ -375,7 +374,7 @@ export default function MealsPage() {
                   </div>
                 </div>
               ))}
-              {!selectedMealId ? <div className="text-xs text-muted-foreground">Select a meal to view items.</div> : null}
+              {!selectedMealId ? <div className="text-xs text-muted-foreground">Select a combo to view items.</div> : null}
             </div>
           </div>
         </section>
@@ -473,7 +472,7 @@ export default function MealsPage() {
             ))}
             {owner && hits.length === 0 ? (
               <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
-                Search your My Foods, then click Add to place it in the selected meal.
+                Search your My Combos, then click Add to place it in the selected combo.
               </div>
             ) : null}
           </div>
