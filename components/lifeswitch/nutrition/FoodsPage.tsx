@@ -86,7 +86,6 @@ export default function NutritionFoodsPage() {
 
   // USDA search
   const [usdaQ, setUsdaQ] = React.useState("");
-  const [usdaLimit, setUsdaLimit] = React.useState("10");
   const [usdaRows, setUsdaRows] = React.useState<UsdaHit[]>([]);
   const [usdaLoading, setUsdaLoading] = React.useState(false);
   const [usdaErr, setUsdaErr] = React.useState<string | null>(null);
@@ -188,8 +187,8 @@ export default function NutritionFoodsPage() {
     setUsdaErr(null);
 
     try {
-      const limit = Math.max(1, Math.min(50, Number(usdaLimit || "10")));
-      const url = `/api/catalog/foods/usda/search?q=${encodeURIComponent(qq)}&limit=${encodeURIComponent(String(limit))}`;
+      const limit = 10; // fixed default
+      const url = `/api/catalog/foods/usda/search?q=${encodeURIComponent(qq)}&limit=${limit}`;
       const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) {
         const t = await r.text();
@@ -203,7 +202,7 @@ export default function NutritionFoodsPage() {
     } finally {
       setUsdaLoading(false);
     }
-  }, [usdaQ, usdaLimit]);
+  }, [usdaQ]);
 
   const loadMyFoods = React.useCallback(async () => {
     if (!owner) return;
@@ -352,20 +351,23 @@ export default function NutritionFoodsPage() {
             </button>
           </div>
 
-          <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1 gap-2">
-            <input
-              className="min-w-0 rounded-xl border bg-background px-3 py-2 text-sm"
-              value={variant}
-              onChange={(e) => setVariant(e.target.value)}
-              placeholder='variant (optional) e.g. "96/4", "lean", "brand X"'
-            />
-            <input
-              className="min-w-0 rounded-xl border bg-background px-3 py-2 text-sm"
-              value={usdaLimit}
-              onChange={(e) => setUsdaLimit(e.target.value)}
-              placeholder="limit (1-50)"
-            />
-          </div>
+          <details className="mt-2">
+            <summary className="cursor-pointer text-xs text-muted-foreground">
+              Advanced
+            </summary>
+
+            <div className="mt-2">
+              <input
+                className="w-full rounded-md border bg-background px-2 py-2 text-sm"
+                value={variant}
+                onChange={(e) => setVariant(e.target.value)}
+                placeholder='variant (optional) e.g. "96/4", "lean", "brand X"'
+              />
+              <div className="mt-1 text-xs text-muted-foreground">
+                Stored as <span className="font-mono">variant</span> on import; leave blank if you don’t care.
+              </div>
+            </div>
+          </details>
 
           {/* Flat list */}
           {(!usdaLoading && usdaRows.length === 0) ? (
@@ -422,21 +424,6 @@ export default function NutritionFoodsPage() {
             <div className="text-sm font-medium">My Foods (private)</div>
             <button className="rounded-md border px-3 py-1.5 text-xs" onClick={() => void loadMyFoods()} disabled={!owner || myLoading}>
               {myLoading ? "Loading…" : "Refresh"}
-            </button>
-          </div>
-
-          <div className="mt-2 flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col">
-            <input
-              className="w-full rounded-md border bg-background px-2 py-2 text-sm"
-              value={myFilter}
-              onChange={(e) => setMyFilter(e.target.value)}
-              placeholder='filter (optional): "hamburger", "96/4", "cheddar"'
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void loadMyFoods();
-              }}
-            />
-            <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void loadMyFoods()} disabled={!owner || myLoading}>
-              Filter
             </button>
           </div>
 
