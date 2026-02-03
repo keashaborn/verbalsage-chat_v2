@@ -272,7 +272,7 @@ export default function MealsPage() {
       </div>
 
       {authErr ? (
-        <div className="mt-3 rounded-md border p-3 text-sm">
+        <div className="mt-3 text-sm text-muted-foreground">
           <div className="font-medium">Not signed in</div>
           <div className="mt-1 text-muted-foreground">/api/auth/whoami: {authErr}</div>
         </div>
@@ -282,7 +282,7 @@ export default function MealsPage() {
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1">
         {/* Left: meal selection + items */}
-        <section className="rounded-lg border p-3">
+        <section className="mt-6">
           <div className="text-sm font-medium">Meals</div>
 
           <div className="mt-2 flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col">
@@ -305,19 +305,19 @@ export default function MealsPage() {
           </div>
 
           <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
-            <div className="rounded-md bg-muted/30 p-2">
+            <div className="text-xs text-muted-foreground">
               <div className="opacity-70">kcal</div>
               <div className="font-semibold">{fmt(totals.kcal, 0)}</div>
             </div>
-            <div className="rounded-md bg-muted/30 p-2">
+            <div className="text-xs text-muted-foreground">
               <div className="opacity-70">protein</div>
               <div className="font-semibold">{fmt(totals.p, 0)}g</div>
             </div>
-            <div className="rounded-md bg-muted/30 p-2">
+            <div className="text-xs text-muted-foreground">
               <div className="opacity-70">carbs</div>
               <div className="font-semibold">{fmt(totals.c, 0)}g</div>
             </div>
-            <div className="rounded-md bg-muted/30 p-2">
+            <div className="text-xs text-muted-foreground">
               <div className="opacity-70">fat</div>
               <div className="font-semibold">{fmt(totals.f, 0)}g</div>
             </div>
@@ -344,7 +344,7 @@ export default function MealsPage() {
             <div className="text-sm font-medium">Meal items</div>
             <div className="mt-2 space-y-2">
               {items.map((it) => (
-                <div key={it.meal_item_id} className="rounded-md border p-2">
+                <div key={it.meal_item_id} className="py-3 border-t border-muted/20">
                   <div className="flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">{it.display_name}</div>
@@ -381,7 +381,7 @@ export default function MealsPage() {
         </section>
 
         {/* Right: My Foods picker */}
-        <section className="rounded-lg border p-3">
+        <section className="mt-6">
           <div className="text-sm font-medium">Add foods to meal</div>
           <div className="mt-1 text-xs text-muted-foreground">Search your My Foods and set a typical grams amount.</div>
 
@@ -437,7 +437,7 @@ export default function MealsPage() {
 
           <div className="mt-3 space-y-2">
             {hits.map((f) => (
-              <div key={f.my_food_id} className="rounded-md border p-2">
+              <div key={f.my_food_id} className="py-3 border-t border-muted/20">
                 <div className="flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col lg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{f.display_name}</div>

@@ -417,7 +417,7 @@ export default function NutritionFoodsPage() {
         </div>
 
         {/* MY FOODS */}
-        <section className="rounded-lg border p-3">
+        <div>
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-medium">My Foods (private)</div>
             <button className="rounded-md border px-3 py-1.5 text-xs" onClick={() => void loadMyFoods()} disabled={!owner || myLoading}>
@@ -447,23 +447,29 @@ export default function NutritionFoodsPage() {
             rows: <span className="font-semibold">{myFoods.length}</span>
           </div>
 
-          <div className="mt-2 space-y-2">
+          <div className="mt-3 divide-y divide-muted/20">
             {myFoods.map((f) => (
-              <div key={f.my_food_id} className="rounded-md border p-2">
-                <div className="flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col lg:items-start lg:justify-between">
+              <div key={f.my_food_id} className="py-3">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{f.display_name}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground break-all lg:break-words">
-                      {f.brand ? f.brand : "—"}
+                    <div className="mt-0.5 text-xs text-muted-foreground break-words">
+                      {(f.brand ? f.brand : "—")}
                       {f.variant ? ` · ${f.variant}` : ""}
                       {f.source ? ` · ${f.source}` : ""}
                       {f.source_id ? `:${f.source_id}` : ""}
                     </div>
+
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      kcal/100g {fmt(f.kcal, 0)} · P {fmt(f.protein_g, 1)}g · C {fmt(f.carbs_g, 1)}g · F {fmt(f.fat_g, 1)}g
+                    </div>
                   </div>
-                  <div className="shrink-0 flex flex-wrap items-center gap-2">
+
+                  <div className="shrink-0 flex items-center gap-2">
                     <div className="text-xs text-muted-foreground">{f.is_verified ? "verified" : "unverified"}</div>
+
                     <button
-                      className="rounded-md border px-2 py-1 text-xs"
+                      className="rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30"
                       onClick={() => void deactivateMyFood(f.my_food_id)}
                       title="Remove from My Foods"
                     >
@@ -471,123 +477,73 @@ export default function NutritionFoodsPage() {
                     </button>
 
                     <button
-                      className="rounded-md border px-2 py-1 text-xs"
+                      className="rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30"
                       onClick={() => void toggleServings(f.my_food_id)}
                       title="Serving presets"
                     >
-                      Servings
+                      {(servOpen[f.my_food_id] ?? false) ? "Hide" : "Servings"}
                     </button>
                   </div>
                 </div>
 
-                <div className="mt-2 grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
-                  <div className="rounded-md bg-muted/30 p-2">
-                    <div className="opacity-70">kcal/100g</div>
-                    <div className="font-semibold">{fmt(f.kcal, 0)}</div>
-                  </div>
-                  <div className="rounded-md bg-muted/30 p-2">
-                    <div className="opacity-70">protein</div>
-                    <div className="font-semibold">{fmt(f.protein_g, 1)}g</div>
-                  </div>
-                  <div className="rounded-md bg-muted/30 p-2">
-                    <div className="opacity-70">carbs</div>
-                    <div className="font-semibold">{fmt(f.carbs_g, 1)}g</div>
-                  </div>
-                  <div className="rounded-md bg-muted/30 p-2">
-                    <div className="opacity-70">fat</div>
-                    <div className="font-semibold">{fmt(f.fat_g, 1)}g</div>
-                  </div>
+                {(servOpen[f.my_food_id] ?? false) ? (
+                  <div className="mt-2">
+                    {servErr[f.my_food_id] ? <div className="text-xs text-red-500">{servErr[f.my_food_id]}</div> : null}
+                    {servLoading[f.my_food_id] ? <div className="text-xs text-muted-foreground">Loading…</div> : null}
 
-                  {/* Serving presets (optional) */}
-                  <div className="rounded-md border bg-muted/10 p-2 col-span-2 md:col-span-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-xs font-medium">Serving presets</div>
+                    <div className="mt-2 space-y-1">
+                      {(servMap[f.my_food_id] || []).map((sv) => (
+                        <div key={sv.my_food_serving_id} className="flex items-center justify-between gap-2 text-xs">
+                          <div className="min-w-0 truncate">
+                            <span className="font-medium">{sv.name}</span>
+                            <span className="text-muted-foreground"> · {fmt(sv.grams, 0)}g</span>
+                            {sv.is_default ? <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px]">default</span> : null}
+                          </div>
+                        </div>
+                      ))}
+
+                      {(servMap[f.my_food_id]?.length ?? 0) === 0 && !servLoading[f.my_food_id] ? (
+                        <div className="text-xs text-muted-foreground">None yet. Add one below.</div>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-1 lg:grid-cols-3 gap-2">
+                      <input
+                        className="min-w-0 rounded-xl border bg-background px-3 py-2 text-xs"
+                        value={servName[f.my_food_id] ?? ""}
+                        onChange={(e) => setServName((p) => ({ ...p, [f.my_food_id]: e.target.value }))}
+                        placeholder="name (e.g. slice)"
+                      />
+                      <input
+                        className="min-w-0 rounded-xl border bg-background px-3 py-2 text-xs"
+                        value={servGrams[f.my_food_id] ?? ""}
+                        onChange={(e) => setServGrams((p) => ({ ...p, [f.my_food_id]: e.target.value }))}
+                        placeholder="grams"
+                        inputMode="decimal"
+                      />
                       <button
-                        className="rounded-md border px-2 py-1 text-xs"
-                        onClick={() => void toggleServings(f.my_food_id)}
-                        disabled={!owner}
-                        title={!owner ? "Sign in required" : "Show / hide servings"}
+                        className="rounded-xl border px-3 py-2 text-xs hover:bg-muted/30 disabled:opacity-50"
+                        onClick={() => void createServing(f.my_food_id)}
+                        disabled={!owner || !!servCreating[f.my_food_id]}
                       >
-                        {(servOpen[f.my_food_id] ?? false)
-                          ? "Hide"
-                          : `Show${(servMap[f.my_food_id]?.length ?? 0) ? ` (${servMap[f.my_food_id]!.length})` : ""}`}
+                        {servCreating[f.my_food_id] ? "Saving…" : "Add serving"}
                       </button>
                     </div>
 
-                    {(servOpen[f.my_food_id] ?? false) ? (
-                      <div className="mt-2">
-                        {servErr[f.my_food_id] ? <div className="text-xs text-red-500">{servErr[f.my_food_id]}</div> : null}
-                        {servLoading[f.my_food_id] ? <div className="text-xs text-muted-foreground">Loading…</div> : null}
-
-                        <div className="space-y-1">
-                          {(servMap[f.my_food_id] || []).map((sv) => (
-                            <div key={sv.my_food_serving_id} className="flex items-center justify-between gap-2 text-xs">
-                              <div className="min-w-0 truncate">
-                                <span className="font-medium">{sv.name}</span>
-                                <span className="text-muted-foreground"> · {fmt(sv.grams, 0)}g</span>
-                                {sv.is_default ? <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px]">default</span> : null}
-                              </div>
-                            </div>
-                          ))}
-                          {(servMap[f.my_food_id]?.length ?? 0) === 0 && !servLoading[f.my_food_id] ? (
-                            <div className="text-xs text-muted-foreground">None yet. Add one below.</div>
-                          ) : null}
-                        </div>
-
-                        <div className="mt-2 grid grid-cols-1 lg:grid-cols-3 gap-2">
-                          <input
-                            className="rounded-md border bg-background px-2 py-2 text-xs"
-                            value={servName[f.my_food_id] ?? ""}
-                            onChange={(e) => setServName((p) => ({ ...p, [f.my_food_id]: e.target.value }))}
-                            placeholder='name (e.g. "egg", "slice", "tbsp")'
-                            disabled={!owner}
-                          />
-                          <input
-                            className="rounded-md border bg-background px-2 py-2 text-xs text-right"
-                            value={servGrams[f.my_food_id] ?? ""}
-                            onChange={(e) => setServGrams((p) => ({ ...p, [f.my_food_id]: e.target.value }))}
-                            placeholder="grams"
-                            inputMode="decimal"
-                            disabled={!owner}
-                          />
-                          <button
-                            className="rounded-md border px-2 py-2 text-xs"
-                            onClick={() => void createServing(f.my_food_id)}
-                            disabled={!owner || !!servCreating[f.my_food_id]}
-                            title="Create serving preset"
-                          >
-                            {servCreating[f.my_food_id] ? "Saving…" : "Add"}
-                          </button>
-                        </div>
-
-                        <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                          <input
-                            type="checkbox"
-                            checked={!!(servDefault[f.my_food_id] ?? false)}
-                            onChange={(e) => setServDefault((p) => ({ ...p, [f.my_food_id]: e.target.checked }))}
-                            disabled={!owner}
-                          />
-                          Set as default
-                        </label>
-
-                        <div className="mt-1 text-[11px] text-muted-foreground">
-                          Use labels like “20 fl oz” or “1 slice” and put the measured grams. Liquids can be approximated (ml≈g) or weighed once.
-                        </div>
-                      </div>
-                    ) : null}
+                    <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={!!servDefault[f.my_food_id]}
+                        onChange={(e) => setServDefault((p) => ({ ...p, [f.my_food_id]: e.target.checked }))}
+                      />
+                      set as default
+                    </label>
                   </div>
-
-                </div>
+                ) : null}
               </div>
             ))}
-
-            {owner && !myLoading && myFoods.length === 0 ? (
-              <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
-                Empty. Import something from USDA on the left.
-              </div>
-            ) : null}
           </div>
-        </section>
+        </div>
       </div>
     </div>
   );
