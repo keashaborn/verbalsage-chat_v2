@@ -404,7 +404,7 @@ export default function NutritionFoodsPage() {
         <div>
 
           {/* Search (Exercises-style) */}
-          <div className="mt-3 grid gap-2 min-w-0">
+          <div className="mt-0.5 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
             <input
               className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 text-sm"
               value={usdaQ}
@@ -443,17 +443,17 @@ export default function NutritionFoodsPage() {
               {usdaRows.map((h) => (
                 <div
                   key={String(h.fdc_id)}
-                  className="py-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between"
+                  className="py-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between min-w-0"
                 >
-                  <div className="min-w-0">
+                  <div className="flex-1 min-w-0">
                     <div className="truncate text-sm font-medium">{h.description || "(no description)"}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground min-w-0 [overflow-wrap:anywhere]">
+                    <div className="mt-0.5 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
                       {(h.brand_owner || h.brand_name || "unbranded") + " · " + (h.data_type || "unknown")}{" "}
                       {h.published_date ? " · " + h.published_date : ""} · fdc_id {h.fdc_id}
                     </div>
 
                     {h.gtin_upc ? (
-                      <div className="mt-0.5 text-xs text-muted-foreground min-w-0 [overflow-wrap:anywhere]">
+                      <div className="mt-0.5 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
                         upc {h.gtin_upc}
                       </div>
                     ) : null}
@@ -498,8 +498,8 @@ export default function NutritionFoodsPage() {
           <div className="mt-3 divide-y divide-muted/20">
             {myFoods.map((f) => (
               <div key={f.my_food_id} className="py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
+                <div className="flex items-start justify-between gap-3 min-w-0">
+                  <div className="flex-1 min-w-0">
                     <div className="truncate text-sm font-medium">{f.display_name}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground break-words">
                       {(f.brand ? f.brand : "—")}
@@ -508,7 +508,7 @@ export default function NutritionFoodsPage() {
                       {f.source_id ? `:${f.source_id}` : ""}
                     </div>
 
-                    <div className="mt-1 text-xs text-muted-foreground">
+                    <div className="mt-0.5 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
                       kcal/100g {fmt(f.kcal, 0)} · P {fmt(f.protein_g, 1)}g · C {fmt(f.carbs_g, 1)}g · F {fmt(f.fat_g, 1)}g
                     </div>
                   </div>
