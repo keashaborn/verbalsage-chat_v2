@@ -110,7 +110,37 @@ export default function NutritionFoodsPage() {
   const [servName, setServName] = React.useState<Record<string, string>>({});
   const [servGrams, setServGrams] = React.useState<Record<string, string>>({});
   const [servDefault, setServDefault] = React.useState<Record<string, boolean>>({});
+  const [vw, setVw] = React.useState({
+    inner: 0,
+    vv: 0,
+    docClient: 0,
+    docScroll: 0,
+    bodyClient: 0,
+    dpr: 1,
+  });
 
+  React.useEffect(() => {
+    const snap = () => {
+      const doc = document.documentElement;
+      const body = document.body;
+      const vv = (window as any).visualViewport;
+      setVw({
+        inner: Math.round(window.innerWidth || 0),
+        vv: Math.round(vv?.width || 0),
+        docClient: Math.round(doc?.clientWidth || 0),
+        docScroll: Math.round(doc?.scrollWidth || 0),
+        bodyClient: Math.round(body?.clientWidth || 0),
+        dpr: Number(window.devicePixelRatio || 1),
+      });
+    };
+    snap();
+    window.addEventListener("resize", snap);
+    (window as any).visualViewport?.addEventListener("resize", snap);
+    return () => {
+      window.removeEventListener("resize", snap);
+      (window as any).visualViewport?.removeEventListener("resize", snap);
+    };
+  }, []);
   async function loadServings(my_food_id: string) {
     setServErr((p) => ({ ...p, [my_food_id]: null }));
     setServLoading((p) => ({ ...p, [my_food_id]: true }));
@@ -352,6 +382,9 @@ export default function NutritionFoodsPage() {
       data-vs-debug="1"
       className="mb-3 rounded-xl border p-3 text-[11px] font-mono whitespace-pre-wrap break-words max-w-full overflow-hidden"
     >
+      <div className="mb-3 max-w-full break-all rounded-xl border p-2 text-[11px] font-mono opacity-70">
+        inner={vw.inner} vv={vw.vv} docClient={vw.docClient} docScroll={vw.docScroll} bodyClient={vw.bodyClient} dpr={vw.dpr}
+      </div>
       {dbgEnabled ? (
         <div className="mb-3 rounded-xl border p-3 text-[11px] font-mono whitespace-pre-wrap break-words">
           <div className="mb-2 text-xs font-semibold">overflow debug (vw={dbgVW})</div>
