@@ -131,9 +131,13 @@ export default function MealsPage() {
   const [loading, setLoading] = React.useState(false);
 
   // add item controls
-  const [qtyG, setQtyG] = React.useState("150");
-  const [qtyMode, setQtyMode] = React.useState<"grams" | "serving">("grams");
-  const [qtyServings, setQtyServings] = React.useState("1");
+  // add item controls
+  const [addGramsByFoodId, setAddGramsByFoodId] = React.useState<Record<string, string>>({});
+
+  function gramsFor(my_food_id: string): string {
+    const v = (addGramsByFoodId[my_food_id] ?? "").trim();
+    return v || "150";
+  }
   const [addingId, setAddingId] = React.useState<string | null>(null);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
@@ -195,7 +199,7 @@ export default function MealsPage() {
     }
   }
 
-  async function addItem(my_food_id: string) {
+  async function addItem(my_food_id: string, gramsStr: string) {
     if (!owner || !selectedMealId) return;
     setErr(null);
     try {
@@ -205,21 +209,9 @@ export default function MealsPage() {
         sort_order: "1",
       });
 
-      if (qtyMode === "grams") {
-        const g = Number((qtyG || "").trim());
-        if (!Number.isFinite(g) || g <= 0) throw new Error("qty_g must be > 0");
-        qs.set("qty_g", String(g));
-      } else {
-        const n = Number((qtyServings || "").trim());
-        if (!Number.isFinite(n) || n <= 0) throw new Error("qty_servings must be > 0");
-
-        const sv = await fetchJson(`/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/servings`);
-        const arr = Array.isArray(sv) ? sv : [];
-        const chosen = arr.find((x: any) => x?.is_default) || arr[0];
-        if (!chosen?.my_food_serving_id) throw new Error("No serving preset for this food. Add one on Foods page.");
-        qs.set("my_food_serving_id", String(chosen.my_food_serving_id));
-        qs.set("qty_servings", String(n));
-      }
+      const g = Number(String(gramsStr || "").trim());
+      if (!Number.isFinite(g) || g <= 0) throw new Error("grams must be > 0");
+      qs.set("qty_g", String(g));
 
       await fetchJson(`/api/lifeswitch/nutrition/meals/${encodeURIComponent(selectedMealId)}/items/add?${qs.toString()}`, { method: "POST" });
       await loadItems(selectedMealId);
@@ -403,46 +395,6 @@ export default function MealsPage() {
             </button>
           </div>
 
-          {/* Default: grams only. Servings mode is available under Advanced. */}
-          <div className="mt-2 grid grid-cols-1 gap-2">
-            {qtyMode === "grams" ? (
-              <input
-                className="w-full rounded-md border bg-background px-2 py-2 text-sm"
-                value={qtyG}
-                onChange={(e) => setQtyG(e.target.value)}
-                placeholder="grams"
-                disabled={!owner}
-              />
-            ) : (
-              <input
-                className="w-full rounded-md border bg-background px-2 py-2 text-sm"
-                value={qtyServings}
-                onChange={(e) => setQtyServings(e.target.value)}
-                placeholder="servings"
-                disabled={!owner}
-              />
-            )}
-          </div>
-
-          <details className="mt-2">
-            <summary className="cursor-pointer text-xs text-muted-foreground">Advanced</summary>
-            <div className="mt-2 grid gap-2">
-              <select
-                className="w-full rounded-md border bg-background px-2 py-2 text-sm"
-                value={qtyMode}
-                onChange={(e) => setQtyMode(e.target.value as any)}
-                disabled={!owner}
-              >
-                <option value="grams">grams</option>
-                <option value="serving">servings (default preset)</option>
-              </select>
-
-              <div className="text-xs text-muted-foreground">
-                Servings uses the default preset for that food.
-              </div>
-            </div>
-          </details>
-
           <div className="mt-3 space-y-2">
             {hits.map((f) => (
               <div key={f.my_food_id} className="py-3 border-t border-muted/20">
@@ -461,12 +413,21 @@ export default function MealsPage() {
 
                   <button
                     className="shrink-0 rounded-md border px-3 py-1.5 text-xs"
-                    onClick={() => void addItem(f.my_food_id)}
+                    onClick={() => void addItem(f.my_food_id, gramsFor(f.my_food_id))}
                     disabled={!owner || !selectedMealId || addingId === f.my_food_id}
-                    title={!selectedMealId ? "Select a meal first" : "Add to meal"}
+                    title={!selectedMealId ? "Select a combo first" : "Add to combo"}
                   >
                     {addingId === f.my_food_id ? "Adding…" : "Add"}
                   </button>
+                  <input
+                    className="w-24 rounded-md border bg-background px-2 py-2 text-sm"
+                    value={gramsFor(f.my_food_id)}
+                    onChange={(e) =>
+                      setAddGramsByFoodId((p) => ({ ...p, [f.my_food_id]: e.target.value }))
+                    }
+                    placeholder="g"
+                    disabled={!owner}
+                  />
                 </div>
               </div>
             ))}
