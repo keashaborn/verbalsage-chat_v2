@@ -303,7 +303,7 @@ export default function NutritionFoodsPage() {
         <div className="min-w-0" />
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1">
+      <div className="mt-5 grid gap-6">
         {/* USDA SEARCH */}
         <div>
           <div className="flex items-end justify-between gap-3">
