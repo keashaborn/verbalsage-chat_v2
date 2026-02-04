@@ -446,7 +446,7 @@ export default function NutritionFoodsPage() {
                   className="py-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between min-w-0"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="truncate text-sm font-medium">{h.description || "(no description)"}</div>
+                    <div className="text-sm font-medium break-words whitespace-normal">{h.description || "(no description)"}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
                       {(h.brand_owner || h.brand_name || "unbranded") + " · " + (h.data_type || "unknown")}{" "}
                       {h.published_date ? " · " + h.published_date : ""} · fdc_id {h.fdc_id}
@@ -500,8 +500,8 @@ export default function NutritionFoodsPage() {
               <div key={f.my_food_id} className="py-3">
                 <div className="flex items-start justify-between gap-3 min-w-0">
                   <div className="flex-1 min-w-0">
-                    <div className="truncate text-sm font-medium">{f.display_name}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground break-words">
+                    <div className="text-sm font-medium break-words whitespace-normal">{f.display_name}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
                       {(f.brand ? f.brand : "—")}
                       {f.variant ? ` · ${f.variant}` : ""}
                       {f.source ? ` · ${f.source}` : ""}
@@ -513,7 +513,7 @@ export default function NutritionFoodsPage() {
                     </div>
                   </div>
 
-                  <div className="shrink-0 flex items-center gap-2">
+                  <div className="flex flex-wrap justify-end gap-2 sm:ml-3 sm:shrink-0">
                     <div className="text-xs text-muted-foreground">{f.is_verified ? "verified" : "unverified"}</div>
 
                     <button
