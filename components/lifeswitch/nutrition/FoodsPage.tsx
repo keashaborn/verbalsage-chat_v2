@@ -316,24 +316,22 @@ export default function NutritionFoodsPage() {
             {usdaErr ? <div className="text-xs text-red-500">{usdaErr}</div> : null}
           </div>
 
-          <div className="mt-3 flex items-stretch gap-2 min-w-0">
+          <div className="mt-3 flex items-center gap-2 min-w-0">
             <input
               className="flex-1 min-w-0 rounded-xl border bg-background px-3 py-3 text-base"
               value={usdaQ}
               onChange={(e) => setUsdaQ(e.target.value)}
-              placeholder='e.g. "enter food or upc code"'
+              placeholder='e.g. "enter food name or upc"'
               onKeyDown={(e) => {
                 if (e.key === "Enter") void searchUsda();
               }}
             />
-
             <button
-              type="button"
-              className="shrink-0 w-24 rounded-xl border px-4 py-3 text-base font-semibold text-foreground whitespace-nowrap hover:bg-muted/30 disabled:opacity-50"
+              className="shrink-0 rounded-xl border px-4 py-3 text-base text-foreground hover:bg-muted/30 disabled:opacity-50"
               onClick={() => void searchUsda()}
               disabled={usdaLoading}
             >
-              {usdaLoading ? "…" : "Search"}
+              {usdaLoading ? "Searching…" : "Search"}
             </button>
           </div>
 
