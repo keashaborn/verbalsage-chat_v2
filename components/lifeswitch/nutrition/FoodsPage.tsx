@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Search as SearchIcon } from "lucide-react";
 
 type UsdaHit = {
   fdc_id: number;
@@ -316,18 +317,21 @@ export default function NutritionFoodsPage() {
             {usdaErr ? <div className="text-xs text-red-500">{usdaErr}</div> : null}
           </div>
 
-          <div className="mt-3 flex items-center gap-2 min-w-0">
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center min-w-0">
             <input
               className="flex-1 min-w-0 rounded-xl border bg-background px-3 py-3 text-base"
               value={usdaQ}
               onChange={(e) => setUsdaQ(e.target.value)}
-              placeholder='e.g. "enter food name or upc"'
+              placeholder='e.g. "salmon, raw", "sockeye salmon", "ground beef 96% lean", "mcdonalds hamburger"'
+              disabled={usdaLoading}
               onKeyDown={(e) => {
                 if (e.key === "Enter") void searchUsda();
               }}
             />
+
             <button
-              className="shrink-0 rounded-xl border px-4 py-3 text-base text-foreground hover:bg-muted/30 disabled:opacity-50"
+              type="button"
+              className="w-full sm:w-auto shrink-0 rounded-xl border px-4 py-3 text-base hover:bg-muted/30 disabled:opacity-50 appearance-none bg-background"
               onClick={() => void searchUsda()}
               disabled={usdaLoading}
             >
