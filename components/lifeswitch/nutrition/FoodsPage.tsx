@@ -307,56 +307,46 @@ export default function NutritionFoodsPage() {
       <div className="mt-5 grid gap-6">
         {/* USDA SEARCH */}
         <div>
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold">Search USDA (FoodData Central)</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                results: <span className="font-semibold">{usdaRows.length}</span>
-              </div>
-            </div>
-            {usdaErr ? <div className="text-xs text-red-500">{usdaErr}</div> : null}
-          </div>
 
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center min-w-0">
-            <input
-              className="flex-1 min-w-0 rounded-xl border bg-background px-3 py-3 text-base"
-              value={usdaQ}
-              onChange={(e) => setUsdaQ(e.target.value)}
-              placeholder='e.g. "salmon, raw", "sockeye salmon", "ground beef 96% lean", "mcdonalds hamburger"'
-              disabled={usdaLoading}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void searchUsda();
-              }}
-            />
+          {/* Search (Exercises-style) */}
+          <div>
+            <div className="text-sm font-semibold">Search USDA (FoodData Central)</div>
 
-            <button
-              type="button"
-              className="w-full sm:w-auto shrink-0 rounded-xl border px-4 py-3 text-base hover:bg-muted/30 disabled:opacity-50 appearance-none bg-background"
-              onClick={() => void searchUsda()}
-              disabled={usdaLoading}
-            >
-              {usdaLoading ? "Searching…" : "Search"}
-            </button>
-          </div>
-
-
-          <details className="mt-2">
-            <summary className="cursor-pointer text-xs text-muted-foreground">
-              Advanced
-            </summary>
-
-            <div className="mt-2">
+            <div className="mt-3 grid gap-2">
               <input
-                className="w-full rounded-md border bg-background px-2 py-2 text-sm"
-                value={variant}
-                onChange={(e) => setVariant(e.target.value)}
-                placeholder='variant (optional) e.g. "96/4", "lean", "brand X"'
+                className="w-full rounded-xl border bg-background px-3 py-3 text-base"
+                value={usdaQ}
+                onChange={(e) => setUsdaQ(e.target.value)}
+                placeholder='e.g. "type"'
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void searchUsda();
+                  }
+                }}
               />
-              <div className="mt-1 text-xs text-muted-foreground">
-                Stored as <span className="font-mono">variant</span> on import; leave blank if you don’t care.
+
+              <div className="text-xs text-muted-foreground">
+                {usdaLoading ? "searching…" : `results: ${usdaRows.length}`}
+                {owner ? "" : " · sign in to import"}
               </div>
+
+              {usdaErr ? <div className="text-xs text-red-500">{usdaErr}</div> : null}
             </div>
-          </details>
+
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs text-muted-foreground">Advanced</summary>
+              <div className="mt-2">
+                <input
+                  className="w-full rounded-md border bg-background px-2 py-2 text-sm"
+                  value={variant}
+                  onChange={(e) => setVariant(e.target.value)}
+                  placeholder='variant (optional) e.g. "96/4", "lean", "brand X"'
+                />
+              </div>
+            </details>
+          </div>
+
 
           {/* Flat list */}
           {(!usdaLoading && usdaRows.length === 0) ? (
