@@ -592,13 +592,26 @@ export default function NutritionFoodsPage() {
 
                       <button
                         className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
-                        onClick={() => void deactivateMyFood(f.my_food_id)}
-                        title="Remove from My Foods"
+                        onClick={closeFoodEditor}
                       >
-                        Delete
+                        Close
                       </button>
                     </div>
 
+                    <details className="mt-2 border-t border-muted/20 pt-3">
+                      <summary className="cursor-pointer text-xs text-muted-foreground">
+                        Danger zone
+                      </summary>
+                      <div className="mt-2">
+                        <button
+                          className="w-full rounded-xl border border-red-500/40 px-3 py-2 text-sm text-red-600 hover:bg-red-500/10"
+                          onClick={() => void deactivateMyFood(f.my_food_id)}
+                          title="Remove from My Foods"
+                        >
+                          Delete food
+                        </button>
+                      </div>
+                    </details>
                     {/* Servings live here */}
                     <div className="mt-2 border-t border-muted/20 pt-3">
                       <div className="text-sm font-semibold">Servings</div>
