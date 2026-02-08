@@ -330,71 +330,12 @@ export default function NutritionFoodsPage() {
 
   const rootRef = React.useRef<HTMLDivElement | null>(null);
 
-  const [dbgEnabled, setDbgEnabled] = React.useState(false);
-  const [dbgVW, setDbgVW] = React.useState(0);
   const [dbgOverflow, setDbgOverflow] = React.useState<string[]>([]);
 
-  React.useEffect(() => {
-    if (!dbgEnabled) return;
-    const root = rootRef.current;
-    if (!root || typeof window === "undefined") return;
-
-    const vw = document.documentElement.clientWidth;
-    const docSW = document.documentElement.scrollWidth;
-    const bodySW = document.body ? document.body.scrollWidth : 0;
-
-    setDbgVW(vw);
-
-    const offenders: string[] = [];
-    const els = Array.from(root.querySelectorAll<HTMLElement>("*"));
-
-    for (const el of els) {
-      // ignore debug panel + its children
-      if (el.closest('[data-vs-debug="1"]')) continue;
-
-      const cs = window.getComputedStyle(el);
-      if (cs.display === "none") continue;
-
-      const r = el.getBoundingClientRect();
-      const rightOverflow = r.right - vw;
-      const leftOverflow = 0 - r.left;
-
-      if (rightOverflow <= 1 && leftOverflow <= 1) continue;
-
-      const cls = (el.getAttribute("class") || "").replace(/\s+/g, " ").slice(0, 160);
-      const txt = (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 80);
-
-      offenders.push(
-        `${el.tagName.toLowerCase()} rect=[${Math.round(r.left)},${Math.round(r.right)}] ovR=${Math.round(
-          rightOverflow
-        )} ovL=${Math.round(leftOverflow)} cls="${cls}" txt="${txt}"`
-      );
-
-      if (offenders.length >= 30) break;
-    }
-
-    const header = [`vw=${vw} docSW=${docSW} bodySW=${bodySW}`];
-    setDbgOverflow(offenders.length ? [...header, ...offenders] : [...header, "(no rect overflow offenders found)"]);
-  }, [dbgEnabled, usdaRows.length, myFoods.length]);
-
   return (
-    <div
-      data-vs-debug="1"
-      className="mb-3 rounded-xl border p-3 text-[11px] font-mono whitespace-pre-wrap break-words max-w-full overflow-hidden"
-    >
-      <div className="mb-3 max-w-full break-all rounded-xl border p-2 text-[11px] font-mono opacity-70">
-        inner={vw.inner} vv={vw.vv} docClient={vw.docClient} docScroll={vw.docScroll} bodyClient={vw.bodyClient} dpr={vw.dpr}
-      </div>
-      {dbgEnabled ? (
-        <div className="mb-3 rounded-xl border p-3 text-[11px] font-mono whitespace-pre-wrap break-words">
-          <div className="mb-2 text-xs font-semibold">overflow debug (vw={dbgVW})</div>
-          {dbgOverflow.map((x, i) => (
-            <div key={i} className="mt-1">
-              {x}
-            </div>
-          ))}
-        </div>
-      ) : null}
+
+    <div className="mx-auto max-w-5xl p-4 overflow-x-hidden">
+
       <div className="flex flex-col gap-3 lg:flex-row [@media(pointer:coarse)]:flex-col lg:items-start lg:justify-between">
         <div className="min-w-0" />
       </div>
