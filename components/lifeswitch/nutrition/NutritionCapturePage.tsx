@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 
 type FoodOverride = {
   alias?: string;
@@ -79,6 +80,8 @@ function loadFoodOverrides(): Record<string, FoodOverride> {
 export default function NutritionCapturePage() {
   const [owner, setOwner] = React.useState<string | null>(null);
   const [authErr, setAuthErr] = React.useState<string | null>(null);
+  const router = useRouter();
+  const [flash, setFlash] = React.useState<string>("");
 
   const [day, setDay] = React.useState<string>(todayISO());
 
@@ -254,6 +257,9 @@ export default function NutritionCapturePage() {
       if (!r.ok) throw new Error(t.slice(0, 200) || `HTTP ${r.status}`);
 
       setStatus("logged");
+      const label = foods.find((x) => x.my_food_id === my_food_id)?.display_name || "Food";
+      setFlash(`Logged: ${label} · ${g}g`);
+      window.setTimeout(() => setFlash(""), 1500);
       await loadDay();
     } catch (e: any) {
       setStatus(`error: ${e?.message || String(e)}`);
@@ -298,7 +304,11 @@ export default function NutritionCapturePage() {
           />
         </div>
       </div>
-
+      {flash ? (
+        <div className="mb-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium">
+          {flash}
+        </div>
+      ) : null}
       {authErr && !owner ? (
         <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm">
           {authErr}
