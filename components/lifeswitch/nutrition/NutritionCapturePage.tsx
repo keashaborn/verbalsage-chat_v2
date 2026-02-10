@@ -47,6 +47,18 @@ type LogEntry = {
   meal_fat: number | null;
 };
 
+type DraftEntry = {
+  draft_id: string;     // client-side id
+  my_food_id: string;
+  label: string;        // alias/display_name
+  qty_g: number;
+  // per 100g
+  kcal_100g: number | null;
+  p_100g: number | null;
+  c_100g: number | null;
+  f_100g: number | null;
+};
+
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -84,6 +96,8 @@ export default function NutritionCapturePage() {
   const [flash, setFlash] = React.useState<string>("");
 
   const [day, setDay] = React.useState<string>(todayISO());
+  const [draft, setDraft] = React.useState<DraftEntry[]>([]);
+  const [submitting, setSubmitting] = React.useState(false);
 
   const [foods, setFoods] = React.useState<MyFood[]>([]);
   const [foodsLoading, setFoodsLoading] = React.useState(false);
@@ -195,39 +209,57 @@ export default function NutritionCapturePage() {
   }, [owner, day]);
 
   const totals = React.useMemo(() => {
-    const entries = log?.entries || [];
-    let kcal = 0, p = 0, c = 0, f = 0;
+    let kcal = 0;
+    let p = 0;
+    let c = 0;
+    let f = 0;
 
-    for (const e of entries) {
+    // 1) totals from already-logged entries
+    for (const e of (log?.entries || [])) {
       const qty = safeNum(e.qty_g);
-      if (qty == null) continue;
 
-      // food entry
-      if (e.my_food_id) {
-        const k100 = safeNum(e.food_kcal_100g);
-        const p100 = safeNum(e.food_protein_100g);
-        const c100 = safeNum(e.food_carbs_100g);
-        const f100 = safeNum(e.food_fat_100g);
-        if (k100 != null) kcal += (k100 * qty) / 100.0;
-        if (p100 != null) p += (p100 * qty) / 100.0;
-        if (c100 != null) c += (c100 * qty) / 100.0;
-        if (f100 != null) f += (f100 * qty) / 100.0;
+      if (qty != null && qty > 0 && e.my_food_id) {
+        const kk = safeNum(e.food_kcal_100g);
+        const pp = safeNum(e.food_protein_100g);
+        const cc = safeNum(e.food_carbs_100g);
+        const ff = safeNum(e.food_fat_100g);
+
+        if (kk != null) kcal += (kk * qty) / 100.0;
+        if (pp != null) p += (pp * qty) / 100.0;
+        if (cc != null) c += (cc * qty) / 100.0;
+        if (ff != null) f += (ff * qty) / 100.0;
+        continue;
       }
 
-      // meal entry (already aggregated by backend)
-      if (e.meal_id) {
-        const mk = safeNum(e.meal_kcal);
-        const mp = safeNum(e.meal_protein);
-        const mc = safeNum(e.meal_carbs);
-        const mf = safeNum(e.meal_fat);
-        if (mk != null) kcal += mk;
-        if (mp != null) p += mp;
-        if (mc != null) c += mc;
-        if (mf != null) f += mf;
-      }
+      // meal/combos (if present)
+      const mk = safeNum(e.meal_kcal);
+      const mp = safeNum(e.meal_protein);
+      const mc = safeNum(e.meal_carbs);
+      const mf = safeNum(e.meal_fat);
+      if (mk != null) kcal += mk;
+      if (mp != null) p += mp;
+      if (mc != null) c += mc;
+      if (mf != null) f += mf;
     }
+
+    // 2) add draft entries (not yet submitted)
+    for (const d of draft) {
+      const g = safeNum(d.qty_g) ?? 0;
+      if (g <= 0) continue;
+
+      const kk = safeNum(d.kcal_100g);
+      const pp = safeNum(d.p_100g);
+      const cc = safeNum(d.c_100g);
+      const ff = safeNum(d.f_100g);
+
+      if (kk != null) kcal += (kk * g) / 100.0;
+      if (pp != null) p += (pp * g) / 100.0;
+      if (cc != null) c += (cc * g) / 100.0;
+      if (ff != null) f += (ff * g) / 100.0;
+    }
+
     return { kcal, p, c, f };
-  }, [log]);
+  }, [log, draft]);
 
   async function logFood(my_food_id: string) {
     if (!owner) return;
@@ -236,33 +268,72 @@ export default function NutritionCapturePage() {
       const g = Number((gramsByFood[my_food_id] || "").trim());
       if (!Number.isFinite(g) || g <= 0) throw new Error("grams must be > 0");
 
-      const nextSort = ((log?.entries?.length || 0) + 1) * 10;
+      const f = foods.find((x) => x.my_food_id === my_food_id);
+      if (!f) throw new Error("food not found");
 
-      const qs = new URLSearchParams({
+      // prefer alias override if present
+      const label = (overrides[my_food_id]?.alias?.trim() || f.display_name || "food").trim();
+
+      const e: DraftEntry = {
+        draft_id: crypto.randomUUID(),
+        my_food_id,
+        label,
+        qty_g: g,
+        kcal_100g: safeNum(f.kcal),
+        p_100g: safeNum(f.protein_g),
+        c_100g: safeNum(f.carbs_g),
+        f_100g: safeNum(f.fat_g),
+      };
+
+      setDraft((prev) => [e, ...(prev || [])]);
+
+      setStatus("drafted");
+      setFlash("Added to draft.");
+      window.setTimeout(() => setFlash(""), 900);
+    } catch (e: any) {
+      setStatus(`error: ${e?.message || String(e)}`);
+    }
+  }
+
+  async function submitDraft() {
+    if (!owner) return;
+    if (!draft.length) return;
+
+    setSubmitting(true);
+    setStatus("");
+    try {
+      const payload = {
         owner_user_id: owner,
         day,
-        my_food_id,
-        qty_g: String(g),
-        sort_order: String(nextSort),
-      });
+        entries: draft.map((d, idx) => ({
+          my_food_id: d.my_food_id,
+          qty_g: d.qty_g,
+          sort_order: ((log?.entries?.length || 0) + idx + 1) * 10,
+          notes: "capture_v0",
+        })),
+      };
 
-      const r = await fetch(`/api/lifeswitch/nutrition/log/entry?${qs.toString()}`, {
+      const r = await fetch("/api/lifeswitch/nutrition/log/entries", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: "{}",
+        body: JSON.stringify(payload),
         cache: "no-store",
       });
 
       const t = await r.text().catch(() => "");
       if (!r.ok) throw new Error(t.slice(0, 200) || `HTTP ${r.status}`);
 
-      setStatus("logged");
-      const label = foods.find((x) => x.my_food_id === my_food_id)?.display_name || "Food";
-      setFlash(`Logged: ${label} · ${g}g`);
-      window.setTimeout(() => setFlash(""), 1500);
+      setDraft([]);
+      setStatus("submitted");
+      setFlash("Submitted to log.");
+      window.setTimeout(() => setFlash(""), 1200);
+
+      // refresh totals from backend
       await loadDay();
     } catch (e: any) {
       setStatus(`error: ${e?.message || String(e)}`);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -322,7 +393,51 @@ export default function NutritionCapturePage() {
         </div>
         {logErr ? <div className="mt-2 text-xs text-red-500">{logErr}</div> : null}
       </div>
+      {/* Today (collapsible) */}
+      <details className="mt-3 rounded-xl border p-3">
+        <summary className="cursor-pointer text-sm font-semibold">
+          Today ({(log?.entries || []).length})
+        </summary>
 
+        {logLoading ? <div className="mt-2 text-sm text-muted-foreground">loading…</div> : null}
+
+        <div className="mt-2 divide-y divide-muted/20">
+          {(log?.entries || []).map((e) => {
+            const isFood = !!e.my_food_id;
+            const label = e.label || (isFood ? "food" : "combo");
+            const qty = safeNum(e.qty_g) ?? 0;
+
+            return (
+              <div key={e.nutrition_entry_id} className="py-3 flex items-center justify-between gap-3 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium break-words whitespace-normal">{label}</div>
+                </div>
+
+                {isFood ? (
+                  <div className="shrink-0 flex items-center gap-2">
+                    <input
+                      className="w-20 rounded-xl border bg-background px-2 py-1.5 text-sm text-right"
+                      defaultValue={String(qty)}
+                      inputMode="decimal"
+                      onKeyDown={(ev) => {
+                        if (ev.key !== "Enter") return;
+                        const v = Number((ev.currentTarget.value || "").trim());
+                        if (Number.isFinite(v) && v > 0) void patchEntryQty(e.nutrition_entry_id, v);
+                      }}
+                      title="Enter to update"
+                    />
+                    <div className="text-xs text-muted-foreground">g</div>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+
+          {!(log?.entries || []).length ? (
+            <div className="py-3 text-sm text-muted-foreground">No entries.</div>
+          ) : null}
+        </div>
+      </details>
       <div className="mt-4 grid gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <input
@@ -392,46 +507,62 @@ export default function NutritionCapturePage() {
         </div>
       </div>
 
-      {/* Today entries (edit grams inline) */}
-      <div className="mt-6 rounded-xl border p-3">
-        <div className="text-sm font-semibold">Today</div>
-        {logLoading ? <div className="mt-2 text-sm text-muted-foreground">loading…</div> : null}
+      {/* Draft (editable) */}
+      <details className="mt-6 rounded-xl border p-3" open={false}>
+        <summary className="cursor-pointer select-none text-sm font-semibold">
+          Draft ({draft.length})
+        </summary>
 
-        <div className="mt-2 divide-y divide-muted/20">
-          {(log?.entries || []).map((e) => {
-            const isFood = !!e.my_food_id;
-            const label = e.label || (isFood ? "food" : "combo");
-            const qty = safeNum(e.qty_g) ?? 0;
-            return (
-              <div key={e.nutrition_entry_id} className="py-3 flex items-center justify-between gap-3 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium break-words whitespace-normal">{label}</div>
-                </div>
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+            onClick={() => void submitDraft()}
+            disabled={!owner || submitting || draft.length === 0}
+          >
+            {submitting ? "Submitting…" : "Submit to log"}
+          </button>
 
-                {isFood ? (
-                  <div className="shrink-0 flex items-center gap-2">
-                    <input
-                      className="w-20 rounded-xl border bg-background px-2 py-1.5 text-sm text-right"
-                      defaultValue={String(qty)}
-                      inputMode="decimal"
-                      onKeyDown={(ev) => {
-                        if (ev.key !== "Enter") return;
-                        const v = Number((ev.currentTarget.value || "").trim());
-                        if (Number.isFinite(v) && v > 0) void patchEntryQty(e.nutrition_entry_id, v);
-                      }}
-                      title="Enter to update"
-                    />
-                    <div className="text-xs text-muted-foreground">g</div>
-                  </div>
-                ) : null}
+          <div className="text-xs text-muted-foreground">
+            {logLoading ? "loading totals…" : `logged today: ${(log?.entries || []).length}`}
+          </div>
+        </div>
+
+        <div className="mt-3 divide-y divide-muted/20">
+          {draft.map((e) => (
+            <div key={e.draft_id} className="py-3 flex items-center justify-between gap-3 min-w-0">
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium break-words whitespace-normal">{e.label}</div>
               </div>
-            );
-          })}
-          {!(log?.entries || []).length ? (
-            <div className="py-3 text-sm text-muted-foreground">No entries.</div>
+
+              <div className="shrink-0 flex items-center gap-2">
+                <input
+                  className="w-20 rounded-xl border bg-background px-2 py-1.5 text-sm text-right"
+                  value={String(e.qty_g)}
+                  inputMode="decimal"
+                  onChange={(ev) => {
+                    const v = Number((ev.currentTarget.value || "").trim());
+                    setDraft((prev) =>
+                      (prev || []).map((x) => (x.draft_id === e.draft_id ? { ...x, qty_g: Number.isFinite(v) ? v : 0 } : x))
+                    );
+                  }}
+                />
+                <div className="text-xs text-muted-foreground">g</div>
+                <button
+                  className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                  onClick={() => setDraft((prev) => (prev || []).filter((x) => x.draft_id !== e.draft_id))}
+                  title="Remove from draft"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {!draft.length ? (
+            <div className="py-3 text-sm text-muted-foreground">Draft is empty.</div>
           ) : null}
         </div>
-      </div>
+      </details>
     </div>
   );
 }
