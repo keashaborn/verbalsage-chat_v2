@@ -1,5 +1,7 @@
 "use client";
-import CapturePage from "@/components/lifeswitch/CapturePage";
+
+import NutritionCapturePage from "@/components/lifeswitch/nutrition/NutritionCapturePage";
+
 export default function NutritionCapture() {
-  return <CapturePage domain="nutrition" />;
+  return <NutritionCapturePage />;
 }
