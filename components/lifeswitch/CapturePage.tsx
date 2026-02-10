@@ -18,6 +18,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useRouter } from "next/navigation";
 
 
 type TemplateListItem = {
@@ -75,7 +76,17 @@ export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
     } catch {}
   }, []);
   const effectiveDomain = String(domain || queryDomain || "").trim().toLowerCase();
-const [status, setStatus] = React.useState<string>("");
+  const [status, setStatus] = React.useState<string>("");
+  const router = useRouter();
+
+  const [flash, setFlash] = React.useState<string>(""); // transient success/fail message
+  const flashTimer = React.useRef<any>(null);
+
+  function setFlashMsg(msg: string) {
+    setFlash(msg);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setFlash(""), 1800);
+  }
 
   const [ownerUserId, setOwnerUserId] = React.useState<string>("");
 
