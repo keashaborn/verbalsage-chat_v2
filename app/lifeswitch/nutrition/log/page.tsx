@@ -126,10 +126,12 @@ function extractTotals(raw: any) {
       ff += (safeNum(e?.food_fat_100g, 0) * g) / 100.0;
     }
 
-    kcal = kk;
-    protein_g = pp;
-    carbs_g = cc;
-    fat_g = ff;
+    return {
+      kcal: kk,
+      protein_g: pp,
+      carbs_g: cc,
+      fat_g: ff,
+    };
   }
 
   return {
