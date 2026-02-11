@@ -317,7 +317,65 @@ export default function NutritionCapturePage() {
           kcal {fmt0(totals.kcal)} · P {fmt1(totals.p)}g · C {fmt1(totals.c)}g · F {fmt1(totals.f)}g
         </div>
       </div>
+      {/* Current submission (draft) */}
+      <details className="mt-3 rounded-xl border p-3" open>
+        <summary className="cursor-pointer select-none text-sm font-semibold">
+          Current submission ({draft.length})
+        </summary>
 
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+            onClick={() => void submitDraft()}
+            disabled={!owner || submitting || draft.length === 0}
+          >
+            {submitting ? "Submitting…" : "Submit to log"}
+          </button>
+
+          <div className="text-xs text-muted-foreground">
+            {draft.length === 0 ? "Add foods below." : "Edit grams, delete mistakes, then submit."}
+          </div>
+        </div>
+
+        <div className="mt-3 divide-y divide-muted/20">
+          {draft.map((e) => (
+            <div key={e.draft_id} className="py-3 flex items-center justify-between gap-3 min-w-0">
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium break-words whitespace-normal">{e.label}</div>
+              </div>
+
+              <div className="shrink-0 flex items-center gap-2">
+                <input
+                  className="w-20 rounded-xl border bg-background px-2 py-1.5 text-sm text-right"
+                  value={String(e.qty_g)}
+                  inputMode="decimal"
+                  onChange={(ev) => {
+                    const v = Number((ev.currentTarget.value || "").trim());
+                    setDraft((prev) =>
+                      (prev || []).map((x) =>
+                        x.draft_id === e.draft_id ? { ...x, qty_g: Number.isFinite(v) ? v : 0 } : x
+                      )
+                    );
+                  }}
+                />
+                <div className="text-xs text-muted-foreground">g</div>
+
+                <button
+                  className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                  onClick={() => setDraft((prev) => (prev || []).filter((x) => x.draft_id !== e.draft_id))}
+                  title="Remove"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {draft.length === 0 ? (
+            <div className="py-3 text-sm text-muted-foreground">Nothing queued.</div>
+          ) : null}
+        </div>
+      </details>
       <div className="mt-4 grid gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <input
@@ -387,65 +445,7 @@ export default function NutritionCapturePage() {
         </div>
       </div>
 
-      {/* Current submission (draft) */}
-      <details className="mt-3 rounded-xl border p-3" open>
-        <summary className="cursor-pointer select-none text-sm font-semibold">
-          Current submission ({draft.length})
-        </summary>
 
-        <div className="mt-3 flex items-center gap-2">
-          <button
-            className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-            onClick={() => void submitDraft()}
-            disabled={!owner || submitting || draft.length === 0}
-          >
-            {submitting ? "Submitting…" : "Submit to log"}
-          </button>
-
-          <div className="text-xs text-muted-foreground">
-            {draft.length === 0 ? "Add foods below." : "Edit grams, delete mistakes, then submit."}
-          </div>
-        </div>
-
-        <div className="mt-3 divide-y divide-muted/20">
-          {draft.map((e) => (
-            <div key={e.draft_id} className="py-3 flex items-center justify-between gap-3 min-w-0">
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium break-words whitespace-normal">{e.label}</div>
-              </div>
-
-              <div className="shrink-0 flex items-center gap-2">
-                <input
-                  className="w-20 rounded-xl border bg-background px-2 py-1.5 text-sm text-right"
-                  value={String(e.qty_g)}
-                  inputMode="decimal"
-                  onChange={(ev) => {
-                    const v = Number((ev.currentTarget.value || "").trim());
-                    setDraft((prev) =>
-                      (prev || []).map((x) =>
-                        x.draft_id === e.draft_id ? { ...x, qty_g: Number.isFinite(v) ? v : 0 } : x
-                      )
-                    );
-                  }}
-                />
-                <div className="text-xs text-muted-foreground">g</div>
-
-                <button
-                  className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
-                  onClick={() => setDraft((prev) => (prev || []).filter((x) => x.draft_id !== e.draft_id))}
-                  title="Remove"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {draft.length === 0 ? (
-            <div className="py-3 text-sm text-muted-foreground">Nothing queued.</div>
-          ) : null}
-        </div>
-      </details>
     </div>
   );
 }
