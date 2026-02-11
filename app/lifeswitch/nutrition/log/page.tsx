@@ -92,6 +92,46 @@ function extractTotals(raw: any) {
   const carbs_g = pick(["carbs_g", "carbs", "carbohydrates_g", "carbs_total_g"]);
   const fat_g = pick(["fat_g", "fat", "fat_total_g"]);
 
+  // Fallback: compute totals from entry rows if the backend didn't provide totals
+  // (our /log/day returns entries with qty_g + per100g macros)
+  if (
+    kcal == null &&
+    protein_g == null &&
+    carbs_g == null &&
+    fat_g == null &&
+    Array.isArray(raw?.entries) &&
+    raw.entries.length
+  ) {
+    let kk = 0, pp = 0, cc = 0, ff = 0;
+
+    for (const e of raw.entries) {
+      // meal rows: backend supplies meal_* totals
+      const mk = safeNum(e?.meal_kcal, 0);
+      const mp = safeNum(e?.meal_protein, 0);
+      const mc = safeNum(e?.meal_carbs, 0);
+      const mf = safeNum(e?.meal_fat, 0);
+
+      if (e?.meal_id) {
+        kk += mk; pp += mp; cc += mc; ff += mf;
+        continue;
+      }
+
+      // food rows: qty_g * per100g
+      const g = safeNum(e?.qty_g, 0);
+      if (g <= 0) continue;
+
+      kk += (safeNum(e?.food_kcal_100g, 0) * g) / 100.0;
+      pp += (safeNum(e?.food_protein_100g, 0) * g) / 100.0;
+      cc += (safeNum(e?.food_carbs_100g, 0) * g) / 100.0;
+      ff += (safeNum(e?.food_fat_100g, 0) * g) / 100.0;
+    }
+
+    kcal = kk;
+    protein_g = pp;
+    carbs_g = cc;
+    fat_g = ff;
+  }
+
   return {
     kcal: kcal == null ? null : safeNum(kcal, 0),
     protein_g: protein_g == null ? null : safeNum(protein_g, 0),
@@ -202,7 +242,7 @@ export default function NutritionLogPage() {
                 (t.protein_g != null ? t.protein_g >= TARGET_PROTEIN_G : false) &&
                 (t.kcal != null ? t.kcal <= TARGET_KCAL : false);
 
-              return { day, raw, ...t, hit } as DaySummary & { any: boolean };
+              return { day, raw, any, ...t, hit };
             })
           );
           out.push(...results);
