@@ -245,6 +245,24 @@ export default function NutritionLogPage() {
   const [status, setStatus] = React.useState<string>("auth: loading…");
   const [days, setDays] = React.useState<DaySummary[]>([]);
   const [loading, setLoading] = React.useState(true);
+  async function refreshOneDay(uid: string, day: string) {
+    const u = new URL("/api/lifeswitch/nutrition/log/day", window.location.origin);
+    u.searchParams.set("owner_user_id", uid);
+    u.searchParams.set("day", day);
+
+    const raw = await fetchJson(u.toString());
+    const t = extractTotals(raw);
+    const any = hasAnyData(raw, t);
+
+    const hit =
+      any &&
+      (t.protein_g != null ? t.protein_g >= TARGET_PROTEIN_G : false) &&
+      (t.kcal != null ? t.kcal <= TARGET_KCAL : false);
+
+    setDays((prev) =>
+      (prev || []).map((x) => (x.day === day ? ({ ...x, raw, any, ...t, hit } as any) : x))
+    );
+  }
 
   const today = React.useMemo(() => todayLocalYYYYMMDD(), []);
 
@@ -518,8 +536,8 @@ export default function NutritionLogPage() {
                                     {/* right: edit + delete */}
                                     <div className="shrink-0">
                                       <details className="group">
-                                        <summary className="list-none cursor-pointer select-none rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 [&::-webkit-details-marker]:hidden">
-                                          Edit <span className="opacity-60 group-open:hidden">▾</span><span className="opacity-60 hidden group-open:inline">▴</span>
+                                        <summary className="list-none cursor-pointer select-none rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 opacity-70 hover:opacity-100 [&::-webkit-details-marker]:hidden">
+                                          ⋯ <span className="opacity-60 group-open:hidden">▾</span><span className="opacity-60 hidden group-open:inline">▴</span>
                                         </summary>
 
                                         <div className="mt-2 flex items-center gap-2 justify-end">
@@ -529,11 +547,16 @@ export default function NutritionLogPage() {
                                             inputMode="decimal"
                                             onKeyDown={(ev) => {
                                               if (ev.key !== "Enter") return;
+                                              ev.currentTarget.blur(); // commit via onBlur (works better on iOS)
+                                            }}
+                                            onBlur={(ev) => {
                                               const v = Number((ev.currentTarget.value || "").trim());
                                               if (!Number.isFinite(v) || v <= 0) return;
-                                              void patchLogEntry(owner, String(e.nutrition_entry_id), v).then(() => window.location.reload());
+                                              void patchLogEntry(owner, String(e.nutrition_entry_id), v)
+                                                .then(() => refreshOneDay(owner, String(d.day)))
+                                                .catch(() => { });
                                             }}
-                                            title="Enter to update grams"
+                                            title="Tap away to update grams"
                                           />
                                           <div className="text-xs text-muted-foreground">g</div>
 
@@ -541,7 +564,9 @@ export default function NutritionLogPage() {
                                             className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
                                             onClick={() => {
                                               if (!confirm("Delete this entry?")) return;
-                                              void deleteLogEntry(owner, String(e.nutrition_entry_id)).then(() => window.location.reload());
+                                              void deleteLogEntry(owner, String(e.nutrition_entry_id))
+                                                .then(() => refreshOneDay(owner, String(d.day)))
+                                                .catch(() => { });
                                             }}
                                             title="Delete entry"
                                           >
