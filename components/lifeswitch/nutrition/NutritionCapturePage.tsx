@@ -59,8 +59,10 @@ type DraftEntry = {
   f_100g: number | null;
 };
 
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+function pad2(n: number) { return n < 10 ? `0${n}` : String(n); }
+function todayLocalYYYYMMDD(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
 function safeNum(x: any): number | null {
@@ -95,7 +97,7 @@ export default function NutritionCapturePage() {
   const router = useRouter();
   const [flash, setFlash] = React.useState<string>("");
 
-  const [day, setDay] = React.useState<string>(todayISO());
+  const [day, setDay] = React.useState<string>(todayLocalYYYYMMDD());
   const [draft, setDraft] = React.useState<DraftEntry[]>([]);
   const [submitting, setSubmitting] = React.useState(false);
 

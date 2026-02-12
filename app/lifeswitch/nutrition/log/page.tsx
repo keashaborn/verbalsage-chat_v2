@@ -39,7 +39,32 @@ async function fetchJson(url: string, init?: RequestInit) {
   }
   return j;
 }
+async function patchLogEntry(owner_user_id: string, nutrition_entry_id: string, qty_g: number) {
+  const u = new URL("/api/lifeswitch/nutrition/log/entry", window.location.origin);
+  u.searchParams.set("owner_user_id", owner_user_id);
+  u.searchParams.set("nutrition_entry_id", nutrition_entry_id);
+  u.searchParams.set("qty_g", String(qty_g));
 
+  const r = await fetch(u.toString(), { method: "PATCH", cache: "no-store" });
+  const t = await r.text().catch(() => "");
+  let j: any = null;
+  try { j = t ? JSON.parse(t) : null; } catch { }
+  if (!r.ok) throw new Error(String(j?.detail || j?.error || t?.slice(0, 200) || `HTTP ${r.status}`));
+  return j;
+}
+
+async function deleteLogEntry(owner_user_id: string, nutrition_entry_id: string) {
+  const u = new URL("/api/lifeswitch/nutrition/log/entry", window.location.origin);
+  u.searchParams.set("owner_user_id", owner_user_id);
+  u.searchParams.set("nutrition_entry_id", nutrition_entry_id);
+
+  const r = await fetch(u.toString(), { method: "DELETE", cache: "no-store" });
+  const t = await r.text().catch(() => "");
+  let j: any = null;
+  try { j = t ? JSON.parse(t) : null; } catch { }
+  if (!r.ok) throw new Error(String(j?.detail || j?.error || t?.slice(0, 200) || `HTTP ${r.status}`));
+  return j;
+}
 type DaySummary = {
   day: string;
   raw: any;
@@ -406,8 +431,23 @@ export default function NutritionLogPage() {
                     <div className="text-lg font-semibold">
                       {d.day} {d.hit ? "· HIT" : ""}
                     </div>
-                    <div className="mt-1 text-sm text-muted-foreground break-words">
-                      kcal={d.kcal ?? "—"} · protein={d.protein_g ?? "—"}g · carbs={d.carbs_g ?? "—"}g · fat={d.fat_g ?? "—"}g
+                    <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-xl border border-muted/20 bg-background/40 px-3 py-2 text-xs">
+                      <div className="flex items-baseline gap-2">
+                        <div className="opacity-70">KCAL</div>
+                        <div className="font-semibold">{fmt1tight(safeNum(d.kcal, 0))}</div>
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <div className="opacity-70">PROTEIN</div>
+                        <div className="font-semibold">{fmt1tight(safeNum(d.protein_g, 0))}g</div>
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <div className="opacity-70">CARBS</div>
+                        <div className="font-semibold">{fmt1tight(safeNum(d.carbs_g, 0))}g</div>
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <div className="opacity-70">FAT</div>
+                        <div className="font-semibold">{fmt1tight(safeNum(d.fat_g, 0))}g</div>
+                      </div>
                     </div>
                     {Array.isArray(d.raw?.entries) && d.raw.entries.length ? (
                       <div className="mt-4 rounded-xl border border-muted/20 overflow-hidden">
@@ -468,9 +508,48 @@ export default function NutritionLogPage() {
                                     </div>
                                   ) : null}
 
-                                  <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
-                                    {qty > 0 ? `${fmt1tight(qty)}g · ` : ""}
-                                    kcal {fmt1tight(m.kcal)} · P {fmt1tight(m.p)} · C {fmt1tight(m.c)} · F {fmt1tight(m.f)}
+                                  <div className="mt-2 flex items-center justify-between gap-3 min-w-0">
+                                    {/* left: macros */}
+                                    <div className="min-w-0 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
+                                      {qty > 0 ? `${fmt1tight(qty)}g · ` : ""}
+                                      kcal {fmt1tight(m.kcal)} · P {fmt1tight(m.p)} · C {fmt1tight(m.c)} · F {fmt1tight(m.f)}
+                                    </div>
+
+                                    {/* right: edit + delete */}
+                                    <div className="shrink-0">
+                                      <details className="group">
+                                        <summary className="list-none cursor-pointer select-none rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 [&::-webkit-details-marker]:hidden">
+                                          Edit <span className="opacity-60 group-open:hidden">▾</span><span className="opacity-60 hidden group-open:inline">▴</span>
+                                        </summary>
+
+                                        <div className="mt-2 flex items-center gap-2 justify-end">
+                                          <input
+                                            className="w-20 rounded-xl border bg-background px-2 py-1.5 text-xs text-right"
+                                            defaultValue={String(qty || "")}
+                                            inputMode="decimal"
+                                            onKeyDown={(ev) => {
+                                              if (ev.key !== "Enter") return;
+                                              const v = Number((ev.currentTarget.value || "").trim());
+                                              if (!Number.isFinite(v) || v <= 0) return;
+                                              void patchLogEntry(owner, String(e.nutrition_entry_id), v).then(() => window.location.reload());
+                                            }}
+                                            title="Enter to update grams"
+                                          />
+                                          <div className="text-xs text-muted-foreground">g</div>
+
+                                          <button
+                                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                                            onClick={() => {
+                                              if (!confirm("Delete this entry?")) return;
+                                              void deleteLogEntry(owner, String(e.nutrition_entry_id)).then(() => window.location.reload());
+                                            }}
+                                            title="Delete entry"
+                                          >
+                                            Delete
+                                          </button>
+                                        </div>
+                                      </details>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
