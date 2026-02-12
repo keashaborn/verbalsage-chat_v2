@@ -342,8 +342,23 @@ export default function NutritionLogPage() {
   return (
     <div className="mx-auto max-w-5xl p-4">
       <div className="text-lg font-semibold">Nutrition · Log</div>
-      <div className="mt-1 text-sm text-muted-foreground break-words">
-        Calendar + monthly totals. Hit = protein ≥ {TARGET_PROTEIN_G}g AND calories ≤ {TARGET_KCAL}.
+      <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-xl border border-muted/20 bg-background/40 px-3 py-2 text-xs">
+        <div className="flex items-baseline gap-2">
+          <div className="opacity-70">KCAL</div>
+          <div className="font-semibold">{fmt1tight(safeNum(d.kcal, 0))}</div>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <div className="opacity-70">PROTEIN</div>
+          <div className="font-semibold">{fmt1tight(safeNum(d.protein_g, 0))}g</div>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <div className="opacity-70">CARBS</div>
+          <div className="font-semibold">{fmt1tight(safeNum(d.carbs_g, 0))}g</div>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <div className="opacity-70">FAT</div>
+          <div className="font-semibold">{fmt1tight(safeNum(d.fat_g, 0))}g</div>
+        </div>
       </div>
 
       <details className="mt-4">
@@ -391,21 +406,37 @@ export default function NutritionLogPage() {
                       kcal={d.kcal ?? "—"} · protein={d.protein_g ?? "—"}g · carbs={d.carbs_g ?? "—"}g · fat={d.fat_g ?? "—"}g
                     </div>
                     {Array.isArray(d.raw?.entries) && d.raw.entries.length ? (
-                      <div className="mt-4 divide-y divide-muted/20 rounded-xl border border-muted/20">
+                      <div className="mt-4 rounded-xl border border-muted/20 overflow-hidden">
                         {(() => {
-                          let runK = 0, runP = 0, runC = 0, runF = 0;
+                          const entries = [...d.raw.entries];
 
-                          return d.raw.entries.map((e: any) => {
+                          // newest first by created_at (ISO sorts lexicographically)
+                          entries.sort((a: any, b: any) => String(b?.created_at || "").localeCompare(String(a?.created_at || "")));
+
+                          const fmtTime = (iso: any) => {
+                            try {
+                              const dt = new Date(String(iso));
+                              return dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                            } catch {
+                              return "—";
+                            }
+                          };
+
+                          let lastBucket = "";
+
+                          return entries.map((e: any) => {
                             const label = String(e?.label || "").trim() || "—";
                             const qty = safeNum(e?.qty_g, 0);
 
                             const m = entryMacros(e);
-                            runK += safeNum(m.kcal, 0);
-                            runP += safeNum(m.p, 0);
-                            runC += safeNum(m.c, 0);
-                            runF += safeNum(m.f, 0);
 
-                            // identity line (for foods)
+                            // bucket by minute so “submitted together” items cluster
+                            const t = String(e?.created_at || "");
+                            const bucket = t.length >= 16 ? t.slice(0, 16) : t; // YYYY-MM-DDTHH:MM
+                            const showBucket = bucket && bucket !== lastBucket;
+                            if (showBucket) lastBucket = bucket;
+
+                            // identity line
                             const metaParts: string[] = [];
                             if (e?.food_brand) metaParts.push(String(e.food_brand));
                             if (e?.food_variant) metaParts.push(String(e.food_variant));
@@ -417,19 +448,26 @@ export default function NutritionLogPage() {
                             const meta = metaParts.filter(Boolean).join(" · ");
 
                             return (
-                              <div key={String(e.nutrition_entry_id)} className="py-3 px-3">
-                                <div className="text-sm font-medium break-words whitespace-normal">{label}</div>
-
-                                {meta ? (
-                                  <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
-                                    {meta}
+                              <div key={String(e.nutrition_entry_id)} className="px-3">
+                                {showBucket ? (
+                                  <div className="pt-3 pb-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Logged {fmtTime(e?.created_at)}
                                   </div>
                                 ) : null}
 
-                                <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
-                                  {qty > 0 ? `${fmt1tight(qty)}g · ` : ""}
-                                  kcal {fmt1tight(m.kcal)} · P {fmt1tight(m.p)} · C {fmt1tight(m.c)} · F {fmt1tight(m.f)}
-                                  <span className="opacity-70"> · total {fmt1tight(runK)} kcal</span>
+                                <div className="py-3 border-t border-muted/20">
+                                  <div className="text-sm font-medium break-words whitespace-normal">{label}</div>
+
+                                  {meta ? (
+                                    <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
+                                      {meta}
+                                    </div>
+                                  ) : null}
+
+                                  <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
+                                    {qty > 0 ? `${fmt1tight(qty)}g · ` : ""}
+                                    kcal {fmt1tight(m.kcal)} · P {fmt1tight(m.p)} · C {fmt1tight(m.c)} · F {fmt1tight(m.f)}
+                                  </div>
                                 </div>
                               </div>
                             );
