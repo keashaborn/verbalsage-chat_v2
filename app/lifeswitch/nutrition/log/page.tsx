@@ -339,25 +339,29 @@ export default function NutritionLogPage() {
     return out;
   }, [days]);
 
+  const todayRow = React.useMemo(() => {
+    return days.find((x: any) => x?.day === today) || null;
+  }, [days, today]);
+
   return (
     <div className="mx-auto max-w-5xl p-4">
       <div className="text-lg font-semibold">Nutrition · Log</div>
       <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-xl border border-muted/20 bg-background/40 px-3 py-2 text-xs">
         <div className="flex items-baseline gap-2">
           <div className="opacity-70">KCAL</div>
-          <div className="font-semibold">{fmt1tight(safeNum(d.kcal, 0))}</div>
+          <div className="font-semibold">{fmt1tight(safeNum(todayRow?.kcal, 0))}</div>
         </div>
         <div className="flex items-baseline gap-2">
           <div className="opacity-70">PROTEIN</div>
-          <div className="font-semibold">{fmt1tight(safeNum(d.protein_g, 0))}g</div>
+          <div className="font-semibold">{fmt1tight(safeNum(todayRow?.protein_g, 0))}g</div>
         </div>
         <div className="flex items-baseline gap-2">
           <div className="opacity-70">CARBS</div>
-          <div className="font-semibold">{fmt1tight(safeNum(d.carbs_g, 0))}g</div>
+          <div className="font-semibold">{fmt1tight(safeNum(todayRow?.carbs_g, 0))}g</div>
         </div>
         <div className="flex items-baseline gap-2">
           <div className="opacity-70">FAT</div>
-          <div className="font-semibold">{fmt1tight(safeNum(d.fat_g, 0))}g</div>
+          <div className="font-semibold">{fmt1tight(safeNum(todayRow?.fat_g, 0))}g</div>
         </div>
       </div>
 
