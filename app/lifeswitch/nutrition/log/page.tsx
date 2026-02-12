@@ -141,7 +141,32 @@ function extractTotals(raw: any) {
     fat_g: fat_g == null ? null : safeNum(fat_g, 0),
   };
 }
+function fmt1tight(x: number) {
+  return (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, "");
+}
 
+function entryMacros(e: any) {
+  // meal rows: backend supplies meal_* totals
+  if (e?.meal_id) {
+    return {
+      kcal: safeNum(e?.meal_kcal, 0),
+      p: safeNum(e?.meal_protein, 0),
+      c: safeNum(e?.meal_carbs, 0),
+      f: safeNum(e?.meal_fat, 0),
+    };
+  }
+
+  // food rows: qty_g * per100g
+  const g = safeNum(e?.qty_g, 0);
+  if (g <= 0) return { kcal: 0, p: 0, c: 0, f: 0 };
+
+  const kcal = (safeNum(e?.food_kcal_100g, 0) * g) / 100.0;
+  const p = (safeNum(e?.food_protein_100g, 0) * g) / 100.0;
+  const c = (safeNum(e?.food_carbs_100g, 0) * g) / 100.0;
+  const f = (safeNum(e?.food_fat_100g, 0) * g) / 100.0;
+
+  return { kcal, p, c, f };
+}
 function MonthCalendar(props: { ym: string; hitDates: Set<string>; anyDates: Set<string>; today: string }) {
   const { ym, hitDates, anyDates, today } = props;
   const mm = String(ym || "").trim().match(/^(\d{4})-(\d{2})$/);
@@ -365,16 +390,55 @@ export default function NutritionLogPage() {
                     <div className="mt-1 text-sm text-muted-foreground break-words">
                       kcal={d.kcal ?? "—"} · protein={d.protein_g ?? "—"}g · carbs={d.carbs_g ?? "—"}g · fat={d.fat_g ?? "—"}g
                     </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      raw_keys={d.raw && typeof d.raw === "object" ? Object.keys(d.raw).length : "?"}
-                    </div>
+                    {Array.isArray(d.raw?.entries) && d.raw.entries.length ? (
+                      <div className="mt-4 divide-y divide-muted/20 rounded-xl border border-muted/20">
+                        {(() => {
+                          let runK = 0, runP = 0, runC = 0, runF = 0;
 
-                    <details className="mt-2">
-                      <summary className="cursor-pointer text-xs text-muted-foreground">Raw</summary>
-                      <pre className="mt-2 max-h-64 overflow-auto rounded-xl border border-muted/20 bg-background/50 p-3 text-[11px] leading-snug text-muted-foreground">
-                        {JSON.stringify(d.raw, null, 2).slice(0, 3000)}
-                      </pre>
-                    </details>
+                          return d.raw.entries.map((e: any) => {
+                            const label = String(e?.label || "").trim() || "—";
+                            const qty = safeNum(e?.qty_g, 0);
+
+                            const m = entryMacros(e);
+                            runK += safeNum(m.kcal, 0);
+                            runP += safeNum(m.p, 0);
+                            runC += safeNum(m.c, 0);
+                            runF += safeNum(m.f, 0);
+
+                            // identity line (for foods)
+                            const metaParts: string[] = [];
+                            if (e?.food_brand) metaParts.push(String(e.food_brand));
+                            if (e?.food_variant) metaParts.push(String(e.food_variant));
+                            if (e?.food_source_type || e?.food_source_id) {
+                              const st = e?.food_source_type ? String(e.food_source_type) : "";
+                              const sid = e?.food_source_id ? String(e.food_source_id) : "";
+                              metaParts.push(`${st}${sid ? ":" + sid : ""}`.replace(/^:/, ""));
+                            }
+                            const meta = metaParts.filter(Boolean).join(" · ");
+
+                            return (
+                              <div key={String(e.nutrition_entry_id)} className="py-3 px-3">
+                                <div className="text-sm font-medium break-words whitespace-normal">{label}</div>
+
+                                {meta ? (
+                                  <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
+                                    {meta}
+                                  </div>
+                                ) : null}
+
+                                <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
+                                  {qty > 0 ? `${fmt1tight(qty)}g · ` : ""}
+                                  kcal {fmt1tight(m.kcal)} · P {fmt1tight(m.p)} · C {fmt1tight(m.c)} · F {fmt1tight(m.f)}
+                                  <span className="opacity-70"> · total {fmt1tight(runK)} kcal</span>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    ) : (
+                      <div className="mt-3 text-sm text-muted-foreground">No entries.</div>
+                    )}
                   </div>
                 ))}
               </div>
