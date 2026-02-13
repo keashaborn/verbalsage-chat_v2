@@ -275,6 +275,13 @@ export default function NutritionCapturePage() {
       setFlash("Submitted to log.");
       window.setTimeout(() => setFlash(""), 1200);
 
+      // sanity refresh: confirm it landed (and clear any stale errors)
+      try {
+        const url = `/api/lifeswitch/nutrition/log/day?owner_user_id=${encodeURIComponent(owner)}&day=${encodeURIComponent(day)}`;
+        await fetch(url, { cache: "no-store" });
+      } catch { }
+      setStatus("");
+
       // refresh totals from backend
     } catch (e: any) {
       setStatus(`error: ${e?.message || String(e)}`);

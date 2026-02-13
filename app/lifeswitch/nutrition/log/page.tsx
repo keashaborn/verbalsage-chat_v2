@@ -351,10 +351,9 @@ export default function NutritionLogPage() {
       hitDates: Set<string>;
       anyDates: Set<string>;
       hitCount: number;
-      kcalTotal: number;
-      proteinTotal: number;
-      carbsTotal: number;
-      fatTotal: number;
+      anyCount: number;
+      kcalAvg: number;
+      proteinAvg: number;
     }> = [];
 
     for (const [ym, ds] of byMonth.entries()) {
@@ -363,6 +362,11 @@ export default function NutritionLogPage() {
       const anyDates = new Set(ds.filter((x: any) => x.any).map((x) => x.day));
       if (anyDates.size === 0) continue;
       const hitCount = ds.filter((x) => x.hit).length;
+      const anyDays = ds.filter((x: any) => x.any);
+      const denom = Math.max(1, anyDays.length);
+
+      const kcalAvg = anyDays.reduce((acc, x) => acc + safeNum(x.kcal, 0), 0) / denom;
+      const proteinAvg = anyDays.reduce((acc, x) => acc + safeNum(x.protein_g, 0), 0) / denom;
 
       out.push({
         ym,
@@ -371,10 +375,9 @@ export default function NutritionLogPage() {
         hitDates,
         anyDates,
         hitCount,
-        kcalTotal: ds.reduce((acc, x) => acc + safeNum(x.kcal, 0), 0),
-        proteinTotal: ds.reduce((acc, x) => acc + safeNum(x.protein_g, 0), 0),
-        carbsTotal: ds.reduce((acc, x) => acc + safeNum(x.carbs_g, 0), 0),
-        fatTotal: ds.reduce((acc, x) => acc + safeNum(x.fat_g, 0), 0),
+        kcalAvg,
+        proteinAvg,
+        anyCount: anyDays.length,
       });
     }
 
@@ -382,31 +385,9 @@ export default function NutritionLogPage() {
     return out;
   }, [days]);
 
-  const todayRow = React.useMemo(() => {
-    return days.find((x: any) => x?.day === today) || null;
-  }, [days, today]);
 
   return (
     <div className="mx-auto max-w-5xl p-4">
-      <div className="text-lg font-semibold">Nutrition · Log</div>
-      <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-xl border border-muted/20 bg-background/40 px-3 py-2 text-xs">
-        <div className="flex items-baseline gap-2">
-          <div className="opacity-70">KCAL</div>
-          <div className="font-semibold">{fmt1tight(safeNum(todayRow?.kcal, 0))}</div>
-        </div>
-        <div className="flex items-baseline gap-2">
-          <div className="opacity-70">PROTEIN</div>
-          <div className="font-semibold">{fmt1tight(safeNum(todayRow?.protein_g, 0))}g</div>
-        </div>
-        <div className="flex items-baseline gap-2">
-          <div className="opacity-70">CARBS</div>
-          <div className="font-semibold">{fmt1tight(safeNum(todayRow?.carbs_g, 0))}g</div>
-        </div>
-        <div className="flex items-baseline gap-2">
-          <div className="opacity-70">FAT</div>
-          <div className="font-semibold">{fmt1tight(safeNum(todayRow?.fat_g, 0))}g</div>
-        </div>
-      </div>
 
       <details className="mt-4">
         <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
@@ -434,11 +415,14 @@ export default function NutritionLogPage() {
                     <div className="text-sm font-semibold leading-none">{m.hitCount}</div>
                     <div className="mt-0.5 text-[9px] tracking-wide opacity-70">HIT DAYS</div>
 
-                    <div className="mt-2 text-sm font-semibold leading-none">{formatK(m.proteinTotal)}</div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">PROTEIN g</div>
+                    <div className="mt-2 text-sm font-semibold leading-none">{formatK(m.anyCount)}</div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">DAYS LOGGED</div>
 
-                    <div className="mt-2 text-sm font-semibold leading-none">{formatK(m.kcalTotal)}</div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">KCAL</div>
+                    <div className="mt-2 text-sm font-semibold leading-none">{fmt1tight(m.proteinAvg)}g</div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">AVG PROTEIN</div>
+
+                    <div className="mt-2 text-sm font-semibold leading-none">{fmt1tight(m.kcalAvg)}</div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">AVG KCAL</div>
                   </div>
                 </div>
               </div>
