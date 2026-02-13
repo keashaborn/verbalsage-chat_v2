@@ -6,24 +6,21 @@ export const dynamic = "force-dynamic";
 
 const BRAINS_URL = (process.env.BRAINS_URL || "http://172.31.32.171:8088").replace(/\/+$/, "");
 
-async function proxy(req: NextRequest, method: "POST" | "PATCH" | "DELETE") {
+export async function POST(req: NextRequest) {
   const rid = req.headers.get("x-request-id") || randomUUID();
-  const inUrl = new URL(req.url);
 
-  const upstream = new URL(`${BRAINS_URL}/lifeswitch/nutrition/log/entry`);
-  upstream.search = inUrl.search;
+  // IMPORTANT: entries -> /log/entries (NOT /log/entry)
+  const upstream = new URL(`${BRAINS_URL}/lifeswitch/nutrition/log/entries`);
 
-  const body = method === "POST" ? await req.text() : null;
+  const body = await req.text();
 
   const r = await fetch(upstream.toString(), {
-    method,
+    method: "POST",
     headers: {
       "x-request-id": rid,
-      ...(method === "POST"
-        ? { "content-type": req.headers.get("content-type") || "application/json; charset=utf-8" }
-        : {}),
+      "content-type": req.headers.get("content-type") || "application/json; charset=utf-8",
     },
-    body: body ?? undefined,
+    body,
     cache: "no-store",
   });
 
@@ -35,16 +32,4 @@ async function proxy(req: NextRequest, method: "POST" | "PATCH" | "DELETE") {
       "x-request-id": rid,
     },
   });
-}
-
-export async function POST(req: NextRequest) {
-  return proxy(req, "POST");
-}
-
-export async function PATCH(req: NextRequest) {
-  return proxy(req, "PATCH");
-}
-
-export async function DELETE(req: NextRequest) {
-  return proxy(req, "DELETE");
 }
