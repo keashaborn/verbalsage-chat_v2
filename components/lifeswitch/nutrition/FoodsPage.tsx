@@ -55,10 +55,13 @@ type FoodOverride = {
   default_grams?: number; // typical grams
 };
 
-function loadFoodOverrides(): Record<string, FoodOverride> {
+const LS_OV_KEY = "vs_food_overrides_v1";
+const LS_OV_MIGRATED = "vs_food_overrides_v1_migrated_to_db_v1";
+
+function loadLocalOverrides(): Record<string, FoodOverride> {
   if (typeof window === "undefined") return {};
   try {
-    const raw = localStorage.getItem("vs_food_overrides_v1");
+    const raw = localStorage.getItem(LS_OV_KEY);
     const j = raw ? JSON.parse(raw) : {};
     return j && typeof j === "object" ? j : {};
   } catch {
@@ -66,10 +69,66 @@ function loadFoodOverrides(): Record<string, FoodOverride> {
   }
 }
 
-function saveFoodOverrides(next: Record<string, FoodOverride>) {
+function saveLocalOverrides(next: Record<string, FoodOverride>) {
   try {
-    localStorage.setItem("vs_food_overrides_v1", JSON.stringify(next));
+    localStorage.setItem(LS_OV_KEY, JSON.stringify(next));
   } catch { }
+}
+
+type OverrideRow = {
+  owner_user_id: string;
+  my_food_id: string;
+  alias: string | null;
+  default_grams: number | null;
+  sort_order: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+async function fetchOverridesFromDb(owner_user_id: string): Promise<Record<string, FoodOverride>> {
+  const qs = new URLSearchParams({ owner_user_id });
+  const r = await fetch(`/api/lifeswitch/nutrition/my_food_overrides?${qs.toString()}`, { cache: "no-store" });
+  const t = await r.text().catch(() => "");
+  if (!r.ok) throw new Error(t.slice(0, 200) || `HTTP ${r.status}`);
+  const j = t ? JSON.parse(t) : [];
+  const rows: OverrideRow[] = Array.isArray(j) ? j : [];
+
+  const out: Record<string, FoodOverride> = {};
+  for (const row of rows) {
+    const fid = String(row?.my_food_id || "").trim();
+    if (!fid) continue;
+    out[fid] = {
+      alias: row?.alias ? String(row.alias) : undefined,
+      default_grams: row?.default_grams != null ? Number(row.default_grams) : undefined,
+    };
+  }
+  return out;
+}
+
+async function upsertOverrideToDb(args: {
+  owner_user_id: string;
+  my_food_id: string;
+  alias?: string;
+  default_grams?: number;
+  sort_order?: number;
+}) {
+  const qs = new URLSearchParams({
+    owner_user_id: args.owner_user_id,
+    my_food_id: args.my_food_id,
+  });
+  if (args.alias && args.alias.trim()) qs.set("alias", args.alias.trim());
+  if (args.default_grams != null && Number.isFinite(args.default_grams) && args.default_grams > 0) {
+    qs.set("default_grams", String(args.default_grams));
+  }
+  if (args.sort_order != null && Number.isFinite(args.sort_order)) qs.set("sort_order", String(args.sort_order));
+
+  const r = await fetch(`/api/lifeswitch/nutrition/my_food_overrides/upsert?${qs.toString()}`, {
+    method: "POST",
+    cache: "no-store",
+  });
+  const t = await r.text().catch(() => "");
+  if (!r.ok) throw new Error(t.slice(0, 200) || `HTTP ${r.status}`);
+  return t ? JSON.parse(t) : null;
 }
 
 function scaledFromPer100(per100: number | null, grams: number | null): number | null {
@@ -87,31 +146,6 @@ export default function NutritionFoodsPage() {
   // auth (optional for search; required for "My Foods" + importing)
   const [owner, setOwner] = React.useState<string | null>(null);
   const [authErr, setAuthErr] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const r = await fetch("/api/auth/whoami", { cache: "no-store" });
-        const j = await r.json();
-        if (!j?.ok) {
-          setOwner(null);
-          setAuthErr(j?.error || "not signed in");
-          return;
-        }
-        const sub = String(j.sub || "").trim();
-        if (!sub) {
-          setOwner(null);
-          setAuthErr("missing sub");
-          return;
-        }
-        setOwner(sub);
-        setAuthErr(null);
-      } catch (e: any) {
-        setOwner(null);
-        setAuthErr(String(e?.message || e));
-      }
-    })();
-  }, []);
 
   // USDA search
   const [usdaQ, setUsdaQ] = React.useState("");
@@ -153,38 +187,99 @@ export default function NutritionFoodsPage() {
   const [editGrams, setEditGrams] = React.useState<string>("");
 
   React.useEffect(() => {
-    setFoodOverrides(loadFoodOverrides());
+    // local fallback immediately (fast paint)
+    setFoodOverrides(loadLocalOverrides());
   }, []);
+
+  React.useEffect(() => {
+    // once signed in, prefer DB overrides + migrate local once
+    if (!owner) return;
+
+    (async () => {
+      // 1) migrate local -> DB once
+      try {
+        const migrated = localStorage.getItem(LS_OV_MIGRATED);
+        if (!migrated) {
+          const local = loadLocalOverrides();
+          const keys = Object.keys(local || {});
+          if (keys.length) {
+            for (const my_food_id of keys) {
+              const ov = local[my_food_id] || {};
+              await upsertOverrideToDb({
+                owner_user_id: owner,
+                my_food_id,
+                alias: ov.alias,
+                default_grams: ov.default_grams,
+              });
+            }
+          }
+          localStorage.setItem(LS_OV_MIGRATED, "1");
+          // optional: keep local as backup, or remove to avoid confusion
+          // localStorage.removeItem(LS_OV_KEY);
+        }
+      } catch { }
+
+      // 2) load from DB
+      try {
+        const db = await fetchOverridesFromDb(owner);
+        setFoodOverrides(db);
+      } catch (e) {
+        // keep local fallback if DB fails
+        console.warn("override load failed:", e);
+      }
+    })();
+  }, [owner]);
+
+  function closeFoodEditor() {
+    setEditFoodId(null);
+    setEditAlias("");
+    setEditGrams("");
+  }
 
   function openFoodEditor(f: MyFood) {
     const ov = foodOverrides[f.my_food_id] || {};
     setEditFoodId(f.my_food_id);
     setEditAlias(String(ov.alias ?? ""));
     setEditGrams(ov.default_grams != null ? String(ov.default_grams) : "");
-    // also preload servings panel state (optional)
-    if (servMap[f.my_food_id] == null) void loadServings(f.my_food_id);
-    setServOpen((p) => ({ ...p, [f.my_food_id]: true }));
   }
 
-  function closeFoodEditor() {
-    setEditFoodId(null);
-  }
-
-  function saveFoodEditor() {
+  async function saveFoodEditor() {
     if (!editFoodId) return;
     const alias = editAlias.trim();
     const gramsNum = Number(editGrams.trim());
-    const next: Record<string, FoodOverride> = { ...(foodOverrides || {}) };
 
+    const next: Record<string, FoodOverride> = { ...(foodOverrides || {}) };
     next[editFoodId] = {
       alias: alias ? alias : undefined,
       default_grams: Number.isFinite(gramsNum) && gramsNum > 0 ? gramsNum : undefined,
     };
 
+    // optimistic UI
     setFoodOverrides(next);
-    if (typeof window !== "undefined") saveFoodOverrides(next);
-    closeFoodEditor();
+
+    try {
+      if (owner) {
+        await upsertOverrideToDb({
+          owner_user_id: owner,
+          my_food_id: editFoodId,
+          alias: alias ? alias : undefined,
+          default_grams: Number.isFinite(gramsNum) && gramsNum > 0 ? gramsNum : undefined,
+        });
+        // refresh from DB for source-of-truth
+        const db = await fetchOverridesFromDb(owner);
+        setFoodOverrides(db);
+      } else {
+        saveLocalOverrides(next);
+      }
+    } catch (e) {
+      // fallback: keep local if DB write fails
+      saveLocalOverrides(next);
+      console.warn("override save failed:", e);
+    } finally {
+      closeFoodEditor();
+    }
   }
+
   React.useEffect(() => {
     const snap = () => {
       const doc = document.documentElement;
