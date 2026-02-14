@@ -186,6 +186,35 @@ export default function NutritionFoodsPage() {
   const [editAlias, setEditAlias] = React.useState<string>("");
   const [editGrams, setEditGrams] = React.useState<string>("");
 
+  // auth (optional for USDA search; required for My Foods + overrides persistence)
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/auth/whoami", { cache: "no-store" });
+        const j = await r.json().catch(() => null);
+
+        if (!j?.ok) {
+          setOwner(null);
+          setAuthErr(j?.error || "not signed in");
+          return;
+        }
+
+        const sub = String(j.sub || "").trim();
+        if (!sub) {
+          setOwner(null);
+          setAuthErr("missing sub");
+          return;
+        }
+
+        setOwner(sub);
+        setAuthErr(null);
+      } catch (e: any) {
+        setOwner(null);
+        setAuthErr(String(e?.message || e));
+      }
+    })();
+  }, []);
+
   React.useEffect(() => {
     // local fallback immediately (fast paint)
     setFoodOverrides(loadLocalOverrides());
