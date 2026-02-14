@@ -80,15 +80,80 @@ function fmt1(x: number | null) {
   return (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, "");
 }
 
-function loadFoodOverrides(): Record<string, FoodOverride> {
+const LS_OV_KEY = "vs_food_overrides_v1";
+const LS_OV_MIGRATED = "vs_food_overrides_v1_migrated_to_db_v1";
+
+function loadLocalOverrides(): Record<string, FoodOverride> {
   if (typeof window === "undefined") return {};
   try {
-    const raw = localStorage.getItem("vs_food_overrides_v1");
+    const raw = localStorage.getItem(LS_OV_KEY);
     const j = raw ? JSON.parse(raw) : {};
     return j && typeof j === "object" ? j : {};
   } catch {
     return {};
   }
+}
+
+function saveLocalOverrides(next: Record<string, FoodOverride>) {
+  try {
+    localStorage.setItem(LS_OV_KEY, JSON.stringify(next));
+  } catch { }
+}
+
+type OverrideRow = {
+  owner_user_id: string;
+  my_food_id: string;
+  alias: string | null;
+  default_grams: number | null;
+  sort_order: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+async function fetchOverridesFromDb(owner_user_id: string): Promise<Record<string, FoodOverride>> {
+  const qs = new URLSearchParams({ owner_user_id });
+  const r = await fetch(`/api/lifeswitch/nutrition/my_food_overrides?${qs.toString()}`, { cache: "no-store" });
+  const t = await r.text().catch(() => "");
+  if (!r.ok) throw new Error(t.slice(0, 200) || `HTTP ${r.status}`);
+  const j = t ? JSON.parse(t) : [];
+  const rows: OverrideRow[] = Array.isArray(j) ? j : [];
+
+  const out: Record<string, FoodOverride> = {};
+  for (const row of rows) {
+    const fid = String(row?.my_food_id || "").trim();
+    if (!fid) continue;
+    out[fid] = {
+      alias: row?.alias ? String(row.alias) : undefined,
+      default_grams: row?.default_grams != null ? Number(row.default_grams) : undefined,
+    };
+  }
+  return out;
+}
+
+async function upsertOverrideToDb(args: {
+  owner_user_id: string;
+  my_food_id: string;
+  alias?: string;
+  default_grams?: number;
+  sort_order?: number;
+}) {
+  const qs = new URLSearchParams({
+    owner_user_id: args.owner_user_id,
+    my_food_id: args.my_food_id,
+  });
+  if (args.alias && args.alias.trim()) qs.set("alias", args.alias.trim());
+  if (args.default_grams != null && Number.isFinite(args.default_grams) && args.default_grams > 0) {
+    qs.set("default_grams", String(args.default_grams));
+  }
+  if (args.sort_order != null && Number.isFinite(args.sort_order)) qs.set("sort_order", String(args.sort_order));
+
+  const r = await fetch(`/api/lifeswitch/nutrition/my_food_overrides/upsert?${qs.toString()}`, {
+    method: "POST",
+    cache: "no-store",
+  });
+  const t = await r.text().catch(() => "");
+  if (!r.ok) throw new Error(t.slice(0, 200) || `HTTP ${r.status}`);
+  return t ? JSON.parse(t) : null;
 }
 
 export default function NutritionCapturePage() {
@@ -133,7 +198,51 @@ export default function NutritionCapturePage() {
     })();
   }, []);
 
-  const overrides = React.useMemo(() => loadFoodOverrides(), [owner]); // reload on sign-in change
+  const [overrides, setOverrides] = React.useState<Record<string, FoodOverride>>({});
+
+  // local fallback immediately (fast paint)
+  React.useEffect(() => {
+    setOverrides(loadLocalOverrides());
+  }, []);
+
+  // once signed in, prefer DB overrides + migrate local once
+  React.useEffect(() => {
+    if (!owner) return;
+
+    (async () => {
+      // 1) migrate local -> DB once
+      try {
+        const migrated = localStorage.getItem(LS_OV_MIGRATED);
+        if (!migrated) {
+          const local = loadLocalOverrides();
+          const keys = Object.keys(local || {});
+          if (keys.length) {
+            for (const my_food_id of keys) {
+              const ov = local[my_food_id] || {};
+              await upsertOverrideToDb({
+                owner_user_id: owner,
+                my_food_id,
+                alias: ov.alias,
+                default_grams: ov.default_grams,
+              });
+            }
+          }
+          localStorage.setItem(LS_OV_MIGRATED, "1");
+          // optional: keep local as backup
+          // localStorage.removeItem(LS_OV_KEY);
+        }
+      } catch { }
+
+      // 2) load from DB
+      try {
+        const db = await fetchOverridesFromDb(owner);
+        setOverrides(db);
+      } catch (e) {
+        // keep local fallback if DB fails
+        console.warn("override load failed:", e);
+      }
+    })();
+  }, [owner]);
 
   async function loadFoods() {
     if (!owner) return;
