@@ -47,8 +47,14 @@ export async function POST(req: Request) {
     body = {};
   }
 
+  const mode =
+    typeof body?.mode === "string" && ["full", "active"].includes(body.mode)
+      ? body.mode
+      : "full";
+
   const payload = {
     user_id,
+    mode,
     defaultId: typeof body?.defaultId === "string" ? body.defaultId : "",
     source_updated_at: typeof body?.source_updated_at === "string" ? body.source_updated_at : null,
     active: body?.active && typeof body.active === "object" ? body.active : null,
