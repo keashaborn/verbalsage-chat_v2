@@ -526,12 +526,12 @@ export function VantageProfilePage({
   return (
     <div className="space-y-4">
       <div className="text-xs text-muted-foreground">
-        Use the header Save to apply this profile’s routing + retrieval behavior.
+        Use Save to apply this Vantage’s routing, retrieval, and behavior settings.
       </div>
 
       <Group title="Profile">
         <Row
-          left="Name"
+          left="Vantage name"
           right={
             <input
               className="w-[210px] rounded-lg border bg-background px-2 py-1.5 text-sm"
@@ -557,7 +557,7 @@ export function VantageProfilePage({
         </div>
 
         <Row
-          left="Load preset"
+          left="Switch Vantage"
           right={
             <select
               className="w-[210px] rounded-lg border bg-background px-2 py-1.5 text-sm"
@@ -588,11 +588,16 @@ export function VantageProfilePage({
         />
 
         <div className="px-1 text-xs text-muted-foreground">
-          Header <span className="font-semibold">Save</span> applies cookies (active behavior). Presets here are synced to your account.
+          Header <span className="font-semibold">Save</span> applies cookies (active behavior). Vantages here are synced to your account.
         </div>
 
-        <ActionRow
-          label={`Save preset "${namespace}"`}
+        <details className="border-t">
+          <summary className="cursor-pointer select-none px-3 py-2 text-sm font-semibold hover:bg-muted/60">
+            Manage Vantage
+          </summary>
+          <div className="divide-y">
+<ActionRow
+          label={`Save Vantage "${namespace}"`}
           onClick={() => {
             setMsg("");
             const now = new Date().toISOString();
@@ -601,7 +606,7 @@ export function VantageProfilePage({
             const state = currentDraftState();
 
             if (existing) {
-              const ok = window.confirm(`Overwrite existing preset "${existing.name}"?`);
+              const ok = window.confirm(`Overwrite existing Vantage "${existing.name}"?`);
               if (!ok) return;
 
               const next = profiles.map((p) =>
@@ -612,7 +617,7 @@ export function VantageProfilePage({
               void cloudSetPresets(next, defaultId);
               void brainsSyncVantagePresets({ profiles: next, defaultId, active: appliedActivePayload() });
               setSelectedId(existing.id);
-              setMsg(`Overwrote preset "${namespace}".`);
+              setMsg(`Overwrote Vantage "${namespace}".`);
               return;
             }
 
@@ -623,12 +628,12 @@ export function VantageProfilePage({
             void cloudSetPresets(next, defaultId);
               void brainsSyncVantagePresets({ profiles: next, defaultId, active: appliedActivePayload() });
             setSelectedId(p.id);
-            setMsg(`Saved preset "${namespace}".`);
+            setMsg(`Saved Vantage "${namespace}".`);
           }}
         />
 
         <ActionRow
-          label="Set default preset"
+          label="Set default Vantage"
           disabled={!selectedId}
           onClick={() => {
             if (!selectedId) return;
@@ -636,14 +641,14 @@ export function VantageProfilePage({
             setDefaultId(selectedId);
             void cloudSetPresets(profiles as any, selectedId);
             void brainsSyncVantagePresets({ profiles: profiles as any, defaultId: selectedId, active: appliedActivePayload() });
-            setMsg("Set default preset.");
+            setMsg("Set default Vantage.");
           }}
         /><ActionRow
-          label="Delete preset"
+          label="Delete Vantage"
           disabled={!selectedId}
           onClick={() => {
             if (!selected) return;
-            const ok = window.confirm(`Delete preset "${selected.name}"?`);
+            const ok = window.confirm(`Delete Vantage "${selected.name}"?`);
             if (!ok) return;
 
             const next = profiles.filter((p) => p.id !== selected.id);
@@ -659,10 +664,13 @@ export function VantageProfilePage({
             setSelectedId("");
             setMsg(`Deleted "${selected.name}".`);
           }}
-        /></Group>
+        />
+          </div>
+        </details>
+        </Group>
 
       {msg ? <div className="px-1 text-xs text-muted-foreground">{msg}</div> : null}
-      <div className="px-1 text-xs text-muted-foreground">Default preset: {defaultProfile ? defaultProfile.name : "(none)"}</div>
+      <div className="px-1 text-xs text-muted-foreground">Default Vantage: {defaultProfile ? defaultProfile.name : "(none)"}</div>
 
       <Group
         title="Conversation context"
@@ -714,6 +722,37 @@ export function VantageProfilePage({
         />
       </Group>
 
+
+      <Group
+        title="Lenses"
+        help={
+          <div className="space-y-1">
+            <div>
+              <span className="font-semibold">FM lens</span>: injects a framing constraint block into the
+              prompt (instruction overlay, not retrieval).
+            </div>
+            <div className="pt-1">
+              Cookie: <code>vs_vantage_mix</code>
+            </div>
+          </div>
+        }
+      >
+        <SliderRow
+          title="FM lens strength"
+          value={mix.lens_fm}
+          onChange={(v) => setDraft((s) => ({ ...s, mix: { ...sanitizeMix(s.mix), lens_fm: v } }))}
+        />
+      </Group>
+
+
+
+
+      <details className="space-y-3 rounded-xl border p-3">
+        <summary className="cursor-pointer select-none text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Advanced tuning
+        </summary>
+
+        <div className="pt-3 space-y-4">
       <Group
         title="Retrieval filters & ranking"
         help={
@@ -740,27 +779,6 @@ export function VantageProfilePage({
           title="Recency bias"
           value={mix.recency_bias}
           onChange={(v) => setDraft((s) => ({ ...s, mix: { ...sanitizeMix(s.mix), recency_bias: v } }))}
-        />
-      </Group>
-
-      <Group
-        title="Lenses"
-        help={
-          <div className="space-y-1">
-            <div>
-              <span className="font-semibold">FM lens</span>: injects a framing constraint block into the
-              prompt (instruction overlay, not retrieval).
-            </div>
-            <div className="pt-1">
-              Cookie: <code>vs_vantage_mix</code>
-            </div>
-          </div>
-        }
-      >
-        <SliderRow
-          title="FM lens strength"
-          value={mix.lens_fm}
-          onChange={(v) => setDraft((s) => ({ ...s, mix: { ...sanitizeMix(s.mix), lens_fm: v } }))}
         />
       </Group>
 
@@ -911,6 +929,8 @@ export function VantageProfilePage({
           onChange={(v) => setDraft((s) => ({ ...s, limits: { ...sanitizeLimits(s.limits), S: v } }))}
         />
       </Group>
+        </div>
+      </details>
 
     </div>
   );
