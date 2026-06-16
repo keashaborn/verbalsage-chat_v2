@@ -268,10 +268,16 @@ export async function POST(req: Request) {
       }
     }
 
-    // roleplay from request body OR cookie
-    let roleplay: any = sanitizeRoleplay((body as any)?.roleplay);
+    // Vantage definition overlay from request body OR cookie.
+    // Back-compat: old field/cookie name was "roleplay".
+    let roleplay: any =
+      sanitizeRoleplay((body as any)?.definition_overlay) ||
+      sanitizeRoleplay((body as any)?.roleplay);
+
     if (!roleplay) {
-      const rawCookie = jar.get("vs_vantage_roleplay")?.value;
+      const rawCookie =
+        jar.get("vs_vantage_definition_overlay")?.value ||
+        jar.get("vs_vantage_roleplay")?.value;
       if (rawCookie) {
         try {
           roleplay = sanitizeRoleplay(JSON.parse(decodeURIComponent(rawCookie)));

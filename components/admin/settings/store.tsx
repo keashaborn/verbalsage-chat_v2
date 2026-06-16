@@ -240,8 +240,15 @@ function persistVantageCookies(draft: VSSettingsState) {
 
   if (draft.pragmatics == null) clearCookie("vs_vantage_pragmatics");
   else writeJsonCookie("vs_vantage_pragmatics", draft.pragmatics);
-  if (draft.roleplay == null) { clearCookie("vs_vantage_definition_overlay"); clearCookie("vs_vantage_roleplay"); }
-  else writeJsonCookie("vs_vantage_definition_overlay", draft.roleplay);
+  if (draft.roleplay == null) {
+    clearCookie("vs_vantage_definition_overlay");
+    clearCookie("vs_vantage_roleplay");
+  } else {
+    // Write both names for compatibility while the UI/backend migrates from
+    // "roleplay" terminology to "definition overlay".
+    writeJsonCookie("vs_vantage_definition_overlay", draft.roleplay);
+    writeJsonCookie("vs_vantage_roleplay", draft.roleplay);
+  }
   return { vid };
 }
 
