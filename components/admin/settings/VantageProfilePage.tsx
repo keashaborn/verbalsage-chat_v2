@@ -67,7 +67,7 @@ async function cloudGetPresets(): Promise<{ profiles: any[]; defaultId: string }
     const blob = um[CLOUD_PRESETS_KEY];
     if (!blob || typeof blob !== "object") return { profiles: [], defaultId: "" };
     return {
-      profiles: Array.isArray(blob.profiles) ? blob.profiles : [],
+      profiles: normalizeProfileList(Array.isArray(blob.profiles) ? blob.profiles : []),
       defaultId: typeof blob.defaultId === "string" ? blob.defaultId : "",
     };
   } catch {
@@ -80,7 +80,8 @@ async function cloudSetPresets(profiles: any[], defaultId: string) {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data?.user) return;
     const um: any = data.user.user_metadata || {};
-    const next = { ...(um[CLOUD_PRESETS_KEY] || {}), profiles, defaultId, updated_at: new Date().toISOString() };
+    const cleanProfiles = normalizeProfileList(profiles);
+    const next = { ...(um[CLOUD_PRESETS_KEY] || {}), profiles: cleanProfiles, defaultId, updated_at: new Date().toISOString() };
     await supabase.auth.updateUser({ data: { ...um, [CLOUD_PRESETS_KEY]: next } });
   } catch {
     // ignore
@@ -99,7 +100,7 @@ async function brainsSyncVantagePresets(args: {
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
       body: JSON.stringify({
-        profiles: Array.isArray(args.profiles) ? args.profiles : [],
+        profiles: normalizeProfileList(Array.isArray(args.profiles) ? args.profiles : []),
         defaultId: args.defaultId || "",
         active: args.active || null,
         source_updated_at: args.source_updated_at || new Date().toISOString(),
@@ -202,6 +203,29 @@ function normalizeVantageId(v: any): string {
   return s;
 }
 
+
+function normalizeProfileIdentity(p: any): any {
+  const state = p?.state && typeof p.state === "object" ? p.state : {};
+  const stateVid = normalizeVantageId(state.vantageId);
+  const nameVid = normalizeVantageId(p?.name);
+
+  // Prefer real runtime namespace. If it is blank/default but the display name is real, use the name.
+  const vid = stateVid && stateVid !== "default" ? stateVid : nameVid && nameVid !== "default" ? nameVid : "RESSE";
+
+  return {
+    ...p,
+    name: vid,
+    state: {
+      ...state,
+      vantageId: vid,
+    },
+  };
+}
+
+function normalizeProfileList(arr: any[]): any[] {
+  return (Array.isArray(arr) ? arr : []).map(normalizeProfileIdentity);
+}
+
 function uid8(): string {
   return Math.random().toString(16).slice(2, 10);
 }
@@ -230,7 +254,7 @@ function loadProfiles(): VantageProfile[] {
   try {
     const arr = JSON.parse(raw);
     if (!Array.isArray(arr)) return [];
-    return arr
+    return normalizeProfileList(arr
       .filter((p) => p && typeof p === "object" && typeof p.id === "string" && typeof p.name === "string")
       .map((p: any) => ({
         id: String(p.id),
@@ -245,14 +269,14 @@ function loadProfiles(): VantageProfile[] {
         },
         created_at: String(p.created_at || new Date().toISOString()),
         updated_at: String(p.updated_at || p.created_at || new Date().toISOString()),
-      }));
+      })));
   } catch {
     return [];
   }
 }
 
 function saveProfiles(arr: VantageProfile[]) {
-  lsSetRaw(LS_PROFILES, JSON.stringify(arr));
+  lsSetRaw(LS_PROFILES, JSON.stringify(normalizeProfileList(arr)));
 }
 
 function getDefaultProfileId(): string {
@@ -463,7 +487,7 @@ export function VantageProfilePage({
       // Cloud is authoritative for cross-browser consistency.
       // If not signed in, show empty presets (do not silently fall back to local).
       const cloud = await cloudGetPresets();
-      const ps = (cloud && cloud.profiles) ? cloud.profiles : [];
+      const ps = normalizeProfileList((cloud && cloud.profiles) ? cloud.profiles : []);
       const defId = (cloud && typeof cloud.defaultId === "string") ? cloud.defaultId : "";
 
       setProfiles(ps);
@@ -509,14 +533,15 @@ export function VantageProfilePage({
   }
 
   function loadIntoDraft(p: VantageProfile) {
+    const clean = normalizeProfileIdentity(p) as VantageProfile;
     setDraft((s) => ({
       ...s,
-      vantageId: p.state.vantageId,
-      limits: p.state.limits,
-      routing: p.state.routing,
-      mix: p.state.mix,
-      roleplay: p.state.roleplay,
-      pragmatics: p.state.pragmatics
+      vantageId: clean.state.vantageId,
+      limits: clean.state.limits,
+      routing: clean.state.routing,
+      mix: clean.state.mix,
+      roleplay: clean.state.roleplay,
+      pragmatics: clean.state.pragmatics
     }));
   }
 
@@ -526,7 +551,7 @@ export function VantageProfilePage({
   return (
     <div className="space-y-4">
       <div className="text-xs text-muted-foreground">
-        Use Save to apply this Vantage’s routing, retrieval, and behavior settings.
+        Use Apply to make this Vantage’s routing, retrieval, and behavior settings active in chat.
       </div>
 
       <Group title="Profile">
@@ -588,7 +613,7 @@ export function VantageProfilePage({
         />
 
         <div className="px-1 text-xs text-muted-foreground">
-          Header <span className="font-semibold">Save</span> applies cookies (active behavior). Vantages here are synced to your account.
+          Header <span className="font-semibold">Apply</span> makes the draft settings active in chat. Vantages here are synced to your account.
         </div>
 
         <details className="border-t">
@@ -602,15 +627,15 @@ export function VantageProfilePage({
             setMsg("");
             const now = new Date().toISOString();
 
-            const existing = profiles.find((p) => p.name.toLowerCase() === namespace.toLowerCase());
-            const state = currentDraftState();
+            const existing = profiles.find((p) => normalizeVantageId(p.state?.vantageId || p.name) === namespace);
+            const state = { ...currentDraftState(), vantageId: namespace };
 
             if (existing) {
               const ok = window.confirm(`Overwrite existing Vantage "${existing.name}"?`);
               if (!ok) return;
 
               const next = profiles.map((p) =>
-                p.id === existing.id ? { ...p, name: namespace, state, updated_at: now } : p
+                p.id === existing.id ? normalizeProfileIdentity({ ...p, name: namespace, state, updated_at: now }) : normalizeProfileIdentity(p)
               );
               setProfiles(next);
               saveProfiles(next);
@@ -621,7 +646,7 @@ export function VantageProfilePage({
               return;
             }
 
-            const p: VantageProfile = { id: uid8(), name: namespace, state, created_at: now, updated_at: now };
+            const p: VantageProfile = normalizeProfileIdentity({ id: uid8(), name: namespace, state, created_at: now, updated_at: now });
             const next = [p, ...profiles];
             setProfiles(next);
             saveProfiles(next);

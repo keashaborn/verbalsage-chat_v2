@@ -745,6 +745,19 @@ export function BrainsChatPane() {
     return await r.text();
   }
 
+  async function maybeAutoTitleThread(input: string, tid: string) {
+    try {
+      const r = await fetch(`/api/threads/${encodeURIComponent(tid)}/auto-title`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input }),
+      });
+      if (r.ok) window.dispatchEvent(new Event("vs_threads_refresh"));
+    } catch {
+      // Non-critical; chat should never fail because title generation failed.
+    }
+  }
+
   async function regenerateLast() {
     stopTTS();
     const lastUser = [...msgs].reverse().find((m) => m.role === "user")?.content?.trim() || "";
@@ -1039,6 +1052,7 @@ export function BrainsChatPane() {
       });
 
       window.dispatchEvent(new Event("vs_threads_refresh"));
+      void maybeAutoTitleThread(msg, tid);
       await loadMessages(tid, { inspect, inspect_error });
     } catch (e: any) {
       alert(e?.message || String(e));
