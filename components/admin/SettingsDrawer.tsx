@@ -11,6 +11,7 @@ import GrokVoiceRealtimePanel from "@/components/admin/GrokVoiceRealtimePanel";
 import { SecurityPanel } from "@/components/admin/SecurityPanel";
 import { ChatModelPanel } from "@/components/admin/ChatModelPanel";
 import { VantageProfilePage } from "@/components/admin/settings/VantageProfilePage";
+import { VantagePersonalizationEditor } from "@/components/admin/settings/VantagePersonalizationEditor";
 import { DeveloperToolsPage } from "@/components/admin/settings/DeveloperToolsPage";
 
 
@@ -32,6 +33,7 @@ type PageId =
   | "appearance"
   | "models_voice"
   | "vantage_profile"
+  | "vantage_personalization"
   | "memory_cards"
   | "security";
 
@@ -41,6 +43,7 @@ const PAGE_TITLES: Record<PageId, string> = {
   appearance: "Appearance",
   models_voice: "Models & Voice",
   vantage_profile: "Vantage Profile",
+  vantage_personalization: "Personalization",
   memory_cards: "Developer",
   security: "Security",
 };
@@ -83,6 +86,8 @@ function DrawerInner({
   onSecurityDone: () => void;
 }) {
   const { applied, dirty, save } = useSettingsStore();
+
+  const [personalizationVantageId, setPersonalizationVantageId] = React.useState<string>("RESSE");
 
   const [voiceEngine, setVoiceEngine] = React.useState<"openai_tts" | "grok_realtime">("openai_tts");
 
@@ -151,15 +156,17 @@ function DrawerInner({
                 </button>
               ) : null}
 
-              <button
-                type="button"
-                className="rounded-lg px-3 py-1.5 text-sm font-semibold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-                onClick={save}
-                disabled={!dirty}
-                title={dirty ? "Save Vantage changes" : "No Vantage changes to save"}
-              >
-                Save
-              </button>
+              {current !== "vantage_personalization" ? (
+                <button
+                  type="button"
+                  className="rounded-lg px-3 py-1.5 text-sm font-semibold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={save}
+                  disabled={!dirty}
+                  title={dirty ? "Save Vantage changes" : "No Vantage changes to save"}
+                >
+                  Save
+                </button>
+              ) : null}
 
               <Dialog.Close asChild>
                 <button
@@ -330,7 +337,18 @@ function DrawerInner({
 
         {current === "vantage_profile" && (
           <div className="space-y-3">
-            <VantageProfilePage />
+            <VantageProfilePage
+              onEditPersonalization={(vid) => {
+                setPersonalizationVantageId(String(vid || "RESSE").trim().slice(0, 64).toUpperCase() || "RESSE");
+                push("vantage_personalization");
+              }}
+            />
+          </div>
+        )}
+
+        {current === "vantage_personalization" && (
+          <div className="space-y-3">
+            <VantagePersonalizationEditor vantageId={personalizationVantageId} />
           </div>
         )}
 

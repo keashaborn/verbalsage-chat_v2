@@ -84,7 +84,7 @@ type ReqBody = {
   how_to_respond?: string;
   base_importance?: number;
   tags?: string[];
-  vantage_id?: string; // optional; cookie is authoritative by default
+  vantage_id?: string; // optional; explicit request value preferred over cookie
 };
 
 export async function GET(req: Request) {
@@ -97,7 +97,11 @@ export async function GET(req: Request) {
   if (!user_id) return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { "x-request-id": requestId } });
 
   const jar = await cookies();
-  const vantage_id = pickVantageId({ cookieVid: jar.get("vs_vantage_id")?.value });
+  const url = new URL(req.url);
+  const vantage_id = pickVantageId({
+    bodyVid: url.searchParams.get("vantage_id"),
+    cookieVid: jar.get("vs_vantage_id")?.value,
+  });
 
   const r = await fetch(
     `${BRAINS_URL}/cards/${encodeURIComponent(user_id)}?vantage_id=${encodeURIComponent(

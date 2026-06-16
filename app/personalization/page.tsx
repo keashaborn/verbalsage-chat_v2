@@ -96,6 +96,17 @@ function buildHowToRespond(sections: HowSections): string {
   return parts.join("\n\n").trim();
 }
 
+
+function getUrlVantageId(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    return String(sp.get("vantage_id") || "").trim().slice(0, 64);
+  } catch {
+    return "";
+  }
+}
+
 export default function PersonalizationPage() {
   const [ready, setReady] = React.useState(false);
 
@@ -126,7 +137,9 @@ export default function PersonalizationPage() {
   async function load() {
     setStatus("");
     try {
-      const r = await fetch("/api/user/instructions", { method: "GET", cache: "no-store" });
+      const vid = getUrlVantageId();
+      const qs = vid ? `?vantage_id=${encodeURIComponent(vid)}` : "";
+      const r = await fetch(`/api/user/instructions${qs}`, { method: "GET", cache: "no-store" });
       const raw = await r.text().catch(() => "");
       if (!r.ok) throw new Error(`load failed: HTTP ${r.status} ${raw}`);
 
@@ -157,8 +170,9 @@ export default function PersonalizationPage() {
       const br = await fetch("/api/user/instructions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // route uses cookie vs_vantage_id as authoritative; do not send vantage_id
+        // Explicit Vantage scope. Cookie is only a fallback/cache.
         body: JSON.stringify({
+          vantage_id: getUrlVantageId() || vantageId,
           about_me: aboutMe,
           how_to_respond: rawHowToRespond,
         }),

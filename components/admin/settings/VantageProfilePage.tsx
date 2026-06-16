@@ -437,7 +437,11 @@ function sameState(a: VantageProfile["state"], b: VantageProfile["state"]) {
   );
 }
 
-export function VantageProfilePage() {
+export function VantageProfilePage({
+  onEditPersonalization,
+}: {
+  onEditPersonalization?: (vantageId: string) => void;
+}) {
   const { applied, draft, setDraft } = useSettingsStore();
 
   const limits = sanitizeLimits(draft.limits);
@@ -542,7 +546,11 @@ export function VantageProfilePage() {
           <button
             type="button"
             className="w-full rounded-xl bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60"
-            onClick={() => window.location.assign("/personalization")}
+            onClick={() => {
+              const vid = String(draft.vantageId || "RESSE").trim().slice(0, 64).toUpperCase() || "RESSE";
+              if (onEditPersonalization) onEditPersonalization(vid);
+              else window.location.assign(`/personalization?vantage_id=${encodeURIComponent(vid)}`);
+            }}
           >
             Edit Personalization for this vantage
           </button>
