@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { MessagesSquare } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -11,25 +10,68 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import { SettingsDrawer } from "@/components/admin/SettingsDrawer";
 import { BrainsThreadList } from "@/components/threads/BrainsThreadList";
 import Image from "next/image";
-import Link from "next/link";
 
-
-const BRAND_MARK_H = 14; // px: shared optical height target
 const BRAND_FILTER_SILVER =
-  "grayscale brightness-125 contrast-125 opacity-85"; // tweak later
+  "grayscale brightness-125 contrast-125 opacity-85";
+
+function readCookie(name: string): string {
+  if (typeof document === "undefined") return "";
+  const part = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${name}=`));
+  if (!part) return "";
+  try {
+    return decodeURIComponent(part.split("=").slice(1).join("="));
+  } catch {
+    return part.split("=").slice(1).join("=");
+  }
+}
+
+function normalizeVantageLabel(raw: string): string {
+  const v = String(raw || "").trim();
+  if (!v || v.toLowerCase() === "default") return "RESSE";
+  return v.toUpperCase();
+}
+
+function ActiveVantageBadge() {
+  const [vid, setVid] = React.useState("RESSE");
+
+  React.useEffect(() => {
+    const refresh = () => setVid(normalizeVantageLabel(readCookie("vs_vantage_id")));
+    refresh();
+
+    window.addEventListener("focus", refresh);
+    window.addEventListener("vs_vantage_changed", refresh);
+    window.addEventListener("vs_threads_refresh", refresh);
+
+    const id = window.setInterval(refresh, 2000);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("vs_vantage_changed", refresh);
+      window.removeEventListener("vs_threads_refresh", refresh);
+      window.clearInterval(id);
+    };
+  }, []);
+
+  return (
+    <div className="min-w-0 flex-1 leading-tight">
+      <div className="truncate text-sm font-semibold">{vid}</div>
+      <div className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
+        Active Vantage
+      </div>
+    </div>
+  );
+}
 
 export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
-  const { isMobile, setOpenMobile } = useSidebar();
   return (
     <Sidebar {...props}>
-      {/* Header: icon only */}
       <SidebarHeader className="aui-sidebar-header mb-2 border-b">
-        <div className="flex items-center justify-between gap-2 px-2 py-2">
+        <div className="flex items-center gap-3 px-2 py-2">
           <div className="flex aspect-square size-10 items-center justify-center rounded-lg overflow-hidden">
             <Image
               src="/brand/vs-icon.svg"
@@ -40,16 +82,7 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
             />
           </div>
 
-          <Link
-            href="/collect"
-            onClick={() => {
-              if (isMobile) setOpenMobile(false);
-            }}
-            className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold hover:bg-muted/60"
-            title="Open data capture"
-          >
-            Capture
-          </Link>
+          <ActiveVantageBadge />
         </div>
       </SidebarHeader>
 
@@ -61,7 +94,6 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarFooter className="aui-sidebar-footer border-t">
         <SidebarMenu>
-          {/* Console (admin/settings) */}
           <SidebarMenuItem>
             <SettingsDrawer
               trigger={

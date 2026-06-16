@@ -12,7 +12,7 @@ type CardKindOption = {
 };
 
 export function CardsPanel() {
-  const [open, setOpen] = React.useState(true);
+  const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [items, setItems] = React.useState<any[]>([]);
   const [err, setErr] = React.useState<string | null>(null);
@@ -179,6 +179,50 @@ export function CardsPanel() {
     return String(it.kind || "memory");
   }
 
+
+  function groupLabel(kind: string) {
+    const k = String(kind || "").toLowerCase();
+    if (k === "identity" || k === "user_identity" || k === "assistant_identity") return "Identity";
+    if (k === "background") return "Background";
+    if (k === "project") return "Project";
+    if (k === "pref" || k === "preference") return "Preferences";
+    if (k === "style" || k === "style_mode") return "Style";
+    if (k === "policy" || k === "shaping") return "Policy / Shaping";
+    if (k === "gravity" || k === "gravity_profile") return "Gravity";
+    if (k === "desire" || k === "vb_desire_profile") return "Desire";
+    if (k === "system") return "System";
+    return "Other";
+  }
+
+  function groupOrder(label: string) {
+    const order: Record<string, number> = {
+      "Identity": 10,
+      "Background": 20,
+      "Project": 30,
+      "Preferences": 40,
+      "Style": 50,
+      "Policy / Shaping": 60,
+      "Gravity": 70,
+      "Desire": 80,
+      "System": 90,
+      "Other": 100,
+    };
+    return order[label] ?? 999;
+  }
+
+  function groupedItems(arr: any[]) {
+    const groups = new Map<string, any[]>();
+    for (const it of arr) {
+      const label = groupLabel(String(it.kind || ""));
+      const list = groups.get(label) || [];
+      list.push(it);
+      groups.set(label, list);
+    }
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => groupOrder(a) - groupOrder(b) || a.localeCompare(b))
+      .map(([label, groupItems]) => ({ label, items: groupItems }));
+  }
+
   async function load(
     nextKindKey: string = kindKey,
     nextSource: CardSource = sourceKey,
@@ -252,7 +296,10 @@ export function CardsPanel() {
       className="mb-4 rounded-xl border p-3"
       open={open}
       onToggle={(e) => {
-        const isOpen = (e.target as HTMLDetailsElement).open;
+        // Ignore nested card-group <details> toggles.
+        if (e.currentTarget !== e.target) return;
+
+        const isOpen = (e.currentTarget as HTMLDetailsElement).open;
         setOpen(isOpen);
         if (isOpen && items.length === 0 && !loading) load();
       }}
@@ -357,63 +404,103 @@ export function CardsPanel() {
         {loading && <div className="text-xs text-muted-foreground">Loading…</div>}
         {err && <div className="text-xs text-red-400">{err}</div>}
 
-        {displayItems.map((it) => {
-          const isOpen = expandedCardId === it.id;
-          const isProtected = sourceKey === "vantage" || PROTECTED_KINDS.has(String(it.kind || ""));
+        {sourceKey === "vantage" ? (
+          <div className="space-y-3">
+            {groupedItems(displayItems).map((group) => (
+              <details key={group.label} className="overflow-hidden rounded-xl border">
+                <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-muted/40">
+                  {group.label} ({group.items.length})
+                </summary>
 
-          return (
-            <div key={it.id} className="rounded-lg border px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <button
-                  className="flex-1 text-left text-xs text-muted-foreground"
-                  onClick={() => setExpandedCardId(isOpen ? null : it.id)}
-                >
-                  <span className="font-semibold">{cardTitle(it)}</span>
-                  <span className="ml-2 opacity-80">{it.kind || "memory"}</span>
-                  {it.updated_at ? ` • ${it.updated_at}` : it.created_at ? ` • ${it.created_at}` : ""}
-                </button>
+                <div className="space-y-2 border-t p-3">
+                  {group.items.map((it) => {
+                    const isOpen = expandedCardId === it.id;
+                    const isProtected = true;
 
-                {isProtected ? (
-                  <span className="text-xs text-muted-foreground" title="Protected/system card or live Vantage card">
-                    🔒
-                  </span>
-                ) : (
-                  <button
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                    title="Delete card"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      del(it.id);
-                    }}
-                  >
-                    🗑
-                  </button>
-                )}
-              </div>
+                    return (
+                      <div key={it.id} className="rounded-lg border px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <button
+                            className="flex-1 text-left text-xs text-muted-foreground"
+                            onClick={() => setExpandedCardId(isOpen ? null : it.id)}
+                          >
+                            <span className="font-semibold">{cardTitle(it)}</span>
+                            <span className="ml-2 opacity-80">{it.kind || "memory"}</span>
+                            {it.updated_at ? ` • ${it.updated_at}` : it.created_at ? ` • ${it.created_at}` : ""}
+                          </button>
 
-              {isOpen && (
-                <div className="mt-2 space-y-3">
-                  <div className="whitespace-pre-wrap text-sm">{prettySummary(it)}</div>
+                          <span className="text-xs text-muted-foreground" title="Protected live Vantage card">
+                            🔒
+                          </span>
+                        </div>
 
-                  {sourceKey === "vantage" && (
-                    <div className="grid gap-2 text-xs text-muted-foreground md:grid-cols-3">
-                      <div>strength: {it.strength ?? "?"}</div>
-                      <div>confidence: {it.confidence ?? "?"}</div>
-                      <div>source: {it.source ?? "vantage_card"}</div>
-                    </div>
-                  )}
-
-                  {showRaw ? (
-                    <pre className="max-h-64 overflow-auto rounded-lg border bg-background/40 p-2 text-xs">
-                      {JSON.stringify(it.payload || it, null, 2)}
-                    </pre>
-                  ) : null}
+                        {isOpen ? (
+                          <div className="mt-2 space-y-2">
+                            <pre className="whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-xs">
+                              {prettySummary(it)}
+                            </pre>
+                            {showRaw ? (
+                              <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-[11px]">
+                                {JSON.stringify(it, null, 2)}
+                              </pre>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
-          );
-        })}
+              </details>
+            ))}
+          </div>
+        ) : (
+          displayItems.map((it) => {
+            const isOpen = expandedCardId === it.id;
+            const isProtected = PROTECTED_KINDS.has(String(it.kind || ""));
+
+            return (
+              <div key={it.id} className="rounded-lg border px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    className="flex-1 text-left text-xs text-muted-foreground"
+                    onClick={() => setExpandedCardId(isOpen ? null : it.id)}
+                  >
+                    <span className="font-semibold">{cardTitle(it)}</span>
+                    <span className="ml-2 opacity-80">{it.kind || "memory"}</span>
+                    {it.updated_at ? ` • ${it.updated_at}` : it.created_at ? ` • ${it.created_at}` : ""}
+                  </button>
+
+                  {isProtected ? (
+                    <span className="text-xs text-muted-foreground" title="Protected/system card">
+                      🔒
+                    </span>
+                  ) : (
+                    <button
+                      className="text-xs text-red-400 hover:underline"
+                      onClick={() => del(String(it.id))}
+                    >
+                      delete
+                    </button>
+                  )}
+                </div>
+
+                {isOpen ? (
+                  <div className="mt-2 space-y-2">
+                    <pre className="whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-xs">
+                      {prettySummary(it)}
+                    </pre>
+                    {showRaw ? (
+                      <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-[11px]">
+                        {JSON.stringify(it, null, 2)}
+                      </pre>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })
+        )}
+
 
         {!loading && displayItems.length === 0 && (
           <div className="text-xs text-muted-foreground">No cards found for this category.</div>
