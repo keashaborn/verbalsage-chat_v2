@@ -23,8 +23,8 @@ function getRequestId(req: Request): string {
 async function getUserIdFromCookie(): Promise<string | null> {
   if (!JWKS || !process.env.SUPABASE_ISSUER) return null;
 
-  const jar = await cookies();
-  const token = jar.get("vs_at")?.value;
+  const auth = req.headers.get("authorization");
+  const token = auth?.replace("Bearer ", "");
   if (!token) return null;
 
   try {

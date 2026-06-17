@@ -121,7 +121,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [msg, setMsg] = useState("");
 
   async function syncServerAuthCookies(s: any | null): Promise<boolean> {
-    if (s?.access_token) {
+    if (s?.access_token && s?.user?.id) {
       return await fetchOk(
         "/api/auth/set",
         {
