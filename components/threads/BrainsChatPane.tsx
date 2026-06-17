@@ -1028,6 +1028,7 @@ export function BrainsChatPane() {
       fetch(`/api/threads/${encodeURIComponent(tid)}/auto-title`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ text: msg }),
       }).catch(() => { });
 
