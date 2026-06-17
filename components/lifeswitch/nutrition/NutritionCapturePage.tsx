@@ -48,7 +48,6 @@ type LogEntry = {
 };
 
 type DraftEntry = {
-  draft_id: string;     // client-side id
   my_food_id: string;
   label: string;        // alias/display_name
   qty_g: number;
@@ -163,7 +162,6 @@ export default function NutritionCapturePage() {
   const [flash, setFlash] = React.useState<string>("");
 
   const [day, setDay] = React.useState<string>(todayLocalYYYYMMDD());
-  const [draft, setDraft] = React.useState<DraftEntry[]>([]);
   const [submitting, setSubmitting] = React.useState(false);
 
   const [foods, setFoods] = React.useState<MyFood[]>([]);
@@ -331,7 +329,6 @@ export default function NutritionCapturePage() {
       const label = (overrides[my_food_id]?.alias?.trim() || f.display_name || "food").trim();
 
       const e: DraftEntry = {
-        draft_id: crypto.randomUUID(),
         my_food_id,
         label,
         qty_g: g,
@@ -351,53 +348,6 @@ export default function NutritionCapturePage() {
     }
   }
 
-  async function submitDraft() {
-    if (!owner) return;
-    if (!draft.length) return;
-
-    setSubmitting(true);
-    setStatus("");
-    try {
-      const payload = {
-        owner_user_id: owner,
-        day,
-        entries: draft.map((d, idx) => ({
-          my_food_id: d.my_food_id,
-          qty_g: d.qty_g,
-          sort_order: (idx + 1) * 10,
-          notes: "capture_v0",
-        })),
-      };
-
-      const r = await fetch("/api/lifeswitch/nutrition/log/entries", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-        cache: "no-store",
-      });
-
-      const t = await r.text().catch(() => "");
-      if (!r.ok) throw new Error(t.slice(0, 200) || `HTTP ${r.status}`);
-
-      setDraft([]);
-      setStatus("submitted");
-      setFlash("Submitted to log.");
-      window.setTimeout(() => setFlash(""), 1200);
-
-      // sanity refresh: confirm it landed (and clear any stale errors)
-      try {
-        const url = `/api/lifeswitch/nutrition/log/day?owner_user_id=${encodeURIComponent(owner)}&day=${encodeURIComponent(day)}`;
-        await fetch(url, { cache: "no-store" });
-      } catch { }
-      setStatus("");
-
-      // refresh totals from backend
-    } catch (e: any) {
-      setStatus(`error: ${e?.message || String(e)}`);
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   return (
     <div className="mx-auto max-w-5xl p-4 overflow-x-hidden">
@@ -435,29 +385,15 @@ export default function NutritionCapturePage() {
           kcal {fmt0(totals.kcal)} · P {fmt1(totals.p)}g · C {fmt1(totals.c)}g · F {fmt1(totals.f)}g
         </div>
       </div>
-      {/* Current submission (draft) */}
-      <details className="mt-3 rounded-xl border p-3" open>
-        <summary className="cursor-pointer select-none text-sm font-semibold">
-          Current submission ({draft.length})
-        </summary>
-
-        <div className="mt-3 flex items-center gap-2">
-          <button
-            className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-            onClick={() => void submitDraft()}
-            disabled={!owner || submitting || draft.length === 0}
           >
             {submitting ? "Submitting…" : "Submit to log"}
           </button>
 
           <div className="text-xs text-muted-foreground">
-            {draft.length === 0 ? "Add foods below." : "Edit grams, delete mistakes, then submit."}
           </div>
         </div>
 
         <div className="mt-3 divide-y divide-muted/20">
-          {draft.map((e) => (
-            <div key={e.draft_id} className="py-3 flex items-center justify-between gap-3 min-w-0">
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium break-words whitespace-normal">{e.label}</div>
               </div>
@@ -471,7 +407,6 @@ export default function NutritionCapturePage() {
                     const v = Number((ev.currentTarget.value || "").trim());
                     setDraft((prev) =>
                       (prev || []).map((x) =>
-                        x.draft_id === e.draft_id ? { ...x, qty_g: Number.isFinite(v) ? v : 0 } : x
                       )
                     );
                   }}
@@ -480,7 +415,6 @@ export default function NutritionCapturePage() {
 
                 <button
                   className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
-                  onClick={() => setDraft((prev) => (prev || []).filter((x) => x.draft_id !== e.draft_id))}
                   title="Remove"
                 >
                   Delete
@@ -489,7 +423,6 @@ export default function NutritionCapturePage() {
             </div>
           ))}
 
-          {draft.length === 0 ? (
             <div className="py-3 text-sm text-muted-foreground">Nothing queued.</div>
           ) : null}
         </div>
