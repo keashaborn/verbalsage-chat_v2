@@ -27,15 +27,6 @@ type MyFood = {
 };
 
 type MealPattern = {
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
   pattern_id: string;
   name: string;
   items: {
@@ -80,15 +71,6 @@ export default function NutritionCapturePage() {
   // PATTERNS (core new model)
   // ----------------------------
   const [patterns] = React.useState<MealPattern[]>([
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
     {
       pattern_id: "breakfast_v1",
       name: "Breakfast",
@@ -101,126 +83,10 @@ export default function NutritionCapturePage() {
   ]);
 
   const [activePatternId, setActivePatternId] = React.useState<string>("");
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
 
   const activePattern = React.useMemo(() => {
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
-  const lastExecutedPattern = React.useRef<string>("");
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
-  const [fastMode, setFastMode] = React.useState(true);
-
-
-  React.useEffect(() => {
-    if (!activePatternId) return;
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
-    if (!activePattern) return;
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
-    if (!foods.length) return;
-    
-    if (lastExecutedPattern.current === activePatternId) return;
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
-    if (!fastMode) return;
-
-    
-    lastExecutedPattern.current = activePatternId;
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
-    executePattern();
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
-  }, [activePatternId]);
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
-
     return patterns.find(p => p.pattern_id === activePatternId) || null;
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
   }, [activePatternId, patterns]);
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
 
   // ----------------------------
   // AUTH
@@ -310,39 +176,12 @@ export default function NutritionCapturePage() {
   // PATTERN EXECUTION
   // ----------------------------
   async function executePattern() {
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
     if (!activePattern || !foods.length) return;
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
 
     try {
       setStatus("logging pattern...");
 
       for (const item of activePattern.items) {
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
         const match = foods.find(f =>
           (overrides[f.my_food_id]?.alias || f.display_name)
             .toLowerCase()
@@ -360,15 +199,6 @@ export default function NutritionCapturePage() {
       }
 
       setFlash("Pattern logged");
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
       setTimeout(() => setFlash(""), 1200);
       setStatus("");
     } catch (e: any) {
@@ -387,15 +217,6 @@ export default function NutritionCapturePage() {
           <div className="text-lg font-semibold">Nutrition · Capture</div>
           <div className="text-xs text-muted-foreground">
             Pattern execution + atomic logging
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
           </div>
         </div>
 
@@ -418,38 +239,11 @@ export default function NutritionCapturePage() {
       {/* PATTERN BAR */}
       <div className="mt-4 border rounded p-3">
         <div className="text-sm font-semibold">Pattern</div>
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
 
         <select
           className="mt-2 border rounded px-2 py-1 text-sm"
           value={activePatternId}
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
           onChange={(e) => setActivePatternId(e.target.value)}
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
         >
           <option value="">Select pattern</option>
           {patterns.map(p => (
@@ -460,38 +254,11 @@ export default function NutritionCapturePage() {
         </select>
 
         {activePattern && (
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
           <button
             className="mt-2 border rounded px-3 py-1 text-sm"
             onClick={() => void executePattern()}
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
           >
             Execute Pattern
-  <div className="mt-2 flex items-center gap-2 text-xs">
-    <label>Fast Mode</label>
-    <input
-      type="checkbox"
-      checked={fastMode}
-      onChange={() => setFastMode(!fastMode)}
-    />
-  </div>
-
           </button>
         )}
       </div>
