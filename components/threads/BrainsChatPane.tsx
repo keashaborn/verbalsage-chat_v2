@@ -1024,6 +1024,13 @@ export function BrainsChatPane() {
 
     try {
       const replyText = await callChat(msg, tid, false);
+
+      fetch(`/api/threads/${encodeURIComponent(tid)}/auto-title`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: msg }),
+      }).catch(() => { });
+
       const { inspect, inspect_error } = await maybeInspect(msg, tid, false);
 
       setMsgs((prev): Msg[] => {
