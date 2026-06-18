@@ -302,7 +302,7 @@ export default function NutritionCapturePage() {
       throw new Error("grams must be greater than 0");
     }
 
-    const r = await fetch("/api/lifeswitch/nutrition/log/entry", {
+    const r = await authFetch("/api/lifeswitch/nutrition/log/entry", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

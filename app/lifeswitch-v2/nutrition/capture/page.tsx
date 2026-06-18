@@ -124,7 +124,7 @@ export default function NutritionCapturePage() {
       const p = new URLSearchParams({ owner_user_id: owner });
       if (q.trim()) p.set("q", q.trim());
 
-      const r = await fetch(`/api/lifeswitch/nutrition/my_foods?${p.toString()}`, {
+      const r = await authFetch(`/api/lifeswitch/nutrition/my_foods?${p.toString()}`, {
         cache: "no-store",
       });
 
@@ -155,7 +155,7 @@ export default function NutritionCapturePage() {
   async function logFood(my_food_id: string, grams: number) {
     if (!owner) return;
 
-    const r = await fetch("/api/lifeswitch/nutrition/log/entry", {
+    const r = await authFetch("/api/lifeswitch/nutrition/log/entry", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

@@ -88,7 +88,7 @@ type OverrideRow = {
 
 async function fetchOverridesFromDb(owner_user_id: string): Promise<Record<string, FoodOverride>> {
   const qs = new URLSearchParams({ owner_user_id });
-  const r = await fetch(`/api/lifeswitch/nutrition/my_food_overrides?${qs.toString()}`, { cache: "no-store" });
+  const r = await authFetch(`/api/lifeswitch/nutrition/my_food_overrides?${qs.toString()}`, { cache: "no-store" });
   const t = await r.text().catch(() => "");
   if (!r.ok) throw new Error(t.slice(0, 200) || `HTTP ${r.status}`);
   const j = t ? JSON.parse(t) : [];
