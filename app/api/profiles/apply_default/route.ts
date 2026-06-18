@@ -2,27 +2,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
 
-const JWKS = process.env.SUPABASE_JWKS_URL
-  ? createRemoteJWKSet(new URL(process.env.SUPABASE_JWKS_URL))
-  : null;
 
-async function getUserIdOrDevFallback(): Promise<string | null> {
-  // Primary: Supabase session (if configured)
-  if (JWKS && process.env.SUPABASE_ISSUER) {
-    const jar = await cookies();
-    const token = jar.get("vs_at")?.value;
-    if (token) {
-      try {
-        const { payload } = await jwtVerify(token, JWKS, { issuer: process.env.SUPABASE_ISSUER });
-        const uid = (payload?.sub as string) || null;
-        if (uid) return uid;
-      } catch {
-        // fall through
-      }
-    }
-  }
+async function getUserIdOrDevFallback(req: Request): Promise<string | null> {
+  const uid = await getSupabaseUserIdFromRequest(req);
+  if (uid) return uid;
 
   // Dev escape hatch (mirror /api/chat)
   const allowGuest = process.env.VS_DEV_ALLOW_GUEST === "1";
@@ -58,7 +43,7 @@ export async function POST(req: Request) {
   try {
     const BRAINS_URL = process.env.BRAINS_URL || "http://172.31.32.171:8088";
 
-    const user_id = await getUserIdOrDevFallback();
+    const user_id = await getUserIdOrDevFallback(req);
     if (!user_id) return new Response("unauthorized", { status: 401, headers: { "x-request-id": requestId } });
 
     const upstream = await fetch(`${BRAINS_URL}/profiles/${encodeURIComponent(user_id)}/default`, {

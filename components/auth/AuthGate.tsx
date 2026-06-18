@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { authFetch } from "@/lib/authFetch";
 
 const MAX_AGE_S = 60 * 60 * 24 * 30; // 30d
 const LS_CLOUD_UPDATED_AT = "vs_cloud_settings_v1_updated_at";
@@ -149,20 +150,24 @@ export function AuthGate({ children }: { children: ReactNode }) {
     const full_name = String(u?.user_metadata?.full_name || "").trim();
     const email = String(u?.email || "").trim();
 
-    await fetchOk(
-      "/api/identity",
-      {
+    await withTimeout(
+      authFetch("/api/identity", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ full_name, email }),
-      },
-      2500
+      }),
+      2500,
+      "identity.sync"
     );
   }
 
   async function applyDefaultProfileBestEffort() {
     if (hasProfileCookies()) return;
-    await fetchOk("/api/profiles/apply_default", { method: "POST" }, 2500);
+    await withTimeout(
+      authFetch("/api/profiles/apply_default", { method: "POST" }),
+      2500,
+      "profiles.apply_default"
+    );
   }
 
   async function bootstrapFromSession(s: any | null) {
