@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
+import { getLifeSwitchOwnerUserId, unauthorizedLifeSwitch } from "@/app/api/lifeswitch/_owner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,18 +10,28 @@ const BRAINS_URL = (process.env.BRAINS_URL || "http://172.31.32.171:8088").repla
 export async function POST(req: NextRequest) {
   const rid = req.headers.get("x-request-id") || randomUUID();
 
-  // IMPORTANT: entries -> /log/entries (NOT /log/entry)
+  const owner_user_id = await getLifeSwitchOwnerUserId(req);
+  if (!owner_user_id) return unauthorizedLifeSwitch(rid);
+
   const upstream = new URL(`${BRAINS_URL}/lifeswitch/nutrition/log/entries`);
 
-  const body = await req.text();
+  const raw = await req.text().catch(() => "");
+  let parsed: any = {};
+  try {
+    parsed = raw ? JSON.parse(raw) : {};
+  } catch {
+    parsed = {};
+  }
+
+  parsed.owner_user_id = owner_user_id;
 
   const r = await fetch(upstream.toString(), {
     method: "POST",
     headers: {
       "x-request-id": rid,
-      "content-type": req.headers.get("content-type") || "application/json; charset=utf-8",
+      "content-type": "application/json; charset=utf-8",
     },
-    body,
+    body: JSON.stringify(parsed),
     cache: "no-store",
   });
 
