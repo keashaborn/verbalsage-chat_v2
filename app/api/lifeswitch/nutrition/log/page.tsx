@@ -1,5 +1,6 @@
 "use client";
 
+import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 
 const DOW = ["S", "M", "T", "W", "T", "F", "S"];
@@ -38,7 +39,7 @@ function formatK(n: number) {
 }
 
 async function fetchJson(url: string, init?: RequestInit) {
-  const r = await fetch(url, { cache: "no-store", ...(init || {}) });
+  const r = await authFetch(url, { cache: "no-store", ...(init || {}) });
   const t = await r.text().catch(() => "");
   let j: any = null;
   try { j = t ? JSON.parse(t) : null; } catch { }

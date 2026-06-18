@@ -1,5 +1,6 @@
 "use client";
 
+import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import Link from "next/link";
 
@@ -79,7 +80,7 @@ function sumScaled(items: MealPlanItem[], key: "kcal" | "protein_g" | "carbs_g" 
 }
 
 async function fetchJson(url: string, init?: RequestInit) {
-  const r = await fetch(url, { cache: "no-store", ...(init || {}) });
+  const r = await authFetch(url, { cache: "no-store", ...(init || {}) });
   const t = await r.text();
   let j: any = null;
   try {

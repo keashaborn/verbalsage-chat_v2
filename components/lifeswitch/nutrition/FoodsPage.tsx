@@ -1,5 +1,6 @@
 "use client";
 
+import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { Search as SearchIcon } from "lucide-react";
 
@@ -190,7 +191,7 @@ export default function NutritionFoodsPage() {
   React.useEffect(() => {
     (async () => {
       try {
-        const r = await fetch("/api/auth/whoami", { cache: "no-store" });
+        const r = await authFetch("/api/auth/whoami", { cache: "no-store" });
         const j = await r.json().catch(() => null);
 
         if (!j?.ok) {
