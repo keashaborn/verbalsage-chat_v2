@@ -123,7 +123,7 @@ async function upsertOverrideToDb(args: {
   }
   if (args.sort_order != null && Number.isFinite(args.sort_order)) qs.set("sort_order", String(args.sort_order));
 
-  const r = await fetch(`/api/lifeswitch/nutrition/my_food_overrides/upsert?${qs.toString()}`, {
+  const r = await authFetch(`/api/lifeswitch/nutrition/my_food_overrides/upsert?${qs.toString()}`, {
     method: "POST",
     cache: "no-store",
   });
@@ -336,7 +336,7 @@ export default function NutritionFoodsPage() {
     setServErr((p) => ({ ...p, [my_food_id]: null }));
     setServLoading((p) => ({ ...p, [my_food_id]: true }));
     try {
-      const r = await fetch(`/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/servings`, { cache: "no-store" });
+      const r = await authFetch(`/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/servings`, { cache: "no-store" });
       const t = await r.text();
       let j: any = null;
       try { j = t ? JSON.parse(t) : null; } catch { }
@@ -375,7 +375,7 @@ export default function NutritionFoodsPage() {
         is_default: isDefault ? "1" : "0",
       });
 
-      const r = await fetch(
+      const r = await authFetch(
         `/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/servings/create?${qs.toString()}`,
         { method: "POST", cache: "no-store" }
       );
@@ -437,7 +437,7 @@ export default function NutritionFoodsPage() {
       const q = myFilter.trim();
       if (q) p.set("q", q);
 
-      const r = await fetch(`/api/lifeswitch/nutrition/my_foods?${p.toString()}`, { cache: "no-store" });
+      const r = await authFetch(`/api/lifeswitch/nutrition/my_foods?${p.toString()}`, { cache: "no-store" });
       if (!r.ok) {
         const t = await r.text();
         throw new Error(`my_foods HTTP ${r.status}: ${t.slice(0, 200)}`);
@@ -490,7 +490,7 @@ export default function NutritionFoodsPage() {
       const v = variant.trim();
       if (v) p.set("variant", v);
 
-      const r = await fetch(`/api/lifeswitch/nutrition/my_foods/create_from_usda?${p.toString()}`, {
+      const r = await authFetch(`/api/lifeswitch/nutrition/my_foods/create_from_usda?${p.toString()}`, {
         method: "POST",
         cache: "no-store",
       });
@@ -509,7 +509,7 @@ export default function NutritionFoodsPage() {
   async function deactivateMyFood(my_food_id: string) {
     if (!owner) return;
     try {
-      await fetch(`/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/deactivate`, {
+      await authFetch(`/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/deactivate`, {
         method: "POST",
         cache: "no-store",
       });
