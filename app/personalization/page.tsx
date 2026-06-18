@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { authFetch } from "@/lib/authFetch";
 import { AuthGate } from "@/components/auth/AuthGate";
 import BackButton from "@/components/nav/BackButton";
 
@@ -139,7 +140,7 @@ export default function PersonalizationPage() {
     try {
       const vid = getUrlVantageId();
       const qs = vid ? `?vantage_id=${encodeURIComponent(vid)}` : "";
-      const r = await fetch(`/api/user/instructions${qs}`, { method: "GET", cache: "no-store" });
+      const r = await authFetch(`/api/user/instructions${qs}`, { method: "GET", cache: "no-store" });
       const raw = await r.text().catch(() => "");
       if (!r.ok) throw new Error(`load failed: HTTP ${r.status} ${raw}`);
 
@@ -167,7 +168,7 @@ export default function PersonalizationPage() {
     setStatus("");
 
     try {
-      const br = await fetch("/api/user/instructions", {
+      const br = await authFetch("/api/user/instructions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Explicit Vantage scope. Cookie is only a fallback/cache.

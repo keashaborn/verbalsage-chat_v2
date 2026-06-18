@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { authFetch } from "@/lib/authFetch";
 
 type InstructionsResp = {
   ok: boolean;
@@ -144,7 +145,7 @@ export function VantagePersonalizationEditor({
     setReady(false);
     setStatus("");
     try {
-      const r = await fetch(`/api/user/instructions?vantage_id=${encodeURIComponent(vid)}`, {
+      const r = await authFetch(`/api/user/instructions?vantage_id=${encodeURIComponent(vid)}`, {
         method: "GET",
         cache: "no-store",
       });
@@ -173,7 +174,7 @@ export function VantagePersonalizationEditor({
     setSaving(true);
     setStatus("");
     try {
-      const r = await fetch("/api/user/instructions", {
+      const r = await authFetch("/api/user/instructions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
