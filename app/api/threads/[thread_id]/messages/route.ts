@@ -3,13 +3,9 @@ export const dynamic = "force-dynamic";
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRemoteJWKSet, jwtVerify } from "jose";
 import { randomUUID } from "crypto";
+import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
 
-const JWKS = process.env.SUPABASE_JWKS_URL
-  ? createRemoteJWKSet(new URL(process.env.SUPABASE_JWKS_URL))
-  : null;
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -20,25 +16,11 @@ function getRequestId(req: Request): string {
   return randomUUID();
 }
 
-async function getUserIdFromCookie(): Promise<string | null> {
-  if (!JWKS || !process.env.SUPABASE_ISSUER) return null;
-
-  const jar = await cookies();
-  const token = jar.get("vs_at")?.value;
-  if (!token) return null;
-
-  try {
-    const { payload } = await jwtVerify(token, JWKS, { issuer: process.env.SUPABASE_ISSUER });
-    return (payload?.sub as string) || null;
-  } catch {
-    return null;
-  }
-}
 
 export async function GET(req: NextRequest, context: { params: Promise<{ thread_id: string }> }) {
   const requestId = getRequestId(req);
 
-  const _user_id = (await getUserIdFromCookie()) || null;
+  const _user_id = await getSupabaseUserIdFromRequest(req);
   if (!_user_id) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { "x-request-id": requestId } });
   }

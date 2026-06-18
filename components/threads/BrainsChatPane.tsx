@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { authFetchJson } from "@/lib/authFetch";
+import { authFetch, authFetchJson } from "@/lib/authFetch";
 import { ChevronDown, Copy, RefreshCw, Volume2, Loader2, Square, Check } from "lucide-react";
 import { useGrokVoice, type GrokVoice } from "@/hooks/useGrokVoice";
 
@@ -63,7 +63,7 @@ function getSpeakMode(): "verbatim" | "freeform" {
 }
 
 async function callInspect(input: string, tid: string, regen: boolean): Promise<InspectResult> {
-  const r = await fetch("/api/chat/inspect", {
+  const r = await authFetch("/api/chat/inspect", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
@@ -736,7 +736,7 @@ export function BrainsChatPane() {
   }, []);
 
   async function callChat(input: string, tid: string, regen = false, noStore = false): Promise<string> {
-    const r = await fetch("/api/chat", {
+    const r = await authFetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ input, thread_id: tid, regen, noStore }),

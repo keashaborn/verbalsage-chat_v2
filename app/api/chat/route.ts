@@ -2,12 +2,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
-import { createRemoteJWKSet, jwtVerify } from "jose";
 import { randomUUID } from "crypto";
+import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
 
-const JWKS = process.env.SUPABASE_JWKS_URL
-  ? createRemoteJWKSet(new URL(process.env.SUPABASE_JWKS_URL))
-  : null;
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -18,20 +15,6 @@ function getRequestId(req: Request): string {
   return randomUUID();
 }
 
-async function getUserIdFromCookie(): Promise<string | null> {
-  if (!JWKS || !process.env.SUPABASE_ISSUER) return null;
-
-  const jar = await cookies();
-  const token = jar.get("vs_at")?.value;
-  if (!token) return null;
-
-  try {
-    const { payload } = await jwtVerify(token, JWKS, { issuer: process.env.SUPABASE_ISSUER });
-    return (payload?.sub as string) || null;
-  } catch {
-    return null;
-  }
-}
 
 function extractTextFromMessages(messages: any[]): string {
   const lastUser = [...messages].reverse().find((m: any) => m?.role === "user");
@@ -181,7 +164,7 @@ export async function POST(req: Request) {
     const BRAINS_URL = process.env.BRAINS_URL || "http://172.31.32.171:8088";
 
     const jar = await cookies();
-    const authedUserId = await getUserIdFromCookie();
+    const authedUserId = await getSupabaseUserIdFromRequest(req);
 
     // DEV escape hatch (OFF by default)
     const allowGuest = process.env.VS_DEV_ALLOW_GUEST === "1";
