@@ -26,16 +26,43 @@ type MyFood = {
   is_active: boolean;
 };
 
-type MealPattern = {
-  pattern_id: string;
+type MealCombo = {
+  meal_id: string;
+  owner_user_id: string;
   name: string;
-  items: {
-    id: string;
-    label: string;
-    my_food_id: string | null;
-    default_grams: number;
-  }[];
+  meal_type: "breakfast" | "lunch" | "dinner" | "snack" | "other";
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
 };
+
+type MealComboItem = {
+  meal_item_id: string;
+  meal_id: string;
+  my_food_id: string;
+
+  qty_g: number | null;
+  my_food_serving_id: string | null;
+  qty_servings: number | null;
+  qty_g_resolved: number | null;
+
+  serving_name: string | null;
+  serving_grams: number | null;
+
+  sort_order: number;
+  notes: string | null;
+
+  display_name: string;
+  brand: string | null;
+  variant: string | null;
+
+  kcal: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+};
+
+type CaptureMode = "foods" | "meals";
 
 function pad2(n: number) {
   return n < 10 ? `0${n}` : String(n);
@@ -51,42 +78,94 @@ function safeNum(x: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function fmt(n: number | null, digits = 0) {
+  if (n == null || Number.isNaN(n)) return "—";
+  return Number(n).toFixed(digits);
+}
+
+function scaled(per100: number | null, grams: number | null): number | null {
+  if (per100 == null || grams == null) return null;
+  return (per100 * grams) / 100;
+}
+
+function resolvedItemGrams(item: MealComboItem): number | null {
+  return item.qty_g_resolved ?? item.qty_g;
+}
+
+async function fetchJson(url: string, init?: RequestInit) {
+  const r = await fetch(url, { cache: "no-store", ...(init || {}) });
+  const t = await r.text();
+
+  let j: any = null;
+  try {
+    j = t ? JSON.parse(t) : null;
+  } catch {
+    j = null;
+  }
+
+  if (!r.ok) {
+    const detail = j?.detail || j?.error || t?.slice(0, 250) || `HTTP ${r.status}`;
+    throw new Error(String(detail));
+  }
+
+  return j;
+}
+
 export default function NutritionCapturePage() {
   const [owner, setOwner] = React.useState<string | null>(null);
   const [authErr, setAuthErr] = React.useState<string | null>(null);
 
+  const [mode, setMode] = React.useState<CaptureMode>("foods");
+
   const [foods, setFoods] = React.useState<MyFood[]>([]);
   const [foodsLoading, setFoodsLoading] = React.useState(false);
-
   const [q, setQ] = React.useState("");
   const [gramsByFood, setGramsByFood] = React.useState<Record<string, string>>({});
 
-  const [overrides, setOverrides] = React.useState<Record<string, FoodOverride>>({});
+  const [meals, setMeals] = React.useState<MealCombo[]>([]);
+  const [mealsLoading, setMealsLoading] = React.useState(false);
+  const [selectedMealId, setSelectedMealId] = React.useState<string>("");
+  const [mealItems, setMealItems] = React.useState<MealComboItem[]>([]);
+  const [mealItemsLoading, setMealItemsLoading] = React.useState(false);
+  const [gramsByMealItem, setGramsByMealItem] = React.useState<Record<string, string>>({});
+
+  const [overrides] = React.useState<Record<string, FoodOverride>>({});
 
   const [day, setDay] = React.useState<string>(todayLocalYYYYMMDD());
   const [status, setStatus] = React.useState<string>("");
   const [flash, setFlash] = React.useState<string>("");
 
-  // ----------------------------
-  // PATTERNS (core new model)
-  // ----------------------------
-  const [patterns] = React.useState<MealPattern[]>([
-    {
-      pattern_id: "breakfast_v1",
-      name: "Breakfast",
-      items: [
-        { id: "eggs", label: "Eggs", my_food_id: null, default_grams: 50 },
-        { id: "beef", label: "Lean Beef", my_food_id: null, default_grams: 150 },
-        { id: "bread", label: "Bread", my_food_id: null, default_grams: 40 },
-      ],
-    },
-  ]);
+  const selectedMeal = React.useMemo(() => {
+    return meals.find((m) => m.meal_id === selectedMealId) || null;
+  }, [meals, selectedMealId]);
 
-  const [activePatternId, setActivePatternId] = React.useState<string>("");
+  const mealTotals = React.useMemo(() => {
+    const sum = (k: "kcal" | "protein_g" | "carbs_g" | "fat_g") => {
+      let total = 0;
+      let any = false;
 
-  const activePattern = React.useMemo(() => {
-    return patterns.find(p => p.pattern_id === activePatternId) || null;
-  }, [activePatternId, patterns]);
+      for (const item of mealItems) {
+        const grams = gramsByMealItem[item.meal_item_id]
+          ? Number(gramsByMealItem[item.meal_item_id])
+          : resolvedItemGrams(item);
+
+        const v = scaled((item as any)[k], Number.isFinite(Number(grams)) ? Number(grams) : null);
+        if (v == null) continue;
+
+        total += v;
+        any = true;
+      }
+
+      return any ? total : null;
+    };
+
+    return {
+      kcal: sum("kcal"),
+      protein_g: sum("protein_g"),
+      carbs_g: sum("carbs_g"),
+      fat_g: sum("fat_g"),
+    };
+  }, [mealItems, gramsByMealItem]);
 
   // ----------------------------
   // AUTH
@@ -94,8 +173,7 @@ export default function NutritionCapturePage() {
   React.useEffect(() => {
     (async () => {
       try {
-        const r = await fetch("/api/auth/whoami", { cache: "no-store" });
-        const j = await r.json().catch(() => null);
+        const j = await fetchJson("/api/auth/whoami");
 
         if (!j?.ok) {
           setOwner(null);
@@ -103,7 +181,14 @@ export default function NutritionCapturePage() {
           return;
         }
 
-        setOwner(String(j.sub || ""));
+        const sub = String(j.sub || "").trim();
+        if (!sub) {
+          setOwner(null);
+          setAuthErr("missing sub");
+          return;
+        }
+
+        setOwner(sub);
         setAuthErr(null);
       } catch (e: any) {
         setOwner(null);
@@ -119,20 +204,14 @@ export default function NutritionCapturePage() {
     if (!owner) return;
 
     setFoodsLoading(true);
+    setStatus("");
+
     try {
       const p = new URLSearchParams({ owner_user_id: owner });
       if (q.trim()) p.set("q", q.trim());
 
-      const r = await fetch(`/api/lifeswitch/nutrition/my_foods?${p.toString()}`, {
-        cache: "no-store",
-      });
-
-      const t = await r.text();
-      if (!r.ok) throw new Error(t);
-
-      const j = JSON.parse(t);
-      const list: MyFood[] = Array.isArray(j) ? j : [];
-      const active = list.filter(x => x?.is_active);
+      const list = (await fetchJson(`/api/lifeswitch/nutrition/my_foods?${p.toString()}`)) as MyFood[];
+      const active = Array.isArray(list) ? list.filter((x) => x?.is_active) : [];
 
       setFoods(active);
     } catch (e: any) {
@@ -143,16 +222,84 @@ export default function NutritionCapturePage() {
     }
   }
 
+  // ----------------------------
+  // LOAD MEAL COMBOS
+  // ----------------------------
+  async function loadMeals() {
+    if (!owner) return;
+
+    setMealsLoading(true);
+    setStatus("");
+
+    try {
+      const p = new URLSearchParams({ owner_user_id: owner });
+      const list = (await fetchJson(`/api/lifeswitch/nutrition/meals?${p.toString()}`)) as MealCombo[];
+      const active = Array.isArray(list) ? list.filter((x) => x?.is_active) : [];
+
+      setMeals(active);
+
+      if (!selectedMealId && active.length > 0) {
+        setSelectedMealId(active[0].meal_id);
+      }
+    } catch (e: any) {
+      setMeals([]);
+      setStatus(String(e?.message || e));
+    } finally {
+      setMealsLoading(false);
+    }
+  }
+
+  async function loadMealItems(mealId: string) {
+    if (!mealId) {
+      setMealItems([]);
+      return;
+    }
+
+    setMealItemsLoading(true);
+    setStatus("");
+
+    try {
+      const list = (await fetchJson(
+        `/api/lifeswitch/nutrition/meals/${encodeURIComponent(mealId)}/items`
+      )) as MealComboItem[];
+
+      const sorted = Array.isArray(list)
+        ? [...list].sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
+        : [];
+
+      setMealItems(sorted);
+    } catch (e: any) {
+      setMealItems([]);
+      setStatus(String(e?.message || e));
+    } finally {
+      setMealItemsLoading(false);
+    }
+  }
+
   React.useEffect(() => {
     if (!owner) return;
     void loadFoods();
+    void loadMeals();
   }, [owner]);
+
+  React.useEffect(() => {
+    if (!selectedMealId) {
+      setMealItems([]);
+      return;
+    }
+
+    void loadMealItems(selectedMealId);
+  }, [selectedMealId]);
 
   // ----------------------------
   // LOG (ATOMIC)
   // ----------------------------
   async function logFood(my_food_id: string, grams: number) {
-    if (!owner) return;
+    if (!owner) throw new Error("not signed in");
+
+    if (!Number.isFinite(grams) || grams <= 0) {
+      throw new Error("grams must be greater than 0");
+    }
 
     const r = await fetch("/api/lifeswitch/nutrition/log/entry", {
       method: "POST",
@@ -172,33 +319,55 @@ export default function NutritionCapturePage() {
     }
   }
 
-  // ----------------------------
-  // PATTERN EXECUTION
-  // ----------------------------
-  async function executePattern() {
-    if (!activePattern || !foods.length) return;
+  async function logSingleFood(f: MyFood) {
+    try {
+      setStatus("");
+
+      const grams = Number(gramsByFood[f.my_food_id] || 0);
+      await logFood(f.my_food_id, grams);
+
+      setFlash(`Logged ${overrides[f.my_food_id]?.alias || f.display_name}`);
+      setTimeout(() => setFlash(""), 1200);
+    } catch (e: any) {
+      setStatus(String(e?.message || e));
+    }
+  }
+
+  async function logMealCombo() {
+    if (!selectedMeal) {
+      setStatus("select a meal combo");
+      return;
+    }
+
+    if (!mealItems.length) {
+      setStatus("selected meal combo has no foods");
+      return;
+    }
 
     try {
-      setStatus("logging pattern...");
+      setStatus(`logging ${selectedMeal.name}...`);
 
-      for (const item of activePattern.items) {
-        const match = foods.find(f =>
-          (overrides[f.my_food_id]?.alias || f.display_name)
-            .toLowerCase()
-            .includes(item.label.toLowerCase())
-        );
+      let count = 0;
 
-        if (!match) continue;
+      for (const item of mealItems) {
+        const grams = gramsByMealItem[item.meal_item_id]
+          ? Number(gramsByMealItem[item.meal_item_id])
+          : resolvedItemGrams(item);
 
-        const grams =
-          gramsByFood[match.my_food_id]
-            ? Number(gramsByFood[match.my_food_id])
-            : item.default_grams;
+        if (!Number.isFinite(Number(grams)) || Number(grams) <= 0) {
+          continue;
+        }
 
-        await logFood(match.my_food_id, grams);
+        await logFood(item.my_food_id, Number(grams));
+        count += 1;
       }
 
-      setFlash("Pattern logged");
+      if (count === 0) {
+        setStatus("no valid rows to log");
+        return;
+      }
+
+      setFlash(`Logged ${selectedMeal.name} (${count} foods)`);
       setTimeout(() => setFlash(""), 1200);
       setStatus("");
     } catch (e: any) {
@@ -211,12 +380,11 @@ export default function NutritionCapturePage() {
   // ----------------------------
   return (
     <div className="mx-auto max-w-5xl p-4">
-
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center gap-3">
         <div>
           <div className="text-lg font-semibold">Nutrition · Capture</div>
           <div className="text-xs text-muted-foreground">
-            Pattern execution + atomic logging
+            Individual foods or meal combos. All writes remain atomic.
           </div>
         </div>
 
@@ -228,104 +396,208 @@ export default function NutritionCapturePage() {
         />
       </div>
 
-      {authErr && (
-        <div className="mt-3 text-sm text-red-500">{authErr}</div>
-      )}
+      {authErr && <div className="mt-3 text-sm text-red-500">{authErr}</div>}
 
-      {flash && (
-        <div className="mt-3 text-sm text-green-600">{flash}</div>
-      )}
+      {flash && <div className="mt-3 text-sm text-green-600">{flash}</div>}
 
-      {/* PATTERN BAR */}
-      <div className="mt-4 border rounded p-3">
-        <div className="text-sm font-semibold">Pattern</div>
-
-        <select
-          className="mt-2 border rounded px-2 py-1 text-sm"
-          value={activePatternId}
-          onChange={(e) => setActivePatternId(e.target.value)}
-        >
-          <option value="">Select pattern</option>
-          {patterns.map(p => (
-            <option key={p.pattern_id} value={p.pattern_id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-
-        {activePattern && (
-          <button
-            className="mt-2 border rounded px-3 py-1 text-sm"
-            onClick={() => void executePattern()}
-          >
-            Execute Pattern
-          </button>
-        )}
-      </div>
-
-      {/* FOODS */}
-      <div className="mt-4">
-        <input
-          className="border rounded px-2 py-1 w-full text-sm"
-          placeholder="search foods"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-
+      <div className="mt-4 flex gap-2">
         <button
-          className="mt-2 border rounded px-3 py-1 text-sm"
-          onClick={() => void loadFoods()}
-          disabled={foodsLoading}
+          className={`rounded border px-3 py-1 text-sm ${mode === "foods" ? "bg-muted" : ""}`}
+          onClick={() => setMode("foods")}
         >
-          Refresh
+          Individual Foods
         </button>
 
-        <div className="mt-3 space-y-2">
-          {foods.map(f => (
-            <div key={f.my_food_id} className="border rounded p-2 flex justify-between">
-              <div>
-                <div className="text-sm font-medium">
-                  {overrides[f.my_food_id]?.alias || f.display_name}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  P {safeNum(f.protein_g)}g · C {safeNum(f.carbs_g)}g · F {safeNum(f.fat_g)}g
-                </div>
-              </div>
-
-              <div className="flex gap-2 items-center">
-                <input
-                  className="w-20 border rounded px-2 py-1 text-sm text-right"
-                  value={gramsByFood[f.my_food_id] || ""}
-                  onChange={(e) =>
-                    setGramsByFood(p => ({
-                      ...p,
-                      [f.my_food_id]: e.target.value
-                    }))
-                  }
-                />
-
-                <button
-                  className="border rounded px-2 py-1 text-sm"
-                  onClick={() =>
-                    logFood(
-                      f.my_food_id,
-                      Number(gramsByFood[f.my_food_id] || 0)
-                    )
-                  }
-                >
-                  Log
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <button
+          className={`rounded border px-3 py-1 text-sm ${mode === "meals" ? "bg-muted" : ""}`}
+          onClick={() => setMode("meals")}
+        >
+          Meal Combos
+        </button>
       </div>
 
-      {status && (
-        <div className="mt-3 text-xs text-muted-foreground">
-          {status}
+      {mode === "meals" && (
+        <div className="mt-4 border rounded p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold">Meal Combos</div>
+              <div className="text-xs text-muted-foreground">
+                Select a library combo, edit grams if needed, then log all rows.
+              </div>
+            </div>
+
+            <button
+              className="border rounded px-3 py-1 text-sm"
+              onClick={() => void loadMeals()}
+              disabled={mealsLoading}
+            >
+              {mealsLoading ? "Loading..." : "Refresh"}
+            </button>
+          </div>
+
+          <select
+            className="mt-3 w-full border rounded px-2 py-1 text-sm"
+            value={selectedMealId}
+            onChange={(e) => setSelectedMealId(e.target.value)}
+          >
+            <option value="">Select meal combo</option>
+            {meals.map((m) => (
+              <option key={m.meal_id} value={m.meal_id}>
+                {m.name} · {m.meal_type}
+              </option>
+            ))}
+          </select>
+
+          {selectedMeal && (
+            <div className="mt-3 rounded border p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">{selectedMeal.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {mealItems.length} foods · kcal {fmt(mealTotals.kcal)} · P {fmt(mealTotals.protein_g)}g · C{" "}
+                    {fmt(mealTotals.carbs_g)}g · F {fmt(mealTotals.fat_g)}g
+                  </div>
+                </div>
+
+                <button
+                  className="border rounded px-3 py-1 text-sm"
+                  onClick={() => void logMealCombo()}
+                  disabled={mealItemsLoading || mealItems.length === 0}
+                >
+                  Log All
+                </button>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {mealItemsLoading && (
+                  <div className="text-xs text-muted-foreground">Loading combo foods...</div>
+                )}
+
+                {!mealItemsLoading &&
+                  mealItems.map((item) => {
+                    const grams =
+                      gramsByMealItem[item.meal_item_id] ?? String(resolvedItemGrams(item) ?? "");
+
+                    const gramsNum = Number(grams);
+                    const rowKcal = Number.isFinite(gramsNum) ? scaled(item.kcal, gramsNum) : null;
+                    const rowProtein = Number.isFinite(gramsNum) ? scaled(item.protein_g, gramsNum) : null;
+
+                    return (
+                      <div key={item.meal_item_id} className="border rounded p-2 flex justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-medium">{item.display_name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            kcal {fmt(rowKcal)} · P {fmt(rowProtein)}g
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            className="w-20 border rounded px-2 py-1 text-sm text-right"
+                            value={grams}
+                            onChange={(e) =>
+                              setGramsByMealItem((p) => ({
+                                ...p,
+                                [item.meal_item_id]: e.target.value,
+                              }))
+                            }
+                          />
+
+                          <button
+                            className="border rounded px-2 py-1 text-sm"
+                            onClick={() =>
+                              void (async () => {
+                                try {
+                                  await logFood(item.my_food_id, Number(grams));
+                                  setFlash(`Logged ${item.display_name}`);
+                                  setTimeout(() => setFlash(""), 1200);
+                                } catch (e: any) {
+                                  setStatus(String(e?.message || e));
+                                }
+                              })()
+                            }
+                          >
+                            Log
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {!mealItemsLoading && selectedMeal && mealItems.length === 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    This combo has no foods yet. Add foods in Library / Combos.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
+
+      {mode === "foods" && (
+        <div className="mt-4">
+          <div className="text-sm font-semibold">Individual Foods</div>
+
+          <input
+            className="mt-2 border rounded px-2 py-1 w-full text-sm"
+            placeholder="search foods"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+
+          <button
+            className="mt-2 border rounded px-3 py-1 text-sm"
+            onClick={() => void loadFoods()}
+            disabled={foodsLoading}
+          >
+            {foodsLoading ? "Loading..." : "Refresh"}
+          </button>
+
+          <div className="mt-3 space-y-2">
+            {foods.map((f) => (
+              <div key={f.my_food_id} className="border rounded p-2 flex justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium">
+                    {overrides[f.my_food_id]?.alias || f.display_name}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    P {safeNum(f.protein_g)}g · C {safeNum(f.carbs_g)}g · F {safeNum(f.fat_g)}g
+                  </div>
+                </div>
+
+                <div className="flex gap-2 items-center">
+                  <input
+                    className="w-20 border rounded px-2 py-1 text-sm text-right"
+                    value={gramsByFood[f.my_food_id] || ""}
+                    onChange={(e) =>
+                      setGramsByFood((p) => ({
+                        ...p,
+                        [f.my_food_id]: e.target.value,
+                      }))
+                    }
+                  />
+
+                  <button
+                    className="border rounded px-2 py-1 text-sm"
+                    onClick={() => void logSingleFood(f)}
+                  >
+                    Log
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {!foodsLoading && foods.length === 0 && (
+              <div className="text-xs text-muted-foreground">
+                No foods loaded. Search or refresh after adding foods in Library.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {status && <div className="mt-3 text-xs text-muted-foreground">{status}</div>}
     </div>
   );
 }
