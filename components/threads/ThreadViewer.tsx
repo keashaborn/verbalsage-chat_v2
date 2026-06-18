@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { authFetch } from "@/lib/authFetch";
 
 type Msg = { role: "user" | "assistant"; content: string; created_at?: string };
 
@@ -18,7 +19,7 @@ export function ThreadViewer() {
   async function load(thread_id: string) {
     setLoading(true);
     try {
-      const r = await fetch(`/api/threads/${encodeURIComponent(thread_id)}/messages`);
+      const r = await authFetch(`/api/threads/${encodeURIComponent(thread_id)}/messages`);
       if (!r.ok) throw new Error(await r.text());
       const data = (await r.json()) as Msg[];
       setMsgs(Array.isArray(data) ? data : []);

@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { authFetchJson } from "@/lib/authFetch";
 import { ChevronDown, Copy, RefreshCw, Volume2, Loader2, Square, Check } from "lucide-react";
 import { useGrokVoice, type GrokVoice } from "@/hooks/useGrokVoice";
 
@@ -32,9 +34,7 @@ function hasInspectorCookie(): boolean {
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(url, init);
-  if (!r.ok) throw new Error(await r.text());
-  return (await r.json()) as T;
+  return authFetchJson<T>(url, init);
 }
 
 function getLS<T>(key: string, fallback: T): T {
@@ -1025,12 +1025,26 @@ export function BrainsChatPane() {
     try {
       const replyText = await callChat(msg, tid, false);
 
-      fetch(`/api/threads/${encodeURIComponent(tid)}/auto-title`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ text: msg }),
-      }).catch(() => { });
+      void (async () => {
+        try {
+          const { data } = await supabase.auth.getSession();
+          const token = data?.session?.access_token;
+          if (!token) return;
+
+          const r = await fetch(`/api/threads/${encodeURIComponent(tid)}/auto-title`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ input: msg }),
+          });
+
+          if (r.ok) window.dispatchEvent(new Event("vs_threads_refresh"));
+        } catch {
+          // Auto-title is non-critical; chat should never fail because naming failed.
+        }
+      })();
 
       const { inspect, inspect_error } = await maybeInspect(msg, tid, false);
 

@@ -79,7 +79,7 @@ async function generateTitle(input: string) {
   return fallbackTitle(input);
 }
 
-export async function POST(req: NextRequest, context: { params: { thread_id: string } }) {
+export async function POST(req: NextRequest, context: { params: Promise<{ thread_id: string }> }) {
   const requestId = getRequestId(req);
 
   const user_id = await getUserId(req);
@@ -90,7 +90,8 @@ export async function POST(req: NextRequest, context: { params: { thread_id: str
     );
   }
 
-  const tid = String(context.params.thread_id || "").trim();
+  const { thread_id } = await context.params;
+  const tid = String(thread_id || "").trim();
   if (!UUID_RE.test(tid)) {
     return NextResponse.json(
       { error: "invalid thread_id" },
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest, context: { params: { thread_id: str
   }
 
   const body = await req.json().catch(() => ({}));
-  const input = String(body?.input || "").trim();
+  const input = String(body?.input || body?.text || "").trim();
 
   if (input.length < 3) {
     return NextResponse.json(
@@ -121,12 +122,14 @@ export async function POST(req: NextRequest, context: { params: { thread_id: str
     body: JSON.stringify({ title }),
   });
 
+
   if (!r.ok) {
     return NextResponse.json(
       { error: `brains HTTP ${r.status}` },
       { status: 502 }
     );
   }
+
 
   return NextResponse.json({
     ok: true,

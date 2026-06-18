@@ -3,13 +3,12 @@
 import * as React from "react";
 import { PlusIcon, Pencil, Trash2 } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
+import { authFetchJson } from "@/lib/authFetch";
 
 type ThreadItem = { thread_id: string; title: string; updated_at: string };
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(url, init);
-  if (!r.ok) throw new Error(await r.text());
-  return (await r.json()) as T;
+  return authFetchJson<T>(url, init);
 }
 
 export function BrainsThreadList() {
