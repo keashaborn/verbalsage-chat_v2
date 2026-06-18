@@ -2,15 +2,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
-import { createRemoteJWKSet, jwtVerify } from "jose";
 import { randomUUID } from "crypto";
+import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const JWKS = process.env.SUPABASE_JWKS_URL
-  ? createRemoteJWKSet(new URL(process.env.SUPABASE_JWKS_URL))
-  : null;
 
 function getRequestId(req: Request): string {
   const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
@@ -18,19 +15,6 @@ function getRequestId(req: Request): string {
   return randomUUID();
 }
 
-async function getUserIdFromCookie(): Promise<string | null> {
-  if (!JWKS || !process.env.SUPABASE_ISSUER) return null;
-  const jar = await cookies();
-  const token = jar.get("vs_at")?.value;
-  if (!token) return null;
-
-  try {
-    const { payload } = await jwtVerify(token, JWKS, { issuer: process.env.SUPABASE_ISSUER });
-    return (payload?.sub as string) || null;
-  } catch {
-    return null;
-  }
-}
 
 function clamp01(x: any, d: number) {
   const n = Number(x);
@@ -123,15 +107,16 @@ export async function POST(req: Request) {
       !!process.env.VS_DEBUG_TOKEN &&
       (debugTokenHdr === process.env.VS_DEBUG_TOKEN || debugTokenCookie === process.env.VS_DEBUG_TOKEN);
 
-    if (!debugAllowed) {
+    const authedUserId = await getSupabaseUserIdFromRequest(req);
+
+    if (!debugAllowed && !authedUserId) {
       return new Response("unauthorized", {
         status: 401,
         headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
       });
     }
 
-    // Primary: Supabase user_id from vs_at JWT
-    const authedUserId = await getUserIdFromCookie();
+    // Primary: Supabase user_id from Authorization header
 
     // Dev fallback (optional)
     const allowGuest = process.env.VS_DEV_ALLOW_GUEST === "1";
