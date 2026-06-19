@@ -1,5 +1,6 @@
 "use client";
 
+import { authFetch } from "@/lib/authFetch";
 import React from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useGrokVoice, type GrokVoice } from "../../hooks/useGrokVoice";
@@ -128,7 +129,7 @@ export default function GrokVoiceRealtimePanel() {
     let cancelled = false;
     (async () => {
       try {
-        const r = await fetch("/api/voice/ws-token", { method: "GET" });
+        const r = await authFetch("/api/voice/ws-token", { method: "GET" });
         const j = await r.json().catch(() => ({} as any));
         if (cancelled) return;
 

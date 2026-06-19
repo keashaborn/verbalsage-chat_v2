@@ -36,6 +36,7 @@ import {
 } from "@/components/assistant-ui/attachment";
 
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/authFetch";
 
 export const Thread: FC = () => {
   return (
@@ -266,7 +267,7 @@ function enqueuePcm16(pcm16: Uint8Array, sampleRate = 24000) {
 }
 
 async function fetchGrokWsToken(): Promise<string> {
-  const r = await fetch("/api/voice/ws-token", { method: "GET" });
+  const r = await authFetch("/api/voice/ws-token", { method: "GET" });
   const j = await r.json().catch(() => ({} as any));
   if (!r.ok || !j?.token) throw new Error(j?.error || `ws-token HTTP ${r.status}`);
   return String(j.token);

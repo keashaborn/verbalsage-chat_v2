@@ -200,7 +200,7 @@ export function BrainsChatPane() {
     let cancelled = false;
     (async () => {
       try {
-        const r = await fetch("/api/voice/ws-token");
+        const r = await authFetch("/api/voice/ws-token");
         if (!r.ok) return;
         const j = await r.json().catch(() => ({} as any));
         if (cancelled) return;

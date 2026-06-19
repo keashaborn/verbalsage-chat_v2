@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRemoteJWKSet, jwtVerify } from "jose";
 import fs from "node:fs";
+import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
 
 export const runtime = "nodejs";
-
-const JWKS = process.env.SUPABASE_JWKS_URL
-  ? createRemoteJWKSet(new URL(process.env.SUPABASE_JWKS_URL))
-  : null;
+export const dynamic = "force-dynamic";
 
 function readEnvFileToken(path: string): string | null {
   try {
@@ -25,33 +21,20 @@ function readEnvFileToken(path: string): string | null {
   }
 }
 
-export async function GET() {
-  if (!JWKS || !process.env.SUPABASE_ISSUER) {
-    return NextResponse.json({ ok: false, error: "JWKS not configured" }, { status: 500 });
+export async function GET(req: Request) {
+  const user_id = await getSupabaseUserIdFromRequest(req);
+  if (!user_id) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  const jar = await cookies();
-  const token = jar.get("vs_at")?.value;
-  if (!token) return NextResponse.json({ ok: false, error: "no vs_at cookie" }, { status: 401 });
+  const wsToken =
+    readEnvFileToken("/etc/verbalsage/brains.env") ||
+    process.env.VOICE_WS_TOKEN ||
+    null;
 
-  try {
-    const { payload } = await jwtVerify(token, JWKS, { issuer: process.env.SUPABASE_ISSUER });
-    // Any authenticated user can request the WS token.
-    // (Add tiering / allowlists here later if needed.)
-    const role = (payload as any)?.app_metadata?.role || null;
-    void role;
-
-    const wsToken =
-      readEnvFileToken("/etc/verbalsage/brains.env") ||
-      process.env.VOICE_WS_TOKEN ||
-      null;
-
-    if (!wsToken) {
-      return NextResponse.json({ ok: false, error: "VOICE_WS_TOKEN not configured" }, { status: 500 });
-    }
-
-    return NextResponse.json({ ok: true, token: wsToken });
-  } catch {
-    return NextResponse.json({ ok: false, error: "invalid token" }, { status: 401 });
+  if (!wsToken) {
+    return NextResponse.json({ ok: false, error: "VOICE_WS_TOKEN not configured" }, { status: 500 });
   }
+
+  return NextResponse.json({ ok: true, token: wsToken });
 }
