@@ -64,13 +64,6 @@ function ActionRow({
   );
 }
 
-function LinkRow({ label, href }: { label: string; href: string }) {
-  return (
-    <a className="block w-full px-3 py-2 text-left text-sm hover:bg-muted/60" href={href}>
-      {label}
-    </a>
-  );
-}
 
 function forgetLabel(minutes: number) {
   if (minutes === 15) return "Last 15 minutes";
@@ -83,9 +76,34 @@ function forgetLabel(minutes: number) {
 export function SecurityPanel({ onDone }: { onDone: () => void }) {
   const [deleteConfirm, setDeleteConfirm] = React.useState("");
   const [deletingAll, setDeletingAll] = React.useState(false);
+  const [exportBusy, setExportBusy] = React.useState(false);
 
   const [forgetMinutes, setForgetMinutes] = React.useState<number>(60);
   const [forgetBusy, setForgetBusy] = React.useState(false);
+
+  async function downloadExport() {
+    setExportBusy(true);
+    try {
+      const r = await authFetch("/api/admin/export", { method: "GET", cache: "no-store" });
+      if (!r.ok) throw new Error(await r.text());
+
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      a.href = url;
+      a.download = `verbalsage-export-${stamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert(e?.message || String(e));
+    } finally {
+      setExportBusy(false);
+    }
+  }
 
   async function deleteAll() {
     const ok = window.confirm("Final confirmation: delete ALL your data?");
@@ -129,7 +147,7 @@ export function SecurityPanel({ onDone }: { onDone: () => void }) {
       </div>
 
       <Group title="Export" footer={<>Downloads threads + transcript + latest cards as JSON.</>}>
-        <LinkRow label="Download export JSON" href="/api/admin/export" />
+        <ActionRow label={exportBusy ? "Preparing export…" : "Download export JSON"} disabled={exportBusy} onClick={downloadExport} />
       </Group>
 
       <Group title="Forget recent" footer={<>Deletes recent transcript rows and matching Qdrant points.</>}>
