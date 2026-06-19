@@ -186,6 +186,7 @@ export default function MealsPage() {
   }
   const [addingId, setAddingId] = React.useState<string | null>(null);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [deletingMealId, setDeletingMealId] = React.useState<string | null>(null);
 
   const loadMeals = React.useCallback(async () => {
     if (!owner) return;
@@ -297,6 +298,36 @@ export default function MealsPage() {
     }
   }
 
+  async function deactivateMeal() {
+    if (!owner || !selectedMealId) return;
+
+    const selected = meals.find((m) => m.meal_id === selectedMealId);
+    const label = selected ? `${selected.meal_type} · ${selected.name}` : "this meal";
+
+    if (!window.confirm(`Delete ${label}? This removes the meal from your Library but does not delete logged food entries.`)) {
+      return;
+    }
+
+    setErr(null);
+
+    try {
+      setDeletingMealId(selectedMealId);
+
+      await fetchJson(
+        `/api/lifeswitch/nutrition/meals/${encodeURIComponent(selectedMealId)}/deactivate`,
+        { method: "POST" }
+      );
+
+      setSelectedMealId("");
+      setItems([]);
+      await loadMeals();
+    } catch (e: any) {
+      setErr(String(e?.message || e));
+    } finally {
+      setDeletingMealId(null);
+    }
+  }
+
   const totals = React.useMemo(() => {
     const sum = (k: "kcal" | "protein_g" | "carbs_g" | "fat_g") => {
       let total = 0;
@@ -367,6 +398,14 @@ export default function MealsPage() {
             </select>
             <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void loadMeals()} disabled={!owner}>
               Refresh
+            </button>
+            <button
+              className="rounded-md border border-red-300 px-3 py-2 text-sm text-red-700"
+              onClick={() => void deactivateMeal()}
+              disabled={!owner || !selectedMealId || deletingMealId === selectedMealId}
+              title={!selectedMealId ? "Select a meal first" : "Delete selected meal"}
+            >
+              {deletingMealId === selectedMealId ? "Deleting…" : "Delete Meal"}
             </button>
           </div>
 
