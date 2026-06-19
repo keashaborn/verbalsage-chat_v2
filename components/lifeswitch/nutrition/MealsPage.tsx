@@ -328,6 +328,10 @@ export default function MealsPage() {
     }
   }
 
+  const selectedMeal = React.useMemo(() => {
+    return meals.find((m) => m.meal_id === selectedMealId) || null;
+  }, [meals, selectedMealId]);
+
   const totals = React.useMemo(() => {
     const sum = (k: "kcal" | "protein_g" | "carbs_g" | "fat_g") => {
       let total = 0;
@@ -344,63 +348,100 @@ export default function MealsPage() {
   }, [items]);
 
   return (
-    <div className="mx-auto max-w-5xl p-4 overflow-x-hidden">
-
-      <div className="text-lg font-semibold">Nutrition · Meals</div>
-      <div className="mt-1 text-sm text-muted-foreground">
-        Reusable meals. Default is grams.
+    <div className="mx-auto max-w-6xl p-4 overflow-x-hidden">
+      <div>
+        <div className="text-lg font-semibold">Nutrition · Meals</div>
+        <div className="mt-1 text-sm text-muted-foreground">
+          Build reusable meals from foods in your Library. Meals are templates; logging happens in Capture.
+        </div>
       </div>
 
       {authErr ? (
-        <div className="mt-3 text-sm text-muted-foreground">
+        <div className="mt-3 rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
           <div className="font-medium">Not signed in</div>
-          <div className="mt-1 text-muted-foreground">/api/auth/whoami: {authErr}</div>
+          <div className="mt-1">/api/auth/whoami: {authErr}</div>
         </div>
       ) : null}
 
-      {err ? <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900">{err}</div> : null}
+      {err ? (
+        <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900">
+          {err}
+        </div>
+      ) : null}
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1">
-        {/* Left: meal selection + items */}
-        <section className="mt-6">
-          <div className="text-sm font-medium">Meals</div>
-
-          <div className="mt-2 flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col">
-            <div className="mt-4 rounded-md border bg-muted/20 p-3">
-              <div className="text-sm font-medium">Create meal</div>
-              <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1 gap-2">
-                <input className="rounded-md border bg-background px-2 py-2 text-sm" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Meal name" />
-                <select className="rounded-md border bg-background px-2 py-2 text-sm" value={createType} onChange={(e) => setCreateType(e.target.value as any)}>
-                  <option value="breakfast">breakfast</option>
-                  <option value="lunch">lunch</option>
-                  <option value="dinner">dinner</option>
-                  <option value="snack">snack</option>
-                  <option value="other">other</option>
-                </select>
-              </div>
-              <button className="mt-2 w-full rounded-md border px-3 py-2 text-sm" onClick={() => void createMeal()} disabled={!owner}>
-                Save meal
-              </button>
+      <section className="mt-4 rounded-xl border bg-muted/10 p-4">
+        <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_auto_auto] [@media(pointer:coarse)]:grid-cols-1">
+          <div>
+            <div className="text-sm font-medium">Create or update meal</div>
+            <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_160px]">
+              <input
+                className="rounded-md border bg-background px-3 py-2 text-sm"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                placeholder="Meal name"
+                disabled={!owner}
+              />
+              <select
+                className="rounded-md border bg-background px-3 py-2 text-sm"
+                value={createType}
+                onChange={(e) => setCreateType(e.target.value as any)}
+                disabled={!owner}
+              >
+                <option value="breakfast">breakfast</option>
+                <option value="lunch">lunch</option>
+                <option value="dinner">dinner</option>
+                <option value="snack">snack</option>
+                <option value="other">other</option>
+              </select>
             </div>
+            <button
+              className="mt-2 rounded-md border px-3 py-2 text-sm"
+              onClick={() => void createMeal()}
+              disabled={!owner || !createName.trim()}
+            >
+              Save meal
+            </button>
+          </div>
 
+          <div>
+            <div className="text-sm font-medium">Selected meal</div>
             <select
-              className="w-full rounded-md border bg-background px-2 py-2 text-sm"
+              className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm"
               value={selectedMealId}
               onChange={(e) => setSelectedMealId(e.target.value)}
               disabled={!owner}
             >
-              <option value="">(select meal)</option>
+              <option value="">Select meal</option>
               {meals.map((m) => (
                 <option key={m.meal_id} value={m.meal_id}>
                   {m.meal_type} · {m.name}
                 </option>
               ))}
             </select>
-            <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void loadMeals()} disabled={!owner}>
+            {selectedMeal ? (
+              <div className="mt-2 text-xs text-muted-foreground">
+                Editing {selectedMeal.meal_type} · {selectedMeal.name}
+              </div>
+            ) : (
+              <div className="mt-2 text-xs text-muted-foreground">
+                Select a meal to edit its foods.
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-end">
+            <button
+              className="w-full rounded-md border px-3 py-2 text-sm"
+              onClick={() => void loadMeals()}
+              disabled={!owner}
+            >
               Refresh
             </button>
+          </div>
+
+          <div className="flex items-end">
             <button
-              className="rounded-md border border-red-300 px-3 py-2 text-sm text-red-700"
+              className="w-full rounded-md border border-red-300 px-3 py-2 text-sm text-red-700"
               onClick={() => void deactivateMeal()}
               disabled={!owner || !selectedMealId || deletingMealId === selectedMealId}
               title={!selectedMealId ? "Select a meal first" : "Delete selected meal"}
@@ -408,75 +449,102 @@ export default function MealsPage() {
               {deletingMealId === selectedMealId ? "Deleting…" : "Delete Meal"}
             </button>
           </div>
+        </div>
+      </section>
 
-          <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
-            <div className="text-xs text-muted-foreground">
-              <div className="opacity-70">kcal</div>
-              <div className="font-semibold">{fmt(totals.kcal, 0)}</div>
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr] [@media(pointer:coarse)]:grid-cols-1">
+        <section className="rounded-xl border p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold">Meal items</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Foods currently in the selected meal.
+              </div>
             </div>
-            <div className="text-xs text-muted-foreground">
-              <div className="opacity-70">protein</div>
-              <div className="font-semibold">{fmt(totals.p, 0)}g</div>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              <div className="opacity-70">carbs</div>
-              <div className="font-semibold">{fmt(totals.c, 0)}g</div>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              <div className="opacity-70">fat</div>
-              <div className="font-semibold">{fmt(totals.f, 0)}g</div>
+
+            <div className="grid grid-cols-4 gap-2 text-xs">
+              <div>
+                <div className="text-muted-foreground">kcal</div>
+                <div className="font-semibold">{fmt(totals.kcal, 0)}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">protein</div>
+                <div className="font-semibold">{fmt(totals.p, 0)}g</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">carbs</div>
+                <div className="font-semibold">{fmt(totals.c, 0)}g</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">fat</div>
+                <div className="font-semibold">{fmt(totals.f, 0)}g</div>
+              </div>
             </div>
           </div>
-          <div className="mt-4">
-            <div className="text-sm font-medium">Meal items</div>
-            <div className="mt-2 space-y-2">
-              {items.map((it) => (
-                <div key={it.meal_item_id} className="py-3 border-t border-muted/20">
-                  <div className="flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col lg:items-start lg:justify-between">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">{it.display_name}</div>
-                      <div className="mt-0.5 text-xs text-muted-foreground break-all lg:break-words">
-                        {it.brand ? it.brand : "—"}
-                        {it.variant ? ` · ${it.variant}` : ""}
-                        {it.serving_name && it.qty_servings != null
-                          ? ` · ${it.qty_servings}× ${it.serving_name} (${fmt(resolvedQtyG(it), 0)}g)`
-                          : (resolvedQtyG(it) != null ? ` · ${fmt(resolvedQtyG(it), 0)}g` : "")}
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2 min-w-0">
-                      <div className="pt-0.5 text-xs text-muted-foreground break-words min-w-0">
-                        <span className="whitespace-normal">
-                          kcal {fmt(scaled(it.kcal, resolvedQtyG(it)), 0)} · P {fmt(scaled(it.protein_g, resolvedQtyG(it)), 0)} · C {fmt(scaled(it.carbs_g, resolvedQtyG(it)), 0)} · F {fmt(scaled(it.fat_g, resolvedQtyG(it)), 0)}
-                        </span>
-                      </div>
 
-                      <button
-                        className="rounded-md border px-2 py-1 text-xs"
-                        onClick={() => void deleteItem(it.meal_item_id)}
-                        disabled={!owner || deletingId === it.meal_item_id}
-                        title="Remove from meal"
-                      >
-                        {deletingId === it.meal_item_id ? "…" : "Delete"}
-                      </button>
+          <div className="mt-4 space-y-2">
+            {!selectedMealId ? (
+              <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+                Select or create a meal first.
+              </div>
+            ) : null}
+
+            {selectedMealId && items.length === 0 ? (
+              <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+                This meal has no foods yet. Search your foods on the right and add items.
+              </div>
+            ) : null}
+
+            {items.map((it) => (
+              <div key={it.meal_item_id} className="rounded-md border p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{it.display_name}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {it.brand ? it.brand : "—"}
+                      {it.variant ? ` · ${it.variant}` : ""}
+                      {it.serving_name && it.qty_servings != null
+                        ? ` · ${it.qty_servings}× ${it.serving_name} (${fmt(resolvedQtyG(it), 0)}g)`
+                        : resolvedQtyG(it) != null
+                          ? ` · ${fmt(resolvedQtyG(it), 0)}g`
+                          : ""}
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      kcal {fmt(scaled(it.kcal, resolvedQtyG(it)), 0)} · P{" "}
+                      {fmt(scaled(it.protein_g, resolvedQtyG(it)), 0)} · C{" "}
+                      {fmt(scaled(it.carbs_g, resolvedQtyG(it)), 0)} · F{" "}
+                      {fmt(scaled(it.fat_g, resolvedQtyG(it)), 0)}
                     </div>
                   </div>
+
+                  <button
+                    className="shrink-0 rounded-md border px-3 py-1.5 text-xs"
+                    onClick={() => void deleteItem(it.meal_item_id)}
+                    disabled={!owner || deletingId === it.meal_item_id}
+                    title="Remove from meal"
+                  >
+                    {deletingId === it.meal_item_id ? "Deleting…" : "Remove"}
+                  </button>
                 </div>
-              ))}
-              {!selectedMealId ? <div className="text-xs text-muted-foreground">Select a meal to view items.</div> : null}
-            </div>
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* Right: My Foods picker */}
-        <section className="mt-6">
-          <div className="text-sm font-medium">Add items</div>
+        <section className="rounded-xl border p-4">
+          <div>
+            <div className="text-sm font-semibold">Add foods</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Search saved foods, adjust grams, then add them to the selected meal.
+            </div>
+          </div>
 
-          <div className="mt-2 flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col">
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <input
-              className="w-full rounded-md border bg-background px-2 py-2 text-sm"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder='Search My Foods'
+              placeholder="Search My Foods"
               disabled={!owner}
               onKeyDown={(e) => {
                 if (e.key === "Enter") void searchMyFoods();
@@ -487,36 +555,29 @@ export default function MealsPage() {
               onClick={() => void searchMyFoods()}
               disabled={!owner || loading}
             >
-              {loading ? "…" : "Search"}
+              {loading ? "Searching…" : "Search"}
             </button>
           </div>
 
-          <div className="mt-3 space-y-2">
+          <div className="mt-4 space-y-2">
             {hits.map((f) => (
-              <div key={f.my_food_id} className="py-3 border-t border-muted/20">
-                <div className="flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{f.display_name}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground break-all lg:break-words">
-                      {f.brand ? f.brand : "—"}
-                      {f.variant ? ` · ${f.variant}` : ""}
-                      {f.source_type ? ` · ${f.source_type}` : ""}
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      per 100g: kcal {fmt(f.kcal, 0)} · P {fmt(f.protein_g, 1)} · C {fmt(f.carbs_g, 1)} · F {fmt(f.fat_g, 1)}
-                    </div>
+              <div key={f.my_food_id} className="rounded-md border p-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium">{f.display_name}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {f.brand ? f.brand : "—"}
+                    {f.variant ? ` · ${f.variant}` : ""}
+                    {f.source_type ? ` · ${f.source_type}` : ""}
                   </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    per 100g: kcal {fmt(f.kcal, 0)} · P {fmt(f.protein_g, 1)} · C{" "}
+                    {fmt(f.carbs_g, 1)} · F {fmt(f.fat_g, 1)}
+                  </div>
+                </div>
 
-                  <button
-                    className="shrink-0 rounded-md border px-3 py-1.5 text-xs"
-                    onClick={() => void addItem(f.my_food_id, gramsFor(f.my_food_id))}
-                    disabled={!owner || !selectedMealId || addingId === f.my_food_id}
-                    title={!selectedMealId ? "Select a meal first" : "Add to meal"}
-                  >
-                    {addingId === f.my_food_id ? "Adding…" : "Add"}
-                  </button>
+                <div className="mt-3 flex items-center gap-2">
                   <input
-                    className="w-24 rounded-md border bg-background px-2 py-2 text-sm"
+                    className="w-24 rounded-md border bg-background px-3 py-2 text-sm"
                     value={gramsFor(f.my_food_id)}
                     onChange={(e) =>
                       setAddGramsByFoodId((p) => ({ ...p, [f.my_food_id]: e.target.value }))
@@ -524,12 +585,21 @@ export default function MealsPage() {
                     placeholder="g"
                     disabled={!owner}
                   />
+                  <button
+                    className="rounded-md border px-3 py-2 text-sm"
+                    onClick={() => void addItem(f.my_food_id, gramsFor(f.my_food_id))}
+                    disabled={!owner || !selectedMealId || addingId === f.my_food_id}
+                    title={!selectedMealId ? "Select a meal first" : "Add to meal"}
+                  >
+                    {addingId === f.my_food_id ? "Adding…" : "Add"}
+                  </button>
                 </div>
               </div>
             ))}
+
             {owner && hits.length === 0 ? (
-              <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
-                Search your My Meals, then click Add to place it in the selected meal.
+              <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+                Search your saved foods, then add foods to the selected meal.
               </div>
             ) : null}
           </div>
