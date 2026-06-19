@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
+import { getLifeSwitchOwnerUserId, injectOwnerUserId, unauthorizedLifeSwitch } from "@/app/api/lifeswitch/_owner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,10 +9,16 @@ const BRAINS_URL = (process.env.BRAINS_URL || "http://172.31.32.171:8088").repla
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ my_food_id: string }> }) {
   const rid = req.headers.get("x-request-id") || randomUUID();
+
+  const owner_user_id = await getLifeSwitchOwnerUserId(req);
+  if (!owner_user_id) return unauthorizedLifeSwitch(rid);
+
   const { my_food_id } = await ctx.params;
 
-  const upstream = `${BRAINS_URL}/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/servings`;
-  const r = await fetch(upstream, { headers: { "x-request-id": rid }, cache: "no-store" });
+  const upstream = new URL(`${BRAINS_URL}/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/servings`);
+  injectOwnerUserId(upstream, owner_user_id);
+
+  const r = await fetch(upstream.toString(), { headers: { "x-request-id": rid }, cache: "no-store" });
   const body = await r.text();
 
   return new Response(body, {
