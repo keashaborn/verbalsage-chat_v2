@@ -332,6 +332,14 @@ export default function MealsPage() {
     return meals.find((m) => m.meal_id === selectedMealId) || null;
   }, [meals, selectedMealId]);
 
+  const mealsByType = React.useMemo(() => {
+    const order: Meal["meal_type"][] = ["breakfast", "lunch", "dinner", "snack", "other"];
+    return order.map((mealType) => ({
+      mealType,
+      meals: meals.filter((m) => m.meal_type === mealType),
+    }));
+  }, [meals]);
+
   const totals = React.useMemo(() => {
     const sum = (k: "kcal" | "protein_g" | "carbs_g" | "fat_g") => {
       let total = 0;
@@ -369,69 +377,42 @@ export default function MealsPage() {
         </div>
       ) : null}
 
-      <section className="mt-4 rounded-xl border bg-muted/10 p-4">
-        <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_auto_auto] [@media(pointer:coarse)]:grid-cols-1">
-          <div>
-            <div className="text-sm font-medium">Create meal</div>
-            <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_160px]">
-              <input
-                className="rounded-md border bg-background px-3 py-2 text-sm"
-                value={createName}
-                onChange={(e) => setCreateName(e.target.value)}
-                placeholder="Meal name"
-                disabled={!owner}
-              />
-              <select
-                className="rounded-md border bg-background px-3 py-2 text-sm"
-                value={createType}
-                onChange={(e) => setCreateType(e.target.value as any)}
-                disabled={!owner}
-              >
-                <option value="breakfast">breakfast</option>
-                <option value="lunch">lunch</option>
-                <option value="dinner">dinner</option>
-                <option value="snack">snack</option>
-                <option value="other">other</option>
-              </select>
-            </div>
+      <div className="mt-4 grid gap-4 lg:grid-cols-[300px_1fr] [@media(pointer:coarse)]:grid-cols-1">
+        <aside className="rounded-xl border bg-muted/10 p-4">
+          <div className="text-sm font-semibold">Create meal</div>
+          <div className="mt-2 space-y-2">
+            <input
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              placeholder="Meal name"
+              disabled={!owner}
+            />
+            <select
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              value={createType}
+              onChange={(e) => setCreateType(e.target.value as any)}
+              disabled={!owner}
+            >
+              <option value="breakfast">breakfast</option>
+              <option value="lunch">lunch</option>
+              <option value="dinner">dinner</option>
+              <option value="snack">snack</option>
+              <option value="other">other</option>
+            </select>
             <button
-              className="mt-2 rounded-md border px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
               onClick={() => void createMeal()}
               disabled={!owner || !createName.trim()}
             >
-              Save meal shell
+              Save new meal
             </button>
           </div>
 
-          <div>
-            <div className="text-sm font-medium">Select meal to edit</div>
-            <select
-              className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm"
-              value={selectedMealId}
-              onChange={(e) => setSelectedMealId(e.target.value)}
-              disabled={!owner}
-            >
-              <option value="">Select meal</option>
-              {meals.map((m) => (
-                <option key={m.meal_id} value={m.meal_id}>
-                  {m.meal_type} · {m.name}
-                </option>
-              ))}
-            </select>
-            {selectedMeal ? (
-              <div className="mt-2 text-xs text-muted-foreground">
-                Editing {selectedMeal.meal_type} · {selectedMeal.name}
-              </div>
-            ) : (
-              <div className="mt-2 text-xs text-muted-foreground">
-                Save or select a meal before adding foods.
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-end">
+          <div className="mt-5 flex items-center justify-between gap-2">
+            <div className="text-sm font-semibold">Meals</div>
             <button
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className="rounded-md border px-2 py-1 text-xs"
               onClick={() => void loadMeals()}
               disabled={!owner}
             >
@@ -439,20 +420,63 @@ export default function MealsPage() {
             </button>
           </div>
 
-          <div className="flex items-end">
-            <button
-              className="w-full rounded-md border border-red-300 px-3 py-2 text-sm text-red-700"
-              onClick={() => void deactivateMeal()}
-              disabled={!owner || !selectedMealId || deletingMealId === selectedMealId}
-              title={!selectedMealId ? "Select a meal first" : "Delete selected meal"}
-            >
-              {deletingMealId === selectedMealId ? "Deleting…" : "Delete Meal"}
-            </button>
+          <div className="mt-3 space-y-4">
+            {mealsByType.map(({ mealType, meals: typedMeals }) => (
+              <div key={mealType}>
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {mealType}
+                </div>
+                <div className="mt-1 space-y-1">
+                  {typedMeals.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">None</div>
+                  ) : (
+                    typedMeals.map((m) => (
+                      <button
+                        key={m.meal_id}
+                        className={`w-full rounded-md border px-3 py-2 text-left text-sm ${
+                          selectedMealId === m.meal_id ? "bg-muted" : ""
+                        }`}
+                        onClick={() => setSelectedMealId(m.meal_id)}
+                        disabled={!owner}
+                      >
+                        {m.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-      </section>
+        </aside>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr] [@media(pointer:coarse)]:grid-cols-1">
+        <div className="grid gap-4">
+          <section className="rounded-xl border bg-muted/10 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold">Selected meal</div>
+                {selectedMeal ? (
+                  <div className="mt-1 text-sm">
+                    {selectedMeal.meal_type} · {selectedMeal.name}
+                  </div>
+                ) : (
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    Select or create a meal to edit it.
+                  </div>
+                )}
+              </div>
+
+              <button
+                className="rounded-md border border-red-300 px-3 py-2 text-sm text-red-700"
+                onClick={() => void deactivateMeal()}
+                disabled={!owner || !selectedMealId || deletingMealId === selectedMealId}
+                title={!selectedMealId ? "Select a meal first" : "Delete selected meal"}
+              >
+                {deletingMealId === selectedMealId ? "Deleting…" : "Delete Meal"}
+              </button>
+            </div>
+          </section>
+
+          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] [@media(pointer:coarse)]:grid-cols-1">
         <section className="rounded-xl border p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -604,6 +628,8 @@ export default function MealsPage() {
             ) : null}
           </div>
         </section>
+          </div>
+        </div>
       </div>
     </div>
   );
