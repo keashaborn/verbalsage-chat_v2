@@ -397,12 +397,12 @@ export default function NutritionCapturePage() {
 
   async function logMealCombo() {
     if (!selectedMeal) {
-      setStatus("select a meal combo");
+      setStatus("select a meal");
       return;
     }
 
     if (!mealItems.length) {
-      setStatus("selected meal combo has no foods");
+      setStatus("selected meal has no foods");
       return;
     }
 
@@ -446,7 +446,7 @@ export default function NutritionCapturePage() {
         <div>
           <div className="text-lg font-semibold">Nutrition · Capture</div>
           <div className="text-xs text-muted-foreground">
-            Individual foods or meal combos. All writes remain atomic.
+            Individual foods or meals. All writes remain atomic.
           </div>
         </div>
 
@@ -474,7 +474,7 @@ export default function NutritionCapturePage() {
           className={`rounded border px-3 py-1 text-sm ${mode === "meals" ? "bg-muted" : ""}`}
           onClick={() => setMode("meals")}
         >
-          Meal Combos
+          Meals
         </button>
       </div>
 
@@ -482,9 +482,9 @@ export default function NutritionCapturePage() {
         <div className="mt-4 border rounded p-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold">Meal Combos</div>
+              <div className="text-sm font-semibold">Meals</div>
               <div className="text-xs text-muted-foreground">
-                Select a library combo, edit grams if needed, then log all rows.
+                Select a meal, edit grams if needed, then log all rows.
               </div>
             </div>
 
@@ -502,7 +502,7 @@ export default function NutritionCapturePage() {
             value={selectedMealId}
             onChange={(e) => setSelectedMealId(e.target.value)}
           >
-            <option value="">Select meal combo</option>
+            <option value="">Select meal</option>
             {meals.map((m) => (
               <option key={m.meal_id} value={m.meal_id}>
                 {m.name} · {m.meal_type}
@@ -532,7 +532,7 @@ export default function NutritionCapturePage() {
 
               <div className="mt-3 space-y-2">
                 {mealItemsLoading && (
-                  <div className="text-xs text-muted-foreground">Loading combo foods...</div>
+                  <div className="text-xs text-muted-foreground">Loading meal foods...</div>
                 )}
 
                 {!mealItemsLoading &&
@@ -588,7 +588,7 @@ export default function NutritionCapturePage() {
 
                 {!mealItemsLoading && selectedMeal && mealItems.length === 0 && (
                   <div className="text-xs text-muted-foreground">
-                    This combo has no foods yet. Add foods in Library / Combos.
+                    This meal has no foods yet. Add foods in Library / Meals.
                   </div>
                 )}
               </div>
