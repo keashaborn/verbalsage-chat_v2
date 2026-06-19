@@ -92,16 +92,40 @@ function DrawerInner({
   const [voiceEngine, setVoiceEngine] = React.useState<"openai_tts" | "grok_realtime">("openai_tts");
 
   React.useEffect(() => {
+    let cancelled = false;
+
     try {
       const v = (localStorage.getItem("vs_voice_engine") || "").trim();
       setVoiceEngine(v === "grok_realtime" ? "grok_realtime" : "openai_tts");
     } catch { }
+
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      const md: any = data?.user?.user_metadata || {};
+      const cloudEngine = String(md?.vs_voice_engine || "").trim();
+
+      if (cancelled) return;
+      if (cloudEngine === "grok_realtime" || cloudEngine === "openai_tts") {
+        setVoiceEngine(cloudEngine);
+        try {
+          localStorage.setItem("vs_voice_engine", cloudEngine);
+        } catch { }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   React.useEffect(() => {
     try {
       localStorage.setItem("vs_voice_engine", voiceEngine);
     } catch { }
+
+    void supabase.auth.updateUser({
+      data: { vs_voice_engine: voiceEngine },
+    });
   }, [voiceEngine]);
 
   const current = stack[stack.length - 1] ?? "root";

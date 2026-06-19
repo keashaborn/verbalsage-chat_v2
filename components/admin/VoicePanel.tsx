@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 function getLS<T>(k: string, fallback: T): T {
   try {
@@ -15,6 +16,30 @@ function setLS(k: string, v: any) {
   try {
     localStorage.setItem(k, JSON.stringify(v));
   } catch { }
+}
+
+function normalizeVoiceSettings(raw: any) {
+  const voice = String(raw?.vs_voice || raw?.voice || "sage").trim() || "sage";
+  const model = String(raw?.vs_voice_model || raw?.model || "gpt-4o-mini-tts").trim() || "gpt-4o-mini-tts";
+  const speedRaw = Number(raw?.vs_voice_speed ?? raw?.speed ?? 1.0);
+  const speed = Number.isFinite(speedRaw) ? Math.max(0.6, Math.min(1.4, speedRaw)) : 1.0;
+  return { voice, model, speed };
+}
+
+function saveVoiceSettingsLocal(nextVoice: string, nextSpeed: number, nextModel: string) {
+  setLS("vs_voice", nextVoice);
+  setLS("vs_voice_speed", nextSpeed);
+  setLS("vs_voice_model", nextModel);
+}
+
+function saveVoiceSettingsCloud(nextVoice: string, nextSpeed: number, nextModel: string) {
+  void supabase.auth.updateUser({
+    data: {
+      vs_voice: nextVoice,
+      vs_voice_speed: nextSpeed,
+      vs_voice_model: nextModel,
+    },
+  });
 }
 
 function Group({
@@ -126,18 +151,43 @@ export function VoicePanel() {
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
   function saveVoiceSettings(nextVoice: string, nextSpeed: number, nextModel: string) {
-    setLS("vs_voice", nextVoice);
-    setLS("vs_voice_speed", nextSpeed);
-    setLS("vs_voice_model", nextModel);
+    saveVoiceSettingsLocal(nextVoice, nextSpeed, nextModel);
+    saveVoiceSettingsCloud(nextVoice, nextSpeed, nextModel);
   }
 
   React.useEffect(() => {
-    const savedVoice = getLS<string>("vs_voice", "sage");
-    const savedSpeed = getLS<number>("vs_voice_speed", 1.0);
-    const savedModel = getLS<string>("vs_voice_model", "gpt-4o-mini-tts");
-    setVoice(savedVoice);
-    setSpeed(savedSpeed);
-    setModel(savedModel);
+    let cancelled = false;
+
+    const local = normalizeVoiceSettings({
+      vs_voice: getLS<string>("vs_voice", "sage"),
+      vs_voice_speed: getLS<number>("vs_voice_speed", 1.0),
+      vs_voice_model: getLS<string>("vs_voice_model", "gpt-4o-mini-tts"),
+    });
+
+    setVoice(local.voice);
+    setSpeed(local.speed);
+    setModel(local.model);
+
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      const md: any = data?.user?.user_metadata || {};
+      const hasCloud =
+        md.vs_voice != null ||
+        md.vs_voice_speed != null ||
+        md.vs_voice_model != null;
+
+      if (!hasCloud || cancelled) return;
+
+      const cloud = normalizeVoiceSettings(md);
+      saveVoiceSettingsLocal(cloud.voice, cloud.speed, cloud.model);
+      setVoice(cloud.voice);
+      setSpeed(cloud.speed);
+      setModel(cloud.model);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   React.useEffect(() => {
@@ -216,7 +266,7 @@ export function VoicePanel() {
         title="Voice"
         footer={
           <>
-            Stored locally in this browser (<code>vs_voice</code>, <code>vs_voice_speed</code>, <code>vs_voice_model</code>).
+            Synced to your account and cached in this browser.
           </>
         }
       >
