@@ -5,7 +5,7 @@ export default function TrainingDesignLayout({ children }: { children: ReactNode
   return (
     <div className="grid gap-4">
       <div>
-        <div className="text-lg font-semibold">Training · Design</div>
+        <div className="text-lg font-semibold">Training · Library</div>
         <div className="mt-1 text-sm text-muted-foreground">
           Build exercises and workout templates used by capture and logging.
         </div>

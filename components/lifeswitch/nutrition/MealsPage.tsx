@@ -315,9 +315,9 @@ export default function MealsPage() {
   return (
     <div className="mx-auto max-w-5xl p-4 overflow-x-hidden">
 
-      <div className="text-lg font-semibold">Nutrition · Combos</div>
+      <div className="text-lg font-semibold">Nutrition · Meals</div>
       <div className="mt-1 text-sm text-muted-foreground">
-        Reusable food bundles. Default is grams.
+        Reusable meals. Default is grams.
       </div>
 
       {authErr ? (
@@ -332,11 +332,11 @@ export default function MealsPage() {
       <div className="mt-4 grid gap-4 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1">
         {/* Left: meal selection + items */}
         <section className="mt-6">
-          <div className="text-sm font-medium">Combos</div>
+          <div className="text-sm font-medium">Meals</div>
 
           <div className="mt-2 flex flex-col gap-2 lg:flex-row [@media(pointer:coarse)]:flex-col">
             <div className="mt-4 rounded-md border bg-muted/20 p-3">
-              <div className="text-sm font-medium">Create combo</div>
+              <div className="text-sm font-medium">Create meal</div>
               <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 [@media(pointer:coarse)]:grid-cols-1 gap-2">
                 <input className="rounded-md border bg-background px-2 py-2 text-sm" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Meal name" />
                 <select className="rounded-md border bg-background px-2 py-2 text-sm" value={createType} onChange={(e) => setCreateType(e.target.value as any)}>
@@ -348,7 +348,7 @@ export default function MealsPage() {
                 </select>
               </div>
               <button className="mt-2 w-full rounded-md border px-3 py-2 text-sm" onClick={() => void createMeal()} disabled={!owner}>
-                Save combo
+                Save meal
               </button>
             </div>
 
@@ -358,7 +358,7 @@ export default function MealsPage() {
               onChange={(e) => setSelectedMealId(e.target.value)}
               disabled={!owner}
             >
-              <option value="">(select combo)</option>
+              <option value="">(select meal)</option>
               {meals.map((m) => (
                 <option key={m.meal_id} value={m.meal_id}>
                   {m.meal_type} · {m.name}
@@ -389,7 +389,7 @@ export default function MealsPage() {
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-sm font-medium">Combo items</div>
+            <div className="text-sm font-medium">Meal items</div>
             <div className="mt-2 space-y-2">
               {items.map((it) => (
                 <div key={it.meal_item_id} className="py-3 border-t border-muted/20">
@@ -423,7 +423,7 @@ export default function MealsPage() {
                   </div>
                 </div>
               ))}
-              {!selectedMealId ? <div className="text-xs text-muted-foreground">Select a combo to view items.</div> : null}
+              {!selectedMealId ? <div className="text-xs text-muted-foreground">Select a meal to view items.</div> : null}
             </div>
           </div>
         </section>
@@ -472,7 +472,7 @@ export default function MealsPage() {
                     className="shrink-0 rounded-md border px-3 py-1.5 text-xs"
                     onClick={() => void addItem(f.my_food_id, gramsFor(f.my_food_id))}
                     disabled={!owner || !selectedMealId || addingId === f.my_food_id}
-                    title={!selectedMealId ? "Select a combo first" : "Add to combo"}
+                    title={!selectedMealId ? "Select a meal first" : "Add to meal"}
                   >
                     {addingId === f.my_food_id ? "Adding…" : "Add"}
                   </button>
@@ -490,7 +490,7 @@ export default function MealsPage() {
             ))}
             {owner && hits.length === 0 ? (
               <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
-                Search your My Combos, then click Add to place it in the selected combo.
+                Search your My Meals, then click Add to place it in the selected meal.
               </div>
             ) : null}
           </div>

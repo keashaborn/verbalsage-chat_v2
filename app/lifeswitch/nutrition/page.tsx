@@ -6,13 +6,13 @@ export default function NutritionHome() {
       <div>
         <div className="text-lg font-semibold">Nutrition</div>
         <div className="mt-1 text-sm text-muted-foreground">
-          Design foods/meals, plan days, log intake, analyze trends.
+          Library foods/meals, plan days, log intake, analyze trends.
         </div>
       </div>
 
       <div className="grid gap-3">
         <Link href="/lifeswitch/nutrition/design" className="rounded-xl border p-4 hover:bg-muted/30">
-          <div className="text-sm font-semibold">Design</div>
+          <div className="text-sm font-semibold">Library</div>
           <div className="mt-1 text-xs text-muted-foreground">Foods, meals, templates.</div>
         </Link>
 
