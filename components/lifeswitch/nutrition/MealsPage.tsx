@@ -352,7 +352,7 @@ export default function MealsPage() {
       <div>
         <div className="text-lg font-semibold">Nutrition · Meals</div>
         <div className="mt-1 text-sm text-muted-foreground">
-          Build reusable meals from foods in your Library. Meals are templates; logging happens in Capture.
+          Create a meal first, select it, then add foods. Meals are templates; logging happens in Capture.
         </div>
       </div>
 
@@ -372,7 +372,7 @@ export default function MealsPage() {
       <section className="mt-4 rounded-xl border bg-muted/10 p-4">
         <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_auto_auto] [@media(pointer:coarse)]:grid-cols-1">
           <div>
-            <div className="text-sm font-medium">Create or update meal</div>
+            <div className="text-sm font-medium">Create meal</div>
             <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_160px]">
               <input
                 className="rounded-md border bg-background px-3 py-2 text-sm"
@@ -399,12 +399,12 @@ export default function MealsPage() {
               onClick={() => void createMeal()}
               disabled={!owner || !createName.trim()}
             >
-              Save meal
+              Save meal shell
             </button>
           </div>
 
           <div>
-            <div className="text-sm font-medium">Selected meal</div>
+            <div className="text-sm font-medium">Select meal to edit</div>
             <select
               className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm"
               value={selectedMealId}
@@ -424,7 +424,7 @@ export default function MealsPage() {
               </div>
             ) : (
               <div className="mt-2 text-xs text-muted-foreground">
-                Select a meal to edit its foods.
+                Save or select a meal before adding foods.
               </div>
             )}
           </div>
@@ -533,9 +533,9 @@ export default function MealsPage() {
 
         <section className="rounded-xl border p-4">
           <div>
-            <div className="text-sm font-semibold">Add foods</div>
+            <div className="text-sm font-semibold">Add foods to selected meal</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Search saved foods, adjust grams, then add them to the selected meal.
+              Search saved foods, adjust grams, then add them to the selected meal template.
             </div>
           </div>
 
@@ -599,7 +599,7 @@ export default function MealsPage() {
 
             {owner && hits.length === 0 ? (
               <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
-                Search your saved foods, then add foods to the selected meal.
+                Search your saved foods, then add foods to the selected meal template.
               </div>
             ) : null}
           </div>
