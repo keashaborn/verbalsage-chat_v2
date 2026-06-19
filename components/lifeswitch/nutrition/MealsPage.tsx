@@ -61,6 +61,22 @@ type MyFood = {
   is_active: boolean;
 };
 
+
+type FoodOverride = {
+  alias?: string;
+  default_grams?: number;
+};
+
+type OverrideRow = {
+  owner_user_id: string;
+  my_food_id: string;
+  alias: string | null;
+  default_grams: number | null;
+  sort_order: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
 function fmt(n: number | null, digits = 0) {
   if (n == null || Number.isNaN(n)) return "—";
   return Number(n).toFixed(digits);
@@ -87,6 +103,25 @@ async function fetchJson(url: string, init?: RequestInit) {
     throw new Error(String(detail));
   }
   return j;
+}
+
+
+async function fetchOverridesFromDb(owner_user_id: string): Promise<Record<string, FoodOverride>> {
+  const qs = new URLSearchParams({ owner_user_id });
+  const rows = (await fetchJson(`/api/lifeswitch/nutrition/my_food_overrides?${qs.toString()}`)) as OverrideRow[];
+
+  const out: Record<string, FoodOverride> = {};
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const fid = String(row?.my_food_id || "").trim();
+    if (!fid) continue;
+
+    out[fid] = {
+      alias: row?.alias ? String(row.alias) : undefined,
+      default_grams: row?.default_grams != null ? Number(row.default_grams) : undefined,
+    };
+  }
+
+  return out;
 }
 
 export default function MealsPage() {
@@ -134,10 +169,20 @@ export default function MealsPage() {
   // add item controls
   // add item controls
   const [addGramsByFoodId, setAddGramsByFoodId] = React.useState<Record<string, string>>({});
+  const [foodOverrides, setFoodOverrides] = React.useState<Record<string, FoodOverride>>({});
 
   function gramsFor(my_food_id: string): string {
-    const v = (addGramsByFoodId[my_food_id] ?? "").trim();
-    return v || "150";
+    const raw = addGramsByFoodId[my_food_id];
+
+    // Preserve exactly what the user is typing, including temporary blank.
+    if (raw !== undefined) return raw;
+
+    const g = foodOverrides[my_food_id]?.default_grams;
+    if (g != null && Number.isFinite(Number(g)) && Number(g) > 0) {
+      return String(g);
+    }
+
+    return "100";
   }
   const [addingId, setAddingId] = React.useState<string | null>(null);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
@@ -158,7 +203,18 @@ export default function MealsPage() {
   }, []);
 
   React.useEffect(() => {
-    if (owner) void loadMeals();
+    if (!owner) return;
+
+    void (async () => {
+      try {
+        const db = await fetchOverridesFromDb(owner);
+        setFoodOverrides(db);
+      } catch {
+        setFoodOverrides({});
+      }
+    })();
+
+    void loadMeals();
   }, [owner, loadMeals]);
 
   React.useEffect(() => {
