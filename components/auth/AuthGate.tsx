@@ -143,28 +143,6 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
 
-  async function syncServerAuthCookies(s: any | null): Promise<boolean> {
-    if (s?.access_token && s?.user?.id) {
-      return await fetchOk(
-        "/api/auth/set",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            access_token: s.access_token,
-            refresh_token: s.refresh_token,
-            expires_at: s.expires_at,
-          }),
-        },
-        2500
-      );
-    } else {
-      // Always best-effort clear.
-      await fetchOk("/api/auth/logout", { method: "POST" }, 2500);
-      return true;
-    }
-  }
-
   async function syncIdentityBestEffort(s: any) {
     const u = s?.user;
     if (!u?.id) return;
@@ -197,20 +175,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
     // Signed out path
     if (!s) {
-      await syncServerAuthCookies(null);
       setSession(null);
       return;
     }
 
-    // Ensure vs_at exists before mounting the app (prevents /api/* 401 race).
-    const ok = await syncServerAuthCookies(s);
-    if (!ok) {
-      setSession(null);
-      setMsg("Auth cookie sync failed (/api/auth/set). Refresh and try again.");
-      return;
-    }
-
-    // Now we are safe to mount the app.
+    // Supabase session is the source of truth. API calls attach the bearer token via authFetch.
     setSession(s);
 
     // Best-effort, non-blocking extras.
@@ -223,7 +192,6 @@ export function AuthGate({ children }: { children: ReactNode }) {
     try {
       await withTimeout(supabase.auth.signOut(), 4000, "supabase.signOut");
     } catch {}
-    await syncServerAuthCookies(null);
     setSession(null);
   }
 
@@ -323,8 +291,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     );
   }
 
-  // Do NOT mount the app until session is valid + vs_at cookie is synced.
-  // This prevents “missing chats until refresh” caused by early unauthenticated fetches.
+  // Do not mount the app until the Supabase session is valid.
   const showApp = !!session;
 
   return (

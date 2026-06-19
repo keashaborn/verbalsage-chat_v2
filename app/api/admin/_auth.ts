@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const JWKS = process.env.SUPABASE_JWKS_URL
@@ -8,18 +7,12 @@ const JWKS = process.env.SUPABASE_JWKS_URL
 const ISSUER = process.env.SUPABASE_ISSUER;
 
 export async function getSupabasePayloadFromRequest(req?: Request): Promise<any | null> {
-  if (!JWKS || !ISSUER) return null;
+  if (!JWKS || !ISSUER || !req) return null;
 
-  const auth = req?.headers.get("authorization") || "";
-  let token = auth.toLowerCase().startsWith("bearer ")
+  const auth = req.headers.get("authorization") || "";
+  const token = auth.toLowerCase().startsWith("bearer ")
     ? auth.slice(7).trim()
     : "";
-
-  // Temporary legacy fallback. Remove after /api/auth/set is retired.
-  if (!token) {
-    const jar = await cookies();
-    token = jar.get("vs_at")?.value || "";
-  }
 
   if (!token) return null;
 
