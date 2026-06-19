@@ -2,6 +2,7 @@
 
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
+import Link from "next/link";
 import SSLGModalLauncher from "@/components/sslg/SSLGModalLauncher";
 
 type TimeseriesPoint = { t: string; v: number | null; n: number; meta?: any };
@@ -366,9 +367,20 @@ export default function DiagnosticsPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-6">
-      <div className="text-xl font-semibold">Diagnostics</div>
-      <div className="mt-1 text-sm text-muted-foreground">
-        Run a fixed probe suite, log immutable telemetry to seebx, and graph derived metrics.
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xl font-semibold">Diagnostics</div>
+          <div className="mt-1 text-sm text-muted-foreground">
+            Run a fixed probe suite, log immutable telemetry to seebx, and graph derived metrics.
+          </div>
+        </div>
+
+        <Link
+          href="/"
+          className="rounded-xl border px-3 py-2 text-sm font-semibold hover:bg-muted/60"
+        >
+          Back
+        </Link>
       </div>
 
       <div className="mt-6 grid gap-3 rounded-2xl border p-4">

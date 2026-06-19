@@ -71,9 +71,28 @@ async function fetchOk(url: string, init: RequestInit, ms: number): Promise<bool
   }
 }
 
+
+function applyThemeFromMetadata(md: any) {
+  const t = String(md?.vs_theme || "").trim();
+  if (!(t === "dark" || t === "light" || t === "dark-hc")) return;
+
+  lsSet("vs_theme", JSON.stringify(t));
+
+  try {
+    document.documentElement.classList.toggle("dark", t === "dark" || t === "dark-hc");
+    document.documentElement.classList.toggle("dark-hc", t === "dark-hc");
+    window.dispatchEvent(new Event("vs_theme_changed"));
+  } catch {
+    // ignore
+  }
+}
+
 function applyProfileCookiesFromSession(session: any): boolean {
   // Apply from session.user.user_metadata.vs_settings_v1 (no extra network call).
   try {
+    const md: any = session?.user?.user_metadata || {};
+    applyThemeFromMetadata(md);
+
     const v1: any = session?.user?.user_metadata?.vs_settings_v1;
     if (!v1) return false;
 
@@ -86,17 +105,6 @@ function applyProfileCookiesFromSession(session: any): boolean {
     if (v1.model) {
       writeStringCookie("vs_model", String(v1.model).trim().slice(0, 64));
     }
-    const md: any = session?.user?.user_metadata || {};
-
-    if (md.vs_theme === "dark" || md.vs_theme === "light" || md.vs_theme === "dark-hc") {
-      lsSet("vs_theme", JSON.stringify(md.vs_theme));
-      try {
-        document.documentElement.classList.toggle("dark", md.vs_theme === "dark" || md.vs_theme === "dark-hc");
-        document.documentElement.classList.toggle("dark-hc", md.vs_theme === "dark-hc");
-        window.dispatchEvent(new Event("vs_theme_changed"));
-      } catch {}
-    }
-
     if (md.vs_voice_engine === "openai_tts" || md.vs_voice_engine === "grok_realtime") {
       lsSet("vs_voice_engine", md.vs_voice_engine);
     }
