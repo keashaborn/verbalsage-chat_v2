@@ -46,7 +46,7 @@ async function patchLogEntry(owner_user_id: string, nutrition_entry_id: string, 
   u.searchParams.set("nutrition_entry_id", nutrition_entry_id);
   u.searchParams.set("qty_g", String(qty_g));
 
-  const r = await fetch(u.toString(), { method: "PATCH", cache: "no-store" });
+  const r = await authFetch(u.toString(), { method: "PATCH", cache: "no-store" });
   const t = await r.text().catch(() => "");
   let j: any = null;
   try { j = t ? JSON.parse(t) : null; } catch { }
@@ -59,7 +59,7 @@ async function deleteLogEntry(owner_user_id: string, nutrition_entry_id: string)
   u.searchParams.set("owner_user_id", owner_user_id);
   u.searchParams.set("nutrition_entry_id", nutrition_entry_id);
 
-  const r = await fetch(u.toString(), { method: "DELETE", cache: "no-store" });
+  const r = await authFetch(u.toString(), { method: "DELETE", cache: "no-store" });
   const t = await r.text().catch(() => "");
   let j: any = null;
   try { j = t ? JSON.parse(t) : null; } catch { }
