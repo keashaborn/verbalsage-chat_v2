@@ -251,7 +251,7 @@ export function CardsPanel() {
           ? `/api/admin/vantage-cards?${qs.toString()}`
           : `/api/admin/cards?${qs.toString()}`;
 
-      const r = await fetch(endpoint);
+      const r = await authFetch(endpoint);
       if (!r.ok) throw new Error(await r.text());
 
       const data = await r.json();
