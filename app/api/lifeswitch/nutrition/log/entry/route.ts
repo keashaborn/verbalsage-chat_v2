@@ -30,6 +30,16 @@ async function proxy(req: NextRequest, method: "POST" | "PATCH" | "DELETE") {
     }
 
     parsed.owner_user_id = owner_user_id;
+
+    // Brains expects these log fields as query parameters.
+    // The UI sends them in JSON, so mirror them into the upstream query.
+    for (const key of ["day", "my_food_id", "meal_id", "qty_g", "sort_order", "label", "meal_type"]) {
+      const value = parsed?.[key];
+      if (value !== undefined && value !== null && String(value).trim() !== "") {
+        upstream.searchParams.set(key, String(value));
+      }
+    }
+
     body = JSON.stringify(parsed);
   }
 
