@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
+import { getLifeSwitchOwnerUserId, injectOwnerUserId, unauthorizedLifeSwitch } from "@/app/api/lifeswitch/_owner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,13 +9,26 @@ const BRAINS_URL = (process.env.BRAINS_URL || "http://172.31.32.171:8088").repla
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ meal_id: string }> }) {
   const rid = req.headers.get("x-request-id") || randomUUID();
-  const { meal_id } = await ctx.params;
-  const upstream = `${BRAINS_URL}/lifeswitch/nutrition/meals/${encodeURIComponent(meal_id)}/items`;
 
-  const r = await fetch(upstream, { headers: { "x-request-id": rid }, cache: "no-store" });
-  const body = await r.text();
+  const owner_user_id = await getLifeSwitchOwnerUserId(req);
+  if (!owner_user_id) return unauthorizedLifeSwitch(rid);
+
+  const { meal_id } = await ctx.params;
+
+  const upstream = new URL(`${BRAINS_URL}/lifeswitch/nutrition/meals/${encodeURIComponent(meal_id)}/items`);
+  injectOwnerUserId(upstream, owner_user_id);
+
+  const r = await fetch(upstream.toString(), {
+    headers: { "x-request-id": rid },
+    cache: "no-store",
+  });
+
+  const body = await r.text().catch(() => "");
   return new Response(body, {
     status: r.status,
-    headers: { "content-type": r.headers.get("content-type") || "application/json; charset=utf-8", "x-request-id": rid },
+    headers: {
+      "content-type": r.headers.get("content-type") || "application/json; charset=utf-8",
+      "x-request-id": rid,
+    },
   });
 }

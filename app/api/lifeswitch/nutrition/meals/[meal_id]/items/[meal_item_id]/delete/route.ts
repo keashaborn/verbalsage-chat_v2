@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
+import { getLifeSwitchOwnerUserId, injectOwnerUserId, unauthorizedLifeSwitch } from "@/app/api/lifeswitch/_owner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,13 +12,18 @@ export async function POST(
   ctx: { params: Promise<{ meal_id: string; meal_item_id: string }> }
 ) {
   const rid = req.headers.get("x-request-id") || randomUUID();
+
+  const owner_user_id = await getLifeSwitchOwnerUserId(req);
+  if (!owner_user_id) return unauthorizedLifeSwitch(rid);
+
   const { meal_id, meal_item_id } = await ctx.params;
 
   const inUrl = new URL(req.url);
   const upstream = new URL(
     `${BRAINS_URL}/lifeswitch/nutrition/meals/${encodeURIComponent(meal_id)}/items/${encodeURIComponent(meal_item_id)}/delete`
   );
-  upstream.search = inUrl.search; // forwards owner_user_id
+  upstream.search = inUrl.search;
+  injectOwnerUserId(upstream, owner_user_id);
 
   const r = await fetch(upstream.toString(), {
     method: "POST",
@@ -25,7 +31,7 @@ export async function POST(
     cache: "no-store",
   });
 
-  const body = await r.text();
+  const body = await r.text().catch(() => "");
   return new Response(body, {
     status: r.status,
     headers: {
