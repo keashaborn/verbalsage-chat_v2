@@ -158,6 +158,7 @@ export default function NutritionCapturePage() {
   const [mealItems, setMealItems] = React.useState<MealComboItem[]>([]);
   const [mealItemsLoading, setMealItemsLoading] = React.useState(false);
   const [gramsByMealItem, setGramsByMealItem] = React.useState<Record<string, string>>({});
+  const [includedMealItemIds, setIncludedMealItemIds] = React.useState<Record<string, boolean>>({});
 
   const [overrides, setOverrides] = React.useState<Record<string, FoodOverride>>({});
 
@@ -175,6 +176,8 @@ export default function NutritionCapturePage() {
       let any = false;
 
       for (const item of mealItems) {
+        if (includedMealItemIds[item.meal_item_id] === false) continue;
+
         const grams = gramsByMealItem[item.meal_item_id]
           ? Number(gramsByMealItem[item.meal_item_id])
           : resolvedItemGrams(item);
@@ -195,7 +198,7 @@ export default function NutritionCapturePage() {
       carbs_g: sum("carbs_g"),
       fat_g: sum("fat_g"),
     };
-  }, [mealItems, gramsByMealItem]);
+  }, [mealItems, gramsByMealItem, includedMealItemIds]);
 
   // ----------------------------
   // AUTH
@@ -282,6 +285,7 @@ export default function NutritionCapturePage() {
   async function loadMealItems(mealId: string) {
     if (!mealId) {
       setMealItems([]);
+      setIncludedMealItemIds({});
       return;
     }
 
@@ -298,8 +302,12 @@ export default function NutritionCapturePage() {
         : [];
 
       setMealItems(sorted);
+      setIncludedMealItemIds(
+        Object.fromEntries(sorted.map((item) => [item.meal_item_id, true]))
+      );
     } catch (e: any) {
       setMealItems([]);
+      setIncludedMealItemIds({});
       setStatus(String(e?.message || e));
     } finally {
       setMealItemsLoading(false);
@@ -325,6 +333,7 @@ export default function NutritionCapturePage() {
   React.useEffect(() => {
     if (!selectedMealId) {
       setMealItems([]);
+      setIncludedMealItemIds({});
       return;
     }
 
@@ -407,11 +416,20 @@ export default function NutritionCapturePage() {
     }
 
     try {
+      const selectedItems = mealItems.filter((item) => includedMealItemIds[item.meal_item_id] !== false);
+
+      if (selectedItems.length === 0) {
+        setStatus("no selected rows to log");
+        return;
+      }
+
       setStatus(`logging ${selectedMeal.name}...`);
 
       let count = 0;
 
-      for (const item of mealItems) {
+      for (const item of selectedItems) {
+        if (includedMealItemIds[item.meal_item_id] === false) continue;
+
         const grams = gramsByMealItem[item.meal_item_id]
           ? Number(gramsByMealItem[item.meal_item_id])
           : resolvedItemGrams(item);
@@ -526,7 +544,7 @@ export default function NutritionCapturePage() {
                   onClick={() => void logMealCombo()}
                   disabled={mealItemsLoading || mealItems.length === 0}
                 >
-                  Log All
+                  Log Selected
                 </button>
               </div>
 
@@ -544,14 +562,33 @@ export default function NutritionCapturePage() {
                     const rowKcal = Number.isFinite(gramsNum) ? scaled(item.kcal, gramsNum) : null;
                     const rowProtein = Number.isFinite(gramsNum) ? scaled(item.protein_g, gramsNum) : null;
 
+                    const included = includedMealItemIds[item.meal_item_id] !== false;
+
                     return (
-                      <div key={item.meal_item_id} className="border rounded p-2 flex justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-medium">{item.display_name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            kcal {fmt(rowKcal)} · P {fmt(rowProtein)}g
+                      <div
+                        key={item.meal_item_id}
+                        className={`border rounded p-2 flex justify-between gap-3 ${included ? "" : "opacity-50"}`}
+                      >
+                        <label className="flex min-w-0 flex-1 items-start gap-2">
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={included}
+                            onChange={(e) =>
+                              setIncludedMealItemIds((p) => ({
+                                ...p,
+                                [item.meal_item_id]: e.target.checked,
+                              }))
+                            }
+                          />
+
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium">{item.display_name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              kcal {fmt(rowKcal)} · P {fmt(rowProtein)}g
+                            </div>
                           </div>
-                        </div>
+                        </label>
 
                         <div className="flex items-center gap-2">
                           <input
