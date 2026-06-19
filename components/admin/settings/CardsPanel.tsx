@@ -1,5 +1,6 @@
 "use client";
 
+import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 
 type CardSource = "vantage" | "legacy";
@@ -284,7 +285,7 @@ export function CardsPanel() {
     const ok = window.confirm("Delete this card?");
     if (!ok) return;
 
-    const r = await fetch(`/api/admin/cards/${encodeURIComponent(id)}`, { method: "DELETE" });
+    const r = await authFetch(`/api/admin/cards/${encodeURIComponent(id)}`, { method: "DELETE" });
     if (r.ok) load();
     else alert(await r.text().catch(() => "delete failed"));
   }

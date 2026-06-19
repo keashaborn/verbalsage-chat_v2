@@ -1,5 +1,6 @@
 "use client";
 
+import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 
 function Group({
@@ -92,7 +93,7 @@ export function SecurityPanel({ onDone }: { onDone: () => void }) {
 
     setDeletingAll(true);
     try {
-      const r = await fetch("/api/admin/delete_all", { method: "DELETE" });
+      const r = await authFetch("/api/admin/delete_all", { method: "DELETE" });
       if (!r.ok) throw new Error(await r.text());
       onDone();
     } catch (e: any) {
@@ -109,7 +110,7 @@ export function SecurityPanel({ onDone }: { onDone: () => void }) {
 
     setForgetBusy(true);
     try {
-      const r = await fetch(`/api/admin/forget_recent?minutes=${encodeURIComponent(String(forgetMinutes))}`, {
+      const r = await authFetch(`/api/admin/forget_recent?minutes=${encodeURIComponent(String(forgetMinutes))}`, {
         method: "DELETE",
       });
       if (!r.ok) throw new Error(await r.text());

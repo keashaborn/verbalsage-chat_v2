@@ -5,21 +5,42 @@ const JWKS = process.env.SUPABASE_JWKS_URL
   ? createRemoteJWKSet(new URL(process.env.SUPABASE_JWKS_URL))
   : null;
 
-export async function requireAdmin() {
-  if (!JWKS || !process.env.SUPABASE_ISSUER) {
+const ISSUER = process.env.SUPABASE_ISSUER;
+
+export async function getSupabasePayloadFromRequest(req?: Request): Promise<any | null> {
+  if (!JWKS || !ISSUER) return null;
+
+  const auth = req?.headers.get("authorization") || "";
+  let token = auth.toLowerCase().startsWith("bearer ")
+    ? auth.slice(7).trim()
+    : "";
+
+  // Temporary legacy fallback. Remove after /api/auth/set is retired.
+  if (!token) {
+    const jar = await cookies();
+    token = jar.get("vs_at")?.value || "";
+  }
+
+  if (!token) return null;
+
+  try {
+    const { payload } = await jwtVerify(token, JWKS, { issuer: ISSUER });
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+export async function requireAdmin(req?: Request) {
+  if (!JWKS || !ISSUER) {
     return { ok: false, status: 500, msg: "JWKS not configured" as const };
   }
 
-  const jar = await cookies();
-  const token = jar.get("vs_at")?.value;
-  if (!token) return { ok: false, status: 401, msg: "missing auth token" as const };
+  const payload = await getSupabasePayloadFromRequest(req);
+  if (!payload) return { ok: false, status: 401, msg: "missing or invalid auth token" as const };
 
-  try {
-    const { payload } = await jwtVerify(token, JWKS, { issuer: process.env.SUPABASE_ISSUER });
-    const role = (payload as any)?.app_metadata?.role;
-    if (role !== "admin") return { ok: false, status: 403, msg: "admin required" as const };
-    return { ok: true, status: 200, payload };
-  } catch {
-    return { ok: false, status: 401, msg: "invalid token" as const };
-  }
+  const role = (payload as any)?.app_metadata?.role;
+  if (role !== "admin") return { ok: false, status: 403, msg: "admin required" as const };
+
+  return { ok: true, status: 200, payload };
 }

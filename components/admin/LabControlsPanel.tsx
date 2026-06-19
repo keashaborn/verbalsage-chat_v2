@@ -1,5 +1,6 @@
 "use client";
 
+import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 
 type RoutingControls = {
@@ -162,7 +163,7 @@ export function LabControlsPanel() {
   async function enableInspector() {
     setInspectorStatus("enabling…");
     try {
-      const r = await fetch("/api/admin/debug_cookie", {
+      const r = await authFetch("/api/admin/debug_cookie", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",

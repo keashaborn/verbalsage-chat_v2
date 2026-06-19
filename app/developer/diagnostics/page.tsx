@@ -1,5 +1,6 @@
 "use client";
 
+import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import SSLGModalLauncher from "@/components/sslg/SSLGModalLauncher";
 
@@ -87,7 +88,7 @@ async function ensureInspectorCookie(): Promise<void> {
   if (cur && cur.trim().length > 0) return;
 
   // Ask server to mint the cookie (same action as Developer → Inspector toggle)
-  const r = await fetch("/api/admin/debug_cookie", {
+  const r = await authFetch("/api/admin/debug_cookie", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
