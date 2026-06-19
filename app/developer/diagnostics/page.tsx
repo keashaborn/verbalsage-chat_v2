@@ -103,7 +103,7 @@ async function ensureInspectorCookie(): Promise<void> {
 
 
 async function postTelemetry(events: any[]) {
-  const r = await fetch("/api/telemetry/event", {
+  const r = await authFetch("/api/telemetry/event", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ events }),
@@ -282,7 +282,7 @@ export default function DiagnosticsPage() {
     try {
       for (const probe of PROBES_V0) {
         // Use existing inspect route so we reuse routing + inspector plumbing.
-        const r = await fetch("/api/chat/inspect", {
+        const r = await authFetch("/api/chat/inspect", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",

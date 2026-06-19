@@ -1,22 +1,11 @@
-import { cookies } from "next/headers";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
 
-const JWKS = process.env.SUPABASE_JWKS_URL
-  ? createRemoteJWKSet(new URL(process.env.SUPABASE_JWKS_URL))
-  : null;
+// Compatibility export name. This no longer reads cookies.
+export async function getActorUserIdFromCookie(req?: Request): Promise<string | null> {
+  if (!req) return null;
+  return await getSupabaseUserIdFromRequest(req);
+}
 
-export async function getActorUserIdFromCookie(): Promise<string | null> {
-  if (!JWKS || !process.env.SUPABASE_ISSUER) return null;
-
-  const jar = await cookies();
-  const token = jar.get("vs_at")?.value;
-  if (!token) return null;
-
-  try {
-    const { payload } = await jwtVerify(token, JWKS, { issuer: process.env.SUPABASE_ISSUER });
-    const sub = (payload?.sub as string) || null;
-    return sub ? String(sub) : null;
-  } catch {
-    return null;
-  }
+export async function getActorUserIdFromRequest(req: Request): Promise<string | null> {
+  return await getSupabaseUserIdFromRequest(req);
 }

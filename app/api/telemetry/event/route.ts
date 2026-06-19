@@ -2,32 +2,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRemoteJWKSet, jwtVerify } from "jose";
-
-const JWKS = process.env.SUPABASE_JWKS_URL
-  ? createRemoteJWKSet(new URL(process.env.SUPABASE_JWKS_URL))
-  : null;
+import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
 
 function getRequestId(req: Request): string {
   const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
   return raw || crypto.randomUUID();
-}
-
-async function getUserIdFromCookie(): Promise<string | null> {
-  if (!JWKS || !process.env.SUPABASE_ISSUER) return null;
-
-  const jar = await cookies();
-  const token = jar.get("vs_at")?.value;
-  if (!token) return null;
-
-  try {
-    const { payload } = await jwtVerify(token, JWKS, { issuer: process.env.SUPABASE_ISSUER });
-    const uid = (payload?.sub as string) || null;
-    return uid ? uid.slice(0, 128) : null;
-  } catch {
-    return null;
-  }
 }
 
 export async function POST(req: Request) {
@@ -43,7 +22,7 @@ export async function POST(req: Request) {
     body = {};
   }
 
-  // Stamp request_id into each event payload (if missing)
+  // Stamp request_id into each event payload if missing.
   try {
     const events = Array.isArray(body?.events) ? body.events : null;
     if (events) {
@@ -57,8 +36,7 @@ export async function POST(req: Request) {
     // ignore
   }
 
-  // Optional: bind telemetry to authenticated user (if available)
-  const actor_user_id = await getUserIdFromCookie();
+  const actor_user_id = await getSupabaseUserIdFromRequest(req);
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

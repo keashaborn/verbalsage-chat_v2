@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const qs = u.searchParams.toString();
   const url = `${BRAINS_URL}/metrics/timeseries${qs ? `?${qs}` : ""}`;
 
-  const actor = await getActorUserId();
+  const actor = await getActorUserId(req);
   const headers: Record<string, string> = { "x-request-id": requestId };
   if (actor) headers["x-vs-actor-user-id"] = actor;
 
