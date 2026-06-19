@@ -1,8 +1,13 @@
 "use client";
 
 import * as React from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type Theme = "dark" | "light" | "dark-hc";
+
+function isTheme(v: any): v is Theme {
+  return v === "dark" || v === "light" || v === "dark-hc";
+}
 
 function lsGet<T>(k: string, fallback: T): T {
   try {
@@ -27,15 +32,45 @@ function applyTheme(t: Theme) {
   root.classList.toggle("dark", t === "dark" || t === "dark-hc");
   root.classList.toggle("dark-hc", t === "dark-hc");
   lsSet("vs_theme", t);
+
+  try {
+    window.dispatchEvent(new Event("vs_theme_changed"));
+  } catch {
+    // ignore
+  }
+}
+
+function saveThemeCloud(t: Theme) {
+  void supabase.auth.updateUser({
+    data: { vs_theme: t },
+  });
 }
 
 export function PersonalizationPanel() {
   const [theme, setTheme] = React.useState<Theme>("dark");
 
   React.useEffect(() => {
-    const t = lsGet<Theme>("vs_theme", "dark");
-    setTheme(t);
-    applyTheme(t);
+    let cancelled = false;
+
+    const local = lsGet<Theme>("vs_theme", "dark");
+    const localTheme = isTheme(local) ? local : "dark";
+    setTheme(localTheme);
+    applyTheme(localTheme);
+
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      const md: any = data?.user?.user_metadata || {};
+      const cloudTheme = md?.vs_theme;
+
+      if (cancelled || !isTheme(cloudTheme)) return;
+
+      setTheme(cloudTheme);
+      applyTheme(cloudTheme);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -50,6 +85,7 @@ export function PersonalizationPanel() {
             const t = e.target.value as Theme;
             setTheme(t);
             applyTheme(t);
+            saveThemeCloud(t);
           }}
         >
           <option value="dark">Dark</option>
@@ -58,7 +94,7 @@ export function PersonalizationPanel() {
         </select>
 
         <div className="text-xs text-muted-foreground">
-          Stored locally in this browser (<code>localStorage</code>, key <code>vs_theme</code>).
+          Synced to your account and cached in this browser.
         </div>
       </div>
     </div>

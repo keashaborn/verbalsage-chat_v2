@@ -88,6 +88,15 @@ function applyProfileCookiesFromSession(session: any): boolean {
     }
     const md: any = session?.user?.user_metadata || {};
 
+    if (md.vs_theme === "dark" || md.vs_theme === "light" || md.vs_theme === "dark-hc") {
+      lsSet("vs_theme", JSON.stringify(md.vs_theme));
+      try {
+        document.documentElement.classList.toggle("dark", md.vs_theme === "dark" || md.vs_theme === "dark-hc");
+        document.documentElement.classList.toggle("dark-hc", md.vs_theme === "dark-hc");
+        window.dispatchEvent(new Event("vs_theme_changed"));
+      } catch {}
+    }
+
     if (md.vs_voice_engine === "openai_tts" || md.vs_voice_engine === "grok_realtime") {
       lsSet("vs_voice_engine", md.vs_voice_engine);
     }
