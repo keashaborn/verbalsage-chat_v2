@@ -206,14 +206,26 @@ export default function TrainingWorkoutsPage() {
     if (!name) return;
 
     const qs = new URLSearchParams({ owner_user_id: owner });
-    await fetchJson(`/api/lifeswitch/training/workout_templates/upsert?${qs.toString()}`, {
+    const created = (await fetchJson(`/api/lifeswitch/training/workout_templates/upsert?${qs.toString()}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, notes: "" }),
-    });
+    })) as WorkoutTemplateRow;
 
     setNewName("");
+
+    const createdId = String(created?.workout_template_id || "").trim();
+    if (createdId) {
+      setSelectedId(createdId);
+      setTemplateExercises([]);
+      setQ("");
+    }
+
     await loadTemplates();
+
+    if (createdId) {
+      await loadTemplateExercises(createdId);
+    }
   }
 
   async function updateSelected(patch: { name?: string; notes?: string | null }) {
@@ -626,7 +638,9 @@ export default function TrainingWorkoutsPage() {
 
         {/* Right: add exercises */}
         <aside className="rounded-xl border p-4">
-          <div className="text-sm font-semibold">Add exercises to selected workout</div>
+          <div className="text-sm font-semibold">
+            Add exercises{selected ? ` to ${selected.name}` : " to selected workout"}
+          </div>
           <div className="mt-1 text-xs text-muted-foreground">
             Search your saved exercises, then add them to this workout template.
           </div>
