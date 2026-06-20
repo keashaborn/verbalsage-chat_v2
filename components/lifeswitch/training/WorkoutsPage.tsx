@@ -543,6 +543,64 @@ export default function TrainingWorkoutsPage() {
     }
   }
 
+  async function resizeDropSegments(row: WorkoutTemplateExerciseRow, drops: number) {
+    if (!owner) return;
+
+    const id = row.workout_template_exercise_id;
+    const safeDrops = Math.max(1, Math.min(9, Math.floor(Number(drops) || 1)));
+    const targetCount = safeDrops + 1;
+
+    let current = templateExerciseSegments[id] || [];
+    if (!current.length) {
+      await loadTemplateExerciseSegments(id);
+      current = templateExerciseSegments[id] || [];
+    }
+
+    const byIndex = new Map<number, WorkoutTemplateExerciseSegmentRow>();
+    for (const seg of current) byIndex.set(Number(seg.segment_index || 0), seg);
+
+    for (let idx = 1; idx <= targetCount; idx++) {
+      const existing = byIndex.get(idx);
+      const prev = byIndex.get(idx - 1);
+
+      const defaultWeight =
+        existing?.default_weight ??
+        (idx === 1
+          ? Number(row.default_weight || 0)
+          : Math.max(0, Number(prev?.default_weight ?? row.default_weight ?? 0) - 10));
+
+      const defaultReps = existing?.default_reps ?? (idx === 1 ? Number(row.default_reps || 0) : 0);
+      const label = idx === 1 ? "Start" : `Drop ${idx - 1}`;
+
+      await fetchJson(
+        `/api/lifeswitch/training/workout_template_exercises/${encodeURIComponent(id)}/segments/upsert`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            segment_index: idx,
+            label,
+            default_weight: defaultWeight,
+            default_reps: defaultReps,
+          }),
+        }
+      );
+    }
+
+    for (const seg of current) {
+      if (Number(seg.segment_index || 0) > targetCount) {
+        await fetchJson(
+          `/api/lifeswitch/training/workout_template_exercises/${encodeURIComponent(id)}/segments/${encodeURIComponent(
+            seg.workout_template_exercise_segment_id
+          )}/delete`,
+          { method: "POST" }
+        );
+      }
+    }
+
+    await loadTemplateExerciseSegments(id);
+  }
+
   async function updateExercise(workout_template_exercise_id: string, patch: Partial<WorkoutTemplateExerciseRow>) {
     if (!owner || !selected) return;
     const row = templateExercises.find((x) => x.workout_template_exercise_id === workout_template_exercise_id);
@@ -587,7 +645,7 @@ export default function TrainingWorkoutsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl p-4">
+    <div className="mx-auto w-full max-w-6xl overflow-x-hidden p-4">
       <div>
         <div className="text-xl font-semibold">Training · Workouts</div>
         <div className="mt-1 text-sm text-muted-foreground">
@@ -601,9 +659,9 @@ export default function TrainingWorkoutsPage() {
         </a>
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-[20rem_1fr_18rem]">
+      <div className="mt-6 grid min-w-0 gap-4 xl:grid-cols-[20rem_minmax(0,1fr)_18rem]">
         {/* Left: create + workout list */}
-        <aside className="rounded-xl border p-4">
+        <aside className="min-w-0 rounded-xl border p-4">
           <div className="text-sm font-semibold">Create workout</div>
 
           <div className="mt-3 grid gap-2">
@@ -672,10 +730,10 @@ export default function TrainingWorkoutsPage() {
         </aside>
 
         {/* Center: selected workout + exercises */}
-        <main className="grid gap-4">
+        <main className="grid min-w-0 gap-4">
           {selected ? (
             <>
-              <section className="rounded-xl border p-4">
+              <section className="min-w-0 rounded-xl border p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-sm font-semibold">Selected workout</div>
@@ -719,7 +777,7 @@ export default function TrainingWorkoutsPage() {
                 ) : null}
               </section>
 
-              <section className="rounded-xl border p-4">
+              <section className="min-w-0 rounded-xl border p-4">
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <div className="text-sm font-semibold">Exercises in this workout</div>
@@ -740,7 +798,7 @@ export default function TrainingWorkoutsPage() {
                       const segmentsLoading = segmentLoadingIds[e.workout_template_exercise_id] || false;
 
                       return (
-                        <div key={e.workout_template_exercise_id} className="rounded-xl border p-3">
+                        <div key={e.workout_template_exercise_id} className="min-w-0 rounded-xl border p-3">
                           <div className="flex items-start justify-between gap-3">
                             <button
                               type="button"
@@ -893,7 +951,7 @@ export default function TrainingWorkoutsPage() {
                                         {segments.map((seg) => (
                                           <div
                                             key={seg.workout_template_exercise_segment_id}
-                                            className="grid grid-cols-[5rem_1fr_1fr] items-center gap-2 rounded-lg border px-2 py-2 text-xs"
+                                            className="grid min-w-0 grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 rounded-lg border px-2 py-2 text-xs"
                                           >
                                             <div className="text-muted-foreground">
                                               {seg.segment_index === 1 ? "Start" : `Drop ${seg.segment_index - 1}`}
@@ -929,7 +987,7 @@ export default function TrainingWorkoutsPage() {
         </main>
 
         {/* Right: add exercises */}
-        <aside className="rounded-xl border p-4">
+        <aside className="min-w-0 rounded-xl border p-4">
           <div className="text-sm font-semibold">
             Add exercises{selected ? ` to ${selected.name}` : " to selected workout"}
           </div>
