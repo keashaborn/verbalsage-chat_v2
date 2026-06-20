@@ -206,6 +206,20 @@ export default function TrainingCalendarPage() {
     void loadSessions();
   }, []);
 
+  async function deleteSession(trainingSessionId: string, name: string) {
+    const ok = window.confirm(`Delete logged session "${name}"?`);
+    if (!ok) return;
+
+    try {
+      await fetchJson(`/api/lifeswitch/training/sessions/${encodeURIComponent(trainingSessionId)}/deactivate`, {
+        method: "POST",
+      });
+      await loadSessions();
+    } catch (e: any) {
+      setStatus(`delete failed: ${String(e?.message || e)}`);
+    }
+  }
+
   const months = React.useMemo(() => {
     const byMonth = new Map<string, TrainingSessionRow[]>();
 
@@ -317,7 +331,20 @@ export default function TrainingCalendarPage() {
                         {s.notes ? <div className="mt-2 text-xs text-muted-foreground">{s.notes}</div> : null}
                       </div>
 
-                      <div className="shrink-0 text-xs text-muted-foreground">View</div>
+                      <div className="flex shrink-0 items-center gap-2 text-xs">
+                        <span className="text-muted-foreground">View</span>
+                        <button
+                          type="button"
+                          className="rounded-md border px-2 py-1 hover:bg-muted/30"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            void deleteSession(s.training_session_id, s.name);
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </Link>
                 ))}
