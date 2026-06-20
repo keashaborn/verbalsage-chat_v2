@@ -92,12 +92,12 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarRail />
 
-      <SidebarFooter className="aui-sidebar-footer border-t">
+      <SidebarFooter className="aui-sidebar-footer border-t px-3 pb-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <SettingsDrawer
               trigger={
-                <SidebarMenuButton size="default" className="py-2">
+                <SidebarMenuButton size="default" className="justify-start py-2 pl-2">
                   <div className="flex items-center">
                     <div
                       className="relative translate-y-[1px]"
