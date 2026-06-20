@@ -151,9 +151,8 @@ export default function TrainingWorkoutsPage() {
           `/api/lifeswitch/training/workout_templates/${encodeURIComponent(workout_template_id)}/exercises?${qs.toString()}`
         )) as any;
         const arr = Array.isArray(j) ? (j as WorkoutTemplateExerciseRow[]) : [];
-        const active = arr.filter((x) => x.is_active);
-        active.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-        setTemplateExercises(active);
+        arr.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        setTemplateExercises(arr);
       } catch {
         setTemplateExercises([]);
       } finally {
@@ -476,19 +475,29 @@ export default function TrainingWorkoutsPage() {
                 hits.length ? (
                   <div className="mt-2 divide-y divide-muted/20">
                     {hits.map((h) => (
-                      <button
+                      <div
                         key={h.exercise_id}
-                        type="button"
-                        className="w-full py-3 text-left hover:bg-muted/20"
-                        onClick={() => void addExerciseToSelected(h.exercise_id)}
+                        className="flex items-center justify-between gap-3 py-3"
                       >
-                        <div className="text-sm font-medium">{h.display_name}</div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {h.modality}
-                          {h.kind ? ` · ${h.kind}` : ""}
-                          {h.brand_name ? ` · ${h.brand_name}` : ""}
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium">{h.display_name}</div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {h.modality}
+                            {h.kind ? ` · ${h.kind}` : ""}
+                            {h.brand_name ? ` · ${h.brand_name}` : ""}
+                          </div>
                         </div>
-                      </button>
+
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30"
+                          onClick={() => void addExerciseToSelected(h.exercise_id)}
+                          disabled={!owner || !selected}
+                          title="Add exercise to workout"
+                        >
+                          Add
+                        </button>
+                      </div>
                     ))}
                   </div>
                 ) : (
