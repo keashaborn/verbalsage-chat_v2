@@ -89,7 +89,7 @@ export default function TrainingExercisesPage() {
     })();
   }, []);
 
-  // My Exercises (DB)
+  // Unique Exercises (DB)
   const [myExercises, setMyExercises] = React.useState<MyExerciseRow[]>([]);
   const [myLoading, setMyLoading] = React.useState(false);
 
@@ -198,7 +198,7 @@ export default function TrainingExercisesPage() {
   if (authErr) {
     return (
       <div className="mx-auto max-w-3xl p-4">
-        <h1 className="text-xl font-semibold">My Exercises</h1>
+        <h1 className="text-xl font-semibold">Unique Exercises</h1>
         <div className="mt-2 rounded-md border p-3 text-sm">
           <div className="font-medium">Not signed in</div>
           <div className="mt-1 text-muted-foreground">/api/auth/whoami: {authErr}</div>
@@ -209,7 +209,7 @@ export default function TrainingExercisesPage() {
 
   return (
     <div className="mx-auto max-w-3xl p-4">
-      <h1 className="text-xl font-semibold">My Exercises</h1>
+      <h1 className="text-xl font-semibold">Unique Exercises</h1>
 
       {/* Search */}
       <div className="mt-3 grid gap-2">
@@ -217,7 +217,7 @@ export default function TrainingExercisesPage() {
           className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder='Search exercises (global catalog) e.g. "hammer decline", "lat pulldown"'
+          placeholder='Search or review unique/custom exercises'
         />
         <div className="text-xs text-muted-foreground">
           {hitsLoading ? "searching…" : hitsStatus}
@@ -260,7 +260,7 @@ export default function TrainingExercisesPage() {
                       className="w-full sm:w-auto rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
                       onClick={() => void saveExercise(h)}
                       disabled={!owner || saved}
-                      title={!owner ? "Sign in required" : saved ? "Already saved" : "Save to My Exercises"}
+                      title={!owner ? "Sign in required" : saved ? "Already saved" : "Save to Unique Exercises"}
                     >
                       {saved ? "Saved" : "Save"}
                     </button>

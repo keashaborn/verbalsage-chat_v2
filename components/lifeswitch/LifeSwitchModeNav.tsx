@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, BookOpen, PlusSquare, ClipboardList, LineChart } from "lucide-react";
+import { CalendarDays, BookOpen, PlusSquare, ClipboardList, LineChart, Dumbbell } from "lucide-react";
 
 const MODES = ["log", "design", "capture", "plan", "analyze"] as const;
 type Mode = typeof MODES[number];
@@ -72,9 +72,9 @@ export function LifeSwitchModeNav() {
           active={mode === "log"}
         />
         <Tab
-          href={`/lifeswitch/${domain}/design`}
-          label="Library"
-          Icon={BookOpen}
+          href={designHref}
+          label={designLabel}
+          Icon={DesignIcon}
           active={mode === "design"}
         />
         <Tab

@@ -5,16 +5,16 @@ export default function TrainingDesignLayout({ children }: { children: ReactNode
   return (
     <div className="grid gap-4">
       <div>
-        <div className="text-lg font-semibold">Training · Library</div>
+        <div className="text-lg font-semibold">Training · Workouts</div>
         <div className="mt-1 text-sm text-muted-foreground">
-          Build exercises and workout templates used by capture and logging.
+          Build workout templates directly from the catalog or from your unique exercises.
         </div>
       </div>
 
       <SegmentTabs
         segments={[
-          { href: "/lifeswitch/training/design/exercises", label: "Exercises" },
           { href: "/lifeswitch/training/design/workouts", label: "Workouts" },
+          { href: "/lifeswitch/training/design/exercises", label: "Unique Exercises" },
         ]}
       />
 

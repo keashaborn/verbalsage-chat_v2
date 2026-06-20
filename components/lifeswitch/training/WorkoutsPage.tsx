@@ -527,8 +527,14 @@ export default function TrainingWorkoutsPage() {
       <div>
         <div className="text-xl font-semibold">Training · Workouts</div>
         <div className="mt-1 text-sm text-muted-foreground">
-          Build reusable workout templates from <span className="font-medium">My Exercises</span>. Logging happens in Capture.
+          Build reusable workout templates from the catalog or from your unique exercises. Logging happens in Capture.
         </div>
+        <a
+          href="/lifeswitch/training/design/exercises"
+          className="mt-2 inline-flex text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        >
+          Manage Unique Exercises
+        </a>
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[20rem_1fr_18rem]">
@@ -774,7 +780,7 @@ export default function TrainingWorkoutsPage() {
                     })}
                   </div>
                 ) : (
-                  <div className="mt-3 text-sm text-muted-foreground">Empty. Search My Exercises on the right and add a few.</div>
+                  <div className="mt-3 text-sm text-muted-foreground">Empty. Search exercises on the right and add a few.</div>
                 )}
               </section>
             </>

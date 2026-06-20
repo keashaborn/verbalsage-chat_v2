@@ -456,12 +456,12 @@ export default function TrainingCapturePage() {
             </div>
           ) : (
             <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
-              Create workout templates in Library / Workouts first.
+              Create workout templates in Workouts first.
             </div>
           )}
 
           <div className="mt-4 rounded-xl border p-3 text-xs text-muted-foreground">
-            Capture changes are for this session only. They do not edit the Library template.
+            Capture changes are for this session only. Template updates will be added as an explicit option.
           </div>
         </aside>
 
