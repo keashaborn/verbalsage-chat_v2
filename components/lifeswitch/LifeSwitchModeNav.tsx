@@ -61,6 +61,9 @@ export function LifeSwitchModeNav() {
 
   // Capture is global, but we preserve domain as a query param for filtering.
   const captureHref = `/lifeswitch/${domain}/capture`;
+    const designHref = domain === "training" ? "/lifeswitch/training/design/workouts" : `/lifeswitch/${domain}/design`;
+    const designLabel = domain === "training" ? "Workouts" : "Library";
+    const DesignIcon = domain === "training" ? Dumbbell : BookOpen;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
