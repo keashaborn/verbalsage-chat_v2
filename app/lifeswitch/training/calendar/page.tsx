@@ -1,50 +1,34 @@
 "use client";
 
-import * as React from "react";
+import { authFetch } from "@/lib/authFetch";
 import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
+import * as React from "react";
 
-const WORKOUT_SET_VID = "1a2cad49-4972-43d7-9ba8-6031cd3c7657";
-
-type WorkoutSetData = {
-  date: string; // YYYY-MM-DD (user local date when created)
-  workout: string;
-  exercise: string;
-  set_index: number;
-  weight: number;
-  reps: number;
-  count: number; // weight*reps (your “volume” unit)
-  __vs_sort_ts: string;
-};
-
-type FormsEntry = {
-  id: string;
+type TrainingSessionRow = {
+  training_session_id: string;
   owner_user_id: string;
-  subject_id: string;
-  template_version_id: string;
-  occurred_at: string;
-  data: WorkoutSetData;
-};
-
-type Session = {
-  key: string; // `${date}||${workout}`
-  date: string;
-  workout: string;
-  sets: FormsEntry[];
+  day: string;
+  workout_template_id?: string | null;
+  name: string;
+  notes?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
   set_count: number;
   exercise_count: number;
-  volume: number; // sum(count)
-  exercises_preview: string[];
+  volume: number;
 };
 
 type MonthSection = {
-  ym: string; // YYYY-MM
-  label: string; // e.g. "January, 2026"
-  sessions: Session[];
-  workoutDates: Set<string>; // YYYY-MM-DD for bolding days
-  workouts: number; // session count
-  volume: number; // sum(session.volume)
-  time_seconds: number | null; // TBD (need duration capture)
+  ym: string;
+  label: string;
+  sessions: TrainingSessionRow[];
+  workoutDates: Set<string>;
+  workouts: number;
+  volume: number;
+  sets: number;
 };
 
 const DOW = ["S", "M", "T", "W", "T", "F", "S"];
@@ -69,23 +53,7 @@ function pad2(n: number) {
 
 function todayLocalYYYYMMDD() {
   const d = new Date();
-  const y = d.getFullYear();
-  const m = pad2(d.getMonth() + 1);
-  const day = pad2(d.getDate());
-  return `${y}-${m}-${day}`;
-}
-
-function uniqPreserveOrder(xs: string[]) {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const x of xs) {
-    const k = String(x || "").trim();
-    if (!k) continue;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(k);
-  }
-  return out;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
 function safeNum(x: any, fallback = 0) {
@@ -104,12 +72,10 @@ function monthLabel(ym: string) {
 }
 
 function daysInMonthUTC(year: number, month1: number) {
-  // month1 = 1..12
   return new Date(Date.UTC(year, month1, 0)).getUTCDate();
 }
 
 function firstDowUTC(year: number, month1: number) {
-  // 0=Sun ... 6=Sat
   return new Date(Date.UTC(year, month1 - 1, 1)).getUTCDay();
 }
 
@@ -121,20 +87,32 @@ function formatK(n: number) {
     const v = Math.round((x / 1_000_000) * 10) / 10;
     return `${String(v).replace(/\.0$/, "")}M`;
   }
+
   if (abs >= 1_000) {
     const v = Math.round(x / 1_000);
     return `${v}K`;
   }
+
   return String(Math.round(x));
 }
 
-function formatDuration(seconds: number | null) {
-  if (seconds == null) return "—";
-  const s = Math.max(0, Math.floor(seconds));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+async function fetchJson(url: string, init?: RequestInit) {
+  const r = await authFetch(url, { cache: "no-store", ...(init || {}) });
+  const t = await r.text().catch(() => "");
+  let j: any = null;
+
+  try {
+    j = t ? JSON.parse(t) : null;
+  } catch {
+    // keep null
+  }
+
+  if (!r.ok) {
+    const detail = j?.detail || j?.error || t?.slice(0, 300) || `HTTP ${r.status}`;
+    throw new Error(String(detail));
+  }
+
+  return j;
 }
 
 function MonthCalendar(props: { ym: string; workoutDates: Set<string>; today: string }) {
@@ -148,8 +126,9 @@ function MonthCalendar(props: { ym: string; workoutDates: Set<string>; today: st
   const dim = daysInMonthUTC(year, month1);
   const firstDow = firstDowUTC(year, month1);
 
-  const totalCells = Math.ceil((firstDow + dim) / 7) * 7; // 35 or 42
+  const totalCells = Math.ceil((firstDow + dim) / 7) * 7;
   const cells: Array<number | null> = [];
+
   for (let i = 0; i < totalCells; i++) {
     const dayNum = i - firstDow + 1;
     cells.push(dayNum >= 1 && dayNum <= dim ? dayNum : null);
@@ -167,9 +146,7 @@ function MonthCalendar(props: { ym: string; workoutDates: Set<string>; today: st
 
       <div className="grid grid-cols-7 text-center text-sm">
         {cells.map((dayNum, idx) => {
-          if (!dayNum) {
-            return <div key={`e-${idx}`} className="h-7" />;
-          }
+          if (!dayNum) return <div key={`e-${idx}`} className="h-7" />;
 
           const date = `${ym}-${pad2(dayNum)}`;
           const didWorkout = workoutDates.has(date);
@@ -195,136 +172,64 @@ function MonthCalendar(props: { ym: string; workoutDates: Set<string>; today: st
 }
 
 export default function TrainingCalendarPage() {
-  const [ownerUserId, setOwnerUserId] = React.useState<string>("");
-  const [status, setStatus] = React.useState<string>("auth: loading…");
-  const [rows, setRows] = React.useState<FormsEntry[]>([]);
-  const [loading, setLoading] = React.useState<boolean>(true);
+  const [status, setStatus] = React.useState("loading sessions...");
+  const [sessions, setSessions] = React.useState<TrainingSessionRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
 
   const today = React.useMemo(() => todayLocalYYYYMMDD(), []);
 
+  async function loadSessions() {
+    setLoading(true);
+    setStatus("loading native training sessions...");
+
+    try {
+      const j = (await fetchJson("/api/lifeswitch/training/sessions?limit=250")) as TrainingSessionRow[];
+      const arr = Array.isArray(j) ? j : [];
+
+      arr.sort((a, b) => {
+        const c = String(b.day || "").localeCompare(String(a.day || ""));
+        if (c !== 0) return c;
+        return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+      });
+
+      setSessions(arr);
+      setStatus(`loaded ${arr.length} sessions`);
+    } catch (e: any) {
+      setSessions([]);
+      setStatus(`error: ${String(e?.message || e)}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   React.useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      setLoading(true);
-      setStatus("auth: loading…");
-
-      try {
-        const { data, error } = await supabase.auth.getUser();
-        if (error || !data?.user?.id) {
-          if (cancelled) return;
-          setOwnerUserId("");
-          setRows([]);
-          setStatus("auth: not signed in");
-          return;
-        }
-
-        const uid = data.user.id;
-        if (cancelled) return;
-        setOwnerUserId(uid);
-
-        setStatus("loading workout sets…");
-
-        const u = new URL("/api/forms/entries/list", window.location.origin);
-        u.searchParams.set("owner_user_id", uid);
-        u.searchParams.set("template_version_id", WORKOUT_SET_VID);
-        u.searchParams.set("limit", "5000"); // MVP; paginate later
-
-        const r = await fetch(u.toString(), { cache: "no-store" });
-        const t = await r.text().catch(() => "");
-        if (!r.ok) throw new Error(`entries/list failed: HTTP ${r.status} ${t.slice(0, 400)}`);
-
-        const j = JSON.parse(t);
-        const next = Array.isArray(j) ? (j as FormsEntry[]) : [];
-
-        if (cancelled) return;
-        setRows(next);
-        setStatus(`loaded ${next.length} sets`);
-      } catch (e: any) {
-        if (cancelled) return;
-        setRows([]);
-        setStatus(`error: ${e?.message || String(e)}`);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    void loadSessions();
   }, []);
 
-  const sessions = React.useMemo(() => {
-    const byKey = new Map<string, FormsEntry[]>();
-
-    for (const r of rows) {
-      const d = r?.data;
-      const date = String(d?.date || "").trim();
-      const workout = String(d?.workout || "").trim();
-      if (!date || !workout) continue;
-
-      const key = `${date}||${workout}`;
-      const arr = byKey.get(key) || [];
-      arr.push(r);
-      byKey.set(key, arr);
-    }
-
-    const out: Session[] = [];
-    for (const [key, sets] of byKey.entries()) {
-      sets.sort((a, b) => {
-        const sa = String(a?.data?.__vs_sort_ts || a?.occurred_at || "");
-        const sb = String(b?.data?.__vs_sort_ts || b?.occurred_at || "");
-        return sa.localeCompare(sb);
-      });
-
-      const first = sets[0];
-      const date = String(first?.data?.date || "");
-      const workout = String(first?.data?.workout || "");
-
-      const vol = sets.reduce((acc, x) => acc + safeNum(x?.data?.count, 0), 0);
-      const exercises = uniqPreserveOrder(sets.map((x) => String(x?.data?.exercise || "")));
-
-      out.push({
-        key,
-        date,
-        workout,
-        sets,
-        set_count: sets.length,
-        exercise_count: exercises.length,
-        volume: Number(vol.toFixed(2)),
-        exercises_preview: exercises.slice(0, 6),
-      });
-    }
-
-    out.sort((a, b) => {
-      const c = String(b.date).localeCompare(String(a.date));
-      if (c !== 0) return c;
-      return String(a.workout).localeCompare(String(b.workout));
-    });
-
-    return out;
-  }, [rows]);
-
   const months = React.useMemo(() => {
-    const byMonth = new Map<string, Session[]>();
+    const byMonth = new Map<string, TrainingSessionRow[]>();
+
     for (const s of sessions) {
-      const ym = String(s?.date || "").slice(0, 7);
+      const ym = String(s?.day || "").slice(0, 7);
       if (!/^\d{4}-\d{2}$/.test(ym)) continue;
+
       const arr = byMonth.get(ym) || [];
       arr.push(s);
       byMonth.set(ym, arr);
     }
 
     const out: MonthSection[] = [];
+
     for (const [ym, ss] of byMonth.entries()) {
       ss.sort((a, b) => {
-        const c = String(b.date).localeCompare(String(a.date));
+        const c = String(b.day || "").localeCompare(String(a.day || ""));
         if (c !== 0) return c;
-        return String(a.workout).localeCompare(String(b.workout));
+        return String(b.created_at || "").localeCompare(String(a.created_at || ""));
       });
 
-      const workoutDates = new Set<string>(ss.map((x) => x.date));
-      const vol = ss.reduce((acc, x) => acc + safeNum(x.volume, 0), 0);
+      const workoutDates = new Set<string>(ss.map((x) => String(x.day || "")));
+      const volume = ss.reduce((acc, x) => acc + safeNum(x.volume, 0), 0);
+      const sets = ss.reduce((acc, x) => acc + safeNum(x.set_count, 0), 0);
 
       out.push({
         ym,
@@ -332,8 +237,8 @@ export default function TrainingCalendarPage() {
         sessions: ss,
         workoutDates,
         workouts: ss.length,
-        volume: Number(vol.toFixed(2)),
-        time_seconds: null, // needs duration capture
+        volume,
+        sets,
       });
     }
 
@@ -343,17 +248,28 @@ export default function TrainingCalendarPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-4">
-      <div className="text-lg font-semibold">Training · Calendar</div>
-      <div className="mt-1 text-sm text-muted-foreground break-words">
-        Month calendar + monthly totals, then session feed. Next: click-through session detail + repeat.
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-lg font-semibold">Training · Log</div>
+          <div className="mt-1 text-sm text-muted-foreground">
+            Native completed workout sessions from Training Capture.
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
+          onClick={() => void loadSessions()}
+          disabled={loading}
+        >
+          {loading ? "Loading..." : "Refresh"}
+        </button>
       </div>
 
       <details className="mt-4">
         <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
         <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
-          <div>auth: {ownerUserId ? ownerUserId : "not signed in"}</div>
           <div>status: {status}</div>
-          <div>sets: {rows.length}</div>
           <div>sessions: {sessions.length}</div>
           <div>months: {months.length}</div>
         </div>
@@ -361,16 +277,15 @@ export default function TrainingCalendarPage() {
 
       <div className="mt-8">
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading…</div>
+          <div className="text-sm text-muted-foreground">Loading...</div>
         ) : months.length ? (
           months.map((m, idx) => (
-            <section key={m.ym} className={idx ? "mt-10 pt-10 border-t border-muted/20" : ""}>
+            <section key={m.ym} className={idx ? "mt-10 border-t border-muted/20 pt-10" : ""}>
               <div className="text-base font-semibold">{m.label}</div>
 
-              <div className="mt-4 grid grid-cols-[1fr_6.5rem] gap-2 items-start">
+              <div className="mt-4 grid grid-cols-[1fr_6.5rem] items-start gap-2">
                 <MonthCalendar ym={m.ym} workoutDates={m.workoutDates} today={today} />
 
-                {/* stats: compact + centered in its column */}
                 <div className="flex justify-center">
                   <div className="w-[6.25rem] rounded-xl border border-muted/20 px-2 py-2 text-center">
                     <div className="text-sm font-semibold leading-none">{m.workouts}</div>
@@ -379,53 +294,40 @@ export default function TrainingCalendarPage() {
                     <div className="mt-2 text-sm font-semibold leading-none">{formatK(m.volume)}</div>
                     <div className="mt-0.5 text-[9px] tracking-wide opacity-70">VOLUME</div>
 
-                    <div className="mt-2 text-sm font-semibold leading-none">{formatDuration(m.time_seconds)}</div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">TIME</div>
+                    <div className="mt-2 text-sm font-semibold leading-none">{m.sets}</div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">SETS</div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-8">
-                {m.sessions.map((s, sidx) => {
-                  const href =
-                    "/lifeswitch/training/session?date=" +
-                    encodeURIComponent(s.date) +
-                    "&workout=" +
-                    encodeURIComponent(s.workout);
-
-                  return (
-                    <Link
-                      key={s.key}
-                      href={href}
-                      className={[
-                        "block",
-                        sidx ? "mt-8 pt-8 border-t border-muted/20" : "",
-                        // minimalist affordances: no box, just subtle hover + focus ring
-                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                    >
-                      <div className="text-lg font-semibold hover:underline underline-offset-4">
-                        {s.workout}
-                      </div>
-                      <div className="mt-1 text-sm text-muted-foreground break-words">
-                        {s.date} · sets={s.set_count} · exercises={s.exercise_count} · volume={s.volume}
-                      </div>
-                      {s.exercises_preview.length ? (
-                        <div className="mt-2 text-sm opacity-80 break-words whitespace-normal">
-                          {s.exercises_preview.join(" · ")}
-                          {s.exercise_count > s.exercises_preview.length ? " …" : ""}
+              <div className="mt-6 space-y-3">
+                {m.sessions.map((s) => (
+                  <Link
+                    key={s.training_session_id}
+                    href={`/lifeswitch/training/session?session_id=${encodeURIComponent(s.training_session_id)}`}
+                    className="block rounded-xl border p-4 hover:bg-muted/30"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold">{s.name}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {s.day} · {safeNum(s.exercise_count, 0)} exercises · {safeNum(s.set_count, 0)} sets · volume{" "}
+                          {formatK(safeNum(s.volume, 0))}
                         </div>
-                      ) : null}
-                    </Link>
-                  );
-                })}
+                        {s.notes ? <div className="mt-2 text-xs text-muted-foreground">{s.notes}</div> : null}
+                      </div>
+
+                      <div className="shrink-0 text-xs text-muted-foreground">View</div>
+                    </div>
+                  </Link>
+                ))}
               </div>
             </section>
           ))
         ) : (
-          <div className="text-sm text-muted-foreground">No sessions found yet. Post a session first.</div>
+          <div className="rounded-xl border p-4 text-sm text-muted-foreground">
+            No native training sessions yet. Finish a workout from Capture and it will appear here.
+          </div>
         )}
       </div>
     </div>
