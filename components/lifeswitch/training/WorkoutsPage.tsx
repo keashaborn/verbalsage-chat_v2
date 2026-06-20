@@ -46,6 +46,7 @@ type WorkoutTemplateExerciseRow = {
   workout_template_id: string;
   exercise_id: string;
   sort_order: number;
+  set_type?: "straight" | "drop" | string;
   planned_sets: number;
   default_weight: number;
   default_reps: number;
