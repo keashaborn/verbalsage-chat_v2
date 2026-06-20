@@ -418,6 +418,7 @@ export default function TrainingWorkoutsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           exercise_id,
+            set_type: "straight",
           planned_sets: 3,
           default_weight: 0,
           default_reps: 10,
@@ -459,6 +460,7 @@ export default function TrainingWorkoutsPage() {
           body: JSON.stringify({
             workout_template_exercise_id: row.workout_template_exercise_id,
             exercise_id: row.exercise_id,
+              set_type: row.set_type || "straight",
             planned_sets: row.planned_sets,
             default_weight: row.default_weight,
             default_reps: row.default_reps,
@@ -499,6 +501,7 @@ export default function TrainingWorkoutsPage() {
         body: JSON.stringify({
           workout_template_exercise_id,
           exercise_id: row.exercise_id,
+            set_type: patch.set_type ?? row.set_type ?? "straight",
           planned_sets: patch.planned_sets ?? row.planned_sets,
           default_weight: patch.default_weight ?? row.default_weight,
           default_reps: patch.default_reps ?? row.default_reps,
@@ -692,7 +695,7 @@ export default function TrainingWorkoutsPage() {
                                 <div className="min-w-0">
                                   <div className="truncate text-sm font-medium">{title}</div>
                                   <div className="mt-1 text-xs text-muted-foreground">
-                                    {e.planned_sets} sets · {e.default_weight} × {e.default_reps}
+                                      {(e.set_type || "straight") === "drop" ? "drop" : "straight"} · {e.planned_sets} sets · {e.default_weight} × {e.default_reps}
                                     {meta?.modality ? ` · ${meta.modality}` : ""}
                                     {meta?.kind ? ` · ${meta.kind}` : ""}
                                   </div>
@@ -731,6 +734,20 @@ export default function TrainingWorkoutsPage() {
                           {open ? (
                             <div className="mt-3 grid gap-3">
                               <div className="flex flex-wrap items-end gap-4 text-sm">
+                                  <label className="flex items-baseline gap-2">
+                                    <span className="text-[11px] text-muted-foreground">type</span>
+                                    <select
+                                      className="bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
+                                      value={e.set_type || "straight"}
+                                      onChange={(ev) =>
+                                        void updateExercise(e.workout_template_exercise_id, { set_type: ev.target.value })
+                                      }
+                                    >
+                                      <option value="straight">Straight</option>
+                                      <option value="drop">Drop</option>
+                                    </select>
+                                  </label>
+
                                 <label className="flex items-baseline gap-2">
                                   <span className="text-[11px] text-muted-foreground">sets</span>
                                   <input
