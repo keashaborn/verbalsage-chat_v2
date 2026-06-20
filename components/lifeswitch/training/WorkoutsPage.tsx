@@ -745,12 +745,7 @@ export default function TrainingWorkoutsPage() {
                             <button
                               type="button"
                               className="min-w-0 flex-1 text-left"
-                              onClick={() =>
-                                setOpenExerciseIds((prev) => ({
-                                  ...prev,
-                                  [e.workout_template_exercise_id]: !open,
-                                }))
-                              }
+                                onClick={() => void toggleExerciseOpen(e)}
                             >
                               <div className="flex items-center gap-2">
                                 {open ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
@@ -793,11 +788,11 @@ export default function TrainingWorkoutsPage() {
                             </div>
                           </div>
 
-                          {open ? (
-                            <div className="mt-3 grid gap-3">
-                              <div className="flex flex-wrap items-end gap-4 text-sm">
+                            {open ? (
+                              <div className="mt-3 grid gap-3 overflow-hidden">
+                                <div className="flex flex-wrap items-end gap-4 text-sm">
                                   <label className="flex items-baseline gap-2">
-                                    <span className="text-[11px] text-muted-foreground">type</span>
+                                    <span className="text-[11px] text-muted-foreground">format</span>
                                     <select
                                       className="bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
                                       value={e.set_type || "straight"}
@@ -810,49 +805,111 @@ export default function TrainingWorkoutsPage() {
                                     </select>
                                   </label>
 
-                                <label className="flex items-baseline gap-2">
-                                  <span className="text-[11px] text-muted-foreground">sets</span>
-                                  <input
-                                    className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                    inputMode="numeric"
-                                    value={String(e.planned_sets)}
-                                    onChange={(ev) =>
-                                      void updateExercise(e.workout_template_exercise_id, { planned_sets: Number(ev.target.value || 0) })
-                                    }
-                                  />
-                                </label>
+                                  {(e.set_type || "straight") === "drop" ? (
+                                    <label className="flex items-baseline gap-2">
+                                      <span className="text-[11px] text-muted-foreground">drops</span>
+                                      <select
+                                        className="bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
+                                        value={String(Math.max(1, (segments.length || 2) - 1))}
+                                        onChange={(ev) => void resizeDropSegments(e, Number(ev.target.value))}
+                                      >
+                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                                          <option key={n} value={n}>
+                                            {n}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+                                  ) : null}
+                                </div>
 
-                                <label className="flex items-baseline gap-2">
-                                  <span className="text-[11px] text-muted-foreground">wt</span>
-                                  <input
-                                    className="w-16 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                    inputMode="decimal"
-                                    value={String(e.default_weight)}
-                                    onChange={(ev) =>
-                                      void updateExercise(e.workout_template_exercise_id, { default_weight: Number(ev.target.value || 0) })
-                                    }
-                                  />
-                                </label>
+                                <div className="flex flex-wrap items-end gap-4 text-sm">
+                                  <label className="flex items-baseline gap-2">
+                                    <span className="text-[11px] text-muted-foreground">sets</span>
+                                    <input
+                                      className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
+                                      inputMode="numeric"
+                                      value={String(e.planned_sets)}
+                                      onChange={(ev) =>
+                                        void updateExercise(e.workout_template_exercise_id, { planned_sets: Number(ev.target.value || 0) })
+                                      }
+                                    />
+                                  </label>
 
-                                <label className="flex items-baseline gap-2">
-                                  <span className="text-[11px] text-muted-foreground">reps</span>
-                                  <input
-                                    className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                    inputMode="numeric"
-                                    value={String(e.default_reps)}
-                                    onChange={(ev) =>
-                                      void updateExercise(e.workout_template_exercise_id, { default_reps: Number(ev.target.value || 0) })
-                                    }
-                                  />
-                                </label>
-                              </div>
+                                  <label className="flex items-baseline gap-2">
+                                    <span className="text-[11px] text-muted-foreground">wt</span>
+                                    <input
+                                      className="w-16 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
+                                      inputMode="decimal"
+                                      value={String(e.default_weight)}
+                                      onChange={(ev) =>
+                                        void updateExercise(e.workout_template_exercise_id, { default_weight: Number(ev.target.value || 0) })
+                                      }
+                                    />
+                                  </label>
 
-                              <input
-                                className="w-full bg-transparent border-b border-muted/30 px-1 py-2 text-sm focus:outline-none focus:border-ring"
-                                value={e.flags || ""}
-                                onChange={(ev) => void updateExercise(e.workout_template_exercise_id, { flags: ev.target.value })}
-                                placeholder='flags (optional): "dropset", "superset:A", "warmup"'
-                              />
+                                  <label className="flex items-baseline gap-2">
+                                    <span className="text-[11px] text-muted-foreground">reps</span>
+                                    <input
+                                      className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
+                                      inputMode="numeric"
+                                      value={String(e.default_reps)}
+                                      onChange={(ev) =>
+                                        void updateExercise(e.workout_template_exercise_id, { default_reps: Number(ev.target.value || 0) })
+                                      }
+                                    />
+                                  </label>
+                                </div>
+
+                                <input
+                                  className="w-full bg-transparent border-b border-muted/30 px-1 py-2 text-sm focus:outline-none focus:border-ring"
+                                  value={e.flags || ""}
+                                  onChange={(ev) => void updateExercise(e.workout_template_exercise_id, { flags: ev.target.value })}
+                                  placeholder="notes / flags (optional)"
+                                />
+
+                                {(e.set_type || "straight") === "drop" ? (
+                                  <div className="max-w-full overflow-hidden rounded-xl border p-3">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div>
+                                        <div className="text-xs font-semibold">Drop set structure</div>
+                                        <div className="mt-1 text-[11px] text-muted-foreground">
+                                          Start weight plus each drop after it.
+                                        </div>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                                        onClick={() => void loadTemplateExerciseSegments(e.workout_template_exercise_id)}
+                                      >
+                                        Refresh
+                                      </button>
+                                    </div>
+
+                                    {segmentsLoading ? (
+                                      <div className="mt-2 text-xs text-muted-foreground">Loading drops...</div>
+                                    ) : segments.length ? (
+                                      <div className="mt-3 grid gap-2">
+                                        {segments.map((seg) => (
+                                          <div
+                                            key={seg.workout_template_exercise_segment_id}
+                                            className="grid grid-cols-[5rem_1fr_1fr] items-center gap-2 rounded-lg border px-2 py-2 text-xs"
+                                          >
+                                            <div className="text-muted-foreground">
+                                              {seg.segment_index === 1 ? "Start" : `Drop ${seg.segment_index - 1}`}
+                                            </div>
+                                            <div>wt {seg.default_weight}</div>
+                                            <div>reps {seg.default_reps || ""}</div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="mt-2 text-xs text-muted-foreground">
+                                        Select a drop count to create the drop rows.
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : null}
                             </div>
                           ) : null}
                         </div>
