@@ -168,6 +168,41 @@ function extractTotals(raw: any) {
   };
 }
 function fmt1tight(x: number) {
+  async function saveEditedGrams(day: string, nutrition_entry_id: string, rawValue: string) {
+    const grams = Number(String(rawValue || "").trim());
+
+    if (!owner) {
+      setEntrySaveError((prev) => ({ ...prev, [nutrition_entry_id]: "not signed in" }));
+      return;
+    }
+
+    if (!Number.isFinite(grams) || grams <= 0) {
+      setEntrySaveError((prev) => ({ ...prev, [nutrition_entry_id]: "grams must be > 0" }));
+      return;
+    }
+
+    setSavingEntryId(nutrition_entry_id);
+    setSavedEntryId("");
+    setEntrySaveError((prev) => {
+      const next = { ...prev };
+      delete next[nutrition_entry_id];
+      return next;
+    });
+
+    try {
+      await patchLogEntry(owner, nutrition_entry_id, grams);
+      await refreshOneDay(owner, day);
+      setSavedEntryId(nutrition_entry_id);
+      window.setTimeout(() => {
+        setSavedEntryId((current) => (current === nutrition_entry_id ? "" : current));
+      }, 1400);
+    } catch (e: any) {
+      setEntrySaveError((prev) => ({ ...prev, [nutrition_entry_id]: String(e?.message || e) }));
+    } finally {
+      setSavingEntryId((current) => (current === nutrition_entry_id ? "" : current));
+    }
+  }
+
   return (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, "");
 }
 
@@ -246,6 +281,10 @@ export default function NutritionLogPage() {
   const [status, setStatus] = React.useState<string>("auth: loading…");
   const [days, setDays] = React.useState<DaySummary[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [editGramsByEntryId, setEditGramsByEntryId] = React.useState<Record<string, string>>({});
+  const [savingEntryId, setSavingEntryId] = React.useState<string>("");
+  const [savedEntryId, setSavedEntryId] = React.useState<string>("");
+  const [entrySaveError, setEntrySaveError] = React.useState<Record<string, string>>({});
   async function refreshOneDay(uid: string, day: string) {
     const u = new URL("/api/lifeswitch/nutrition/log/day", window.location.origin);
     u.searchParams.set("owner_user_id", uid);
@@ -474,6 +513,13 @@ export default function NutritionLogPage() {
                           return entries.map((e: any) => {
                             const label = String(e?.label || "").trim() || "—";
                             const qty = safeNum(e?.qty_g, 0);
+                            const entryId = String(e?.nutrition_entry_id || "");
+                            const gramsDraft = editGramsByEntryId[entryId] ?? String(qty || "");
+                            const gramsChanged =
+                              !!entryId &&
+                              String(gramsDraft || "").trim() !== "" &&
+                              Number(gramsDraft) !== qty;
+
 
                             const m = entryMacros(e);
 
@@ -525,25 +571,41 @@ export default function NutritionLogPage() {
                                           ⋯ <span className="opacity-60 group-open:hidden">▾</span><span className="opacity-60 hidden group-open:inline">▴</span>
                                         </summary>
 
-                                        <div className="mt-2 flex items-center gap-2 justify-end">
+                                        <div className="mt-2 flex flex-wrap items-center gap-2 justify-end">
                                           <input
                                             className="w-20 rounded-xl border bg-background px-2 py-1.5 text-xs text-right"
-                                            defaultValue={String(qty || "")}
+                                            value={gramsDraft}
                                             inputMode="decimal"
+                                            onChange={(ev) =>
+                                              setEditGramsByEntryId((prev) => ({
+                                                ...prev,
+                                                [entryId]: ev.currentTarget.value,
+                                              }))
+                                            }
                                             onKeyDown={(ev) => {
                                               if (ev.key !== "Enter") return;
-                                              ev.currentTarget.blur(); // commit via onBlur (works better on iOS)
+                                              void saveEditedGrams(String(d.day), entryId, gramsDraft);
                                             }}
-                                            onBlur={(ev) => {
-                                              const v = Number((ev.currentTarget.value || "").trim());
-                                              if (!Number.isFinite(v) || v <= 0) return;
-                                              void patchLogEntry(owner, String(e.nutrition_entry_id), v)
-                                                .then(() => refreshOneDay(owner, String(d.day)))
-                                                .catch(() => { });
-                                            }}
-                                            title="Tap away to update grams"
+                                            title="Edit grams, then Save"
                                           />
                                           <div className="text-xs text-muted-foreground">g</div>
+
+                                          <button
+                                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30 disabled:opacity-50"
+                                            onClick={() => void saveEditedGrams(String(d.day), entryId, gramsDraft)}
+                                            disabled={!entryId || !gramsChanged || savingEntryId === entryId}
+                                            title="Save grams"
+                                          >
+                                            {savingEntryId === entryId ? "Saving…" : "Save"}
+                                          </button>
+
+                                          {savedEntryId === entryId ? (
+                                            <div className="text-xs text-green-600">Saved</div>
+                                          ) : null}
+
+                                          {entrySaveError[entryId] ? (
+                                            <div className="text-xs text-red-600">{entrySaveError[entryId]}</div>
+                                          ) : null}
 
                                           <button
                                             className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
