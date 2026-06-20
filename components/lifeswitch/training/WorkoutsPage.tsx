@@ -56,6 +56,17 @@ type WorkoutTemplateExerciseRow = {
   updated_at: string;
 };
 
+type WorkoutTemplateExerciseSegmentRow = {
+  workout_template_exercise_segment_id: string;
+  workout_template_exercise_id: string;
+  segment_index: number;
+  label?: string | null;
+  default_weight: number;
+  default_reps: number;
+  created_at: string;
+  updated_at: string;
+};
+
 async function fetchJson(url: string, init?: RequestInit) {
   const r = await authFetch(url, { cache: "no-store", ...(init || {}) });
   const t = await r.text();
@@ -97,6 +108,8 @@ export default function TrainingWorkoutsPage() {
   const [addStatus, setAddStatus] = React.useState("");
   const [editingSelected, setEditingSelected] = React.useState(false);
   const [openExerciseIds, setOpenExerciseIds] = React.useState<Record<string, boolean>>({});
+  const [templateExerciseSegments, setTemplateExerciseSegments] = React.useState<Record<string, WorkoutTemplateExerciseSegmentRow[]>>({});
+  const [segmentLoadingIds, setSegmentLoadingIds] = React.useState<Record<string, boolean>>({});
 
   React.useEffect(() => {
     (async () => {
@@ -202,6 +215,8 @@ export default function TrainingWorkoutsPage() {
   React.useEffect(() => {
     setEditingSelected(false);
     setOpenExerciseIds({});
+    setTemplateExerciseSegments({});
+    setSegmentLoadingIds({});
   }, [selectedId]);
 
   const myExercisesById = React.useMemo(() => {
@@ -487,6 +502,47 @@ export default function TrainingWorkoutsPage() {
     await reorderExercises(copy);
   }
 
+  async function loadTemplateExerciseSegments(workout_template_exercise_id: string) {
+    if (!owner) return;
+
+    setSegmentLoadingIds((prev) => ({ ...prev, [workout_template_exercise_id]: true }));
+
+    try {
+      const rows = (await fetchJson(
+        `/api/lifeswitch/training/workout_template_exercises/${encodeURIComponent(workout_template_exercise_id)}/segments`
+      )) as WorkoutTemplateExerciseSegmentRow[];
+
+      const arr = Array.isArray(rows) ? rows.slice() : [];
+      arr.sort((a, b) => (a.segment_index ?? 0) - (b.segment_index ?? 0));
+
+      setTemplateExerciseSegments((prev) => ({
+        ...prev,
+        [workout_template_exercise_id]: arr,
+      }));
+    } catch {
+      setTemplateExerciseSegments((prev) => ({
+        ...prev,
+        [workout_template_exercise_id]: [],
+      }));
+    } finally {
+      setSegmentLoadingIds((prev) => ({ ...prev, [workout_template_exercise_id]: false }));
+    }
+  }
+
+  async function toggleExerciseOpen(row: WorkoutTemplateExerciseRow) {
+    const id = row.workout_template_exercise_id;
+    const nextOpen = !openExerciseIds[id];
+
+    setOpenExerciseIds((prev) => ({
+      ...prev,
+      [id]: nextOpen,
+    }));
+
+    if (nextOpen && (row.set_type || "straight") === "drop") {
+      await loadTemplateExerciseSegments(id);
+    }
+  }
+
   async function updateExercise(workout_template_exercise_id: string, patch: Partial<WorkoutTemplateExerciseRow>) {
     if (!owner || !selected) return;
     const row = templateExercises.find((x) => x.workout_template_exercise_id === workout_template_exercise_id);
@@ -512,6 +568,10 @@ export default function TrainingWorkoutsPage() {
     );
 
     await loadTemplateExercises(selected.workout_template_id);
+
+    if ((patch.set_type ?? row.set_type ?? "straight") === "drop") {
+      await loadTemplateExerciseSegments(workout_template_exercise_id);
+    }
   }
 
   if (authErr) {
@@ -676,6 +736,8 @@ export default function TrainingWorkoutsPage() {
                       const meta = myExercisesById.get(e.exercise_id);
                       const title = meta?.display_name || e.exercise_id;
                       const open = openExerciseIds[e.workout_template_exercise_id] || false;
+                      const segments = templateExerciseSegments[e.workout_template_exercise_id] || [];
+                      const segmentsLoading = segmentLoadingIds[e.workout_template_exercise_id] || false;
 
                       return (
                         <div key={e.workout_template_exercise_id} className="rounded-xl border p-3">
