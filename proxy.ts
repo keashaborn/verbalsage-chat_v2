@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export function middleware(req: NextRequest) {
+export default function proxy(req: NextRequest) {
   // Some stale clients/scanners send Next Server Action invocations.
   // Avoid Next logging "Failed to find Server Action" and any instability by dropping them here.
   if (req.headers.get("next-action")) {
