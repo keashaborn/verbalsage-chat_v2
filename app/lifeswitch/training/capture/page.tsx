@@ -2,7 +2,7 @@
 
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 
 type WorkoutTemplateRow = {
   workout_template_id: string;
@@ -50,7 +50,7 @@ type DraftSetRow = {
   weight: string;
   reps: string;
   flags: string;
-  include: boolean;
+  done: boolean;
 };
 
 function pad2(n: number) {
@@ -117,14 +117,14 @@ export default function TrainingCapturePage() {
     return m;
   }, [myExercises]);
 
-  const includedRows = React.useMemo(() => draftRows.filter((r) => r.include), [draftRows]);
+  const doneRows = React.useMemo(() => draftRows.filter((r) => r.done), [draftRows]);
 
   const summary = React.useMemo(() => {
     let setCount = 0;
     let volume = 0;
     const exercises = new Set<string>();
 
-    for (const r of includedRows) {
+    for (const r of doneRows) {
       const weight = safeNum(r.weight, 0);
       const reps = safeNum(r.reps, 0);
       if (reps <= 0) continue;
@@ -139,7 +139,7 @@ export default function TrainingCapturePage() {
       exerciseCount: exercises.size,
       volume,
     };
-  }, [includedRows]);
+  }, [doneRows]);
 
   React.useEffect(() => {
     (async () => {
@@ -248,7 +248,7 @@ export default function TrainingCapturePage() {
           weight: String(safeNum(ex.default_weight, 0)),
           reps: String(safeNum(ex.default_reps, 0)),
           flags: ex.flags || "",
-          include: true,
+          done: false,
         });
       }
     }
@@ -281,7 +281,7 @@ export default function TrainingCapturePage() {
       ...row,
       draft_id: makeDraftId(row.exercise_id, nextIndex),
       set_index: nextIndex,
-      include: true,
+      done: false,
     };
 
     const idx = draftRows.findIndex((r) => r.draft_id === row.draft_id);
@@ -297,21 +297,17 @@ export default function TrainingCapturePage() {
     });
   }
 
-  function removeDraftRow(draftId: string) {
-    setDraftRows((prev) => prev.filter((r) => r.draft_id !== draftId));
-  }
-
   async function finishSession() {
     if (!owner || !selected) return;
 
-    const validRows = includedRows.filter((r) => {
+    const validRows = doneRows.filter((r) => {
       const weight = safeNum(r.weight, 0);
       const reps = safeNum(r.reps, 0);
       return Number.isFinite(weight) && weight >= 0 && Number.isFinite(reps) && reps > 0;
     });
 
     if (!validRows.length) {
-      setStatus("no valid included sets to finish");
+      setStatus("no completed sets to finish");
       return;
     }
 
@@ -472,7 +468,7 @@ export default function TrainingCapturePage() {
               <div className="mt-1 text-xs text-muted-foreground">
                 {loadingTemplateExercises
                   ? "Loading template..."
-                  : `${summary.exerciseCount} exercises · ${summary.setCount} included sets · volume ${Math.round(summary.volume)}`}
+                  : `${summary.exerciseCount} exercises · ${summary.setCount} completed sets · volume ${Math.round(summary.volume)}`}
               </div>
             </div>
 
@@ -497,7 +493,7 @@ export default function TrainingCapturePage() {
                       <div>
                         <div className="text-sm font-semibold">{first.exercise_name}</div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          {block.rows.filter((r) => r.include).length} included sets
+                          {block.rows.filter((r) => r.done).length} completed sets
                         </div>
                       </div>
 
@@ -514,17 +510,10 @@ export default function TrainingCapturePage() {
                       {block.rows.map((row) => (
                         <div
                           key={row.draft_id}
-                          className={`grid gap-2 rounded-xl border p-2 sm:grid-cols-[2rem_3rem_1fr_1fr_1fr_2.5rem] sm:items-center ${
-                            row.include ? "" : "opacity-50"
-                          }`}
+                            className={`grid gap-2 rounded-xl border p-2 sm:grid-cols-[3rem_1fr_1fr_1fr_5.5rem] sm:items-center ${
+                              row.done ? "bg-muted/20 opacity-60" : ""
+                            }`}
                         >
-                          <input
-                            type="checkbox"
-                            checked={row.include}
-                            onChange={(e) => updateDraftRow(row.draft_id, { include: e.currentTarget.checked })}
-                            title="Include this set"
-                          />
-
                           <div className="text-xs text-muted-foreground">Set {row.set_index}</div>
 
                           <label className="text-xs">
@@ -554,7 +543,7 @@ export default function TrainingCapturePage() {
                           </label>
 
                           <label className="text-xs">
-                            <div className="text-muted-foreground">Flags</div>
+                            <div className="text-muted-foreground">Notes</div>
                             <input
                               className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
                               value={row.flags}
@@ -562,18 +551,21 @@ export default function TrainingCapturePage() {
                                 const value = e.currentTarget.value;
                                 updateDraftRow(row.draft_id, { flags: value });
                               }}
-                              placeholder="optional"
+                              placeholder="optional note"
                             />
                           </label>
 
-                          <button
-                            type="button"
-                            className="rounded-md border p-2 hover:bg-muted/30"
-                            onClick={() => removeDraftRow(row.draft_id)}
-                            title="Remove set"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                            <button
+                              type="button"
+                              className={[
+                                "rounded-xl border px-3 py-2 text-sm hover:bg-muted/30",
+                                row.done ? "bg-muted/30" : "",
+                              ].filter(Boolean).join(" ")}
+                              onClick={() => updateDraftRow(row.draft_id, { done: !row.done })}
+                              title={row.done ? "Mark pending" : "Mark done"}
+                            >
+                              {row.done ? "Done ✓" : "Done"}
+                            </button>
                         </div>
                       ))}
                     </div>
