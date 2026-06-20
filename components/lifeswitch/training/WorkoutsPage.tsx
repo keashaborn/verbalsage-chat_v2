@@ -19,6 +19,17 @@ type MyExerciseRow = {
   created_at: string;
   updated_at: string;
 };
+type ExerciseSearchHit = {
+  exercise_id: string;
+  display_name: string;
+  kind: string;
+  modality: string;
+  score?: number;
+  matched_text?: string | null;
+  matched_source?: string | null;
+  brand_name?: string | null;
+  model_name?: string | null;
+};
 
 type WorkoutTemplateRow = {
   workout_template_id: string;
@@ -79,6 +90,10 @@ export default function TrainingWorkoutsPage() {
 
   const [newName, setNewName] = React.useState<string>("");
   const [q, setQ] = React.useState<string>("");
+  const [catalogHits, setCatalogHits] = React.useState<ExerciseSearchHit[]>([]);
+  const [catalogLoading, setCatalogLoading] = React.useState(false);
+  const [catalogStatus, setCatalogStatus] = React.useState("");
+  const [addStatus, setAddStatus] = React.useState("");
   const [editingSelected, setEditingSelected] = React.useState(false);
   const [openExerciseIds, setOpenExerciseIds] = React.useState<Record<string, boolean>>({});
 
@@ -194,11 +209,54 @@ export default function TrainingWorkoutsPage() {
     return m;
   }, [myExercises]);
 
-  const hits = React.useMemo(() => {
+  const personalHits = React.useMemo(() => {
     const qq = norm(q);
     if (!qq) return [];
     return myExercises.filter((x) => norm(x.display_name).includes(qq)).slice(0, 20);
   }, [q, myExercises]);
+
+  const savedExerciseIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    for (const x of myExercises) {
+      if (x.is_active) ids.add(String(x.exercise_id));
+    }
+    return ids;
+  }, [myExercises]);
+
+  React.useEffect(() => {
+    const qq = q.trim();
+
+    const h = setTimeout(async () => {
+      if (!qq) {
+        setCatalogHits([]);
+        setCatalogStatus("");
+        setAddStatus("");
+        return;
+      }
+
+      setCatalogLoading(true);
+      setCatalogStatus("");
+
+      try {
+        const u = new URL("/api/catalog/exercises/search", window.location.origin);
+        u.searchParams.set("q", qq);
+        u.searchParams.set("limit", "20");
+
+        const j = (await fetchJson(u.toString())) as ExerciseSearchHit[];
+        const arr = Array.isArray(j) ? j : [];
+
+        setCatalogHits(arr);
+        setCatalogStatus(`catalog hits=${arr.length}`);
+      } catch (e: any) {
+        setCatalogHits([]);
+        setCatalogStatus(`catalog error: ${String(e?.message || e)}`);
+      } finally {
+        setCatalogLoading(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(h);
+  }, [q]);
 
   async function createTemplate() {
     if (!owner) return;
@@ -254,6 +312,97 @@ export default function TrainingWorkoutsPage() {
     await loadTemplates();
   }
 
+  function customExerciseId(name: string) {
+    const slug = norm(name)
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80);
+
+    const randomPart = globalThis.crypto?.randomUUID
+      ? globalThis.crypto.randomUUID()
+      : Math.random().toString(36).slice(2);
+
+    return `custom:${slug || "exercise"}:${randomPart}`;
+  }
+
+  async function upsertMyExercise(input: {
+    exercise_id: string;
+    display_name: string;
+    kind?: string | null;
+    modality?: string | null;
+    brand_name?: string | null;
+    model_name?: string | null;
+    matched_source?: string | null;
+  }) {
+    if (!owner) throw new Error("missing owner");
+
+    const qs = new URLSearchParams();
+    qs.set("owner_user_id", owner);
+    qs.set("exercise_id", String(input.exercise_id || "").trim());
+    qs.set("display_name", String(input.display_name || "").trim());
+    qs.set("kind", String(input.kind || "strength").trim());
+    qs.set("modality", String(input.modality || "custom").trim());
+
+    if (input.brand_name) qs.set("brand_name", String(input.brand_name));
+    if (input.model_name) qs.set("model_name", String(input.model_name));
+    if (input.matched_source) qs.set("matched_source", String(input.matched_source));
+
+    const row = (await fetchJson(`/api/lifeswitch/training/my_exercises/upsert?${qs.toString()}`, {
+      method: "POST",
+    })) as MyExerciseRow;
+
+    await loadMyExercises();
+    return row;
+  }
+
+  async function addCatalogExerciseToSelected(hit: ExerciseSearchHit) {
+    if (!owner || !selected) return;
+
+    setAddStatus("");
+
+    try {
+      if (!savedExerciseIds.has(String(hit.exercise_id))) {
+        await upsertMyExercise({
+          exercise_id: hit.exercise_id,
+          display_name: hit.display_name,
+          kind: hit.kind,
+          modality: hit.modality,
+          brand_name: hit.brand_name,
+          model_name: hit.model_name,
+          matched_source: hit.matched_source || "catalog",
+        });
+      }
+
+      await addExerciseToSelected(hit.exercise_id);
+      setAddStatus(`Added ${hit.display_name}`);
+    } catch (e: any) {
+      setAddStatus(`add failed: ${String(e?.message || e)}`);
+    }
+  }
+
+  async function createCustomAndAddToSelected() {
+    if (!owner || !selected) return;
+
+    const name = q.trim();
+    if (!name) return;
+
+    setAddStatus("");
+
+    try {
+      const row = await upsertMyExercise({
+        exercise_id: customExerciseId(name),
+        display_name: name,
+        kind: "strength",
+        modality: "custom",
+        matched_source: "custom",
+      });
+
+      await addExerciseToSelected(row.exercise_id);
+      setAddStatus(`Created and added ${row.display_name}`);
+    } catch (e: any) {
+      setAddStatus(`custom create failed: ${String(e?.message || e)}`);
+    }
+  }
   async function addExerciseToSelected(exercise_id: string) {
     if (!owner || !selected) return;
     if (templateExercises.some((e) => e.exercise_id === exercise_id)) return;
@@ -642,7 +791,7 @@ export default function TrainingWorkoutsPage() {
             Add exercises{selected ? ` to ${selected.name}` : " to selected workout"}
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
-            Search your saved exercises, then add them to this workout template.
+            Search the catalog or your custom exercises, then add directly to this workout template.
           </div>
 
           {selected ? (
@@ -651,52 +800,118 @@ export default function TrainingWorkoutsPage() {
                 className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder='Search My Exercises'
+                placeholder='Search exercises'
               />
 
-              {q.trim() ? (
-                hits.length ? (
-                  <div className="mt-3 divide-y divide-muted/20">
-                    {hits.map((h) => {
-                      const alreadyIn = templateExercises.some((x) => x.exercise_id === h.exercise_id);
+                {q.trim() ? (
+                  <div className="mt-3 space-y-4">
+                    {personalHits.length ? (
+                      <section>
+                        <div className="text-xs font-semibold text-muted-foreground">My / custom exercises</div>
+                        <div className="mt-2 divide-y divide-muted/20">
+                          {personalHits.map((h) => {
+                            const alreadyIn = templateExercises.some((x) => x.exercise_id === h.exercise_id);
 
-                      return (
-                        <div
-                          key={h.exercise_id}
-                          className="flex items-center justify-between gap-3 py-3"
-                        >
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-medium">{h.display_name}</div>
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              {h.modality}
-                              {h.kind ? ` · ${h.kind}` : ""}
-                              {h.brand_name ? ` · ${h.brand_name}` : ""}
-                            </div>
-                          </div>
+                            return (
+                              <div key={h.exercise_id} className="flex items-center justify-between gap-3 py-3">
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-medium">{h.display_name}</div>
+                                  <div className="mt-1 text-xs text-muted-foreground">
+                                    {h.modality}
+                                    {h.kind ? ` · ${h.kind}` : ""}
+                                    {h.brand_name ? ` · ${h.brand_name}` : ""}
+                                  </div>
+                                </div>
 
-                          <button
-                            type="button"
-                            className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
-                            onClick={() => void addExerciseToSelected(h.exercise_id)}
-                            disabled={!owner || !selected || alreadyIn}
-                            title="Add exercise to workout"
-                          >
-                            {alreadyIn ? "Added" : "Add"}
-                          </button>
+                                <button
+                                  type="button"
+                                  className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                                  onClick={() => void addExerciseToSelected(h.exercise_id)}
+                                  disabled={!owner || !selected || alreadyIn}
+                                  title="Add exercise to workout"
+                                >
+                                  {alreadyIn ? "Added" : "Add"}
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      </section>
+                    ) : null}
+
+                    <section>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs font-semibold text-muted-foreground">Catalog</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {catalogLoading ? "searching..." : catalogStatus}
+                        </div>
+                      </div>
+
+                      {catalogHits.length ? (
+                        <div className="mt-2 divide-y divide-muted/20">
+                          {catalogHits.map((h) => {
+                            const alreadyIn = templateExercises.some((x) => x.exercise_id === h.exercise_id);
+                            const alreadySaved = savedExerciseIds.has(String(h.exercise_id));
+
+                            return (
+                              <div key={h.exercise_id} className="flex items-center justify-between gap-3 py-3">
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-medium">{h.display_name}</div>
+                                  <div className="mt-1 text-xs text-muted-foreground">
+                                    {h.modality}
+                                    {h.kind ? ` · ${h.kind}` : ""}
+                                    {h.brand_name ? ` · ${h.brand_name}` : ""}
+                                    {alreadySaved ? " · saved" : ""}
+                                  </div>
+                                  {h.matched_text ? (
+                                    <div className="mt-1 max-h-10 overflow-hidden text-xs opacity-80">
+                                      {h.matched_text}
+                                    </div>
+                                  ) : null}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                                  onClick={() => void addCatalogExerciseToSelected(h)}
+                                  disabled={!owner || !selected || alreadyIn}
+                                  title="Add catalog exercise to workout"
+                                >
+                                  {alreadyIn ? "Added" : "Add"}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : catalogLoading ? null : (
+                        <div className="mt-2 text-sm text-muted-foreground">No catalog match.</div>
+                      )}
+                    </section>
+
+                    <section className="rounded-xl border p-3">
+                      <div className="text-sm font-medium">Need a custom exercise?</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Create “{q.trim()}” as one of your exercises and add it directly to this workout.
+                      </div>
+                      <button
+                        type="button"
+                        className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                        onClick={() => void createCustomAndAddToSelected()}
+                        disabled={!owner || !selected || !q.trim()}
+                      >
+                        Create custom + add
+                      </button>
+                    </section>
                   </div>
                 ) : (
-                  <div className="mt-3 text-sm text-muted-foreground">No matches in My Exercises.</div>
-                )
-              ) : (
-                <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
-                  Search your saved exercises, then add them to the selected workout template.
-                </div>
-              )}
+                  <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
+                    Search the catalog or your custom exercises, then add directly to this workout.
+                  </div>
+                )}
 
-              <div className="mt-3 text-xs text-muted-foreground">{myLoading ? "Loading My Exercises…" : ""}</div>
+                <div className="mt-3 text-xs text-muted-foreground">
+                  {myLoading ? "Loading My Exercises…" : addStatus}
+                </div>
             </div>
           ) : (
             <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
