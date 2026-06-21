@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ training_s
     parsed = {};
   }
 
-  for (const key of ["exercise_id", "exercise_name", "workout_template_id", "exercise_sort_order", "set_index", "weight", "reps", "flags", "notes"]) {
+  for (const key of ["exercise_id", "exercise_name", "workout_template_id", "exercise_sort_order", "set_index", "set_type", "weight", "reps", "flags", "notes"]) {
     const value = parsed?.[key];
     if (value !== undefined && value !== null && String(value).trim() !== "") {
       upstream.searchParams.set(key, String(value));

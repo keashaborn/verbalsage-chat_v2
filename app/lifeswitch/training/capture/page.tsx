@@ -394,7 +394,11 @@ export default function TrainingCapturePage() {
       if (!sessionId) throw new Error("missing training_session_id");
 
       for (const row of validRows) {
-        await fetchJson(`/api/lifeswitch/training/sessions/${encodeURIComponent(sessionId)}/sets/add`, {
+        const isDrop = row.set_type === "drop";
+        const segments = (row.segments || []).filter((seg) => safeNum(seg.reps, 0) > 0);
+        const firstSegment = segments[0] || null;
+
+        const setResult = await fetchJson(`/api/lifeswitch/training/sessions/${encodeURIComponent(sessionId)}/sets/add`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
@@ -403,12 +407,41 @@ export default function TrainingCapturePage() {
             exercise_name: row.exercise_name,
             exercise_sort_order: row.exercise_sort_order,
             set_index: row.set_index,
-            weight: safeNum(row.weight, 0),
-            reps: safeNum(row.reps, 0),
+            set_type: isDrop ? "drop" : "straight",
+            weight: isDrop ? safeNum(firstSegment?.weight, 0) : safeNum(row.weight, 0),
+            reps: isDrop ? safeNum(firstSegment?.reps, 0) : safeNum(row.reps, 0),
             flags: row.flags || "",
             notes: "",
           }),
         });
+
+        const setLogId = String(
+          setResult?.training_set_log_id ||
+          setResult?.set_id ||
+          setResult?.id ||
+          ""
+        );
+
+        if (isDrop) {
+          if (!setLogId) throw new Error("missing training_set_log_id for drop set");
+
+          for (const seg of segments) {
+            await fetchJson(
+              `/api/lifeswitch/training/sessions/${encodeURIComponent(sessionId)}/sets/${encodeURIComponent(setLogId)}/segments/add`,
+              {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                  segment_index: seg.segment_index,
+                  label: seg.label,
+                  weight: safeNum(seg.weight, 0),
+                  reps: safeNum(seg.reps, 0),
+                  notes: seg.notes || "",
+                }),
+              }
+            );
+          }
+        }
       }
 
       setFlash(`Finished ${selected.name}: ${validRows.length} sets logged`);
