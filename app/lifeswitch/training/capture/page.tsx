@@ -695,6 +695,12 @@ export default function TrainingCapturePage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">Active session draft</div>
+                <div
+                  data-testid="training-capture-prefill-source"
+                  className="mt-1 text-xs font-medium text-muted-foreground"
+                >
+                  {loadingTemplateExercises ? "Loading template..." : prefillSource}
+                </div>
               <div className="mt-1 text-xs text-muted-foreground">
                 {loadingTemplateExercises
                   ? "Loading template..."
