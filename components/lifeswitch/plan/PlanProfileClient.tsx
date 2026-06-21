@@ -38,6 +38,14 @@ type PhaseDraft = {
   coach_notes: string;
 };
 
+type NutritionDraft = {
+  calories: string;
+  protein_g: string;
+  macro_notes: string;
+  meal_structure: string;
+  adherence_target: string;
+};
+
 const PHASE_LABELS: Record<string, string> = {
   cut: "Cut",
   maintenance: "Maintenance",
@@ -67,6 +75,28 @@ function draftFromPlan(plan: PlanProfile | null): PhaseDraft {
     review_date: plan?.review_date || "",
     review_cadence: plan?.review_cadence || "weekly",
     coach_notes: plan?.coach_notes || "",
+  };
+}
+
+function emptyNutritionDraft(): NutritionDraft {
+  return {
+    calories: "",
+    protein_g: "",
+    macro_notes: "",
+    meal_structure: "",
+    adherence_target: "",
+  };
+}
+
+function draftFromNutritionTargets(plan: PlanProfile | null): NutritionDraft {
+  const t = asObject(plan?.nutrition_targets);
+
+  return {
+    calories: valueToDisplay(t.calories ?? t.target_kcal ?? t.kcal),
+    protein_g: valueToDisplay(t.protein_g ?? t.target_protein_g ?? t.protein),
+    macro_notes: valueToDisplay(t.macro_notes ?? t.carbs_fat ?? t.macros),
+    meal_structure: valueToDisplay(t.meal_structure ?? t.meals ?? t.meal_timing),
+    adherence_target: valueToDisplay(t.adherence_target ?? t.adherence),
   };
 }
 
@@ -256,6 +286,10 @@ export function PlanProfileClient() {
   const [saveMessage, setSaveMessage] = React.useState("");
   const [phaseDraft, setPhaseDraft] = React.useState<PhaseDraft>(() => emptyPhaseDraft());
 
+  const [editingNutrition, setEditingNutrition] = React.useState(false);
+  const [savingNutrition, setSavingNutrition] = React.useState(false);
+  const [nutritionDraft, setNutritionDraft] = React.useState<NutritionDraft>(() => emptyNutritionDraft());
+
   React.useEffect(() => {
     let alive = true;
 
@@ -287,6 +321,7 @@ export function PlanProfileClient() {
           const loaded = data as PlanProfile;
           setPlan(loaded);
           setPhaseDraft(draftFromPlan(loaded));
+          setNutritionDraft(draftFromNutritionTargets(loaded));
           setStatus("ready");
         }
       } catch (e) {
@@ -346,6 +381,7 @@ export function PlanProfileClient() {
       const saved = data as PlanProfile;
       setPlan(saved);
       setPhaseDraft(draftFromPlan(saved));
+      setNutritionDraft(draftFromNutritionTargets(saved));
       setEditingPhase(false);
       setStatus("ready");
       setSaveMessage("Saved current phase.");
@@ -355,6 +391,72 @@ export function PlanProfileClient() {
       setStatus("error");
     } finally {
       setSavingPhase(false);
+    }
+  }
+
+  async function saveNutritionTargets() {
+    setSavingNutrition(true);
+    setSaveMessage("");
+    setError("");
+
+    try {
+      const payload = {
+        phase: plan?.phase || "maintenance",
+        phase_label: plan?.phase_label || "",
+        primary_goal: plan?.primary_goal || "",
+        start_date: plan?.start_date || null,
+        review_date: plan?.review_date || null,
+        review_cadence: plan?.review_cadence || "weekly",
+
+        body_state: asObject(plan?.body_state),
+        nutrition_targets: {
+          calories: nutritionDraft.calories,
+          protein_g: nutritionDraft.protein_g,
+          macro_notes: nutritionDraft.macro_notes,
+          meal_structure: nutritionDraft.meal_structure,
+          adherence_target: nutritionDraft.adherence_target,
+        },
+        training_targets: asObject(plan?.training_targets),
+        conditioning_targets: asObject(plan?.conditioning_targets),
+        activity_targets: asObject(plan?.activity_targets),
+        recovery_targets: asObject(plan?.recovery_targets),
+        monitoring_rules: asObject(plan?.monitoring_rules),
+
+        coach_notes: plan?.coach_notes || "",
+      };
+
+      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=nutrition_targets_editor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(payload),
+      });
+
+      const text = await r.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        throw new Error(text || `HTTP ${r.status}`);
+      }
+
+      if (!r.ok) {
+        throw new Error(data?.detail || data?.error || `HTTP ${r.status}`);
+      }
+
+      const saved = data as PlanProfile;
+      setPlan(saved);
+      setPhaseDraft(draftFromPlan(saved));
+      setNutritionDraft(draftFromNutritionTargets(saved));
+      setEditingNutrition(false);
+      setStatus("ready");
+      setSaveMessage("Saved nutrition targets.");
+    } catch (e) {
+      setSaveMessage("");
+      setError(String(e));
+      setStatus("error");
+    } finally {
+      setSavingNutrition(false);
     }
   }
 
@@ -510,21 +612,100 @@ export function PlanProfileClient() {
           </SectionCard>
 
           <SectionCard id="nutrition-targets" eyebrow="Nutrition prescription" title="Nutrition Targets">
-            <div className="grid gap-1">
-              <PlanRow label="Calories" value={readValue(nutritionTargets, ["calories", "target_kcal", "kcal"], "Daily target or range")} />
-              <PlanRow label="Protein" value={readValue(nutritionTargets, ["protein_g", "target_protein_g", "protein"], "Daily grams and minimum threshold")} />
-              <PlanRow label="Carbs / Fat" value={readValue(nutritionTargets, ["macro_notes", "carbs_fat", "macros"], "Macro ranges or flexible targets")} />
-              <PlanRow label="Meal structure" value={readValue(nutritionTargets, ["meal_structure", "meals", "meal_timing"], "Meal timing, meal count, repeat meals, pre/post-workout notes")} />
-              <PlanRow label="Adherence target" value={readValue(nutritionTargets, ["adherence_target", "adherence"], "What counts as compliant enough this week")} />
-              <div className="pt-2 text-xs">
-                Related:{" "}
-                <Link href="/lifeswitch/nutrition/meals" className="underline">Meals</Link>
-                {" · "}
-                <Link href="/lifeswitch/nutrition/meal-plans" className="underline">Meal Plans</Link>
-                {" · "}
-                <Link href="/lifeswitch/nutrition/capture" className="underline">Nutrition Capture</Link>
+            {editingNutrition ? (
+              <div className="grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <FieldInput
+                    label="Calories"
+                    value={nutritionDraft.calories}
+                    placeholder="Daily target or range"
+                    onChange={(value) => setNutritionDraft((d) => ({ ...d, calories: value }))}
+                  />
+
+                  <FieldInput
+                    label="Protein"
+                    value={nutritionDraft.protein_g}
+                    placeholder="Daily grams or minimum threshold"
+                    onChange={(value) => setNutritionDraft((d) => ({ ...d, protein_g: value }))}
+                  />
+
+                  <FieldInput
+                    label="Carbs / Fat"
+                    value={nutritionDraft.macro_notes}
+                    placeholder="Macro ranges or flexible targets"
+                    onChange={(value) => setNutritionDraft((d) => ({ ...d, macro_notes: value }))}
+                  />
+
+                  <FieldInput
+                    label="Adherence target"
+                    value={nutritionDraft.adherence_target}
+                    placeholder="What counts as compliant enough?"
+                    onChange={(value) => setNutritionDraft((d) => ({ ...d, adherence_target: value }))}
+                  />
+                </div>
+
+                <FieldTextArea
+                  label="Meal structure"
+                  value={nutritionDraft.meal_structure}
+                  placeholder="Meal timing, meal count, repeat meals, pre/post-workout notes."
+                  onChange={(value) => setNutritionDraft((d) => ({ ...d, meal_structure: value }))}
+                />
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => void saveNutritionTargets()}
+                    disabled={savingNutrition || status === "unauthorized"}
+                  >
+                    {savingNutrition ? "Saving…" : "Save nutrition targets"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                    onClick={() => {
+                      setNutritionDraft(draftFromNutritionTargets(plan));
+                      setEditingNutrition(false);
+                      setSaveMessage("");
+                    }}
+                    disabled={savingNutrition}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid gap-1">
+                <PlanRow label="Calories" value={readValue(nutritionTargets, ["calories", "target_kcal", "kcal"], "Daily target or range")} />
+                <PlanRow label="Protein" value={readValue(nutritionTargets, ["protein_g", "target_protein_g", "protein"], "Daily grams and minimum threshold")} />
+                <PlanRow label="Carbs / Fat" value={readValue(nutritionTargets, ["macro_notes", "carbs_fat", "macros"], "Macro ranges or flexible targets")} />
+                <PlanRow label="Meal structure" value={readValue(nutritionTargets, ["meal_structure", "meals", "meal_timing"], "Meal timing, meal count, repeat meals, pre/post-workout notes")} />
+                <PlanRow label="Adherence target" value={readValue(nutritionTargets, ["adherence_target", "adherence"], "What counts as compliant enough this week")} />
+                <div className="pt-2 text-xs">
+                  Related:{" "}
+                  <Link href="/lifeswitch/nutrition/meals" className="underline">Meals</Link>
+                  {" · "}
+                  <Link href="/lifeswitch/nutrition/meal-plans" className="underline">Meal Plans</Link>
+                  {" · "}
+                  <Link href="/lifeswitch/nutrition/capture" className="underline">Nutrition Capture</Link>
+                </div>
+                <div className="pt-3">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => {
+                      setNutritionDraft(draftFromNutritionTargets(plan));
+                      setEditingNutrition(true);
+                      setSaveMessage("");
+                    }}
+                    disabled={status === "loading" || status === "unauthorized"}
+                  >
+                    Edit nutrition targets
+                  </button>
+                </div>
+              </div>
+            )}
           </SectionCard>
 
           <SectionCard id="training-targets" eyebrow="Strength prescription" title="Strength Training Targets">
