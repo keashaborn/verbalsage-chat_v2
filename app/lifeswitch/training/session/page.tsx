@@ -231,21 +231,49 @@ export default function TrainingSessionPage() {
                 <div className="mt-3 divide-y divide-muted/20">
                   {block.rows.map((r) => (
                     <div key={r.training_set_log_id} className="py-3 text-sm">
-                      <div className="grid grid-cols-[4rem_1fr_1fr_1fr] items-center gap-2">
-                        <div className="text-muted-foreground">Set {r.set_index}</div>
-                        <div>
-                          <div className="text-xs text-muted-foreground">Weight</div>
-                          <div className="font-mono">{safeNum(r.weight, 0)}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-muted-foreground">Reps</div>
-                          <div className="font-mono">{safeNum(r.reps, 0)}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-muted-foreground">Volume</div>
-                          <div className="font-mono">{Math.round(safeNum(r.volume, 0))}</div>
-                        </div>
-                      </div>
+                        {String(r.set_type || "straight").toLowerCase() === "drop" ? (() => {
+                          const segs = segmentsBySet[r.training_set_log_id] || [];
+                          const startSeg = segs[0] || null;
+                          const startWeight = safeNum(startSeg?.weight, safeNum(r.weight, 0));
+                          const startReps = safeNum(startSeg?.reps, safeNum(r.reps, 0));
+                          const totalReps = segs.length
+                            ? segs.reduce((sum, seg) => sum + safeNum(seg.reps, 0), 0)
+                            : safeNum(r.reps, 0);
+
+                          return (
+                            <div className="grid grid-cols-[4rem_1fr_1fr_1fr] items-center gap-2">
+                              <div className="text-muted-foreground">Set {r.set_index}</div>
+                              <div>
+                                <div className="text-xs text-muted-foreground">Start</div>
+                                <div className="font-mono">{startWeight} × {startReps}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-muted-foreground">Total reps</div>
+                                <div className="font-mono">{totalReps}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-muted-foreground">Volume</div>
+                                <div className="font-mono">{Math.round(safeNum(r.volume, 0))}</div>
+                              </div>
+                            </div>
+                          );
+                        })() : (
+                          <div className="grid grid-cols-[4rem_1fr_1fr_1fr] items-center gap-2">
+                            <div className="text-muted-foreground">Set {r.set_index}</div>
+                            <div>
+                              <div className="text-xs text-muted-foreground">Weight</div>
+                              <div className="font-mono">{safeNum(r.weight, 0)}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-muted-foreground">Reps</div>
+                              <div className="font-mono">{safeNum(r.reps, 0)}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-muted-foreground">Volume</div>
+                              <div className="font-mono">{Math.round(safeNum(r.volume, 0))}</div>
+                            </div>
+                          </div>
+                        )}
 
                         {String(r.set_type || "straight").toLowerCase() === "drop" ? (
                           <div className="mt-3 rounded-xl border border-muted/20 p-2">
