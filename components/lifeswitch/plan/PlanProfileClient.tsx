@@ -88,6 +88,17 @@ type MonitoringDraft = {
   lab_flags_rule: string;
 };
 
+type BiomarkersDraft = {
+  last_lab_date: string;
+  next_lab_date: string;
+  provider_source: string;
+  key_flags: string;
+  training_relevance: string;
+  nutrition_relevance: string;
+  recovery_relevance: string;
+  clinical_review_notes: string;
+};
+
 const PHASE_LABELS: Record<string, string> = {
   cut: "Cut",
   maintenance: "Maintenance",
@@ -254,6 +265,35 @@ function draftFromMonitoringRules(plan: PlanProfile | null): MonitoringDraft {
     training_performance_rule: valueToDisplay(m.training_performance_rule ?? m.training_performance),
     recovery_rule: valueToDisplay(m.recovery_rule ?? m.recovery),
     lab_flags_rule: valueToDisplay(m.lab_flags_rule ?? m.lab_flags ?? m.biomarkers),
+  };
+}
+
+function emptyBiomarkersDraft(): BiomarkersDraft {
+  return {
+    last_lab_date: "",
+    next_lab_date: "",
+    provider_source: "",
+    key_flags: "",
+    training_relevance: "",
+    nutrition_relevance: "",
+    recovery_relevance: "",
+    clinical_review_notes: "",
+  };
+}
+
+function draftFromBiomarkers(plan: PlanProfile | null): BiomarkersDraft {
+  const m = asObject(plan?.monitoring_rules);
+  const b = asObject(m.biomarkers);
+
+  return {
+    last_lab_date: valueToDisplay(b.last_lab_date),
+    next_lab_date: valueToDisplay(b.next_lab_date),
+    provider_source: valueToDisplay(b.provider_source),
+    key_flags: valueToDisplay(b.key_flags),
+    training_relevance: valueToDisplay(b.training_relevance),
+    nutrition_relevance: valueToDisplay(b.nutrition_relevance),
+    recovery_relevance: valueToDisplay(b.recovery_relevance),
+    clinical_review_notes: valueToDisplay(b.clinical_review_notes),
   };
 }
 
@@ -467,6 +507,10 @@ export function PlanProfileClient() {
   const [savingMonitoring, setSavingMonitoring] = React.useState(false);
   const [monitoringDraft, setMonitoringDraft] = React.useState<MonitoringDraft>(() => emptyMonitoringDraft());
 
+  const [editingBiomarkers, setEditingBiomarkers] = React.useState(false);
+  const [savingBiomarkers, setSavingBiomarkers] = React.useState(false);
+  const [biomarkersDraft, setBiomarkersDraft] = React.useState<BiomarkersDraft>(() => emptyBiomarkersDraft());
+
   React.useEffect(() => {
     let alive = true;
 
@@ -504,6 +548,7 @@ export function PlanProfileClient() {
           setRecoveryDraft(draftFromRecoveryTargets(loaded));
           setConditioningActivityDraft(draftFromConditioningActivity(loaded));
           setMonitoringDraft(draftFromMonitoringRules(loaded));
+          setBiomarkersDraft(draftFromBiomarkers(loaded));
           setStatus("ready");
         }
       } catch (e) {
@@ -569,6 +614,7 @@ export function PlanProfileClient() {
       setRecoveryDraft(draftFromRecoveryTargets(saved));
       setConditioningActivityDraft(draftFromConditioningActivity(saved));
       setMonitoringDraft(draftFromMonitoringRules(saved));
+      setBiomarkersDraft(draftFromBiomarkers(saved));
       setEditingPhase(false);
       setStatus("ready");
       setSaveMessage("Saved current phase.");
@@ -640,6 +686,7 @@ export function PlanProfileClient() {
       setRecoveryDraft(draftFromRecoveryTargets(saved));
       setConditioningActivityDraft(draftFromConditioningActivity(saved));
       setMonitoringDraft(draftFromMonitoringRules(saved));
+      setBiomarkersDraft(draftFromBiomarkers(saved));
       setEditingNutrition(false);
       setStatus("ready");
       setSaveMessage("Saved nutrition targets.");
@@ -711,6 +758,7 @@ export function PlanProfileClient() {
       setRecoveryDraft(draftFromRecoveryTargets(saved));
       setConditioningActivityDraft(draftFromConditioningActivity(saved));
       setMonitoringDraft(draftFromMonitoringRules(saved));
+      setBiomarkersDraft(draftFromBiomarkers(saved));
       setEditingTraining(false);
       setStatus("ready");
       setSaveMessage("Saved training targets.");
@@ -784,6 +832,7 @@ export function PlanProfileClient() {
       setRecoveryDraft(draftFromRecoveryTargets(saved));
       setConditioningActivityDraft(draftFromConditioningActivity(saved));
       setMonitoringDraft(draftFromMonitoringRules(saved));
+      setBiomarkersDraft(draftFromBiomarkers(saved));
       setEditingBodyState(false);
       setStatus("ready");
       setSaveMessage("Saved body state.");
@@ -854,6 +903,7 @@ export function PlanProfileClient() {
       setRecoveryDraft(draftFromRecoveryTargets(saved));
       setConditioningActivityDraft(draftFromConditioningActivity(saved));
       setMonitoringDraft(draftFromMonitoringRules(saved));
+      setBiomarkersDraft(draftFromBiomarkers(saved));
       setEditingRecovery(false);
       setStatus("ready");
       setSaveMessage("Saved recovery targets.");
@@ -926,6 +976,7 @@ export function PlanProfileClient() {
       setRecoveryDraft(draftFromRecoveryTargets(saved));
       setConditioningActivityDraft(draftFromConditioningActivity(saved));
       setMonitoringDraft(draftFromMonitoringRules(saved));
+      setBiomarkersDraft(draftFromBiomarkers(saved));
       setEditingConditioningActivity(false);
       setStatus("ready");
       setSaveMessage("Saved conditioning and activity targets.");
@@ -998,6 +1049,7 @@ export function PlanProfileClient() {
       setRecoveryDraft(draftFromRecoveryTargets(saved));
       setConditioningActivityDraft(draftFromConditioningActivity(saved));
       setMonitoringDraft(draftFromMonitoringRules(saved));
+      setBiomarkersDraft(draftFromBiomarkers(saved));
       setEditingMonitoring(false);
       setStatus("ready");
       setSaveMessage("Saved monitoring rules.");
@@ -1007,6 +1059,86 @@ export function PlanProfileClient() {
       setStatus("error");
     } finally {
       setSavingMonitoring(false);
+    }
+  }
+
+  async function saveBiomarkers() {
+    setSavingBiomarkers(true);
+    setSaveMessage("");
+    setError("");
+
+    try {
+      const currentMonitoring = asObject(plan?.monitoring_rules);
+
+      const payload = {
+        phase: plan?.phase || "maintenance",
+        phase_label: plan?.phase_label || "",
+        primary_goal: plan?.primary_goal || "",
+        start_date: plan?.start_date || null,
+        review_date: plan?.review_date || null,
+        review_cadence: plan?.review_cadence || "weekly",
+
+        body_state: asObject(plan?.body_state),
+        nutrition_targets: asObject(plan?.nutrition_targets),
+        training_targets: asObject(plan?.training_targets),
+        conditioning_targets: asObject(plan?.conditioning_targets),
+        activity_targets: asObject(plan?.activity_targets),
+        recovery_targets: asObject(plan?.recovery_targets),
+        monitoring_rules: {
+          ...currentMonitoring,
+          biomarkers: {
+            last_lab_date: biomarkersDraft.last_lab_date,
+            next_lab_date: biomarkersDraft.next_lab_date,
+            provider_source: biomarkersDraft.provider_source,
+            key_flags: biomarkersDraft.key_flags,
+            training_relevance: biomarkersDraft.training_relevance,
+            nutrition_relevance: biomarkersDraft.nutrition_relevance,
+            recovery_relevance: biomarkersDraft.recovery_relevance,
+            clinical_review_notes: biomarkersDraft.clinical_review_notes,
+          },
+        },
+
+        coach_notes: plan?.coach_notes || "",
+      };
+
+      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=biomarkers_summary_editor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(payload),
+      });
+
+      const text = await r.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        throw new Error(text || `HTTP ${r.status}`);
+      }
+
+      if (!r.ok) {
+        throw new Error(data?.detail || data?.error || `HTTP ${r.status}`);
+      }
+
+      const saved = data as PlanProfile;
+      setPlan(saved);
+      setPhaseDraft(draftFromPlan(saved));
+      setNutritionDraft(draftFromNutritionTargets(saved));
+      setTrainingDraft(draftFromTrainingTargets(saved));
+      setBodyStateDraft(draftFromBodyState(saved));
+      setRecoveryDraft(draftFromRecoveryTargets(saved));
+      setConditioningActivityDraft(draftFromConditioningActivity(saved));
+      setMonitoringDraft(draftFromMonitoringRules(saved));
+      setBiomarkersDraft(draftFromBiomarkers(saved));
+      setEditingBiomarkers(false);
+      setStatus("ready");
+      setSaveMessage("Saved biomarkers summary.");
+    } catch (e) {
+      setSaveMessage("");
+      setError(String(e));
+      setStatus("error");
+    } finally {
+      setSavingBiomarkers(false);
     }
   }
 
@@ -1551,21 +1683,124 @@ export function PlanProfileClient() {
           </SectionCard>
 
           <SectionCard id="biomarkers-labs" eyebrow="Biomarkers / labs" title="Blood Work and Health Markers">
-            <div className="grid gap-2">
-              <div className="text-sm text-muted-foreground">
-                Future structured lab tracking should live here. Labs can inform nutrition,
-                recovery, training tolerance, cardio/activity decisions, and clinician review.
-              </div>
+            {editingBiomarkers ? (
+              <div className="grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <FieldInput
+                    label="Last lab date"
+                    type="date"
+                    value={biomarkersDraft.last_lab_date}
+                    onChange={(value) => setBiomarkersDraft((d) => ({ ...d, last_lab_date: value }))}
+                  />
 
-              <div className="grid gap-1 border-t border-muted/40 pt-2">
-                <PlanRow label="Lab cadence" value="Usually every 3–6 months with functional medicine specialist" />
-                <PlanRow label="CBC" value="Hematocrit, hemoglobin, RBC, WBC, platelets" />
-                <PlanRow label="Metabolic" value="Glucose, A1c, lipids, liver enzymes, kidney markers" />
-                <PlanRow label="Hormones" value="Testosterone, free testosterone if available, estradiol" />
-                <PlanRow label="Other flags" value="PSA, B12, homocysteine, inflammatory or nutrient markers" />
-                <PlanRow label="Plan rule" value="Use labs as context; review concerning markers with clinician before changing medical variables." />
+                  <FieldInput
+                    label="Next lab date"
+                    type="date"
+                    value={biomarkersDraft.next_lab_date}
+                    onChange={(value) => setBiomarkersDraft((d) => ({ ...d, next_lab_date: value }))}
+                  />
+
+                  <FieldInput
+                    label="Provider / source"
+                    value={biomarkersDraft.provider_source}
+                    placeholder="Functional medicine, PCP, lab system, etc."
+                    onChange={(value) => setBiomarkersDraft((d) => ({ ...d, provider_source: value }))}
+                  />
+                </div>
+
+                <FieldTextArea
+                  label="Key flags / watch items"
+                  value={biomarkersDraft.key_flags}
+                  placeholder="CBC, glucose/A1c, lipids, liver/kidney markers, hormones, thyroid, nutrients, inflammatory markers."
+                  onChange={(value) => setBiomarkersDraft((d) => ({ ...d, key_flags: value }))}
+                />
+
+                <FieldTextArea
+                  label="Training relevance"
+                  value={biomarkersDraft.training_relevance}
+                  placeholder="How labs may affect training load, recovery, fatigue, performance, or exercise selection."
+                  onChange={(value) => setBiomarkersDraft((d) => ({ ...d, training_relevance: value }))}
+                />
+
+                <FieldTextArea
+                  label="Nutrition relevance"
+                  value={biomarkersDraft.nutrition_relevance}
+                  placeholder="How labs may affect calorie strategy, carb tolerance, protein context, fat intake, or supplements."
+                  onChange={(value) => setBiomarkersDraft((d) => ({ ...d, nutrition_relevance: value }))}
+                />
+
+                <FieldTextArea
+                  label="Recovery relevance"
+                  value={biomarkersDraft.recovery_relevance}
+                  placeholder="How labs may affect sleep, fatigue, soreness, stress tolerance, or recovery expectations."
+                  onChange={(value) => setBiomarkersDraft((d) => ({ ...d, recovery_relevance: value }))}
+                />
+
+                <FieldTextArea
+                  label="Clinical review notes"
+                  value={biomarkersDraft.clinical_review_notes}
+                  placeholder="What should be reviewed with physician / functional medicine specialist."
+                  onChange={(value) => setBiomarkersDraft((d) => ({ ...d, clinical_review_notes: value }))}
+                />
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => void saveBiomarkers()}
+                    disabled={savingBiomarkers || status === "unauthorized"}
+                  >
+                    {savingBiomarkers ? "Saving…" : "Save biomarkers summary"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                    onClick={() => {
+                      setBiomarkersDraft(draftFromBiomarkers(plan));
+                      setEditingBiomarkers(false);
+                      setSaveMessage("");
+                    }}
+                    disabled={savingBiomarkers}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid gap-2">
+                <div className="text-sm text-muted-foreground">
+                  Summary of lab context relevant to nutrition, training, recovery, cardio/activity,
+                  and clinician review. Full marker-level lab tracking can be added later.
+                </div>
+
+                <div className="grid gap-1 border-t border-muted/40 pt-2">
+                  <PlanRow label="Last lab date" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["last_lab_date"], "Not set")} />
+                  <PlanRow label="Next lab date" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["next_lab_date"], "Not set")} />
+                  <PlanRow label="Provider/source" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["provider_source"], "Functional medicine / PCP / lab source")} />
+                  <PlanRow label="Key flags" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["key_flags"], "CBC, glucose/A1c, lipids, liver/kidney markers, hormones, thyroid, nutrients, inflammatory markers")} />
+                  <PlanRow label="Training relevance" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["training_relevance"], "How labs may affect training load, recovery, fatigue, performance, or exercise selection")} />
+                  <PlanRow label="Nutrition relevance" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["nutrition_relevance"], "How labs may affect calories, carbs, protein context, fat intake, or supplements")} />
+                  <PlanRow label="Recovery relevance" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["recovery_relevance"], "How labs may affect sleep, soreness, fatigue, stress tolerance, or recovery expectations")} />
+                  <PlanRow label="Clinical review" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["clinical_review_notes"], "Review concerning markers with clinician before changing medical variables")} />
+                </div>
+
+                <div className="pt-3">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => {
+                      setBiomarkersDraft(draftFromBiomarkers(plan));
+                      setEditingBiomarkers(true);
+                      setSaveMessage("");
+                    }}
+                    disabled={status === "loading" || status === "unauthorized"}
+                  >
+                    Edit biomarkers summary
+                  </button>
+                </div>
+              </div>
+            )}
           </SectionCard>
 
           <SectionCard id="recovery-targets" eyebrow="Recovery prescription" title="Sleep and Recovery">
