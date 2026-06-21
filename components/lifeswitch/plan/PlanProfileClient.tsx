@@ -71,6 +71,14 @@ type RecoveryDraft = {
   fatigue_watch: string;
 };
 
+type ConditioningActivityDraft = {
+  cardio_target: string;
+  preferred_mode: string;
+  intensity: string;
+  steps_per_day: string;
+  wearable_source: string;
+};
+
 const PHASE_LABELS: Record<string, string> = {
   cut: "Cut",
   maintenance: "Maintenance",
@@ -190,6 +198,29 @@ function draftFromRecoveryTargets(plan: PlanProfile | null): RecoveryDraft {
     rest_days: valueToDisplay(r.rest_days ?? r.rest),
     mobility_goal: valueToDisplay(r.mobility_goal ?? r.mobility),
     fatigue_watch: valueToDisplay(r.fatigue_watch ?? r.fatigue),
+  };
+}
+
+function emptyConditioningActivityDraft(): ConditioningActivityDraft {
+  return {
+    cardio_target: "",
+    preferred_mode: "",
+    intensity: "",
+    steps_per_day: "",
+    wearable_source: "",
+  };
+}
+
+function draftFromConditioningActivity(plan: PlanProfile | null): ConditioningActivityDraft {
+  const c = asObject(plan?.conditioning_targets);
+  const a = asObject(plan?.activity_targets);
+
+  return {
+    cardio_target: valueToDisplay(c.cardio_target ?? c.cardio_sessions_per_week ?? c.minutes_per_week),
+    preferred_mode: valueToDisplay(c.preferred_mode ?? c.mode),
+    intensity: valueToDisplay(c.intensity ?? c.zone ?? c.rpe),
+    steps_per_day: valueToDisplay(a.steps_per_day ?? a.step_target ?? a.neat),
+    wearable_source: valueToDisplay(a.wearable_source ?? a.source),
   };
 }
 
@@ -395,6 +426,10 @@ export function PlanProfileClient() {
   const [savingRecovery, setSavingRecovery] = React.useState(false);
   const [recoveryDraft, setRecoveryDraft] = React.useState<RecoveryDraft>(() => emptyRecoveryDraft());
 
+  const [editingConditioningActivity, setEditingConditioningActivity] = React.useState(false);
+  const [savingConditioningActivity, setSavingConditioningActivity] = React.useState(false);
+  const [conditioningActivityDraft, setConditioningActivityDraft] = React.useState<ConditioningActivityDraft>(() => emptyConditioningActivityDraft());
+
   React.useEffect(() => {
     let alive = true;
 
@@ -430,6 +465,7 @@ export function PlanProfileClient() {
           setTrainingDraft(draftFromTrainingTargets(loaded));
           setBodyStateDraft(draftFromBodyState(loaded));
           setRecoveryDraft(draftFromRecoveryTargets(loaded));
+          setConditioningActivityDraft(draftFromConditioningActivity(loaded));
           setStatus("ready");
         }
       } catch (e) {
@@ -493,6 +529,7 @@ export function PlanProfileClient() {
       setTrainingDraft(draftFromTrainingTargets(saved));
       setBodyStateDraft(draftFromBodyState(saved));
       setRecoveryDraft(draftFromRecoveryTargets(saved));
+      setConditioningActivityDraft(draftFromConditioningActivity(saved));
       setEditingPhase(false);
       setStatus("ready");
       setSaveMessage("Saved current phase.");
@@ -562,6 +599,7 @@ export function PlanProfileClient() {
       setTrainingDraft(draftFromTrainingTargets(saved));
       setBodyStateDraft(draftFromBodyState(saved));
       setRecoveryDraft(draftFromRecoveryTargets(saved));
+      setConditioningActivityDraft(draftFromConditioningActivity(saved));
       setEditingNutrition(false);
       setStatus("ready");
       setSaveMessage("Saved nutrition targets.");
@@ -631,6 +669,7 @@ export function PlanProfileClient() {
       setTrainingDraft(draftFromTrainingTargets(saved));
       setBodyStateDraft(draftFromBodyState(saved));
       setRecoveryDraft(draftFromRecoveryTargets(saved));
+      setConditioningActivityDraft(draftFromConditioningActivity(saved));
       setEditingTraining(false);
       setStatus("ready");
       setSaveMessage("Saved training targets.");
@@ -702,6 +741,7 @@ export function PlanProfileClient() {
       setTrainingDraft(draftFromTrainingTargets(saved));
       setBodyStateDraft(draftFromBodyState(saved));
       setRecoveryDraft(draftFromRecoveryTargets(saved));
+      setConditioningActivityDraft(draftFromConditioningActivity(saved));
       setEditingBodyState(false);
       setStatus("ready");
       setSaveMessage("Saved body state.");
@@ -770,6 +810,7 @@ export function PlanProfileClient() {
       setTrainingDraft(draftFromTrainingTargets(saved));
       setBodyStateDraft(draftFromBodyState(saved));
       setRecoveryDraft(draftFromRecoveryTargets(saved));
+      setConditioningActivityDraft(draftFromConditioningActivity(saved));
       setEditingRecovery(false);
       setStatus("ready");
       setSaveMessage("Saved recovery targets.");
@@ -779,6 +820,77 @@ export function PlanProfileClient() {
       setStatus("error");
     } finally {
       setSavingRecovery(false);
+    }
+  }
+
+  async function saveConditioningActivity() {
+    setSavingConditioningActivity(true);
+    setSaveMessage("");
+    setError("");
+
+    try {
+      const payload = {
+        phase: plan?.phase || "maintenance",
+        phase_label: plan?.phase_label || "",
+        primary_goal: plan?.primary_goal || "",
+        start_date: plan?.start_date || null,
+        review_date: plan?.review_date || null,
+        review_cadence: plan?.review_cadence || "weekly",
+
+        body_state: asObject(plan?.body_state),
+        nutrition_targets: asObject(plan?.nutrition_targets),
+        training_targets: asObject(plan?.training_targets),
+        conditioning_targets: {
+          cardio_target: conditioningActivityDraft.cardio_target,
+          preferred_mode: conditioningActivityDraft.preferred_mode,
+          intensity: conditioningActivityDraft.intensity,
+        },
+        activity_targets: {
+          steps_per_day: conditioningActivityDraft.steps_per_day,
+          wearable_source: conditioningActivityDraft.wearable_source,
+        },
+        recovery_targets: asObject(plan?.recovery_targets),
+        monitoring_rules: asObject(plan?.monitoring_rules),
+
+        coach_notes: plan?.coach_notes || "",
+      };
+
+      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=conditioning_activity_editor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(payload),
+      });
+
+      const text = await r.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        throw new Error(text || `HTTP ${r.status}`);
+      }
+
+      if (!r.ok) {
+        throw new Error(data?.detail || data?.error || `HTTP ${r.status}`);
+      }
+
+      const saved = data as PlanProfile;
+      setPlan(saved);
+      setPhaseDraft(draftFromPlan(saved));
+      setNutritionDraft(draftFromNutritionTargets(saved));
+      setTrainingDraft(draftFromTrainingTargets(saved));
+      setBodyStateDraft(draftFromBodyState(saved));
+      setRecoveryDraft(draftFromRecoveryTargets(saved));
+      setConditioningActivityDraft(draftFromConditioningActivity(saved));
+      setEditingConditioningActivity(false);
+      setStatus("ready");
+      setSaveMessage("Saved conditioning and activity targets.");
+    } catch (e) {
+      setSaveMessage("");
+      setError(String(e));
+      setStatus("error");
+    } finally {
+      setSavingConditioningActivity(false);
     }
   }
 
@@ -1128,13 +1240,92 @@ export function PlanProfileClient() {
           </SectionCard>
 
           <SectionCard id="conditioning-targets" eyebrow="Cardio / conditioning" title="Conditioning and Daily Activity Targets">
-            <div className="grid gap-1">
-              <PlanRow label="Cardio target" value={readValue(conditioningTargets, ["cardio_sessions_per_week", "cardio_target"], "None / optional / sessions per week / minutes per week")} />
-              <PlanRow label="Preferred mode" value={readValue(conditioningTargets, ["preferred_mode", "mode"], "Incline walk, treadmill, bike, intervals, ropes, sled, outdoor walk/run")} />
-              <PlanRow label="Intensity" value={readValue(conditioningTargets, ["intensity", "zone", "rpe"], "Zone 2, intervals, RPE, heart-rate target, or simple duration target")} />
-              <PlanRow label="Steps / NEAT" value={readValue(activityTargets, ["steps_per_day", "step_target", "neat"], "Daily or weekly step target and general movement goal")} />
-              <PlanRow label="Wearables" value={readValue(activityTargets, ["wearable_source", "source"], "Future source for steps, calories, heart rate, HRV, sleep, zone minutes")} />
-            </div>
+            {editingConditioningActivity ? (
+              <div className="grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <FieldInput
+                    label="Cardio target"
+                    value={conditioningActivityDraft.cardio_target}
+                    placeholder="None / optional / sessions per week / minutes per week"
+                    onChange={(value) => setConditioningActivityDraft((d) => ({ ...d, cardio_target: value }))}
+                  />
+
+                  <FieldInput
+                    label="Preferred mode"
+                    value={conditioningActivityDraft.preferred_mode}
+                    placeholder="Incline walk, treadmill, bike, intervals, ropes, sled"
+                    onChange={(value) => setConditioningActivityDraft((d) => ({ ...d, preferred_mode: value }))}
+                  />
+
+                  <FieldInput
+                    label="Intensity"
+                    value={conditioningActivityDraft.intensity}
+                    placeholder="Zone 2, intervals, RPE, heart-rate target"
+                    onChange={(value) => setConditioningActivityDraft((d) => ({ ...d, intensity: value }))}
+                  />
+
+                  <FieldInput
+                    label="Steps / NEAT"
+                    value={conditioningActivityDraft.steps_per_day}
+                    placeholder="Daily or weekly step target"
+                    onChange={(value) => setConditioningActivityDraft((d) => ({ ...d, steps_per_day: value }))}
+                  />
+
+                  <FieldInput
+                    label="Wearable source"
+                    value={conditioningActivityDraft.wearable_source}
+                    placeholder="Apple Health, Garmin, Fitbit, manual"
+                    onChange={(value) => setConditioningActivityDraft((d) => ({ ...d, wearable_source: value }))}
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => void saveConditioningActivity()}
+                    disabled={savingConditioningActivity || status === "unauthorized"}
+                  >
+                    {savingConditioningActivity ? "Saving…" : "Save conditioning / activity"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                    onClick={() => {
+                      setConditioningActivityDraft(draftFromConditioningActivity(plan));
+                      setEditingConditioningActivity(false);
+                      setSaveMessage("");
+                    }}
+                    disabled={savingConditioningActivity}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-1">
+                <PlanRow label="Cardio target" value={readValue(conditioningTargets, ["cardio_target", "cardio_sessions_per_week", "minutes_per_week"], "None / optional / sessions per week / minutes per week")} />
+                <PlanRow label="Preferred mode" value={readValue(conditioningTargets, ["preferred_mode", "mode"], "Incline walk, treadmill, bike, intervals, ropes, sled, outdoor walk/run")} />
+                <PlanRow label="Intensity" value={readValue(conditioningTargets, ["intensity", "zone", "rpe"], "Zone 2, intervals, RPE, heart-rate target, or simple duration target")} />
+                <PlanRow label="Steps / NEAT" value={readValue(activityTargets, ["steps_per_day", "step_target", "neat"], "Daily or weekly step target and general movement goal")} />
+                <PlanRow label="Wearables" value={readValue(activityTargets, ["wearable_source", "source"], "Future source for steps, calories, heart rate, HRV, sleep, zone minutes")} />
+                <div className="pt-3">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => {
+                      setConditioningActivityDraft(draftFromConditioningActivity(plan));
+                      setEditingConditioningActivity(true);
+                      setSaveMessage("");
+                    }}
+                    disabled={status === "loading" || status === "unauthorized"}
+                  >
+                    Edit conditioning / activity
+                  </button>
+                </div>
+              </div>
+            )}
           </SectionCard>
         </div>
 
