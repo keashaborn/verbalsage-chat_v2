@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { authFetch } from "@/lib/authFetch";
 
 type JsonObject = Record<string, unknown>;
 
@@ -147,7 +148,7 @@ export function PlanProfileClient() {
       setError("");
 
       try {
-        const r = await fetch("/api/lifeswitch/plan/profile?create_if_missing=1", {
+        const r = await authFetch("/api/lifeswitch/plan/profile?create_if_missing=1", {
           cache: "no-store",
         });
 
