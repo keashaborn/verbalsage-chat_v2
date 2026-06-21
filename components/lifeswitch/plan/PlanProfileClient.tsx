@@ -76,22 +76,43 @@ function asObject(v: unknown): JsonObject {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as JsonObject) : {};
 }
 
+function valueToDisplay(value: unknown): string {
+  if (value === null || value === undefined) return "";
+
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => valueToDisplay(item))
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "";
+    }
+  }
+
+  return "";
+}
+
 function readValue(obj: JsonObject, keys: string[], fallback: string): React.ReactNode {
   for (const key of keys) {
-    const v = obj[key];
-
-    if (typeof v === "string" && v.trim()) return v;
-    if (typeof v === "number" && Number.isFinite(v)) return v;
-    if (typeof v === "boolean") return v ? "Yes" : "No";
-    if (Array.isArray(v) && v.length) return v.join(", ");
+    const rendered = valueToDisplay(obj[key]);
+    if (rendered) return rendered;
   }
 
   return <span className="text-muted-foreground">{fallback}</span>;
 }
 
 function textValue(value: unknown, fallback: string): React.ReactNode {
-  if (typeof value === "string" && value.trim()) return value;
-  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const rendered = valueToDisplay(value);
+  if (rendered) return rendered;
   return <span className="text-muted-foreground">{fallback}</span>;
 }
 
