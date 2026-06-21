@@ -511,6 +511,10 @@ export function PlanProfileClient() {
   const [savingBiomarkers, setSavingBiomarkers] = React.useState(false);
   const [biomarkersDraft, setBiomarkersDraft] = React.useState<BiomarkersDraft>(() => emptyBiomarkersDraft());
 
+  const [editingCoachNotes, setEditingCoachNotes] = React.useState(false);
+  const [savingCoachNotes, setSavingCoachNotes] = React.useState(false);
+  const [coachNotesDraft, setCoachNotesDraft] = React.useState("");
+
   React.useEffect(() => {
     let alive = true;
 
@@ -1139,6 +1143,65 @@ export function PlanProfileClient() {
       setStatus("error");
     } finally {
       setSavingBiomarkers(false);
+    }
+  }
+
+  async function saveCoachNotes() {
+    setSavingCoachNotes(true);
+    setSaveMessage("");
+    setError("");
+
+    try {
+      const payload = {
+        phase: plan?.phase || "maintenance",
+        phase_label: plan?.phase_label || "",
+        primary_goal: plan?.primary_goal || "",
+        start_date: plan?.start_date || null,
+        review_date: plan?.review_date || null,
+        review_cadence: plan?.review_cadence || "weekly",
+
+        body_state: asObject(plan?.body_state),
+        nutrition_targets: asObject(plan?.nutrition_targets),
+        training_targets: asObject(plan?.training_targets),
+        conditioning_targets: asObject(plan?.conditioning_targets),
+        activity_targets: asObject(plan?.activity_targets),
+        recovery_targets: asObject(plan?.recovery_targets),
+        monitoring_rules: asObject(plan?.monitoring_rules),
+
+        coach_notes: coachNotesDraft,
+      };
+
+      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=coach_notes_editor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(payload),
+      });
+
+      const text = await r.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        throw new Error(text || `HTTP ${r.status}`);
+      }
+
+      if (!r.ok) {
+        throw new Error(data?.detail || data?.error || `HTTP ${r.status}`);
+      }
+
+      const saved = data as PlanProfile;
+      setPlan(saved);
+      setCoachNotesDraft(saved.coach_notes || "");
+      setEditingCoachNotes(false);
+      setStatus("ready");
+      setSaveMessage("Saved coach notes.");
+    } catch (e) {
+      setSaveMessage("");
+      setError(String(e));
+      setStatus("error");
+    } finally {
+      setSavingCoachNotes(false);
     }
   }
 
@@ -1987,18 +2050,76 @@ export function PlanProfileClient() {
           </SectionCard>
 
           <SectionCard id="coach-notes" eyebrow="Weekly frame" title="Coach Notes">
-            <div className="grid gap-2">
-              {plan?.coach_notes?.trim() ? (
-                <div className="whitespace-pre-wrap text-foreground">{plan.coach_notes}</div>
-              ) : (
-                <>
-                  <div>What is the plan trying to accomplish this week?</div>
-                  <div>What are the risks?</div>
-                  <div>What should be adjusted next if the trend is wrong?</div>
-                </>
-              )}
-            </div>
+            {editingCoachNotes ? (
+              <div className="grid gap-3">
+                <FieldTextArea
+                  label="Coach notes"
+                  value={coachNotesDraft}
+                  placeholder={`What is the plan trying to accomplish this week?
+
+What are the risks?
+
+What should be adjusted next if the trend is wrong?`}
+                  onChange={setCoachNotesDraft}
+                />
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => void saveCoachNotes()}
+                    disabled={savingCoachNotes || status === "unauthorized"}
+                  >
+                    {savingCoachNotes ? "Saving…" : "Save coach notes"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                    onClick={() => {
+                      setCoachNotesDraft(plan?.coach_notes || "");
+                      setEditingCoachNotes(false);
+                      setSaveMessage("");
+                    }}
+                    disabled={savingCoachNotes}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {plan?.coach_notes?.trim() ? (
+                  <div className="whitespace-pre-wrap text-foreground">{plan.coach_notes}</div>
+                ) : (
+                  <div className="whitespace-pre-wrap">
+                    {`What is the plan trying to accomplish this week?
+
+What are the risks?
+
+What should be adjusted next if the trend is wrong?`}
+                  </div>
+                )}
+
+                <div className="pt-3">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => {
+                      setCoachNotesDraft(plan?.coach_notes || "");
+                      setEditingCoachNotes(true);
+                      setSaveMessage("");
+                    }}
+                    disabled={status === "loading" || status === "unauthorized"}
+                  >
+                    Edit coach notes
+                  </button>
+                </div>
+              </div>
+            )}
           </SectionCard>
+
+
         </div>
       </div>
     </div>
