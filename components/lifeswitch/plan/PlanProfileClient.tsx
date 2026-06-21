@@ -1043,6 +1043,7 @@ export function PlanProfileClient() {
         <div className="mt-4 flex flex-wrap gap-2 text-xs">
           <a href="#current-phase" className="rounded-full border px-3 py-1 hover:bg-muted/40">Phase</a>
           <a href="#body-state" className="rounded-full border px-3 py-1 hover:bg-muted/40">Body State</a>
+          <a href="#biomarkers-labs" className="rounded-full border px-3 py-1 hover:bg-muted/40">Labs</a>
           <a href="#nutrition-targets" className="rounded-full border px-3 py-1 hover:bg-muted/40">Nutrition</a>
           <a href="#training-targets" className="rounded-full border px-3 py-1 hover:bg-muted/40">Training</a>
           <a href="#conditioning-targets" className="rounded-full border px-3 py-1 hover:bg-muted/40">Conditioning</a>
@@ -1547,6 +1548,24 @@ export function PlanProfileClient() {
                 </div>
               </div>
             )}
+          </SectionCard>
+
+          <SectionCard id="biomarkers-labs" eyebrow="Biomarkers / labs" title="Blood Work and Health Markers">
+            <div className="grid gap-2">
+              <div className="text-sm text-muted-foreground">
+                Future structured lab tracking should live here. Labs can inform nutrition,
+                recovery, training tolerance, cardio/activity decisions, and clinician review.
+              </div>
+
+              <div className="grid gap-1 border-t border-muted/40 pt-2">
+                <PlanRow label="Lab cadence" value="Usually every 3–6 months with functional medicine specialist" />
+                <PlanRow label="CBC" value="Hematocrit, hemoglobin, RBC, WBC, platelets" />
+                <PlanRow label="Metabolic" value="Glucose, A1c, lipids, liver enzymes, kidney markers" />
+                <PlanRow label="Hormones" value="Testosterone, free testosterone if available, estradiol" />
+                <PlanRow label="Other flags" value="PSA, B12, homocysteine, inflammatory or nutrient markers" />
+                <PlanRow label="Plan rule" value="Use labs as context; review concerning markers with clinician before changing medical variables." />
+              </div>
+            </div>
           </SectionCard>
 
           <SectionCard id="recovery-targets" eyebrow="Recovery prescription" title="Sleep and Recovery">
