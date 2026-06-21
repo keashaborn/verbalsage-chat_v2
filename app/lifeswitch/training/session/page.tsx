@@ -27,6 +27,7 @@ type TrainingSetLogRow = {
   exercise_name: string;
   exercise_sort_order: number;
   set_index: number;
+    set_type?: string | null;
   weight: number;
   reps: number;
   volume: number;
@@ -35,6 +36,17 @@ type TrainingSetLogRow = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+};
+
+type TrainingSetLogSegmentRow = {
+  training_set_log_segment_id?: string;
+  training_set_log_id: string;
+  segment_index: number;
+  label?: string | null;
+  weight: number;
+  reps: number;
+  volume: number;
+  notes?: string | null;
 };
 
 async function fetchJson(url: string, init?: RequestInit) {
@@ -82,6 +94,7 @@ function groupByExercise(sets: TrainingSetLogRow[]) {
 export default function TrainingSessionPage() {
   const [session, setSession] = React.useState<TrainingSessionRow | null>(null);
   const [sets, setSets] = React.useState<TrainingSetLogRow[]>([]);
+  const [segmentsBySet, setSegmentsBySet] = React.useState<Record<string, TrainingSetLogSegmentRow[]>>({});
   const [loading, setLoading] = React.useState(true);
   const [status, setStatus] = React.useState("loading session...");
 
@@ -92,6 +105,7 @@ export default function TrainingSessionPage() {
     if (!sessionId) {
       setSession(null);
       setSets([]);
+      setSegmentsBySet({});
       setStatus("missing session_id query param");
       setLoading(false);
       return;
@@ -103,18 +117,38 @@ export default function TrainingSessionPage() {
     try {
       const s = (await fetchJson(`/api/lifeswitch/training/sessions/${encodeURIComponent(sessionId)}`)) as TrainingSessionRow;
       const rows = (await fetchJson(`/api/lifeswitch/training/sessions/${encodeURIComponent(sessionId)}/sets`)) as TrainingSetLogRow[];
+      const setRows = Array.isArray(rows) ? rows : [];
+
+      const dropRows = setRows.filter((row) => String(row.set_type || "straight").toLowerCase() === "drop");
+      const segmentEntries = await Promise.all(
+        dropRows.map(async (row) => {
+          const segs = (await fetchJson(
+            `/api/lifeswitch/training/sessions/${encodeURIComponent(sessionId)}/sets/${encodeURIComponent(row.training_set_log_id)}/segments`
+          )) as TrainingSetLogSegmentRow[];
+
+          const arr = Array.isArray(segs) ? segs.slice() : [];
+          arr.sort((a, b) => safeNum(a.segment_index, 0) - safeNum(b.segment_index, 0));
+          return [row.training_set_log_id, arr] as const;
+        })
+      );
+
+      const segMap: Record<string, TrainingSetLogSegmentRow[]> = {};
+      for (const [setId, segs] of segmentEntries) segMap[setId] = segs;
 
       setSession(s);
-      setSets(Array.isArray(rows) ? rows : []);
-      setStatus(`loaded ${Array.isArray(rows) ? rows.length : 0} sets`);
+      setSets(setRows);
+      setSegmentsBySet(segMap);
+      setStatus(`loaded ${setRows.length} sets`);
     } catch (e: any) {
       setSession(null);
       setSets([]);
+      setSegmentsBySet({});
       setStatus(`error: ${String(e?.message || e)}`);
     } finally {
       setLoading(false);
     }
   }
+
 
   React.useEffect(() => {
     void loadSession();
@@ -212,6 +246,40 @@ export default function TrainingSessionPage() {
                           <div className="font-mono">{Math.round(safeNum(r.volume, 0))}</div>
                         </div>
                       </div>
+
+                        {String(r.set_type || "straight").toLowerCase() === "drop" ? (
+                          <div className="mt-3 rounded-xl border border-muted/20 p-2">
+                            <div className="mb-2 text-xs font-medium text-muted-foreground">Drop set detail</div>
+                            {(segmentsBySet[r.training_set_log_id] || []).length ? (
+                              <div className="space-y-1">
+                                {(segmentsBySet[r.training_set_log_id] || []).map((seg) => (
+                                  <div
+                                    key={`${r.training_set_log_id}:${seg.segment_index}`}
+                                    className="grid grid-cols-[5rem_1fr_1fr_1fr] gap-2 text-xs"
+                                  >
+                                    <div className="text-muted-foreground">
+                                      {seg.label || (safeNum(seg.segment_index, 0) === 1 ? "Start" : `Drop ${safeNum(seg.segment_index, 1) - 1}`)}
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">wt </span>
+                                      <span className="font-mono">{safeNum(seg.weight, 0)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">reps </span>
+                                      <span className="font-mono">{safeNum(seg.reps, 0)}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">vol </span>
+                                      <span className="font-mono">{Math.round(safeNum(seg.volume, 0))}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-muted-foreground">No drop segments found.</div>
+                            )}
+                          </div>
+                        ) : null}
 
                       {r.flags || r.notes ? (
                         <div className="mt-2 text-xs text-muted-foreground">
