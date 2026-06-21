@@ -16,7 +16,7 @@ export default function NutritionHome() {
           <div className="mt-1 text-xs text-muted-foreground">Foods, meals, templates.</div>
         </Link>
 
-        <Link href="/lifeswitch/nutrition/plan" className="rounded-xl border p-4 hover:bg-muted/30">
+        <Link href="/lifeswitch/plan#nutrition-targets" className="rounded-xl border p-4 hover:bg-muted/30">
           <div className="text-sm font-semibold">Plan</div>
           <div className="mt-1 text-xs text-muted-foreground">Day templates / meal plans.</div>
         </Link>

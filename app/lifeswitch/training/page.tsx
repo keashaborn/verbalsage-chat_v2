@@ -26,7 +26,7 @@ export default function TrainingHome() {
           <div className="mt-1 text-xs text-muted-foreground">Run today’s workout and finish it into the log.</div>
         </Link>
 
-        <Link href="/lifeswitch/training/plan" className="rounded-xl border p-4 hover:bg-muted/30">
+        <Link href="/lifeswitch/plan#training-targets" className="rounded-xl border p-4 hover:bg-muted/30">
           <div className="text-sm font-semibold">Plan</div>
           <div className="mt-1 text-xs text-muted-foreground">Programs / schedule (later).</div>
         </Link>

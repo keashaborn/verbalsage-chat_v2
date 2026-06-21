@@ -54,6 +54,12 @@ function Tab({
   );
 }
 
+function planHrefForDomain(domain: string) {
+  if (domain === "training") return "/lifeswitch/plan#training-targets";
+  if (domain === "nutrition") return "/lifeswitch/plan#nutrition-targets";
+  return `/lifeswitch/${domain}/plan`;
+}
+
 export function LifeSwitchModeNav() {
   const pathname = usePathname() || "";
   const domain = normalizeDomainFromPath(pathname);
@@ -87,7 +93,7 @@ export function LifeSwitchModeNav() {
           active={mode === "capture"}
         />
         <Tab
-          href={`/lifeswitch/${domain}/plan`}
+          href={planHrefForDomain(domain)}
           label="Plan"
           Icon={ClipboardList}
           active={mode === "plan"}
