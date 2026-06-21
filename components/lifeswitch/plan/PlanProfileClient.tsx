@@ -79,6 +79,15 @@ type ConditioningActivityDraft = {
   wearable_source: string;
 };
 
+type MonitoringDraft = {
+  summary: string;
+  weight_trend_rule: string;
+  nutrition_adherence_rule: string;
+  training_performance_rule: string;
+  recovery_rule: string;
+  lab_flags_rule: string;
+};
+
 const PHASE_LABELS: Record<string, string> = {
   cut: "Cut",
   maintenance: "Maintenance",
@@ -221,6 +230,30 @@ function draftFromConditioningActivity(plan: PlanProfile | null): ConditioningAc
     intensity: valueToDisplay(c.intensity ?? c.zone ?? c.rpe),
     steps_per_day: valueToDisplay(a.steps_per_day ?? a.step_target ?? a.neat),
     wearable_source: valueToDisplay(a.wearable_source ?? a.source),
+  };
+}
+
+function emptyMonitoringDraft(): MonitoringDraft {
+  return {
+    summary: "",
+    weight_trend_rule: "",
+    nutrition_adherence_rule: "",
+    training_performance_rule: "",
+    recovery_rule: "",
+    lab_flags_rule: "",
+  };
+}
+
+function draftFromMonitoringRules(plan: PlanProfile | null): MonitoringDraft {
+  const m = asObject(plan?.monitoring_rules);
+
+  return {
+    summary: valueToDisplay(m.summary ?? m.adjustment_rule ?? m.rules),
+    weight_trend_rule: valueToDisplay(m.weight_trend_rule ?? m.weight_trend),
+    nutrition_adherence_rule: valueToDisplay(m.nutrition_adherence_rule ?? m.nutrition_adherence),
+    training_performance_rule: valueToDisplay(m.training_performance_rule ?? m.training_performance),
+    recovery_rule: valueToDisplay(m.recovery_rule ?? m.recovery),
+    lab_flags_rule: valueToDisplay(m.lab_flags_rule ?? m.lab_flags ?? m.biomarkers),
   };
 }
 
@@ -430,6 +463,10 @@ export function PlanProfileClient() {
   const [savingConditioningActivity, setSavingConditioningActivity] = React.useState(false);
   const [conditioningActivityDraft, setConditioningActivityDraft] = React.useState<ConditioningActivityDraft>(() => emptyConditioningActivityDraft());
 
+  const [editingMonitoring, setEditingMonitoring] = React.useState(false);
+  const [savingMonitoring, setSavingMonitoring] = React.useState(false);
+  const [monitoringDraft, setMonitoringDraft] = React.useState<MonitoringDraft>(() => emptyMonitoringDraft());
+
   React.useEffect(() => {
     let alive = true;
 
@@ -466,6 +503,7 @@ export function PlanProfileClient() {
           setBodyStateDraft(draftFromBodyState(loaded));
           setRecoveryDraft(draftFromRecoveryTargets(loaded));
           setConditioningActivityDraft(draftFromConditioningActivity(loaded));
+          setMonitoringDraft(draftFromMonitoringRules(loaded));
           setStatus("ready");
         }
       } catch (e) {
@@ -530,6 +568,7 @@ export function PlanProfileClient() {
       setBodyStateDraft(draftFromBodyState(saved));
       setRecoveryDraft(draftFromRecoveryTargets(saved));
       setConditioningActivityDraft(draftFromConditioningActivity(saved));
+      setMonitoringDraft(draftFromMonitoringRules(saved));
       setEditingPhase(false);
       setStatus("ready");
       setSaveMessage("Saved current phase.");
@@ -600,6 +639,7 @@ export function PlanProfileClient() {
       setBodyStateDraft(draftFromBodyState(saved));
       setRecoveryDraft(draftFromRecoveryTargets(saved));
       setConditioningActivityDraft(draftFromConditioningActivity(saved));
+      setMonitoringDraft(draftFromMonitoringRules(saved));
       setEditingNutrition(false);
       setStatus("ready");
       setSaveMessage("Saved nutrition targets.");
@@ -670,6 +710,7 @@ export function PlanProfileClient() {
       setBodyStateDraft(draftFromBodyState(saved));
       setRecoveryDraft(draftFromRecoveryTargets(saved));
       setConditioningActivityDraft(draftFromConditioningActivity(saved));
+      setMonitoringDraft(draftFromMonitoringRules(saved));
       setEditingTraining(false);
       setStatus("ready");
       setSaveMessage("Saved training targets.");
@@ -742,6 +783,7 @@ export function PlanProfileClient() {
       setBodyStateDraft(draftFromBodyState(saved));
       setRecoveryDraft(draftFromRecoveryTargets(saved));
       setConditioningActivityDraft(draftFromConditioningActivity(saved));
+      setMonitoringDraft(draftFromMonitoringRules(saved));
       setEditingBodyState(false);
       setStatus("ready");
       setSaveMessage("Saved body state.");
@@ -811,6 +853,7 @@ export function PlanProfileClient() {
       setBodyStateDraft(draftFromBodyState(saved));
       setRecoveryDraft(draftFromRecoveryTargets(saved));
       setConditioningActivityDraft(draftFromConditioningActivity(saved));
+      setMonitoringDraft(draftFromMonitoringRules(saved));
       setEditingRecovery(false);
       setStatus("ready");
       setSaveMessage("Saved recovery targets.");
@@ -882,6 +925,7 @@ export function PlanProfileClient() {
       setBodyStateDraft(draftFromBodyState(saved));
       setRecoveryDraft(draftFromRecoveryTargets(saved));
       setConditioningActivityDraft(draftFromConditioningActivity(saved));
+      setMonitoringDraft(draftFromMonitoringRules(saved));
       setEditingConditioningActivity(false);
       setStatus("ready");
       setSaveMessage("Saved conditioning and activity targets.");
@@ -891,6 +935,78 @@ export function PlanProfileClient() {
       setStatus("error");
     } finally {
       setSavingConditioningActivity(false);
+    }
+  }
+
+  async function saveMonitoringRules() {
+    setSavingMonitoring(true);
+    setSaveMessage("");
+    setError("");
+
+    try {
+      const payload = {
+        phase: plan?.phase || "maintenance",
+        phase_label: plan?.phase_label || "",
+        primary_goal: plan?.primary_goal || "",
+        start_date: plan?.start_date || null,
+        review_date: plan?.review_date || null,
+        review_cadence: plan?.review_cadence || "weekly",
+
+        body_state: asObject(plan?.body_state),
+        nutrition_targets: asObject(plan?.nutrition_targets),
+        training_targets: asObject(plan?.training_targets),
+        conditioning_targets: asObject(plan?.conditioning_targets),
+        activity_targets: asObject(plan?.activity_targets),
+        recovery_targets: asObject(plan?.recovery_targets),
+        monitoring_rules: {
+          summary: monitoringDraft.summary,
+          weight_trend_rule: monitoringDraft.weight_trend_rule,
+          nutrition_adherence_rule: monitoringDraft.nutrition_adherence_rule,
+          training_performance_rule: monitoringDraft.training_performance_rule,
+          recovery_rule: monitoringDraft.recovery_rule,
+          lab_flags_rule: monitoringDraft.lab_flags_rule,
+        },
+
+        coach_notes: plan?.coach_notes || "",
+      };
+
+      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=monitoring_rules_editor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(payload),
+      });
+
+      const text = await r.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        throw new Error(text || `HTTP ${r.status}`);
+      }
+
+      if (!r.ok) {
+        throw new Error(data?.detail || data?.error || `HTTP ${r.status}`);
+      }
+
+      const saved = data as PlanProfile;
+      setPlan(saved);
+      setPhaseDraft(draftFromPlan(saved));
+      setNutritionDraft(draftFromNutritionTargets(saved));
+      setTrainingDraft(draftFromTrainingTargets(saved));
+      setBodyStateDraft(draftFromBodyState(saved));
+      setRecoveryDraft(draftFromRecoveryTargets(saved));
+      setConditioningActivityDraft(draftFromConditioningActivity(saved));
+      setMonitoringDraft(draftFromMonitoringRules(saved));
+      setEditingMonitoring(false);
+      setStatus("ready");
+      setSaveMessage("Saved monitoring rules.");
+    } catch (e) {
+      setSaveMessage("");
+      setError(String(e));
+      setStatus("error");
+    } finally {
+      setSavingMonitoring(false);
     }
   }
 
@@ -1513,16 +1629,107 @@ export function PlanProfileClient() {
           </SectionCard>
 
           <SectionCard id="monitoring-rules" eyebrow="Adjustment logic" title="Monitoring and Adjustment Rules">
-            <div className="grid gap-2">
-              <div>
-                {readValue(
-                  monitoringRules,
-                  ["summary", "adjustment_rule", "rules"],
-                  "Define what changes the plan: weight trend, waist change, training performance, adherence, hunger, sleep, fatigue, and recovery."
-                )}
+            {editingMonitoring ? (
+              <div className="grid gap-3">
+                <FieldTextArea
+                  label="Summary"
+                  value={monitoringDraft.summary}
+                  placeholder="Overall rule for when the plan should change."
+                  onChange={(value) => setMonitoringDraft((d) => ({ ...d, summary: value }))}
+                />
+
+                <FieldTextArea
+                  label="Weight trend rule"
+                  value={monitoringDraft.weight_trend_rule}
+                  placeholder="What weight trend is expected, and when should calories/activity change?"
+                  onChange={(value) => setMonitoringDraft((d) => ({ ...d, weight_trend_rule: value }))}
+                />
+
+                <FieldTextArea
+                  label="Nutrition adherence rule"
+                  value={monitoringDraft.nutrition_adherence_rule}
+                  placeholder="How many days/week must calories and protein be hit before changing the plan?"
+                  onChange={(value) => setMonitoringDraft((d) => ({ ...d, nutrition_adherence_rule: value }))}
+                />
+
+                <FieldTextArea
+                  label="Training performance rule"
+                  value={monitoringDraft.training_performance_rule}
+                  placeholder="How should strength, volume, pain, or performance affect the plan?"
+                  onChange={(value) => setMonitoringDraft((d) => ({ ...d, training_performance_rule: value }))}
+                />
+
+                <FieldTextArea
+                  label="Recovery rule"
+                  value={monitoringDraft.recovery_rule}
+                  placeholder="How should sleep, fatigue, soreness, and joint pain affect the plan?"
+                  onChange={(value) => setMonitoringDraft((d) => ({ ...d, recovery_rule: value }))}
+                />
+
+                <FieldTextArea
+                  label="Lab / biomarker flags"
+                  value={monitoringDraft.lab_flags_rule}
+                  placeholder="Future: markers that should prompt review with clinician or plan caution."
+                  onChange={(value) => setMonitoringDraft((d) => ({ ...d, lab_flags_rule: value }))}
+                />
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => void saveMonitoringRules()}
+                    disabled={savingMonitoring || status === "unauthorized"}
+                  >
+                    {savingMonitoring ? "Saving…" : "Save monitoring rules"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                    onClick={() => {
+                      setMonitoringDraft(draftFromMonitoringRules(plan));
+                      setEditingMonitoring(false);
+                      setSaveMessage("");
+                    }}
+                    disabled={savingMonitoring}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-              <div>This is the bridge from plan → capture/log → analysis.</div>
-            </div>
+            ) : (
+              <div className="grid gap-2">
+                <div>
+                  {readValue(
+                    monitoringRules,
+                    ["summary", "adjustment_rule", "rules"],
+                    "Define what changes the plan: weight trend, waist change, training performance, adherence, hunger, sleep, fatigue, and recovery."
+                  )}
+                </div>
+                <div className="grid gap-1 border-t border-muted/40 pt-2">
+                  <PlanRow label="Weight trend" value={readValue(monitoringRules, ["weight_trend_rule", "weight_trend"], "Expected body-weight trend and adjustment trigger")} />
+                  <PlanRow label="Nutrition" value={readValue(monitoringRules, ["nutrition_adherence_rule", "nutrition_adherence"], "Adherence threshold before changing targets")} />
+                  <PlanRow label="Training" value={readValue(monitoringRules, ["training_performance_rule", "training_performance"], "Performance/pain rule for training changes")} />
+                  <PlanRow label="Recovery" value={readValue(monitoringRules, ["recovery_rule", "recovery"], "Sleep/fatigue/soreness rule")} />
+                  <PlanRow label="Labs" value={readValue(monitoringRules, ["lab_flags_rule", "lab_flags", "biomarkers"], "Future clinician/lab review triggers")} />
+                </div>
+                <div>This is the bridge from plan → capture/log → analysis.</div>
+                <div className="pt-3">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => {
+                      setMonitoringDraft(draftFromMonitoringRules(plan));
+                      setEditingMonitoring(true);
+                      setSaveMessage("");
+                    }}
+                    disabled={status === "loading" || status === "unauthorized"}
+                  >
+                    Edit monitoring rules
+                  </button>
+                </div>
+              </div>
+            )}
           </SectionCard>
 
           <SectionCard id="coach-notes" eyebrow="Weekly frame" title="Coach Notes">
