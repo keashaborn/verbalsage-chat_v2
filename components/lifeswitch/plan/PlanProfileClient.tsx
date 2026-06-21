@@ -28,6 +28,16 @@ type PlanProfile = {
   updated_at: string;
 };
 
+type PhaseDraft = {
+  phase: string;
+  phase_label: string;
+  primary_goal: string;
+  start_date: string;
+  review_date: string;
+  review_cadence: string;
+  coach_notes: string;
+};
+
 const PHASE_LABELS: Record<string, string> = {
   cut: "Cut",
   maintenance: "Maintenance",
@@ -35,6 +45,30 @@ const PHASE_LABELS: Record<string, string> = {
   recomp: "Recomp",
   other: "Other",
 };
+
+function emptyPhaseDraft(): PhaseDraft {
+  return {
+    phase: "maintenance",
+    phase_label: "",
+    primary_goal: "",
+    start_date: "",
+    review_date: "",
+    review_cadence: "weekly",
+    coach_notes: "",
+  };
+}
+
+function draftFromPlan(plan: PlanProfile | null): PhaseDraft {
+  return {
+    phase: plan?.phase || "maintenance",
+    phase_label: plan?.phase_label || "",
+    primary_goal: plan?.primary_goal || "",
+    start_date: plan?.start_date || "",
+    review_date: plan?.review_date || "",
+    review_cadence: plan?.review_cadence || "weekly",
+    coach_notes: plan?.coach_notes || "",
+  };
+}
 
 function SectionCard({
   id,
@@ -135,10 +169,92 @@ function updatedLabel(plan: PlanProfile | null): string {
   }
 }
 
+function FieldInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <label className="grid gap-1">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <input
+        className="rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/30"
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
+  );
+}
+
+function FieldTextArea({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="grid gap-1">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <textarea
+        className="min-h-28 rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/30"
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
+  );
+}
+
+function FieldSelect({
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="grid gap-1">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <select
+        className="rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/30"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {children}
+      </select>
+    </label>
+  );
+}
+
+
 export function PlanProfileClient() {
   const [plan, setPlan] = React.useState<PlanProfile | null>(null);
   const [status, setStatus] = React.useState<"loading" | "ready" | "unauthorized" | "error">("loading");
   const [error, setError] = React.useState<string>("");
+
+  const [editingPhase, setEditingPhase] = React.useState(false);
+  const [savingPhase, setSavingPhase] = React.useState(false);
+  const [saveMessage, setSaveMessage] = React.useState("");
+  const [phaseDraft, setPhaseDraft] = React.useState<PhaseDraft>(() => emptyPhaseDraft());
 
   React.useEffect(() => {
     let alive = true;
@@ -168,7 +284,9 @@ export function PlanProfileClient() {
         }
 
         if (alive) {
-          setPlan(data as PlanProfile);
+          const loaded = data as PlanProfile;
+          setPlan(loaded);
+          setPhaseDraft(draftFromPlan(loaded));
           setStatus("ready");
         }
       } catch (e) {
@@ -185,6 +303,60 @@ export function PlanProfileClient() {
       alive = false;
     };
   }, []);
+
+  async function saveCurrentPhase() {
+    setSavingPhase(true);
+    setSaveMessage("");
+    setError("");
+
+    try {
+      const payload = {
+        phase: phaseDraft.phase || "maintenance",
+        phase_label: phaseDraft.phase_label,
+        primary_goal: phaseDraft.primary_goal,
+        start_date: phaseDraft.start_date || null,
+        review_date: phaseDraft.review_date || null,
+        review_cadence: phaseDraft.review_cadence || "weekly",
+
+        body_state: asObject(plan?.body_state),
+        nutrition_targets: asObject(plan?.nutrition_targets),
+        training_targets: asObject(plan?.training_targets),
+        conditioning_targets: asObject(plan?.conditioning_targets),
+        activity_targets: asObject(plan?.activity_targets),
+        recovery_targets: asObject(plan?.recovery_targets),
+        monitoring_rules: asObject(plan?.monitoring_rules),
+
+        coach_notes: phaseDraft.coach_notes,
+      };
+
+      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=current_phase_editor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(payload),
+      });
+
+      const text = await r.text();
+      const data = text ? JSON.parse(text) : null;
+
+      if (!r.ok) {
+        throw new Error(data?.detail || data?.error || `HTTP ${r.status}`);
+      }
+
+      const saved = data as PlanProfile;
+      setPlan(saved);
+      setPhaseDraft(draftFromPlan(saved));
+      setEditingPhase(false);
+      setStatus("ready");
+      setSaveMessage("Saved current phase.");
+    } catch (e) {
+      setSaveMessage("");
+      setError(String(e));
+      setStatus("error");
+    } finally {
+      setSavingPhase(false);
+    }
+  }
 
   const bodyState = asObject(plan?.body_state);
   const nutritionTargets = asObject(plan?.nutrition_targets);
@@ -231,12 +403,110 @@ export function PlanProfileClient() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="grid gap-4 lg:col-span-2">
           <SectionCard id="current-phase" eyebrow="Current intervention" title="Current Phase">
-            <div className="grid gap-1">
-              <PlanRow label="Phase" value={phaseLabel ? `${phase} · ${phaseLabel}` : phase} />
-              <PlanRow label="Primary goal" value={textValue(plan?.primary_goal, "Body-composition outcome and performance priority")} />
-              <PlanRow label="Start / review dates" value={dateRange(plan)} />
-              <PlanRow label="Review cadence" value={textValue(plan?.review_cadence, "Weekly")} />
-            </div>
+            {editingPhase ? (
+              <div className="grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <FieldSelect
+                    label="Phase"
+                    value={phaseDraft.phase}
+                    onChange={(value) => setPhaseDraft((d) => ({ ...d, phase: value }))}
+                  >
+                    <option value="cut">Cut</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="lean_gain">Lean gain</option>
+                    <option value="recomp">Recomp</option>
+                    <option value="other">Other</option>
+                  </FieldSelect>
+
+                  <FieldInput
+                    label="Phase label"
+                    value={phaseDraft.phase_label}
+                    placeholder="Optional short description"
+                    onChange={(value) => setPhaseDraft((d) => ({ ...d, phase_label: value }))}
+                  />
+
+                  <FieldInput
+                    label="Start date"
+                    type="date"
+                    value={phaseDraft.start_date}
+                    onChange={(value) => setPhaseDraft((d) => ({ ...d, start_date: value }))}
+                  />
+
+                  <FieldInput
+                    label="Review date"
+                    type="date"
+                    value={phaseDraft.review_date}
+                    onChange={(value) => setPhaseDraft((d) => ({ ...d, review_date: value }))}
+                  />
+
+                  <FieldInput
+                    label="Review cadence"
+                    value={phaseDraft.review_cadence}
+                    placeholder="weekly"
+                    onChange={(value) => setPhaseDraft((d) => ({ ...d, review_cadence: value }))}
+                  />
+                </div>
+
+                <FieldTextArea
+                  label="Primary goal"
+                  value={phaseDraft.primary_goal}
+                  placeholder="What is this plan trying to accomplish?"
+                  onChange={(value) => setPhaseDraft((d) => ({ ...d, primary_goal: value }))}
+                />
+
+                <FieldTextArea
+                  label="Coach notes"
+                  value={phaseDraft.coach_notes}
+                  placeholder="Weekly focus, risks, adjustment notes."
+                  onChange={(value) => setPhaseDraft((d) => ({ ...d, coach_notes: value }))}
+                />
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => void saveCurrentPhase()}
+                    disabled={savingPhase || status === "unauthorized"}
+                  >
+                    {savingPhase ? "Saving…" : "Save current phase"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                    onClick={() => {
+                      setPhaseDraft(draftFromPlan(plan));
+                      setEditingPhase(false);
+                      setSaveMessage("");
+                    }}
+                    disabled={savingPhase}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-1">
+                <PlanRow label="Phase" value={phaseLabel ? `${phase} · ${phaseLabel}` : phase} />
+                <PlanRow label="Primary goal" value={textValue(plan?.primary_goal, "Body-composition outcome and performance priority")} />
+                <PlanRow label="Start / review dates" value={dateRange(plan)} />
+                <PlanRow label="Review cadence" value={textValue(plan?.review_cadence, "Weekly")} />
+                <div className="pt-3">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => {
+                      setPhaseDraft(draftFromPlan(plan));
+                      setEditingPhase(true);
+                      setSaveMessage("");
+                    }}
+                    disabled={status === "loading" || status === "unauthorized"}
+                  >
+                    Edit current phase
+                  </button>
+                </div>
+              </div>
+            )}
           </SectionCard>
 
           <SectionCard id="nutrition-targets" eyebrow="Nutrition prescription" title="Nutrition Targets">
