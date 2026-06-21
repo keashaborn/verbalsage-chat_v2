@@ -64,6 +64,13 @@ type BodyStateDraft = {
   body_scan: string;
 };
 
+type RecoveryDraft = {
+  sleep_hours: string;
+  rest_days: string;
+  mobility_goal: string;
+  fatigue_watch: string;
+};
+
 const PHASE_LABELS: Record<string, string> = {
   cut: "Cut",
   maintenance: "Maintenance",
@@ -163,6 +170,26 @@ function draftFromBodyState(plan: PlanProfile | null): BodyStateDraft {
     measurement_method: valueToDisplay(b.measurement_method ?? b.method),
     calipers: valueToDisplay(b.calipers ?? b.caliper_sites),
     body_scan: valueToDisplay(b.body_scan ?? b.scan),
+  };
+}
+
+function emptyRecoveryDraft(): RecoveryDraft {
+  return {
+    sleep_hours: "",
+    rest_days: "",
+    mobility_goal: "",
+    fatigue_watch: "",
+  };
+}
+
+function draftFromRecoveryTargets(plan: PlanProfile | null): RecoveryDraft {
+  const r = asObject(plan?.recovery_targets);
+
+  return {
+    sleep_hours: valueToDisplay(r.sleep_hours ?? r.sleep_target),
+    rest_days: valueToDisplay(r.rest_days ?? r.rest),
+    mobility_goal: valueToDisplay(r.mobility_goal ?? r.mobility),
+    fatigue_watch: valueToDisplay(r.fatigue_watch ?? r.fatigue),
   };
 }
 
@@ -364,6 +391,10 @@ export function PlanProfileClient() {
   const [savingBodyState, setSavingBodyState] = React.useState(false);
   const [bodyStateDraft, setBodyStateDraft] = React.useState<BodyStateDraft>(() => emptyBodyStateDraft());
 
+  const [editingRecovery, setEditingRecovery] = React.useState(false);
+  const [savingRecovery, setSavingRecovery] = React.useState(false);
+  const [recoveryDraft, setRecoveryDraft] = React.useState<RecoveryDraft>(() => emptyRecoveryDraft());
+
   React.useEffect(() => {
     let alive = true;
 
@@ -398,6 +429,7 @@ export function PlanProfileClient() {
           setNutritionDraft(draftFromNutritionTargets(loaded));
           setTrainingDraft(draftFromTrainingTargets(loaded));
           setBodyStateDraft(draftFromBodyState(loaded));
+          setRecoveryDraft(draftFromRecoveryTargets(loaded));
           setStatus("ready");
         }
       } catch (e) {
@@ -460,6 +492,7 @@ export function PlanProfileClient() {
       setNutritionDraft(draftFromNutritionTargets(saved));
       setTrainingDraft(draftFromTrainingTargets(saved));
       setBodyStateDraft(draftFromBodyState(saved));
+      setRecoveryDraft(draftFromRecoveryTargets(saved));
       setEditingPhase(false);
       setStatus("ready");
       setSaveMessage("Saved current phase.");
@@ -528,6 +561,7 @@ export function PlanProfileClient() {
       setNutritionDraft(draftFromNutritionTargets(saved));
       setTrainingDraft(draftFromTrainingTargets(saved));
       setBodyStateDraft(draftFromBodyState(saved));
+      setRecoveryDraft(draftFromRecoveryTargets(saved));
       setEditingNutrition(false);
       setStatus("ready");
       setSaveMessage("Saved nutrition targets.");
@@ -596,6 +630,7 @@ export function PlanProfileClient() {
       setNutritionDraft(draftFromNutritionTargets(saved));
       setTrainingDraft(draftFromTrainingTargets(saved));
       setBodyStateDraft(draftFromBodyState(saved));
+      setRecoveryDraft(draftFromRecoveryTargets(saved));
       setEditingTraining(false);
       setStatus("ready");
       setSaveMessage("Saved training targets.");
@@ -666,6 +701,7 @@ export function PlanProfileClient() {
       setNutritionDraft(draftFromNutritionTargets(saved));
       setTrainingDraft(draftFromTrainingTargets(saved));
       setBodyStateDraft(draftFromBodyState(saved));
+      setRecoveryDraft(draftFromRecoveryTargets(saved));
       setEditingBodyState(false);
       setStatus("ready");
       setSaveMessage("Saved body state.");
@@ -675,6 +711,74 @@ export function PlanProfileClient() {
       setStatus("error");
     } finally {
       setSavingBodyState(false);
+    }
+  }
+
+  async function saveRecoveryTargets() {
+    setSavingRecovery(true);
+    setSaveMessage("");
+    setError("");
+
+    try {
+      const payload = {
+        phase: plan?.phase || "maintenance",
+        phase_label: plan?.phase_label || "",
+        primary_goal: plan?.primary_goal || "",
+        start_date: plan?.start_date || null,
+        review_date: plan?.review_date || null,
+        review_cadence: plan?.review_cadence || "weekly",
+
+        body_state: asObject(plan?.body_state),
+        nutrition_targets: asObject(plan?.nutrition_targets),
+        training_targets: asObject(plan?.training_targets),
+        conditioning_targets: asObject(plan?.conditioning_targets),
+        activity_targets: asObject(plan?.activity_targets),
+        recovery_targets: {
+          sleep_hours: recoveryDraft.sleep_hours,
+          rest_days: recoveryDraft.rest_days,
+          mobility_goal: recoveryDraft.mobility_goal,
+          fatigue_watch: recoveryDraft.fatigue_watch,
+        },
+        monitoring_rules: asObject(plan?.monitoring_rules),
+
+        coach_notes: plan?.coach_notes || "",
+      };
+
+      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=recovery_targets_editor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(payload),
+      });
+
+      const text = await r.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        throw new Error(text || `HTTP ${r.status}`);
+      }
+
+      if (!r.ok) {
+        throw new Error(data?.detail || data?.error || `HTTP ${r.status}`);
+      }
+
+      const saved = data as PlanProfile;
+      setPlan(saved);
+      setPhaseDraft(draftFromPlan(saved));
+      setNutritionDraft(draftFromNutritionTargets(saved));
+      setTrainingDraft(draftFromTrainingTargets(saved));
+      setBodyStateDraft(draftFromBodyState(saved));
+      setRecoveryDraft(draftFromRecoveryTargets(saved));
+      setEditingRecovery(false);
+      setStatus("ready");
+      setSaveMessage("Saved recovery targets.");
+    } catch (e) {
+      setSaveMessage("");
+      setError(String(e));
+      setStatus("error");
+    } finally {
+      setSavingRecovery(false);
     }
   }
 
@@ -1139,12 +1243,82 @@ export function PlanProfileClient() {
           </SectionCard>
 
           <SectionCard id="recovery-targets" eyebrow="Recovery prescription" title="Sleep and Recovery">
-            <div className="grid gap-1">
-              <PlanRow label="Sleep target" value={readValue(recoveryTargets, ["sleep_hours", "sleep_target"], "Hours, consistency, wakeups, and quality")} />
-              <PlanRow label="Rest days" value={readValue(recoveryTargets, ["rest_days", "rest"], "Planned rest or low-stress activity days")} />
-              <PlanRow label="Mobility" value={readValue(recoveryTargets, ["mobility_goal", "mobility"], "Flexibility, stretching, rehab, or movement-prep goal")} />
-              <PlanRow label="Fatigue watch" value={readValue(recoveryTargets, ["fatigue_watch", "fatigue"], "Soreness, joint pain, motivation, performance drop")} />
-            </div>
+            {editingRecovery ? (
+              <div className="grid gap-3">
+                <FieldInput
+                  label="Sleep target"
+                  value={recoveryDraft.sleep_hours}
+                  placeholder="Hours, consistency, wakeups, quality"
+                  onChange={(value) => setRecoveryDraft((d) => ({ ...d, sleep_hours: value }))}
+                />
+
+                <FieldInput
+                  label="Rest days"
+                  value={recoveryDraft.rest_days}
+                  placeholder="Planned rest or low-stress days"
+                  onChange={(value) => setRecoveryDraft((d) => ({ ...d, rest_days: value }))}
+                />
+
+                <FieldTextArea
+                  label="Mobility"
+                  value={recoveryDraft.mobility_goal}
+                  placeholder="Flexibility, stretching, rehab, or movement-prep goal."
+                  onChange={(value) => setRecoveryDraft((d) => ({ ...d, mobility_goal: value }))}
+                />
+
+                <FieldTextArea
+                  label="Fatigue watch"
+                  value={recoveryDraft.fatigue_watch}
+                  placeholder="Soreness, joint pain, motivation, performance drop."
+                  onChange={(value) => setRecoveryDraft((d) => ({ ...d, fatigue_watch: value }))}
+                />
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => void saveRecoveryTargets()}
+                    disabled={savingRecovery || status === "unauthorized"}
+                  >
+                    {savingRecovery ? "Saving…" : "Save recovery targets"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                    onClick={() => {
+                      setRecoveryDraft(draftFromRecoveryTargets(plan));
+                      setEditingRecovery(false);
+                      setSaveMessage("");
+                    }}
+                    disabled={savingRecovery}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-1">
+                <PlanRow label="Sleep target" value={readValue(recoveryTargets, ["sleep_hours", "sleep_target"], "Hours, consistency, wakeups, and quality")} />
+                <PlanRow label="Rest days" value={readValue(recoveryTargets, ["rest_days", "rest"], "Planned rest or low-stress activity days")} />
+                <PlanRow label="Mobility" value={readValue(recoveryTargets, ["mobility_goal", "mobility"], "Flexibility, stretching, rehab, or movement-prep goal")} />
+                <PlanRow label="Fatigue watch" value={readValue(recoveryTargets, ["fatigue_watch", "fatigue"], "Soreness, joint pain, motivation, performance drop")} />
+                <div className="pt-3">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => {
+                      setRecoveryDraft(draftFromRecoveryTargets(plan));
+                      setEditingRecovery(true);
+                      setSaveMessage("");
+                    }}
+                    disabled={status === "loading" || status === "unauthorized"}
+                  >
+                    Edit recovery targets
+                  </button>
+                </div>
+              </div>
+            )}
           </SectionCard>
 
           <SectionCard id="monitoring-rules" eyebrow="Adjustment logic" title="Monitoring and Adjustment Rules">
