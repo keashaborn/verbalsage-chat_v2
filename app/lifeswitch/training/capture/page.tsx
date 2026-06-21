@@ -19,6 +19,7 @@ type WorkoutTemplateExerciseRow = {
   workout_template_id: string;
   exercise_id: string;
   sort_order: number;
+  set_type?: "straight" | "drop" | string;
   planned_sets: number;
   default_weight: number;
   default_reps: number;
@@ -41,12 +42,22 @@ type MyExerciseRow = {
   updated_at: string;
 };
 
+type DraftSetSegmentRow = {
+  segment_index: number;
+  label: string;
+  weight: string;
+  reps: string;
+  notes: string;
+};
+
 type DraftSetRow = {
   draft_id: string;
   exercise_id: string;
   exercise_name: string;
   exercise_sort_order: number;
   set_index: number;
+  set_type: string;
+  segments?: DraftSetSegmentRow[];
   weight: string;
   reps: string;
   flags: string;
@@ -125,12 +136,15 @@ export default function TrainingCapturePage() {
     const exercises = new Set<string>();
 
     for (const r of doneRows) {
-      const weight = safeNum(r.weight, 0);
-      const reps = safeNum(r.reps, 0);
-      if (reps <= 0) continue;
+      const rowVolume =
+        r.set_type === "drop"
+          ? (r.segments || []).reduce((sum, seg) => sum + safeNum(seg.weight, 0) * safeNum(seg.reps, 0), 0)
+          : safeNum(r.weight, 0) * safeNum(r.reps, 0);
+
+      if (rowVolume <= 0) continue;
 
       setCount += 1;
-      volume += weight * reps;
+      volume += rowVolume;
       exercises.add(r.exercise_id);
     }
 
@@ -230,13 +244,41 @@ export default function TrainingCapturePage() {
     }
   }
 
-  function buildDraftRows(rows: WorkoutTemplateExerciseRow[]) {
+  async function loadTemplateExerciseSegments(workoutTemplateExerciseId: string): Promise<DraftSetSegmentRow[]> {
+    try {
+      const rows = (await fetchJson(
+        `/api/lifeswitch/training/workout_template_exercises/${encodeURIComponent(workoutTemplateExerciseId)}/segments`
+      )) as Array<{
+        segment_index: number;
+        label?: string | null;
+        default_weight: number;
+        default_reps: number;
+      }>;
+
+      const arr = Array.isArray(rows) ? rows.slice() : [];
+      arr.sort((a, b) => safeNum(a.segment_index, 0) - safeNum(b.segment_index, 0));
+
+      return arr.map((seg) => ({
+        segment_index: safeNum(seg.segment_index, 0),
+        label: safeNum(seg.segment_index, 0) === 1 ? "Start" : `Drop ${safeNum(seg.segment_index, 1) - 1}`,
+        weight: String(safeNum(seg.default_weight, 0)),
+        reps: String(safeNum(seg.default_reps, 0) || ""),
+        notes: "",
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  async function buildDraftRows(rows: WorkoutTemplateExerciseRow[]) {
     const out: DraftSetRow[] = [];
 
     for (const ex of rows) {
       const meta = myExercisesById.get(ex.exercise_id);
       const exerciseName = meta?.display_name || ex.exercise_id;
       const plannedSets = Math.max(0, Math.floor(safeNum(ex.planned_sets, 0)));
+      const setType = String(ex.set_type || "straight").toLowerCase();
+      const templateSegments = setType === "drop" ? await loadTemplateExerciseSegments(ex.workout_template_exercise_id) : [];
 
       for (let i = 1; i <= plannedSets; i++) {
         out.push({
@@ -245,6 +287,8 @@ export default function TrainingCapturePage() {
           exercise_name: exerciseName,
           exercise_sort_order: safeNum(ex.sort_order, 0),
           set_index: i,
+          set_type: setType,
+          segments: setType === "drop" ? templateSegments.map((seg) => ({ ...seg })) : undefined,
           weight: String(safeNum(ex.default_weight, 0)),
           reps: String(safeNum(ex.default_reps, 0)),
           flags: ex.flags || "",
@@ -255,6 +299,7 @@ export default function TrainingCapturePage() {
 
     setDraftRows(out);
   }
+
 
   React.useEffect(() => {
     if (!owner) return;
@@ -271,6 +316,18 @@ export default function TrainingCapturePage() {
 
   function updateDraftRow(draftId: string, patch: Partial<DraftSetRow>) {
     setDraftRows((prev) => prev.map((r) => (r.draft_id === draftId ? { ...r, ...patch } : r)));
+  }
+
+  function updateDraftSegment(draftId: string, segmentIndex: number, patch: Partial<DraftSetSegmentRow>) {
+    setDraftRows((prev) =>
+      prev.map((row) => {
+        if (row.draft_id !== draftId) return row;
+        const segments = (row.segments || []).map((seg) =>
+          seg.segment_index === segmentIndex ? { ...seg, ...patch } : seg
+        );
+        return { ...row, segments };
+      })
+    );
   }
 
   function addSetAfter(row: DraftSetRow) {
@@ -301,6 +358,10 @@ export default function TrainingCapturePage() {
     if (!owner || !selected) return;
 
     const validRows = doneRows.filter((r) => {
+      if (r.set_type === "drop") {
+        return (r.segments || []).some((seg) => safeNum(seg.weight, 0) >= 0 && safeNum(seg.reps, 0) > 0);
+      }
+
       const weight = safeNum(r.weight, 0);
       const reps = safeNum(r.reps, 0);
       return Number.isFinite(weight) && weight >= 0 && Number.isFinite(reps) && reps > 0;
@@ -444,7 +505,7 @@ export default function TrainingCapturePage() {
               <button
                 type="button"
                 className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
-                onClick={() => buildDraftRows(templateExercises)}
+                onClick={() => void buildDraftRows(templateExercises)}
                 disabled={!templateExercises.length}
               >
                 Reset draft from template
@@ -516,45 +577,83 @@ export default function TrainingCapturePage() {
                         >
                           <div className="text-xs text-muted-foreground">Set {row.set_index}</div>
 
-                          <label className="text-xs">
-                            <div className="text-muted-foreground">Weight</div>
-                            <input
-                              className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                              inputMode="decimal"
-                              value={row.weight}
-                              onChange={(e) => {
-                                const value = e.currentTarget.value;
-                                updateDraftRow(row.draft_id, { weight: value });
-                              }}
-                            />
-                          </label>
+                            {row.set_type === "drop" ? (
+                              <div className="grid gap-2 sm:col-span-3">
+                                {(row.segments || []).map((seg) => (
+                                  <div
+                                    key={`${row.draft_id}:${seg.segment_index}`}
+                                    className="grid gap-2 rounded-lg border p-2 sm:grid-cols-[5rem_1fr_1fr]"
+                                  >
+                                    <div className="text-xs text-muted-foreground">{seg.label}</div>
 
-                          <label className="text-xs">
-                            <div className="text-muted-foreground">Reps</div>
-                            <input
-                              className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                              inputMode="numeric"
-                              value={row.reps}
-                              onChange={(e) => {
-                                const value = e.currentTarget.value;
-                                updateDraftRow(row.draft_id, { reps: value });
-                              }}
-                            />
-                          </label>
+                                    <label className="text-xs">
+                                      <div className="text-muted-foreground">Weight</div>
+                                      <input
+                                        className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
+                                        inputMode="decimal"
+                                        value={seg.weight}
+                                        onChange={(e) =>
+                                          updateDraftSegment(row.draft_id, seg.segment_index, { weight: e.currentTarget.value })
+                                        }
+                                      />
+                                    </label>
 
-                          <label className="text-xs">
-                            <div className="text-muted-foreground">Notes</div>
-                            <input
-                              className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                              value={row.flags}
-                              onChange={(e) => {
-                                const value = e.currentTarget.value;
-                                updateDraftRow(row.draft_id, { flags: value });
-                              }}
-                              placeholder="optional note"
-                            />
-                          </label>
+                                    <label className="text-xs">
+                                      <div className="text-muted-foreground">Reps</div>
+                                      <input
+                                        className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
+                                        inputMode="numeric"
+                                        value={seg.reps}
+                                        onChange={(e) =>
+                                          updateDraftSegment(row.draft_id, seg.segment_index, { reps: e.currentTarget.value })
+                                        }
+                                      />
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <>
+                                <label className="text-xs">
+                                  <div className="text-muted-foreground">Weight</div>
+                                  <input
+                                    className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
+                                    inputMode="decimal"
+                                    value={row.weight}
+                                    onChange={(e) => {
+                                      const value = e.currentTarget.value;
+                                      updateDraftRow(row.draft_id, { weight: value });
+                                    }}
+                                  />
+                                </label>
 
+                                <label className="text-xs">
+                                  <div className="text-muted-foreground">Reps</div>
+                                  <input
+                                    className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
+                                    inputMode="numeric"
+                                    value={row.reps}
+                                    onChange={(e) => {
+                                      const value = e.currentTarget.value;
+                                      updateDraftRow(row.draft_id, { reps: value });
+                                    }}
+                                  />
+                                </label>
+
+                                <label className="text-xs">
+                                  <div className="text-muted-foreground">Notes</div>
+                                  <input
+                                    className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
+                                    value={row.flags}
+                                    onChange={(e) => {
+                                      const value = e.currentTarget.value;
+                                      updateDraftRow(row.draft_id, { flags: value });
+                                    }}
+                                    placeholder="optional note"
+                                  />
+                                </label>
+                              </>
+                            )}
                             <button
                               type="button"
                               className={[
