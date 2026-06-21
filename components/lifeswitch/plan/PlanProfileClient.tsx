@@ -54,6 +54,16 @@ type TrainingDraft = {
   recovery_constraints: string;
 };
 
+type BodyStateDraft = {
+  weight_lb: string;
+  waist_in: string;
+  measurements: string;
+  body_fat_percent: string;
+  measurement_method: string;
+  calipers: string;
+  body_scan: string;
+};
+
 const PHASE_LABELS: Record<string, string> = {
   cut: "Cut",
   maintenance: "Maintenance",
@@ -127,6 +137,32 @@ function draftFromTrainingTargets(plan: PlanProfile | null): TrainingDraft {
     priority_areas: valueToDisplay(t.priority_areas ?? t.weak_points),
     progression_rule: valueToDisplay(t.progression_rule ?? t.progression),
     recovery_constraints: valueToDisplay(t.recovery_constraints ?? t.constraints),
+  };
+}
+
+function emptyBodyStateDraft(): BodyStateDraft {
+  return {
+    weight_lb: "",
+    waist_in: "",
+    measurements: "",
+    body_fat_percent: "",
+    measurement_method: "",
+    calipers: "",
+    body_scan: "",
+  };
+}
+
+function draftFromBodyState(plan: PlanProfile | null): BodyStateDraft {
+  const b = asObject(plan?.body_state);
+
+  return {
+    weight_lb: valueToDisplay(b.weight_lb ?? b.weight ?? b.body_weight),
+    waist_in: valueToDisplay(b.waist_in ?? b.waist),
+    measurements: valueToDisplay(b.measurements),
+    body_fat_percent: valueToDisplay(b.body_fat_percent ?? b.body_composition),
+    measurement_method: valueToDisplay(b.measurement_method ?? b.method),
+    calipers: valueToDisplay(b.calipers ?? b.caliper_sites),
+    body_scan: valueToDisplay(b.body_scan ?? b.scan),
   };
 }
 
@@ -324,6 +360,10 @@ export function PlanProfileClient() {
   const [savingTraining, setSavingTraining] = React.useState(false);
   const [trainingDraft, setTrainingDraft] = React.useState<TrainingDraft>(() => emptyTrainingDraft());
 
+  const [editingBodyState, setEditingBodyState] = React.useState(false);
+  const [savingBodyState, setSavingBodyState] = React.useState(false);
+  const [bodyStateDraft, setBodyStateDraft] = React.useState<BodyStateDraft>(() => emptyBodyStateDraft());
+
   React.useEffect(() => {
     let alive = true;
 
@@ -357,6 +397,7 @@ export function PlanProfileClient() {
           setPhaseDraft(draftFromPlan(loaded));
           setNutritionDraft(draftFromNutritionTargets(loaded));
           setTrainingDraft(draftFromTrainingTargets(loaded));
+          setBodyStateDraft(draftFromBodyState(loaded));
           setStatus("ready");
         }
       } catch (e) {
@@ -418,6 +459,7 @@ export function PlanProfileClient() {
       setPhaseDraft(draftFromPlan(saved));
       setNutritionDraft(draftFromNutritionTargets(saved));
       setTrainingDraft(draftFromTrainingTargets(saved));
+      setBodyStateDraft(draftFromBodyState(saved));
       setEditingPhase(false);
       setStatus("ready");
       setSaveMessage("Saved current phase.");
@@ -485,6 +527,7 @@ export function PlanProfileClient() {
       setPhaseDraft(draftFromPlan(saved));
       setNutritionDraft(draftFromNutritionTargets(saved));
       setTrainingDraft(draftFromTrainingTargets(saved));
+      setBodyStateDraft(draftFromBodyState(saved));
       setEditingNutrition(false);
       setStatus("ready");
       setSaveMessage("Saved nutrition targets.");
@@ -552,6 +595,7 @@ export function PlanProfileClient() {
       setPhaseDraft(draftFromPlan(saved));
       setNutritionDraft(draftFromNutritionTargets(saved));
       setTrainingDraft(draftFromTrainingTargets(saved));
+      setBodyStateDraft(draftFromBodyState(saved));
       setEditingTraining(false);
       setStatus("ready");
       setSaveMessage("Saved training targets.");
@@ -561,6 +605,76 @@ export function PlanProfileClient() {
       setStatus("error");
     } finally {
       setSavingTraining(false);
+    }
+  }
+
+  async function saveBodyState() {
+    setSavingBodyState(true);
+    setSaveMessage("");
+    setError("");
+
+    try {
+      const payload = {
+        phase: plan?.phase || "maintenance",
+        phase_label: plan?.phase_label || "",
+        primary_goal: plan?.primary_goal || "",
+        start_date: plan?.start_date || null,
+        review_date: plan?.review_date || null,
+        review_cadence: plan?.review_cadence || "weekly",
+
+        body_state: {
+          weight_lb: bodyStateDraft.weight_lb,
+          waist_in: bodyStateDraft.waist_in,
+          measurements: bodyStateDraft.measurements,
+          body_fat_percent: bodyStateDraft.body_fat_percent,
+          measurement_method: bodyStateDraft.measurement_method,
+          calipers: bodyStateDraft.calipers,
+          body_scan: bodyStateDraft.body_scan,
+        },
+        nutrition_targets: asObject(plan?.nutrition_targets),
+        training_targets: asObject(plan?.training_targets),
+        conditioning_targets: asObject(plan?.conditioning_targets),
+        activity_targets: asObject(plan?.activity_targets),
+        recovery_targets: asObject(plan?.recovery_targets),
+        monitoring_rules: asObject(plan?.monitoring_rules),
+
+        coach_notes: plan?.coach_notes || "",
+      };
+
+      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=body_state_editor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(payload),
+      });
+
+      const text = await r.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        throw new Error(text || `HTTP ${r.status}`);
+      }
+
+      if (!r.ok) {
+        throw new Error(data?.detail || data?.error || `HTTP ${r.status}`);
+      }
+
+      const saved = data as PlanProfile;
+      setPlan(saved);
+      setPhaseDraft(draftFromPlan(saved));
+      setNutritionDraft(draftFromNutritionTargets(saved));
+      setTrainingDraft(draftFromTrainingTargets(saved));
+      setBodyStateDraft(draftFromBodyState(saved));
+      setEditingBodyState(false);
+      setStatus("ready");
+      setSaveMessage("Saved body state.");
+    } catch (e) {
+      setSaveMessage("");
+      setError(String(e));
+      setStatus("error");
+    } finally {
+      setSavingBodyState(false);
     }
   }
 
@@ -922,13 +1036,106 @@ export function PlanProfileClient() {
 
         <div className="grid gap-4">
           <SectionCard id="body-state" eyebrow="Dependent variables" title="Current Body State">
-            <div className="grid gap-1">
-              <PlanRow label="Weight" value={readValue(bodyState, ["weight_lb", "weight", "body_weight"], "Current body weight and trend")} />
-              <PlanRow label="Measurements" value={readValue(bodyState, ["measurements", "waist_in", "waist"], "Waist, chest, arms, thighs, hips, calves")} />
-              <PlanRow label="Body composition" value={readValue(bodyState, ["body_fat_percent", "body_composition"], "Estimate method and confidence")} />
-              <PlanRow label="Calipers" value={readValue(bodyState, ["calipers", "caliper_sites"], "Site measurements and formula later")} />
-              <PlanRow label="Body scan" value={readValue(bodyState, ["body_scan", "scan"], "DEXA / InBody / 3D scan placeholder")} />
-            </div>
+            {editingBodyState ? (
+              <div className="grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <FieldInput
+                    label="Weight"
+                    value={bodyStateDraft.weight_lb}
+                    placeholder="Current body weight / trend"
+                    onChange={(value) => setBodyStateDraft((d) => ({ ...d, weight_lb: value }))}
+                  />
+
+                  <FieldInput
+                    label="Waist"
+                    value={bodyStateDraft.waist_in}
+                    placeholder="Waist measurement"
+                    onChange={(value) => setBodyStateDraft((d) => ({ ...d, waist_in: value }))}
+                  />
+
+                  <FieldInput
+                    label="Body fat %"
+                    value={bodyStateDraft.body_fat_percent}
+                    placeholder="Estimate or range"
+                    onChange={(value) => setBodyStateDraft((d) => ({ ...d, body_fat_percent: value }))}
+                  />
+
+                  <FieldInput
+                    label="Method"
+                    value={bodyStateDraft.measurement_method}
+                    placeholder="Scale, calipers, scan, manual"
+                    onChange={(value) => setBodyStateDraft((d) => ({ ...d, measurement_method: value }))}
+                  />
+                </div>
+
+                <FieldTextArea
+                  label="Measurements"
+                  value={bodyStateDraft.measurements}
+                  placeholder="Waist, chest, arms, thighs, hips, calves."
+                  onChange={(value) => setBodyStateDraft((d) => ({ ...d, measurements: value }))}
+                />
+
+                <FieldTextArea
+                  label="Calipers"
+                  value={bodyStateDraft.calipers}
+                  placeholder="Caliper sites, formula, or notes."
+                  onChange={(value) => setBodyStateDraft((d) => ({ ...d, calipers: value }))}
+                />
+
+                <FieldTextArea
+                  label="Body scan"
+                  value={bodyStateDraft.body_scan}
+                  placeholder="DEXA / InBody / 3D scan details or future placeholder."
+                  onChange={(value) => setBodyStateDraft((d) => ({ ...d, body_scan: value }))}
+                />
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => void saveBodyState()}
+                    disabled={savingBodyState || status === "unauthorized"}
+                  >
+                    {savingBodyState ? "Saving…" : "Save body state"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                    onClick={() => {
+                      setBodyStateDraft(draftFromBodyState(plan));
+                      setEditingBodyState(false);
+                      setSaveMessage("");
+                    }}
+                    disabled={savingBodyState}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-1">
+                <PlanRow label="Weight" value={readValue(bodyState, ["weight_lb", "weight", "body_weight"], "Current body weight and trend")} />
+                <PlanRow label="Measurements" value={readValue(bodyState, ["measurements", "waist_in", "waist"], "Waist, chest, arms, thighs, hips, calves")} />
+                <PlanRow label="Body composition" value={readValue(bodyState, ["body_fat_percent", "body_composition"], "Estimate method and confidence")} />
+                <PlanRow label="Calipers" value={readValue(bodyState, ["calipers", "caliper_sites"], "Site measurements and formula later")} />
+                <PlanRow label="Body scan" value={readValue(bodyState, ["body_scan", "scan"], "DEXA / InBody / 3D scan placeholder")} />
+                <div className="pt-3">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => {
+                      setBodyStateDraft(draftFromBodyState(plan));
+                      setEditingBodyState(true);
+                      setSaveMessage("");
+                    }}
+                    disabled={status === "loading" || status === "unauthorized"}
+                  >
+                    Edit body state
+                  </button>
+                </div>
+              </div>
+            )}
           </SectionCard>
 
           <SectionCard id="recovery-targets" eyebrow="Recovery prescription" title="Sleep and Recovery">
