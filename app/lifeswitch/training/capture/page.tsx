@@ -152,6 +152,7 @@ export default function TrainingCapturePage() {
   const [flash, setFlash] = React.useState("");
   const [draftRows, setDraftRows] = React.useState<DraftSetRow[]>([]);
   const [finishLoading, setFinishLoading] = React.useState(false);
+  const [prefillSource, setPrefillSource] = React.useState("Using workout template defaults");
 
   const selected = React.useMemo(() => {
     return templates.find((t) => t.workout_template_id === selectedId) || null;
@@ -386,6 +387,7 @@ export default function TrainingCapturePage() {
 
   async function buildDraftRows(rows: WorkoutTemplateExerciseRow[], workoutTemplateIdOverride?: string) {
     const out: DraftSetRow[] = [];
+    let usedLastSession = false;
     const workoutTemplateId = workoutTemplateIdOverride || selectedId;
     const lastRowsByExercise = workoutTemplateId
       ? await loadLastSessionDraftRows(workoutTemplateId, rows)
@@ -399,6 +401,7 @@ export default function TrainingCapturePage() {
       const previousRows = lastRowsByExercise.get(ex.exercise_id) || [];
 
       if (previousRows.length) {
+        usedLastSession = true;
         for (const prev of previousRows) {
           out.push({
             ...prev,
@@ -431,6 +434,7 @@ export default function TrainingCapturePage() {
     }
 
     setDraftRows(out);
+    setPrefillSource(usedLastSession ? "Prefilled from last logged session" : "Using workout template defaults");
   }
 
   React.useEffect(() => {
