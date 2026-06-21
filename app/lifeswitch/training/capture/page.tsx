@@ -64,6 +64,41 @@ type DraftSetRow = {
   done: boolean;
 };
 
+type TrainingSessionRow = {
+  training_session_id: string;
+  workout_template_id?: string | null;
+  day: string;
+  name: string;
+  created_at: string;
+  is_active?: boolean;
+};
+
+type TrainingSetLogRow = {
+  training_set_log_id: string;
+  training_session_id: string;
+  exercise_id: string;
+  exercise_name: string;
+  exercise_sort_order: number;
+  set_index: number;
+  set_type?: string | null;
+  weight: number;
+  reps: number;
+  volume: number;
+  flags?: string | null;
+  notes?: string | null;
+};
+
+type TrainingSetLogSegmentRow = {
+  training_set_log_segment_id?: string;
+  training_set_log_id: string;
+  segment_index: number;
+  label?: string | null;
+  weight: number;
+  reps: number;
+  volume: number;
+  notes?: string | null;
+};
+
 function pad2(n: number) {
   return n < 10 ? `0${n}` : String(n);
 }
@@ -270,14 +305,112 @@ export default function TrainingCapturePage() {
     }
   }
 
-  async function buildDraftRows(rows: WorkoutTemplateExerciseRow[]) {
+  async function loadLastSessionDraftRows(
+    workoutTemplateId: string,
+    templateRows: WorkoutTemplateExerciseRow[]
+  ): Promise<Map<string, DraftSetRow[]>> {
+    const result = new Map<string, DraftSetRow[]>();
+
+    try {
+      const sessions = (await fetchJson("/api/lifeswitch/training/sessions?limit=100")) as TrainingSessionRow[];
+      const latest = (Array.isArray(sessions) ? sessions : [])
+        .filter((session) => String(session.workout_template_id || "") === workoutTemplateId)
+        .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))[0];
+
+      if (!latest?.training_session_id) return result;
+
+      const setRows = (await fetchJson(
+        `/api/lifeswitch/training/sessions/${encodeURIComponent(latest.training_session_id)}/sets`
+      )) as TrainingSetLogRow[];
+
+      const sortedSets = (Array.isArray(setRows) ? setRows : []).slice().sort((a, b) => {
+        const c = safeNum(a.exercise_sort_order, 0) - safeNum(b.exercise_sort_order, 0);
+        if (c !== 0) return c;
+        return safeNum(a.set_index, 0) - safeNum(b.set_index, 0);
+      });
+
+      const templateByExercise = new Map<string, WorkoutTemplateExerciseRow>();
+      for (const row of templateRows) {
+        templateByExercise.set(row.exercise_id, row);
+      }
+
+      for (const setRow of sortedSets) {
+        const template = templateByExercise.get(setRow.exercise_id);
+        if (!template) continue;
+
+        const setType = String(setRow.set_type || template.set_type || "straight").toLowerCase();
+
+        let segments: DraftSetSegmentRow[] | undefined = undefined;
+        if (setType === "drop") {
+          const segRows = (await fetchJson(
+            `/api/lifeswitch/training/sessions/${encodeURIComponent(latest.training_session_id)}/sets/${encodeURIComponent(setRow.training_set_log_id)}/segments`
+          )) as TrainingSetLogSegmentRow[];
+
+          const sortedSegs = (Array.isArray(segRows) ? segRows : []).slice().sort(
+            (a, b) => safeNum(a.segment_index, 0) - safeNum(b.segment_index, 0)
+          );
+
+          segments = sortedSegs.map((seg) => ({
+            segment_index: safeNum(seg.segment_index, 0),
+            label: seg.label || (safeNum(seg.segment_index, 0) === 1 ? "Start" : `Drop ${safeNum(seg.segment_index, 1) - 1}`),
+            weight: String(safeNum(seg.weight, 0)),
+            reps: String(safeNum(seg.reps, 0) || ""),
+            notes: seg.notes || "",
+          }));
+        }
+
+        const draft: DraftSetRow = {
+          draft_id: makeDraftId(setRow.exercise_id, safeNum(setRow.set_index, 0)),
+          exercise_id: setRow.exercise_id,
+          exercise_name: setRow.exercise_name || setRow.exercise_id,
+          exercise_sort_order: safeNum(setRow.exercise_sort_order, template.sort_order || 0),
+          set_index: safeNum(setRow.set_index, 0),
+          set_type: setType,
+          segments,
+          weight: String(safeNum(setRow.weight, 0)),
+          reps: String(safeNum(setRow.reps, 0) || ""),
+          flags: setRow.flags || "",
+          done: false,
+        };
+
+        const arr = result.get(setRow.exercise_id) || [];
+        arr.push(draft);
+        result.set(setRow.exercise_id, arr);
+      }
+    } catch {
+      return result;
+    }
+
+    return result;
+  }
+
+  async function buildDraftRows(rows: WorkoutTemplateExerciseRow[], workoutTemplateIdOverride?: string) {
     const out: DraftSetRow[] = [];
+    const workoutTemplateId = workoutTemplateIdOverride || selectedId;
+    const lastRowsByExercise = workoutTemplateId
+      ? await loadLastSessionDraftRows(workoutTemplateId, rows)
+      : new Map<string, DraftSetRow[]>();
 
     for (const ex of rows) {
       const meta = myExercisesById.get(ex.exercise_id);
       const exerciseName = meta?.display_name || ex.exercise_id;
       const plannedSets = Math.max(0, Math.floor(safeNum(ex.planned_sets, 0)));
       const setType = String(ex.set_type || "straight").toLowerCase();
+      const previousRows = lastRowsByExercise.get(ex.exercise_id) || [];
+
+      if (previousRows.length) {
+        for (const prev of previousRows) {
+          out.push({
+            ...prev,
+            draft_id: makeDraftId(prev.exercise_id, prev.set_index),
+            exercise_name: exerciseName,
+            exercise_sort_order: safeNum(ex.sort_order, prev.exercise_sort_order),
+            done: false,
+          });
+        }
+        continue;
+      }
+
       const templateSegments = setType === "drop" ? await loadTemplateExerciseSegments(ex.workout_template_exercise_id) : [];
 
       for (let i = 1; i <= plannedSets; i++) {
@@ -299,7 +432,6 @@ export default function TrainingCapturePage() {
 
     setDraftRows(out);
   }
-
 
   React.useEffect(() => {
     if (!owner) return;
