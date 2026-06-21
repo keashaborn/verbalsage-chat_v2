@@ -18,6 +18,7 @@ type WorkoutTemplateExerciseRow = {
   workout_template_exercise_id: string;
   workout_template_id: string;
   exercise_id: string;
+  display_name_snapshot?: string | null;
   sort_order: number;
   set_type?: "straight" | "drop" | string;
   planned_sets: number;
@@ -395,7 +396,7 @@ export default function TrainingCapturePage() {
 
     for (const ex of rows) {
       const meta = myExercisesById.get(ex.exercise_id);
-      const exerciseName = meta?.display_name || ex.exercise_id;
+      const exerciseName = ex.display_name_snapshot || meta?.display_name || ex.exercise_id;
       const plannedSets = Math.max(0, Math.floor(safeNum(ex.planned_sets, 0)));
       const setType = String(ex.set_type || "straight").toLowerCase();
       const previousRows = lastRowsByExercise.get(ex.exercise_id) || [];

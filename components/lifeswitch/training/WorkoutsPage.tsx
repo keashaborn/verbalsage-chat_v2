@@ -45,6 +45,7 @@ type WorkoutTemplateExerciseRow = {
   workout_template_exercise_id: string;
   workout_template_id: string;
   exercise_id: string;
+  display_name_snapshot?: string | null;
   sort_order: number;
   set_type?: "straight" | "drop" | string;
   planned_sets: number;
@@ -389,7 +390,7 @@ export default function TrainingWorkoutsPage() {
         });
       }
 
-      await addExerciseToSelected(hit.exercise_id);
+      await addExerciseToSelected(hit.exercise_id, hit.display_name);
       setAddStatus(`Added ${hit.display_name}`);
     } catch (e: any) {
       setAddStatus(`add failed: ${String(e?.message || e)}`);
@@ -413,13 +414,13 @@ export default function TrainingWorkoutsPage() {
         matched_source: "custom",
       });
 
-      await addExerciseToSelected(row.exercise_id);
+      await addExerciseToSelected(row.exercise_id, row.display_name);
       setAddStatus(`Created and added ${row.display_name}`);
     } catch (e: any) {
       setAddStatus(`custom create failed: ${String(e?.message || e)}`);
     }
   }
-  async function addExerciseToSelected(exercise_id: string) {
+  async function addExerciseToSelected(exercise_id: string, display_name_snapshot?: string) {
     if (!owner || !selected) return;
     if (templateExercises.some((e) => e.exercise_id === exercise_id)) return;
 
@@ -615,6 +616,7 @@ export default function TrainingWorkoutsPage() {
         body: JSON.stringify({
           workout_template_exercise_id,
           exercise_id: row.exercise_id,
+          display_name_snapshot: patch.display_name_snapshot ?? row.display_name_snapshot ?? undefined,
             set_type: patch.set_type ?? row.set_type ?? "straight",
           planned_sets: patch.planned_sets ?? row.planned_sets,
           default_weight: patch.default_weight ?? row.default_weight,
@@ -792,7 +794,7 @@ export default function TrainingWorkoutsPage() {
                   <div className="mt-3 space-y-2">
                     {templateExercises.map((e) => {
                       const meta = myExercisesById.get(e.exercise_id);
-                      const title = meta?.display_name || e.exercise_id;
+                      const title = e.display_name_snapshot || meta?.display_name || e.exercise_id;
                       const open = openExerciseIds[e.workout_template_exercise_id] || false;
                       const segments = templateExerciseSegments[e.workout_template_exercise_id] || [];
                       const segmentsLoading = segmentLoadingIds[e.workout_template_exercise_id] || false;
@@ -1027,7 +1029,7 @@ export default function TrainingWorkoutsPage() {
                                 <button
                                   type="button"
                                   className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
-                                  onClick={() => void addExerciseToSelected(h.exercise_id)}
+                                  onClick={() => void addExerciseToSelected(h.exercise_id, h.display_name)}
                                   disabled={!owner || !selected || alreadyIn}
                                   title="Add exercise to workout"
                                 >
