@@ -46,6 +46,14 @@ type NutritionDraft = {
   adherence_target: string;
 };
 
+type TrainingDraft = {
+  split: string;
+  workouts_per_week: string;
+  priority_areas: string;
+  progression_rule: string;
+  recovery_constraints: string;
+};
+
 const PHASE_LABELS: Record<string, string> = {
   cut: "Cut",
   maintenance: "Maintenance",
@@ -97,6 +105,28 @@ function draftFromNutritionTargets(plan: PlanProfile | null): NutritionDraft {
     macro_notes: valueToDisplay(t.macro_notes ?? t.carbs_fat ?? t.macros),
     meal_structure: valueToDisplay(t.meal_structure ?? t.meals ?? t.meal_timing),
     adherence_target: valueToDisplay(t.adherence_target ?? t.adherence),
+  };
+}
+
+function emptyTrainingDraft(): TrainingDraft {
+  return {
+    split: "",
+    workouts_per_week: "",
+    priority_areas: "",
+    progression_rule: "",
+    recovery_constraints: "",
+  };
+}
+
+function draftFromTrainingTargets(plan: PlanProfile | null): TrainingDraft {
+  const t = asObject(plan?.training_targets);
+
+  return {
+    split: valueToDisplay(t.split ?? t.weekly_split),
+    workouts_per_week: valueToDisplay(t.workouts_per_week ?? t.frequency),
+    priority_areas: valueToDisplay(t.priority_areas ?? t.weak_points),
+    progression_rule: valueToDisplay(t.progression_rule ?? t.progression),
+    recovery_constraints: valueToDisplay(t.recovery_constraints ?? t.constraints),
   };
 }
 
@@ -290,6 +320,10 @@ export function PlanProfileClient() {
   const [savingNutrition, setSavingNutrition] = React.useState(false);
   const [nutritionDraft, setNutritionDraft] = React.useState<NutritionDraft>(() => emptyNutritionDraft());
 
+  const [editingTraining, setEditingTraining] = React.useState(false);
+  const [savingTraining, setSavingTraining] = React.useState(false);
+  const [trainingDraft, setTrainingDraft] = React.useState<TrainingDraft>(() => emptyTrainingDraft());
+
   React.useEffect(() => {
     let alive = true;
 
@@ -322,6 +356,7 @@ export function PlanProfileClient() {
           setPlan(loaded);
           setPhaseDraft(draftFromPlan(loaded));
           setNutritionDraft(draftFromNutritionTargets(loaded));
+          setTrainingDraft(draftFromTrainingTargets(loaded));
           setStatus("ready");
         }
       } catch (e) {
@@ -382,6 +417,7 @@ export function PlanProfileClient() {
       setPlan(saved);
       setPhaseDraft(draftFromPlan(saved));
       setNutritionDraft(draftFromNutritionTargets(saved));
+      setTrainingDraft(draftFromTrainingTargets(saved));
       setEditingPhase(false);
       setStatus("ready");
       setSaveMessage("Saved current phase.");
@@ -448,6 +484,7 @@ export function PlanProfileClient() {
       setPlan(saved);
       setPhaseDraft(draftFromPlan(saved));
       setNutritionDraft(draftFromNutritionTargets(saved));
+      setTrainingDraft(draftFromTrainingTargets(saved));
       setEditingNutrition(false);
       setStatus("ready");
       setSaveMessage("Saved nutrition targets.");
@@ -457,6 +494,73 @@ export function PlanProfileClient() {
       setStatus("error");
     } finally {
       setSavingNutrition(false);
+    }
+  }
+
+  async function saveTrainingTargets() {
+    setSavingTraining(true);
+    setSaveMessage("");
+    setError("");
+
+    try {
+      const payload = {
+        phase: plan?.phase || "maintenance",
+        phase_label: plan?.phase_label || "",
+        primary_goal: plan?.primary_goal || "",
+        start_date: plan?.start_date || null,
+        review_date: plan?.review_date || null,
+        review_cadence: plan?.review_cadence || "weekly",
+
+        body_state: asObject(plan?.body_state),
+        nutrition_targets: asObject(plan?.nutrition_targets),
+        training_targets: {
+          split: trainingDraft.split,
+          workouts_per_week: trainingDraft.workouts_per_week,
+          priority_areas: trainingDraft.priority_areas,
+          progression_rule: trainingDraft.progression_rule,
+          recovery_constraints: trainingDraft.recovery_constraints,
+        },
+        conditioning_targets: asObject(plan?.conditioning_targets),
+        activity_targets: asObject(plan?.activity_targets),
+        recovery_targets: asObject(plan?.recovery_targets),
+        monitoring_rules: asObject(plan?.monitoring_rules),
+
+        coach_notes: plan?.coach_notes || "",
+      };
+
+      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=training_targets_editor", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(payload),
+      });
+
+      const text = await r.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        throw new Error(text || `HTTP ${r.status}`);
+      }
+
+      if (!r.ok) {
+        throw new Error(data?.detail || data?.error || `HTTP ${r.status}`);
+      }
+
+      const saved = data as PlanProfile;
+      setPlan(saved);
+      setPhaseDraft(draftFromPlan(saved));
+      setNutritionDraft(draftFromNutritionTargets(saved));
+      setTrainingDraft(draftFromTrainingTargets(saved));
+      setEditingTraining(false);
+      setStatus("ready");
+      setSaveMessage("Saved training targets.");
+    } catch (e) {
+      setSaveMessage("");
+      setError(String(e));
+      setStatus("error");
+    } finally {
+      setSavingTraining(false);
     }
   }
 
@@ -709,21 +813,100 @@ export function PlanProfileClient() {
           </SectionCard>
 
           <SectionCard id="training-targets" eyebrow="Strength prescription" title="Strength Training Targets">
-            <div className="grid gap-1">
-              <PlanRow label="Split" value={readValue(trainingTargets, ["split", "weekly_split"], "Current weekly split and training days")} />
-              <PlanRow label="Frequency" value={readValue(trainingTargets, ["workouts_per_week", "frequency"], "Workouts per week and expected duration")} />
-              <PlanRow label="Priority areas" value={readValue(trainingTargets, ["priority_areas", "weak_points"], "Weak points, priority lifts, muscles, or movement patterns")} />
-              <PlanRow label="Progression rule" value={readValue(trainingTargets, ["progression_rule", "progression"], "How load, reps, sets, or effort should change")} />
-              <PlanRow label="Recovery constraints" value={readValue(trainingTargets, ["recovery_constraints", "constraints"], "Pain, surgery limits, fatigue, soreness, deload triggers")} />
-              <div className="pt-2 text-xs">
-                Related:{" "}
-                <Link href="/lifeswitch/training/workouts" className="underline">Strength Workouts</Link>
-                {" · "}
-                <Link href="/lifeswitch/training/capture" className="underline">Training Capture</Link>
-                {" · "}
-                <Link href="/lifeswitch/training/calendar" className="underline">Training Log</Link>
+            {editingTraining ? (
+              <div className="grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <FieldInput
+                    label="Split"
+                    value={trainingDraft.split}
+                    placeholder="Current weekly split and training days"
+                    onChange={(value) => setTrainingDraft((d) => ({ ...d, split: value }))}
+                  />
+
+                  <FieldInput
+                    label="Frequency"
+                    value={trainingDraft.workouts_per_week}
+                    placeholder="Workouts per week and expected duration"
+                    onChange={(value) => setTrainingDraft((d) => ({ ...d, workouts_per_week: value }))}
+                  />
+                </div>
+
+                <FieldTextArea
+                  label="Priority areas"
+                  value={trainingDraft.priority_areas}
+                  placeholder="Weak points, priority lifts, muscles, or movement patterns."
+                  onChange={(value) => setTrainingDraft((d) => ({ ...d, priority_areas: value }))}
+                />
+
+                <FieldTextArea
+                  label="Progression rule"
+                  value={trainingDraft.progression_rule}
+                  placeholder="How load, reps, sets, or effort should change."
+                  onChange={(value) => setTrainingDraft((d) => ({ ...d, progression_rule: value }))}
+                />
+
+                <FieldTextArea
+                  label="Recovery constraints"
+                  value={trainingDraft.recovery_constraints}
+                  placeholder="Pain, surgery limits, fatigue, soreness, deload triggers."
+                  onChange={(value) => setTrainingDraft((d) => ({ ...d, recovery_constraints: value }))}
+                />
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => void saveTrainingTargets()}
+                    disabled={savingTraining || status === "unauthorized"}
+                  >
+                    {savingTraining ? "Saving…" : "Save training targets"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                    onClick={() => {
+                      setTrainingDraft(draftFromTrainingTargets(plan));
+                      setEditingTraining(false);
+                      setSaveMessage("");
+                    }}
+                    disabled={savingTraining}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid gap-1">
+                <PlanRow label="Split" value={readValue(trainingTargets, ["split", "weekly_split"], "Current weekly split and training days")} />
+                <PlanRow label="Frequency" value={readValue(trainingTargets, ["workouts_per_week", "frequency"], "Workouts per week and expected duration")} />
+                <PlanRow label="Priority areas" value={readValue(trainingTargets, ["priority_areas", "weak_points"], "Weak points, priority lifts, muscles, or movement patterns")} />
+                <PlanRow label="Progression rule" value={readValue(trainingTargets, ["progression_rule", "progression"], "How load, reps, sets, or effort should change")} />
+                <PlanRow label="Recovery constraints" value={readValue(trainingTargets, ["recovery_constraints", "constraints"], "Pain, surgery limits, fatigue, soreness, deload triggers")} />
+                <div className="pt-2 text-xs">
+                  Related:{" "}
+                  <Link href="/lifeswitch/training/workouts" className="underline">Strength Workouts</Link>
+                  {" · "}
+                  <Link href="/lifeswitch/training/capture" className="underline">Training Capture</Link>
+                  {" · "}
+                  <Link href="/lifeswitch/training/calendar" className="underline">Training Log</Link>
+                </div>
+                <div className="pt-3">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                    onClick={() => {
+                      setTrainingDraft(draftFromTrainingTargets(plan));
+                      setEditingTraining(true);
+                      setSaveMessage("");
+                    }}
+                    disabled={status === "loading" || status === "unauthorized"}
+                  >
+                    Edit training targets
+                  </button>
+                </div>
+              </div>
+            )}
           </SectionCard>
 
           <SectionCard id="conditioning-targets" eyebrow="Cardio / conditioning" title="Conditioning and Daily Activity Targets">
