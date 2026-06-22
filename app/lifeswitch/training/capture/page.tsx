@@ -155,7 +155,7 @@ export default function TrainingCapturePage() {
   const [flash, setFlash] = React.useState("");
   const [draftRows, setDraftRows] = React.useState<DraftSetRow[]>([]);
   const [finishLoading, setFinishLoading] = React.useState(false);
-  const [prefillSource, setPrefillSource] = React.useState("Using workout template defaults");
+  const [prefillSource, setPrefillSource] = React.useState("Select a workout template to begin");
 
   const selected = React.useMemo(() => {
     return templates.find((t) => t.workout_template_id === selectedId) || null;
@@ -232,7 +232,6 @@ export default function TrainingCapturePage() {
       const active = Array.isArray(list) ? list.filter((x) => x?.is_active) : [];
 
       setTemplates(active);
-      if (!selectedId && active.length) setSelectedId(active[0].workout_template_id);
     } catch (e: any) {
       setTemplates([]);
       setStatus(String(e?.message || e));
