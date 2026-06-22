@@ -81,6 +81,7 @@ export default function ConditioningPage() {
   const [loading, setLoading] = React.useState(false);
   const [status, setStatus] = React.useState("");
   const [query, setQuery] = React.useState("");
+  const [categoryFilter, setCategoryFilter] = React.useState("");
   const [libraryOpen, setLibraryOpen] = React.useState(true);
   const [libraryTouched, setLibraryTouched] = React.useState(false);
 
@@ -99,10 +100,19 @@ export default function ConditioningPage() {
     setLibraryOpen(prescriptions.length === 0);
   }, [libraryTouched, prescriptions.length]);
 
+  const libraryCategories = React.useMemo(() => {
+    const vals = Array.from(new Set(library.map((x) => x.category).filter(Boolean)));
+    vals.sort((a, b) => displayCategory(a).localeCompare(displayCategory(b)));
+    return vals;
+  }, [library]);
+
   const filteredLibrary = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return library;
+
     return library.filter((x) => {
+      if (categoryFilter && x.category !== categoryFilter) return false;
+      if (!q) return true;
+
       const hay = [
         x.name,
         x.category,
@@ -112,12 +122,15 @@ export default function ConditioningPage() {
         x.equipment,
         x.interference_risk,
         x.joint_stress,
+        x.progression_notes,
+        x.contraindication_notes,
       ]
         .join(" ")
         .toLowerCase();
+
       return hay.includes(q);
     });
-  }, [library, query]);
+  }, [library, query, categoryFilter]);
 
   React.useEffect(() => {
     (async () => {
@@ -277,7 +290,7 @@ export default function ConditioningPage() {
         <div>
           <div className="text-xl font-semibold">Training · Conditioning</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Select built-in conditioning methods and save personal prescriptions. Logging will come later.
+            Select built-in conditioning methods, save personal prescriptions, then use Capture and Log to track completed sessions.
           </div>
           {status ? <div className="mt-2 text-sm text-muted-foreground">{status}</div> : null}
         </div>
@@ -309,6 +322,27 @@ export default function ConditioningPage() {
             placeholder="Search walking, zone 2, bike, intervals..."
           />
 
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={`rounded-full border px-3 py-1 text-xs ${!categoryFilter ? "bg-muted/30" : "hover:bg-muted/10"}`}
+                onClick={() => setCategoryFilter("")}
+              >
+                All categories
+              </button>
+
+              {libraryCategories.map((cat) => (
+                <button
+                  type="button"
+                  key={cat}
+                  className={`rounded-full border px-3 py-1 text-xs ${categoryFilter === cat ? "bg-muted/30" : "hover:bg-muted/10"}`}
+                  onClick={() => setCategoryFilter(cat)}
+                >
+                  {displayCategory(cat)}
+                </button>
+              ))}
+            </div>
+
           <div className="mt-3 space-y-2">
             {filteredLibrary.map((row) => {
               const active = row.conditioning_library_id === selectedLibraryId;
@@ -323,6 +357,12 @@ export default function ConditioningPage() {
                   <div className="mt-1 text-xs text-muted-foreground">
                     {displayCategory(row.category)} · {row.modality} · {row.default_duration_min || "var"} min
                   </div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      Risk {riskLabel(row.interference_risk) || "—"} · Joint {riskLabel(row.joint_stress) || "—"}
+                    </div>
+                    {row.equipment ? (
+                      <div className="mt-1 truncate text-[11px] text-muted-foreground">Equipment: {row.equipment}</div>
+                    ) : null}
                 </button>
               );
             })}
@@ -379,7 +419,7 @@ export default function ConditioningPage() {
               <div>
                 <div className="text-sm font-semibold">My conditioning prescriptions</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Personal versions of library methods. Later these will feed Capture, Log, and Analyze.
+                  Personal versions of library methods. These feed Conditioning Capture, Log, and later Analyze.
                 </div>
               </div>
               <div className="text-xs text-muted-foreground">count={prescriptions.length}</div>
