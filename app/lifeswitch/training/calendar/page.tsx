@@ -359,12 +359,12 @@ export default function TrainingCalendarPage() {
         <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
         <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
           <div>status: {status}</div>
-          <div>sessions: {sessions.length}</div>
+            <div>strength sessions: {sessions.length}</div>
+            <div>conditioning sessions: {conditioningSessions.length}</div>
           <div>months: {months.length}</div>
         </div>
       </details>
 
-      <ConditioningLogSection />
 
       <div className="mt-8">
         {loading ? (
@@ -387,6 +387,16 @@ export default function TrainingCalendarPage() {
 
                     <div className="mt-2 text-sm font-semibold leading-none">{m.sets}</div>
                     <div className="mt-0.5 text-[9px] tracking-wide opacity-70">SETS</div>
+
+                      <div className="mt-2 text-sm font-semibold leading-none">{m.conditioning}</div>
+                      <div className="mt-0.5 text-[9px] tracking-wide opacity-70">COND</div>
+
+                      <div className="mt-2 text-sm font-semibold leading-none">
+                        {m.conditioningMinutes >= 60
+                          ? `${String(Math.round((m.conditioningMinutes / 60) * 10) / 10).replace(/\.0$/, "")}h`
+                          : `${Math.round(m.conditioningMinutes)}m`}
+                      </div>
+                      <div className="mt-0.5 text-[9px] tracking-wide opacity-70">TIME</div>
                   </div>
                 </div>
               </div>
@@ -434,6 +444,8 @@ export default function TrainingCalendarPage() {
           </div>
         )}
       </div>
+
+        <ConditioningLogSection />
     </div>
   );
 }
