@@ -22,12 +22,36 @@ type TrainingSessionRow = {
   volume: number;
 };
 
+type ConditioningSessionRow = {
+  conditioning_session_log_id: string;
+  owner_user_id: string;
+  my_conditioning_prescription_id?: string | null;
+  day: string;
+  name: string;
+  category: string;
+  modality: string;
+  duration_min: number;
+  intensity: string;
+  distance: string;
+  heart_rate_avg?: number | null;
+  recovery_impact: string;
+  notes: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  prescription_name?: string | null;
+};
+
 type MonthSection = {
   ym: string;
   label: string;
   sessions: TrainingSessionRow[];
+  conditioningSessions: ConditioningSessionRow[];
   workoutDates: Set<string>;
+  conditioningDates: Set<string>;
   workouts: number;
+  conditioning: number;
+  conditioningMinutes: number;
   volume: number;
   sets: number;
 };
@@ -116,7 +140,67 @@ async function fetchJson(url: string, init?: RequestInit) {
   return j;
 }
 
-function MonthCalendar(props: { ym: string; workoutDates: Set<string>; today: string }) {
+function MonthCalendar(props: { ym: string; workoutDates: Set<string>; conditioningDates: Set<string>; today: string }) {
+  const { ym, workoutDates, conditioningDates, today } = props;
+
+  const mm = String(ym || "").trim().match(/^(\d{4})-(\d{2})$/);
+  if (!mm) return null;
+
+  const year = Number(mm[1]);
+  const month1 = Number(mm[2]);
+  const dim = daysInMonthUTC(year, month1);
+  const firstDow = firstDowUTC(year, month1);
+
+  const totalCells = Math.ceil((firstDow + dim) / 7) * 7;
+  const cells: Array<number | null> = [];
+
+  for (let i = 0; i < totalCells; i++) {
+    const dayNum = i - firstDow + 1;
+    cells.push(dayNum >= 1 && dayNum <= dim ? dayNum : null);
+  }
+
+  return (
+    <div className="min-w-0">
+      <div className="grid grid-cols-7 text-center text-[11px] opacity-70">
+        {DOW.map((d) => (
+          <div key={d} className="py-1">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 text-center text-sm">
+        {cells.map((dayNum, idx) => {
+          if (!dayNum) return <div key={`e-${idx}`} className="h-7" />;
+
+          const date = `${ym}-${pad2(dayNum)}`;
+          const didWorkout = workoutDates.has(date);
+          const didConditioning = conditioningDates.has(date);
+          const isToday = date === today;
+          const state =
+            didWorkout && didConditioning ? "both" : didWorkout ? "strength" : didConditioning ? "conditioning" : "none";
+
+          const cls = [
+            "h-7 flex items-center justify-center rounded-full border transition-colors",
+            state === "strength" ? "border-blue-400/80 bg-blue-500/20 text-blue-100 font-semibold" : "",
+            state === "conditioning" ? "border-yellow-400/80 bg-yellow-500/20 text-yellow-100 font-semibold" : "",
+            state === "both" ? "border-green-400/80 bg-green-500/20 text-green-100 font-semibold" : "",
+            state === "none" ? "border-transparent opacity-60" : "",
+            isToday ? "underline underline-offset-4" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          return (
+            <div key={date} className={cls} title={`${date}: ${state}`}>
+              {dayNum}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}) {
   const { ym, workoutDates, today } = props;
 
   const mm = String(ym || "").trim().match(/^(\d{4})-(\d{2})$/);
@@ -175,6 +259,7 @@ function MonthCalendar(props: { ym: string; workoutDates: Set<string>; today: st
 export default function TrainingCalendarPage() {
   const [status, setStatus] = React.useState("loading sessions...");
   const [sessions, setSessions] = React.useState<TrainingSessionRow[]>([]);
+  const [conditioningSessions, setConditioningSessions] = React.useState<ConditioningSessionRow[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   const today = React.useMemo(() => todayLocalYYYYMMDD(), []);
@@ -184,19 +269,32 @@ export default function TrainingCalendarPage() {
     setStatus("loading native training sessions...");
 
     try {
-      const j = (await fetchJson("/api/lifeswitch/training/sessions?limit=250")) as TrainingSessionRow[];
-      const arr = Array.isArray(j) ? j : [];
+      const [strengthJson, conditioningJson] = await Promise.all([
+        fetchJson("/api/lifeswitch/training/sessions?limit=250"),
+        fetchJson("/api/lifeswitch/training/conditioning_sessions?limit=250"),
+      ]);
 
-      arr.sort((a, b) => {
+      const strengthArr = Array.isArray(strengthJson) ? (strengthJson as TrainingSessionRow[]) : [];
+      const conditioningArr = Array.isArray(conditioningJson) ? (conditioningJson as ConditioningSessionRow[]) : [];
+
+      strengthArr.sort((a, b) => {
         const c = String(b.day || "").localeCompare(String(a.day || ""));
         if (c !== 0) return c;
         return String(b.created_at || "").localeCompare(String(a.created_at || ""));
       });
 
-      setSessions(arr);
-      setStatus(`loaded ${arr.length} sessions`);
+      conditioningArr.sort((a, b) => {
+        const c = String(b.day || "").localeCompare(String(a.day || ""));
+        if (c !== 0) return c;
+        return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+      });
+
+      setSessions(strengthArr);
+      setConditioningSessions(conditioningArr);
+      setStatus(`loaded ${strengthArr.length} strength sessions and ${conditioningArr.length} conditioning sessions`);
     } catch (e: any) {
       setSessions([]);
+      setConditioningSessions([]);
       setStatus(`error: ${String(e?.message || e)}`);
     } finally {
       setLoading(false);
@@ -222,36 +320,66 @@ export default function TrainingCalendarPage() {
   }
 
   const months = React.useMemo(() => {
-    const byMonth = new Map<string, TrainingSessionRow[]>();
+    const strengthByMonth = new Map<string, TrainingSessionRow[]>();
+    const conditioningByMonth = new Map<string, ConditioningSessionRow[]>();
 
     for (const s of sessions) {
       const ym = String(s?.day || "").slice(0, 7);
       if (!/^\d{4}-\d{2}$/.test(ym)) continue;
 
-      const arr = byMonth.get(ym) || [];
+      const arr = strengthByMonth.get(ym) || [];
       arr.push(s);
-      byMonth.set(ym, arr);
+      strengthByMonth.set(ym, arr);
     }
+
+    for (const c of conditioningSessions) {
+      const ym = String(c?.day || "").slice(0, 7);
+      if (!/^\d{4}-\d{2}$/.test(ym)) continue;
+
+      const arr = conditioningByMonth.get(ym) || [];
+      arr.push(c);
+      conditioningByMonth.set(ym, arr);
+    }
+
+    const monthKeys = new Set<string>([
+      ...Array.from(strengthByMonth.keys()),
+      ...Array.from(conditioningByMonth.keys()),
+    ]);
 
     const out: MonthSection[] = [];
 
-    for (const [ym, ss] of byMonth.entries()) {
+    for (const ym of monthKeys) {
+      const ss = strengthByMonth.get(ym) || [];
+      const cc = conditioningByMonth.get(ym) || [];
+
       ss.sort((a, b) => {
         const c = String(b.day || "").localeCompare(String(a.day || ""));
         if (c !== 0) return c;
         return String(b.created_at || "").localeCompare(String(a.created_at || ""));
       });
 
+      cc.sort((a, b) => {
+        const c = String(b.day || "").localeCompare(String(a.day || ""));
+        if (c !== 0) return c;
+        return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+      });
+
       const workoutDates = new Set<string>(ss.map((x) => String(x.day || "")));
+      const conditioningDates = new Set<string>(cc.map((x) => String(x.day || "")));
       const volume = ss.reduce((acc, x) => acc + safeNum(x.volume, 0), 0);
       const sets = ss.reduce((acc, x) => acc + safeNum(x.set_count, 0), 0);
+      const conditioningMinutes = cc.reduce((acc, x) => acc + safeNum(x.duration_min, 0), 0);
 
       out.push({
         ym,
         label: monthLabel(ym),
         sessions: ss,
+        conditioningSessions: cc,
         workoutDates,
+        conditioningDates,
         workouts: ss.length,
+        conditioning: cc.length,
+        conditioningMinutes,
         volume,
         sets,
       });
@@ -259,7 +387,7 @@ export default function TrainingCalendarPage() {
 
     out.sort((a, b) => String(b.ym).localeCompare(String(a.ym)));
     return out;
-  }, [sessions]);
+  }, [sessions, conditioningSessions]);
 
   return (
     <div className="mx-auto max-w-5xl p-4">
@@ -267,7 +395,7 @@ export default function TrainingCalendarPage() {
         <div>
           <div className="text-lg font-semibold">Training · Log</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Native completed workout sessions from Training Capture.
+            Native completed strength and conditioning sessions from Training Capture.
           </div>
         </div>
 
@@ -301,7 +429,7 @@ export default function TrainingCalendarPage() {
               <div className="text-base font-semibold">{m.label}</div>
 
               <div className="mt-4 grid grid-cols-[1fr_6.5rem] items-start gap-2">
-                <MonthCalendar ym={m.ym} workoutDates={m.workoutDates} today={today} />
+                <MonthCalendar ym={m.ym} workoutDates={m.workoutDates} conditioningDates={m.conditioningDates} today={today} />
 
                 <div className="flex justify-center">
                   <div className="w-[6.25rem] rounded-xl border border-muted/20 px-2 py-2 text-center">
