@@ -81,6 +81,8 @@ export default function ConditioningPage() {
   const [loading, setLoading] = React.useState(false);
   const [status, setStatus] = React.useState("");
   const [query, setQuery] = React.useState("");
+  const [libraryOpen, setLibraryOpen] = React.useState(true);
+  const [libraryTouched, setLibraryTouched] = React.useState(false);
 
   const selectedLibrary = React.useMemo(
     () => library.find((x) => x.conditioning_library_id === selectedLibraryId) || null,
@@ -91,6 +93,11 @@ export default function ConditioningPage() {
     () => prescriptions.find((x) => x.my_conditioning_prescription_id === selectedPrescriptionId) || null,
     [prescriptions, selectedPrescriptionId]
   );
+
+  React.useEffect(() => {
+    if (libraryTouched) return;
+    setLibraryOpen(prescriptions.length === 0);
+  }, [libraryTouched, prescriptions.length]);
 
   const filteredLibrary = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -266,15 +273,29 @@ export default function ConditioningPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl overflow-x-hidden p-4">
-      <div>
-        <div className="text-xl font-semibold">Training · Conditioning</div>
-        <div className="mt-1 text-sm text-muted-foreground">
-          Select built-in conditioning methods and save personal prescriptions. Logging will come later.
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-xl font-semibold">Training · Conditioning</div>
+          <div className="mt-1 text-sm text-muted-foreground">
+            Select built-in conditioning methods and save personal prescriptions. Logging will come later.
+          </div>
+          {status ? <div className="mt-2 text-sm text-muted-foreground">{status}</div> : null}
         </div>
-        {status ? <div className="mt-2 text-sm text-muted-foreground">{status}</div> : null}
+
+        <button
+          type="button"
+          className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
+          onClick={() => {
+            setLibraryTouched(true);
+            setLibraryOpen((v) => !v);
+          }}
+        >
+          {libraryOpen ? "Hide library" : "Show library"}
+        </button>
       </div>
 
-      <div className="mt-6 grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
+      <div className={libraryOpen ? "mt-6 grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]" : "mt-6 grid gap-4"}>
+        {libraryOpen ? (
         <aside className="min-w-0 rounded-xl border p-4">
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-semibold">Conditioning library</div>
@@ -307,8 +328,10 @@ export default function ConditioningPage() {
             })}
           </div>
         </aside>
+        ) : null}
 
         <main className="grid min-w-0 gap-4">
+          {libraryOpen ? (
           <section className="min-w-0 rounded-xl border p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -349,6 +372,7 @@ export default function ConditioningPage() {
               </div>
             ) : null}
           </section>
+          ) : null}
 
           <section className="min-w-0 rounded-xl border p-4">
             <div className="flex items-center justify-between gap-2">
@@ -450,8 +474,20 @@ export default function ConditioningPage() {
                 ) : null}
               </div>
             ) : (
-              <div className="mt-3 text-sm text-muted-foreground">
-                No conditioning prescriptions yet. Select a method above and add it.
+              <div className="mt-3 grid gap-3 text-sm text-muted-foreground">
+                <div>No conditioning prescriptions yet. Select a method above and add it.</div>
+                {!libraryOpen ? (
+                  <button
+                    type="button"
+                    className="justify-self-start rounded-xl border px-3 py-2 text-sm text-foreground hover:bg-muted/30"
+                    onClick={() => {
+                      setLibraryTouched(true);
+                      setLibraryOpen(true);
+                    }}
+                  >
+                    Show conditioning library
+                  </button>
+                ) : null}
               </div>
             )}
           </section>
