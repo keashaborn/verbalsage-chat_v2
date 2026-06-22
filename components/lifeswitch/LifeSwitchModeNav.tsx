@@ -10,17 +10,21 @@ type Mode = typeof MODES[number];
 
 function normalizeDomainFromPath(pathname: string): string {
   // Expected domain pages: /lifeswitch/nutrition/... or /lifeswitch/training/...
-  // Global pages like /lifeswitch/plan are not domains and should not show the mode nav.
+  // Global Plan is shared, but should still show the bottom nav.
+  // Default Plan navigation back into the training workflow for now.
   const m = String(pathname || "").match(/^\/lifeswitch\/([^\/?#]+)/);
   const d = (m?.[1] || "").toLowerCase();
 
-  if (!d) return "";
+  if (!d) return "training";
+  if (d === "plan") return "training";
   if (!ACTIVE_DOMAINS.has(d)) return "";
 
   return d;
 }
 
 function normalizeModeFromPath(pathname: string): Mode {
+  if (String(pathname || "").match(/^\/lifeswitch\/plan(?:[\/?#]|$)/)) return "plan";
+
   const m = String(pathname || "").match(/^\/lifeswitch\/[^\/?#]+\/([^\/?#]+)/);
   const mode = (m?.[1] || "").toLowerCase() as Mode;
   return (MODES as readonly string[]).includes(mode) ? mode : "log";
