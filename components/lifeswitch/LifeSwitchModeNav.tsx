@@ -5,20 +5,18 @@ import { usePathname } from "next/navigation";
 import { CalendarDays, BookOpen, PlusSquare, ClipboardList, LineChart, Dumbbell } from "lucide-react";
 
 const MODES = ["log", "design", "capture", "plan", "analyze"] as const;
+const ACTIVE_DOMAINS = new Set(["nutrition", "training"]);
 type Mode = typeof MODES[number];
 
 function normalizeDomainFromPath(pathname: string): string {
-  // Expected: /lifeswitch/<domain>/...
-  // Domains we currently support (plus future placeholders).
+  // Expected domain pages: /lifeswitch/nutrition/... or /lifeswitch/training/...
+  // Global pages like /lifeswitch/plan are not domains and should not show the mode nav.
   const m = String(pathname || "").match(/^\/lifeswitch\/([^\/?#]+)/);
   const d = (m?.[1] || "").toLowerCase();
 
-  // If user is on /lifeswitch (no domain), or an unexpected path,
-  // fall back to nutrition (safe default).
-  if (!d) return "nutrition";
+  if (!d) return "";
+  if (!ACTIVE_DOMAINS.has(d)) return "";
 
-  // Accept any domain segment so new domains work without code changes.
-  // Optionally clamp later if you want hard allow-list.
   return d;
 }
 
@@ -65,7 +63,8 @@ export function LifeSwitchModeNav() {
   const domain = normalizeDomainFromPath(pathname);
   const mode = normalizeModeFromPath(pathname);
 
-  // Capture is global, but we preserve domain as a query param for filtering.
+  if (!domain) return null;
+
   const captureHref = `/lifeswitch/${domain}/capture`;
     const designHref = domain === "training" ? "/lifeswitch/training/design/workouts" : `/lifeswitch/${domain}/design`;
     const designLabel = domain === "training" ? "Workouts" : "Library";
