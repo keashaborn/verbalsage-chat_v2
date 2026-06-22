@@ -625,6 +625,12 @@ export default function TrainingCapturePage() {
           <div className="mt-1 text-sm text-muted-foreground">
             Start from a workout template, edit today’s sets, then finish into the training log.
           </div>
+            <a
+              href="/lifeswitch/training/capture/conditioning"
+              className="mt-3 inline-flex rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
+            >
+              Conditioning capture
+            </a>
         </div>
 
         <input
