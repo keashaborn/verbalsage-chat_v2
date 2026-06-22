@@ -200,60 +200,6 @@ function MonthCalendar(props: { ym: string; workoutDates: Set<string>; condition
       </div>
     </div>
   );
-}) {
-  const { ym, workoutDates, today } = props;
-
-  const mm = String(ym || "").trim().match(/^(\d{4})-(\d{2})$/);
-  if (!mm) return null;
-
-  const year = Number(mm[1]);
-  const month1 = Number(mm[2]);
-  const dim = daysInMonthUTC(year, month1);
-  const firstDow = firstDowUTC(year, month1);
-
-  const totalCells = Math.ceil((firstDow + dim) / 7) * 7;
-  const cells: Array<number | null> = [];
-
-  for (let i = 0; i < totalCells; i++) {
-    const dayNum = i - firstDow + 1;
-    cells.push(dayNum >= 1 && dayNum <= dim ? dayNum : null);
-  }
-
-  return (
-    <div className="min-w-0">
-      <div className="grid grid-cols-7 text-center text-[11px] opacity-70">
-        {DOW.map((d) => (
-          <div key={d} className="py-1">
-            {d}
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7 text-center text-sm">
-        {cells.map((dayNum, idx) => {
-          if (!dayNum) return <div key={`e-${idx}`} className="h-7" />;
-
-          const date = `${ym}-${pad2(dayNum)}`;
-          const didWorkout = workoutDates.has(date);
-          const isToday = date === today;
-
-          const cls = [
-            "h-7 flex items-center justify-center",
-            didWorkout ? "font-semibold" : "opacity-60",
-            isToday ? "underline underline-offset-4" : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
-
-          return (
-            <div key={date} className={cls}>
-              {dayNum}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
 }
 
 export default function TrainingCalendarPage() {
