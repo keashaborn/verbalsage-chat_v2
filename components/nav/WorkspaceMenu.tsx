@@ -28,31 +28,24 @@ export function WorkspaceMenu({ label = "Menu" }: WorkspaceMenuProps) {
           Workspace
         </div>
 
-        <Link href="/" onClick={close} className={item}>
-          Chat
-        </Link>
-        <Link href="/collect" onClick={close} className={item}>
-          Capture
-        </Link>
+          <Link href="/" onClick={close} className={item}>
+            Chat
+          </Link>
 
-        <div className="my-1 border-t border-muted/20" />
+          <div className="my-1 border-t border-muted/20" />
 
-        <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          LifeSwitch Domains
-        </div>
-
-        <Link href="/lifeswitch/nutrition/log" onClick={close} className={item}>
-          Nutrition
-        </Link>
-        <Link href="/lifeswitch/training/log" onClick={close} className={item}>
-          Training
-        </Link>
-        <Link href="/lifeswitch/behavior/log" onClick={close} className={item}>
-          Behavior
-        </Link>
-        <Link href="/lifeswitch/verbal/log" onClick={close} className={item}>
-          Verbal Behavior
-        </Link>
+          <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            LifeSwitch
+          </div>
+          <Link href="/lifeswitch/plan" onClick={close} className={item}>
+            Plan
+          </Link>
+          <Link href="/lifeswitch/nutrition/log" onClick={close} className={item}>
+            Nutrition
+          </Link>
+          <Link href="/lifeswitch/training/log" onClick={close} className={item}>
+            Training
+          </Link>
       </div>
     </details>
   );
