@@ -325,7 +325,7 @@ export default function ConditioningPage() {
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
-                className={`rounded-full border px-3 py-1 text-xs ${!categoryFilter ? "bg-muted/30" : "hover:bg-muted/10"}`}
+                className={`rounded-full border px-3 py-1 text-xs ${!categoryFilter ? "border-foreground bg-foreground text-background" : "hover:bg-muted/10"}`}
                 onClick={() => setCategoryFilter("")}
               >
                 All categories
@@ -335,12 +335,16 @@ export default function ConditioningPage() {
                 <button
                   type="button"
                   key={cat}
-                  className={`rounded-full border px-3 py-1 text-xs ${categoryFilter === cat ? "bg-muted/30" : "hover:bg-muted/10"}`}
+                  className={`rounded-full border px-3 py-1 text-xs ${categoryFilter === cat ? "border-foreground bg-foreground text-background" : "hover:bg-muted/10"}`}
                   onClick={() => setCategoryFilter(cat)}
                 >
                   {displayCategory(cat)}
                 </button>
               ))}
+            </div>
+
+            <div className="mt-2 text-xs text-muted-foreground">
+              Current filter: {categoryFilter ? displayCategory(categoryFilter) : "All categories"}
             </div>
 
           <div className="mt-3 space-y-2">
@@ -350,7 +354,7 @@ export default function ConditioningPage() {
                 <button
                   type="button"
                   key={row.conditioning_library_id}
-                  className={`w-full rounded-xl border px-3 py-2 text-left ${active ? "bg-muted/30" : "hover:bg-muted/10"}`}
+                  className={`w-full rounded-xl border px-3 py-2 text-left ${active ? "border-foreground bg-muted/40 ring-1 ring-foreground/60" : "hover:bg-muted/10"}`}
                   onClick={() => setSelectedLibraryId(row.conditioning_library_id)}
                 >
                   <div className="text-sm font-medium">{row.name}</div>
@@ -434,7 +438,7 @@ export default function ConditioningPage() {
                       <button
                         type="button"
                         key={p.my_conditioning_prescription_id}
-                        className={`w-full rounded-xl border px-3 py-2 text-left ${active ? "bg-muted/30" : "hover:bg-muted/10"}`}
+                        className={`w-full rounded-xl border px-3 py-2 text-left ${active ? "border-foreground bg-muted/40 ring-1 ring-foreground/60" : "hover:bg-muted/10"}`}
                         onClick={() => setSelectedPrescriptionId(p.my_conditioning_prescription_id)}
                       >
                         <div className="truncate text-sm font-medium">{p.name}</div>
