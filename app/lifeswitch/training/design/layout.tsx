@@ -14,6 +14,7 @@ export default function TrainingDesignLayout({ children }: { children: ReactNode
       <SegmentTabs
         segments={[
           { href: "/lifeswitch/training/design/workouts", label: "Workouts" },
+          { href: "/lifeswitch/training/design/conditioning", label: "Conditioning" },
           { href: "/lifeswitch/training/design/exercises", label: "Unique Exercises" },
         ]}
       />
