@@ -2,6 +2,7 @@
 
 import { authFetch } from "@/lib/authFetch";
 import Link from "next/link";
+import ConditioningLogSection from "@/components/lifeswitch/training/ConditioningLogSection";
 import * as React from "react";
 
 type TrainingSessionRow = {
@@ -288,6 +289,8 @@ export default function TrainingCalendarPage() {
           <div>months: {months.length}</div>
         </div>
       </details>
+
+      <ConditioningLogSection />
 
       <div className="mt-8">
         {loading ? (
