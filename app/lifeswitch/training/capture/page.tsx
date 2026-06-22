@@ -1,6 +1,7 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Plus } from "lucide-react";
 
@@ -138,6 +139,7 @@ function makeDraftId(exerciseId: string, setIndex: number) {
 }
 
 export default function TrainingCapturePage() {
+  const router = useRouter();
   const [owner, setOwner] = React.useState<string | null>(null);
   const [authErr, setAuthErr] = React.useState<string | null>(null);
 
@@ -583,6 +585,10 @@ export default function TrainingCapturePage() {
 
       setFlash(`Finished ${selected.name}: ${validRows.length} sets logged`);
       setStatus("");
+
+      window.setTimeout(() => {
+        router.push("/lifeswitch/training/log");
+      }, 700);
     } catch (e: any) {
       setStatus(String(e?.message || e));
     } finally {
