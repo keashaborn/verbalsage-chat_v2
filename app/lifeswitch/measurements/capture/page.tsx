@@ -69,6 +69,10 @@ function toNum(v: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function valueText(v: unknown): string {
+  return v == null ? "" : String(v);
+}
+
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
@@ -451,6 +455,65 @@ export default function MeasurementsCapturePage() {
     setStatus("");
   }
 
+  function loadEntryForEdit(entry: MeasurementEntry) {
+    const rawKind = String(entry.entry_kind || "weight");
+    const kind: EntryKind =
+      rawKind === "tape" || rawKind === "skinfolds" || rawKind === "scan" || rawKind === "weight"
+        ? rawKind
+        : "weight";
+
+    setEntryKindWithDefaults(kind);
+
+    setLocalDate(entry.local_date || todayLocalYYYYMMDD());
+    setSource(entry.source || "manual");
+
+    setWeight(valueText(entry.weight_value));
+    setWaist(valueText(entry.waist_value));
+    setAbdomen(valueText(entry.abdomen_value));
+    setNeck(valueText(entry.neck_value));
+    setChest(valueText(entry.chest_value));
+    setHip(valueText(entry.hip_value));
+
+    setLeftArm(valueText(entry.left_arm_value));
+    setRightArm(valueText(entry.right_arm_value));
+    setLeftThigh(valueText(entry.left_thigh_value));
+    setRightThigh(valueText(entry.right_thigh_value));
+    setLeftCalf(valueText(entry.left_calf_value));
+    setRightCalf(valueText(entry.right_calf_value));
+
+    setBodyFat(valueText(entry.body_fat_percent));
+
+    const skinfolds = entry.skinfolds_json || {};
+    const sites = skinfolds?.sites || {};
+    if (kind === "skinfolds") {
+      const formula = String(skinfolds?.formula || entry.body_fat_method || "");
+      setSkinfoldSex(formula.includes("female") ? "female" : "male");
+      setSkinfoldAge(valueText(skinfolds?.age));
+      setSfChest(valueText(sites?.chest));
+      setSfAbdomen(valueText(sites?.abdomen));
+      setSfThigh(valueText(sites?.thigh));
+      setSfTriceps(valueText(sites?.triceps));
+      setSfSubscapular(valueText(sites?.subscapular));
+      setSfSuprailiac(valueText(sites?.suprailiac));
+      setSfMidaxillary(valueText(sites?.midaxillary));
+    }
+
+    const scan = entry.scan_json || {};
+    if (kind === "scan") {
+      setScanFacility(valueText(scan?.facility_or_device));
+      setScanFatMass(valueText(scan?.fat_mass_lb));
+      setScanLeanMass(valueText(scan?.lean_mass_lb));
+      setScanBoneMass(valueText(scan?.bone_mass_lb));
+      setScanVisceral(valueText(scan?.visceral_fat));
+      setScanSkeletalMuscle(valueText(scan?.skeletal_muscle_mass_lb));
+    }
+
+    setNotes(entry.notes || "");
+    setFitNote("");
+    setFlash("Entry loaded for editing. Save to update it.");
+    setStatus("");
+  }
+
   async function deleteEntry(entryId: string) {
     const ok = window.confirm("Delete this measurement entry?");
     if (!ok) return;
@@ -734,14 +797,24 @@ export default function MeasurementsCapturePage() {
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    className="rounded-md border px-2 py-1 text-[11px] hover:bg-muted/30 disabled:opacity-50"
-                    disabled={deletingId === entry.measurement_entry_id}
-                    onClick={() => void deleteEntry(entry.measurement_entry_id)}
-                  >
-                    {deletingId === entry.measurement_entry_id ? "Deleting..." : "Delete"}
-                  </button>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      className="rounded-md border px-2 py-1 text-[11px] hover:bg-muted/30"
+                      onClick={() => loadEntryForEdit(entry)}
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      className="rounded-md border px-2 py-1 text-[11px] hover:bg-muted/30 disabled:opacity-50"
+                      disabled={deletingId === entry.measurement_entry_id}
+                      onClick={() => void deleteEntry(entry.measurement_entry_id)}
+                    >
+                      {deletingId === entry.measurement_entry_id ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
