@@ -4,6 +4,7 @@ import * as React from "react";
 import { usePathname } from "next/navigation";
 import { Bot, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { authFetch } from "@/lib/authFetch";
 
 type LifeSwitchDomain = "plan" | "nutrition" | "training" | "measurements" | "unknown";
 type LifeSwitchMode =
@@ -143,7 +144,7 @@ export function LifeSwitchHelper() {
     setMessages((prev) => [...prev, { role: "user", text }]);
 
     try {
-      const r = await fetch("/api/chat", {
+      const r = await authFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
