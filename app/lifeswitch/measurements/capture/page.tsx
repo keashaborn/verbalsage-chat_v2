@@ -221,6 +221,8 @@ export default function MeasurementsCapturePage() {
         ...base,
         weight_value: toNum(weight),
         weight_unit: "lb",
+        body_fat_percent: toNum(bodyFat),
+        body_fat_method: toNum(bodyFat) != null ? "scale_bia" : null,
       };
     }
 
@@ -280,10 +282,9 @@ export default function MeasurementsCapturePage() {
         weight_value: toNum(weight),
         weight_unit: "lb",
         body_fat_percent: toNum(bodyFat),
-        body_fat_method: method,
+        body_fat_method: source,
         scan_json: {
-          scan_type: method,
-          source,
+          scan_type: source,
           notes,
         },
       };
@@ -291,6 +292,7 @@ export default function MeasurementsCapturePage() {
 
     return {
       ...base,
+      source: "manual",
       weight_value: toNum(weight),
       weight_unit: "lb",
       waist_value: toNum(waist),
@@ -418,27 +420,41 @@ export default function MeasurementsCapturePage() {
               <option value="general">General mixed entry</option>
             </SelectField>
 
-            <SelectField label="Source" value={source} onChange={setSource}>
-              <option value="manual">Manual</option>
-              <option value="home_scale">Home scale</option>
-              <option value="withings">Withings</option>
-              <option value="apple_health">Apple Health</option>
-              <option value="renpho_tape">Renpho tape</option>
-              <option value="harpenden">Harpenden caliper</option>
-              <option value="dexa">DEXA</option>
-              <option value="inbody">InBody</option>
-              <option value="other">Other</option>
-            </SelectField>
+            {entryKind === "weight" ? (
+              <SelectField label="Scale" value={source} onChange={setSource}>
+                <option value="home_scale">Home scale</option>
+                <option value="professional_scale">Professional scale</option>
+                <option value="withings">Withings</option>
+                <option value="apple_health">Apple Health</option>
+                <option value="manual">Manual entry</option>
+                <option value="other">Other scale</option>
+              </SelectField>
+            ) : null}
 
-            {["body_fat_estimate", "scan"].includes(entryKind) ? (
-              <SelectField label="Method" value={method} onChange={setMethod}>
-                <option value="manual">Manual estimate</option>
-                <option value="scale">Scale / BIA</option>
-                <option value="navy_tape">Navy tape</option>
-                <option value="calipers">Calipers</option>
+            {entryKind === "tape" ? (
+              <SelectField label="Tape device" value={source} onChange={setSource}>
+                <option value="renpho_tape">Renpho tape</option>
+                <option value="flexible_tape">Flexible tape</option>
+                <option value="assisted_tape">Assisted measurement</option>
+                <option value="other_tape">Other tape</option>
+              </SelectField>
+            ) : null}
+
+            {entryKind === "skinfolds" ? (
+              <SelectField label="Caliper" value={source} onChange={setSource}>
+                <option value="harpenden">Harpenden caliper</option>
+                <option value="other_caliper">Other caliper</option>
+              </SelectField>
+            ) : null}
+
+            {entryKind === "scan" ? (
+              <SelectField label="Scan type" value={source} onChange={setSource}>
                 <option value="dexa">DEXA</option>
                 <option value="inbody">InBody</option>
                 <option value="three_d_scan">3D scan</option>
+                <option value="bodpod">BodPod</option>
+                <option value="hydrostatic">Hydrostatic weighing</option>
+                <option value="other_scan">Other scan</option>
               </SelectField>
             ) : null}
           </div>
@@ -451,6 +467,7 @@ export default function MeasurementsCapturePage() {
               </p>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
                 <Field label="Weight (lb)" value={weight} onChange={setWeight} placeholder="167.0" />
+                <Field label="Scale body fat % (optional)" value={bodyFat} onChange={setBodyFat} placeholder="15.5" />
               </div>
             </section>
           ) : null}
@@ -478,18 +495,6 @@ export default function MeasurementsCapturePage() {
                 <Field label="Right thigh (in)" value={rightThigh} onChange={setRightThigh} />
                 <Field label="Left calf (in)" value={leftCalf} onChange={setLeftCalf} />
                 <Field label="Right calf (in)" value={rightCalf} onChange={setRightCalf} />
-              </div>
-            </section>
-          ) : null}
-
-          {entryKind === "body_fat_estimate" ? (
-            <section className="mt-6 rounded-xl border p-4">
-              <div className="text-sm font-semibold">Body-fat estimate</div>
-              <p className="mt-1 text-xs leading-snug text-muted-foreground">
-                Use this for a visual estimate, scale estimate, Navy tape result, or externally calculated percentage.
-              </p>
-              <div className="mt-4 grid gap-4 md:grid-cols-3">
-                <Field label="Body fat %" value={bodyFat} onChange={setBodyFat} placeholder="15.5" />
               </div>
             </section>
           ) : null}
