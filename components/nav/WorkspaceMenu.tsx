@@ -46,6 +46,9 @@ export function WorkspaceMenu({ label = "Menu" }: WorkspaceMenuProps) {
           <Link href="/lifeswitch/training/log" onClick={close} className={item}>
             Training
           </Link>
+          <Link href="/lifeswitch/measurements" onClick={close} className={item}>
+            Measurements
+          </Link>
       </div>
     </details>
   );

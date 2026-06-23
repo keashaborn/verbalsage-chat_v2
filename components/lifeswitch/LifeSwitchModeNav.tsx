@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { CalendarDays, BookOpen, PlusSquare, ClipboardList, LineChart, Dumbbell } from "lucide-react";
 
 const MODES = ["log", "design", "capture", "plan", "analyze"] as const;
-const ACTIVE_DOMAINS = new Set(["nutrition", "training"]);
+const ACTIVE_DOMAINS = new Set(["nutrition", "training", "measurements"]);
 type Mode = typeof MODES[number];
 
 function normalizeDomainFromPath(pathname: string): string {
@@ -59,6 +59,7 @@ function Tab({
 function planHrefForDomain(domain: string) {
   if (domain === "training") return "/lifeswitch/plan#training-targets";
   if (domain === "nutrition") return "/lifeswitch/plan#nutrition-targets";
+  if (domain === "measurements") return "/lifeswitch/plan#body-state";
   return `/lifeswitch/${domain}/plan`;
 }
 
@@ -70,9 +71,13 @@ export function LifeSwitchModeNav() {
   if (!domain) return null;
 
   const captureHref = `/lifeswitch/${domain}/capture`;
-    const designHref = domain === "training" ? "/lifeswitch/training/design/workouts" : `/lifeswitch/${domain}/design`;
-    const designLabel = domain === "training" ? "Workouts" : "Library";
-    const DesignIcon = domain === "training" ? Dumbbell : BookOpen;
+  const designHref =
+    domain === "training"
+      ? "/lifeswitch/training/design/workouts"
+      : `/lifeswitch/${domain}/design`;
+  const designLabel =
+    domain === "training" ? "Workouts" : domain === "measurements" ? "Methods" : "Library";
+  const DesignIcon = domain === "training" ? Dumbbell : BookOpen;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
