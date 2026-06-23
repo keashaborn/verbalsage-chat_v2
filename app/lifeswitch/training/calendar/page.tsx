@@ -182,7 +182,7 @@ function MonthCalendar(props: { ym: string; workoutDates: Set<string>; condition
 
           const cls = [
             "h-7 flex items-center justify-center rounded-full border transition-colors",
-            state === "strength" ? "border-blue-400/80 bg-blue-500/20 text-blue-100 font-semibold" : "",
+            state === "strength" ? "border-blue-500/80 bg-blue-500/10 text-blue-900 dark:text-blue-100 font-semibold" : "",
             state === "conditioning" ? "border-yellow-400/80 bg-yellow-500/20 text-yellow-100 font-semibold" : "",
             state === "both" ? "border-green-400/80 bg-green-500/20 text-green-100 font-semibold" : "",
             state === "none" ? "border-transparent opacity-60" : "",
