@@ -73,6 +73,20 @@ function valueText(v: unknown): string {
   return v == null ? "" : String(v);
 }
 
+function objectJson(v: unknown): any {
+  if (!v) return {};
+  if (typeof v === "object") return v;
+  if (typeof v === "string") {
+    try {
+      const parsed = JSON.parse(v);
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
@@ -83,6 +97,45 @@ function displayKind(k?: string | null) {
   if (k === "skinfolds") return "Skinfolds";
   if (k === "scan") return "Scan";
   return k || "General";
+}
+
+function entrySummary(entry: MeasurementEntry): string {
+  const kind = entry.entry_kind || "general";
+  const parts: string[] = [];
+
+  if (kind === "weight") {
+    if (entry.weight_value != null) parts.push(`${entry.weight_value} ${entry.weight_unit || "lb"}`);
+    if (entry.body_fat_percent != null) parts.push(`scale BF ${entry.body_fat_percent}%`);
+    return parts.length ? parts.join(" · ") : "Weight entry";
+  }
+
+  if (kind === "tape") {
+    if (entry.waist_value != null) parts.push(`waist ${entry.waist_value}`);
+    if (entry.abdomen_value != null) parts.push(`abdomen ${entry.abdomen_value}`);
+    if (entry.chest_value != null) parts.push(`chest ${entry.chest_value}`);
+    if (entry.hip_value != null) parts.push(`hip ${entry.hip_value}`);
+    return parts.length ? parts.join(" · ") : "Tape entry";
+  }
+
+  if (kind === "skinfolds") {
+    if (entry.body_fat_percent != null) parts.push(`BF ${entry.body_fat_percent}%`);
+    const sum7 = entry.skinfolds_json?.sum7;
+    if (sum7 != null) parts.push(`sum ${Math.round(Number(sum7) * 10) / 10} mm`);
+    return parts.length ? parts.join(" · ") : "Skinfold entry";
+  }
+
+  if (kind === "scan") {
+    if (entry.weight_value != null) parts.push(`${entry.weight_value} ${entry.weight_unit || "lb"}`);
+    if (entry.body_fat_percent != null) parts.push(`BF ${entry.body_fat_percent}%`);
+    if (entry.scan_json?.fat_mass_lb != null) parts.push(`fat mass ${entry.scan_json.fat_mass_lb} lb`);
+    if (entry.scan_json?.lean_mass_lb != null) parts.push(`lean mass ${entry.scan_json.lean_mass_lb} lb`);
+    return parts.length ? parts.join(" · ") : "Scan entry";
+  }
+
+  if (entry.weight_value != null) parts.push(`${entry.weight_value} ${entry.weight_unit || "lb"}`);
+  if (entry.waist_value != null) parts.push(`waist ${entry.waist_value}`);
+  if (entry.body_fat_percent != null) parts.push(`BF ${entry.body_fat_percent}%`);
+  return parts.length ? parts.join(" · ") : "Measurement entry";
 }
 
 function jacksonPollock7Percent(sum7: number, age: number, sex: "male" | "female"): number | null {
@@ -483,8 +536,8 @@ export default function MeasurementsCapturePage() {
 
     setBodyFat(valueText(entry.body_fat_percent));
 
-    const skinfolds = entry.skinfolds_json || {};
-    const sites = skinfolds?.sites || {};
+    const skinfolds = objectJson(entry.skinfolds_json);
+    const sites = objectJson(skinfolds?.sites);
     if (kind === "skinfolds") {
       const formula = String(skinfolds?.formula || entry.body_fat_method || "");
       setSkinfoldSex(formula.includes("female") ? "female" : "male");
@@ -498,7 +551,7 @@ export default function MeasurementsCapturePage() {
       setSfMidaxillary(valueText(sites?.midaxillary));
     }
 
-    const scan = entry.scan_json || {};
+    const scan = objectJson(entry.scan_json);
     if (kind === "scan") {
       setScanFacility(valueText(scan?.facility_or_device));
       setScanFatMass(valueText(scan?.fat_mass_lb));
@@ -791,9 +844,7 @@ export default function MeasurementsCapturePage() {
                   <div>
                     <div className="font-medium">{entry.local_date}</div>
                     <div className="mt-1 text-muted-foreground">
-                      {displayKind(entry.entry_kind)} · {entry.weight_value != null ? `${entry.weight_value} ${entry.weight_unit || "lb"}` : "No weight"}
-                      {entry.waist_value != null ? ` · waist ${entry.waist_value}` : ""}
-                      {entry.body_fat_percent != null ? ` · BF ${entry.body_fat_percent}%` : ""}
+                      {displayKind(entry.entry_kind)} · {entrySummary(entry)}
                     </div>
                   </div>
 
