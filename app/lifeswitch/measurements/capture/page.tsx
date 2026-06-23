@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { authFetch } from "@/lib/authFetch";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ function todayLocalYYYYMMDD() {
 }
 
 async function fetchJson(url: string, init?: RequestInit) {
-  const res = await fetch(url, { ...init, cache: "no-store" });
+  const res = await authFetch(url, { ...init, cache: "no-store" });
   const text = await res.text();
   let data: any = null;
 
