@@ -115,6 +115,62 @@ function entrySummary(entry: MeasurementEntry): string {
   return parts.length ? parts.join(" · ") : "Measurement entry";
 }
 
+function detailRows(entry: MeasurementEntry): Array<[string, string]> {
+  const rows: Array<[string, string]> = [];
+  const skinfolds = objectJson(entry.skinfolds_json);
+  const sites = objectJson(skinfolds?.sites);
+  const scan = objectJson(entry.scan_json);
+
+  const push = (label: string, value: unknown, suffix = "") => {
+    if (value == null || value === "") return;
+    rows.push([label, `${value}${suffix}`]);
+  };
+
+  push("Date", entry.local_date);
+  push("Type", displayKind(entry.entry_kind));
+  push("Source", entry.source);
+  push("Weight", entry.weight_value, entry.weight_unit ? ` ${entry.weight_unit}` : " lb");
+  push("Body fat", entry.body_fat_percent, "%");
+  push("Body-fat method", entry.body_fat_method);
+
+  push("Waist", entry.waist_value, entry.measurement_unit ? ` ${entry.measurement_unit}` : " in");
+  push("Abdomen", entry.abdomen_value, entry.measurement_unit ? ` ${entry.measurement_unit}` : " in");
+  push("Neck", entry.neck_value, entry.measurement_unit ? ` ${entry.measurement_unit}` : " in");
+  push("Chest", entry.chest_value, entry.measurement_unit ? ` ${entry.measurement_unit}` : " in");
+  push("Hip", entry.hip_value, entry.measurement_unit ? ` ${entry.measurement_unit}` : " in");
+
+  push("Left arm", entry.left_arm_value, entry.measurement_unit ? ` ${entry.measurement_unit}` : " in");
+  push("Right arm", entry.right_arm_value, entry.measurement_unit ? ` ${entry.measurement_unit}` : " in");
+  push("Left thigh", entry.left_thigh_value, entry.measurement_unit ? ` ${entry.measurement_unit}` : " in");
+  push("Right thigh", entry.right_thigh_value, entry.measurement_unit ? ` ${entry.measurement_unit}` : " in");
+  push("Left calf", entry.left_calf_value, entry.measurement_unit ? ` ${entry.measurement_unit}` : " in");
+  push("Right calf", entry.right_calf_value, entry.measurement_unit ? ` ${entry.measurement_unit}` : " in");
+
+  push("Skinfold protocol", skinfolds?.protocol);
+  push("Skinfold age", skinfolds?.age);
+  push("Skinfold sum", skinfolds?.sum7, " mm");
+  push("Chest skinfold", sites?.chest, " mm");
+  push("Abdomen skinfold", sites?.abdomen, " mm");
+  push("Thigh skinfold", sites?.thigh, " mm");
+  push("Triceps skinfold", sites?.triceps, " mm");
+  push("Subscapular skinfold", sites?.subscapular, " mm");
+  push("Suprailiac skinfold", sites?.suprailiac, " mm");
+  push("Midaxillary skinfold", sites?.midaxillary, " mm");
+
+  push("Scan type", scan?.scan_type);
+  push("Facility/device", scan?.facility_or_device);
+  push("Fat mass", scan?.fat_mass_lb, " lb");
+  push("Lean mass", scan?.lean_mass_lb, " lb");
+  push("Bone mass / BMC", scan?.bone_mass_lb, " lb");
+  push("Visceral fat / VAT", scan?.visceral_fat);
+  push("Skeletal muscle mass", scan?.skeletal_muscle_mass_lb, " lb");
+
+  push("Created", entry.created_at);
+  push("Updated", entry.updated_at);
+
+  return rows;
+}
+
 function latestOf(entries: MeasurementEntry[], kind: string) {
   return entries.find((e) => e.entry_kind === kind) || null;
 }
@@ -259,6 +315,20 @@ export default function MeasurementsLogPage() {
                           {entry.notes ? (
                             <div className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">{entry.notes}</div>
                           ) : null}
+
+                          <details className="mt-3 rounded-lg border p-2">
+                            <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+                              Open details
+                            </summary>
+                            <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                              {detailRows(entry).map(([label, value]) => (
+                                <div key={`${entry.measurement_entry_id}:${label}`} className="rounded-md border p-2">
+                                  <div className="text-muted-foreground">{label}</div>
+                                  <div className="mt-1 break-words font-medium">{value}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
                         </div>
 
                         <Link
