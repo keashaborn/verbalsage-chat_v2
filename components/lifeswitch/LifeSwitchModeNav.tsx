@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, BookOpen, PlusSquare, ClipboardList, LineChart, Dumbbell } from "lucide-react";
@@ -20,6 +21,18 @@ function normalizeDomainFromPath(pathname: string): string {
   if (!ACTIVE_DOMAINS.has(d)) return "";
 
   return d;
+}
+
+function domainFromPlanHash(hash: string): string {
+  const h = String(hash || "").toLowerCase();
+
+  if (h.includes("nutrition")) return "nutrition";
+  if (h.includes("training") || h.includes("conditioning") || h.includes("activity") || h.includes("recovery")) {
+    return "training";
+  }
+  if (h.includes("body-state") || h.includes("body") || h.includes("measurement")) return "measurements";
+
+  return "training";
 }
 
 function normalizeModeFromPath(pathname: string): Mode {
@@ -65,7 +78,26 @@ function planHrefForDomain(domain: string) {
 
 export function LifeSwitchModeNav() {
   const pathname = usePathname() || "";
-  const domain = normalizeDomainFromPath(pathname);
+  const [hash, setHash] = React.useState("");
+
+  React.useEffect(() => {
+    const sync = () => setHash(window.location.hash || "");
+    sync();
+
+    window.addEventListener("hashchange", sync);
+    window.addEventListener("popstate", sync);
+
+    return () => {
+      window.removeEventListener("hashchange", sync);
+      window.removeEventListener("popstate", sync);
+    };
+  }, []);
+
+  const domain =
+    String(pathname || "").match(/^\/lifeswitch\/plan(?:[\/?#]|$)/)
+      ? domainFromPlanHash(hash)
+      : normalizeDomainFromPath(pathname);
+
   const mode = normalizeModeFromPath(pathname);
 
   if (!domain) return null;
