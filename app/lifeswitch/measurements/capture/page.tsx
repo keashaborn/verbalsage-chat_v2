@@ -504,12 +504,6 @@ export default function MeasurementsCapturePage() {
                   <option value="harpenden">Harpenden caliper</option>
                   <option value="other_caliper">Other caliper</option>
                 </SelectField>
-                <label className="text-sm">
-                  <div className="text-muted-foreground">Protocol</div>
-                  <div className="mt-2 rounded-xl border bg-muted/10 px-3 py-2 text-sm">
-                    Jackson-Pollock 7-site {skinfoldSex}
-                  </div>
-                </label>
               </>
             ) : null}
 
