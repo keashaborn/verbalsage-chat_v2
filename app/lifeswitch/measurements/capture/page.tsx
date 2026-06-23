@@ -25,6 +25,7 @@ type MeasurementEntry = {
   body_fat_method?: string | null;
   measurement_unit?: string | null;
   source?: string | null;
+  entry_kind?: string | null;
   notes?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -107,6 +108,7 @@ export default function MeasurementsCapturePage() {
   const [rightCalf, setRightCalf] = React.useState("");
 
   const [bodyFat, setBodyFat] = React.useState("");
+  const [entryKind, setEntryKind] = React.useState("weight");
   const [method, setMethod] = React.useState("manual");
   const [source, setSource] = React.useState("manual");
   const [notes, setNotes] = React.useState("");
@@ -163,6 +165,7 @@ export default function MeasurementsCapturePage() {
 
         body_fat_percent: toNum(bodyFat),
         body_fat_method: method,
+        entry_kind: entryKind,
         measurement_unit: "in",
         source,
         notes,
@@ -230,6 +233,22 @@ export default function MeasurementsCapturePage() {
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <label className="text-sm">
+              <div className="text-muted-foreground">Entry type</div>
+              <select
+                className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                value={entryKind}
+                onChange={(e) => setEntryKind(e.currentTarget.value)}
+              >
+                <option value="weight">Weight</option>
+                <option value="tape">Tape measurements</option>
+                <option value="body_fat_estimate">Body-fat estimate</option>
+                <option value="skinfolds">Skinfolds / calipers</option>
+                <option value="scan">Scan: DEXA / InBody</option>
+                <option value="general">General mixed entry</option>
+              </select>
+            </label>
+
             <Field label="Body fat %" value={bodyFat} onChange={setBodyFat} placeholder="15.5" />
 
             <label className="text-sm">
@@ -302,6 +321,7 @@ export default function MeasurementsCapturePage() {
                 setLeftCalf("");
                 setRightCalf("");
                 setBodyFat("");
+                setEntryKind("weight");
                 setNotes("");
                 setFlash("");
                 setStatus("");
@@ -332,6 +352,7 @@ export default function MeasurementsCapturePage() {
                 {latest.weight_value != null ? <div>Weight: {latest.weight_value} {latest.weight_unit || "lb"}</div> : null}
                 {latest.waist_value != null ? <div>Waist: {latest.waist_value} {latest.measurement_unit || "in"}</div> : null}
                 {latest.body_fat_percent != null ? <div>Body fat: {latest.body_fat_percent}%</div> : null}
+                <div>Type: {latest.entry_kind || "general"}</div>
                 <div>Source: {latest.source || "manual"}</div>
               </div>
             </div>
@@ -346,7 +367,7 @@ export default function MeasurementsCapturePage() {
               <div key={entry.measurement_entry_id} className="rounded-xl border p-3 text-xs">
                 <div className="font-medium">{entry.local_date}</div>
                 <div className="mt-1 text-muted-foreground">
-                  {entry.weight_value != null ? `${entry.weight_value} ${entry.weight_unit || "lb"}` : "No weight"}
+                  {entry.entry_kind || "general"} · {entry.weight_value != null ? `${entry.weight_value} ${entry.weight_unit || "lb"}` : "No weight"}
                   {entry.waist_value != null ? ` · waist ${entry.waist_value}` : ""}
                   {entry.body_fat_percent != null ? ` · BF ${entry.body_fat_percent}%` : ""}
                 </div>
