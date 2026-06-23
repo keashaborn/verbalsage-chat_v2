@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { WorkspaceMenu } from "@/components/nav/WorkspaceMenu";
 import { LifeSwitchModeNav } from "@/components/lifeswitch/LifeSwitchModeNav";
+import { LifeSwitchHelper } from "@/components/lifeswitch/helper/LifeSwitchHelper";
 
 const DEFAULT_LIFESWITCH = "/lifeswitch/training/log";
 
@@ -41,6 +42,9 @@ export default function LifeSwitchLayout({ children }: { children: ReactNode }) 
       <main className="mx-auto max-w-5xl max-w-full px-4 pt-4 overflow-x-hidden pb-[calc(5.0rem+env(safe-area-inset-bottom))]">
         {children}
       </main>
+
+      {/* Floating page-aware helper */}
+      <LifeSwitchHelper />
 
       {/* Mode bottom nav */}
       <LifeSwitchModeNav />
