@@ -5,6 +5,8 @@ import { authFetch } from "@/lib/authFetch";
 
 export const dynamic = "force-dynamic";
 
+type EntryKind = "weight" | "tape" | "skinfolds" | "scan";
+
 type MeasurementEntry = {
   measurement_entry_id: string;
   local_date: string;
@@ -27,6 +29,8 @@ type MeasurementEntry = {
   source?: string | null;
   entry_kind?: string | null;
   notes?: string | null;
+  skinfolds_json?: any;
+  scan_json?: any;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -69,9 +73,22 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-function jacksonPollock7MalePercent(sum7: number, age: number): number | null {
+function displayKind(k?: string | null) {
+  if (k === "weight") return "Weight";
+  if (k === "tape") return "Tape";
+  if (k === "skinfolds") return "Skinfolds";
+  if (k === "scan") return "Scan";
+  return k || "General";
+}
+
+function jacksonPollock7Percent(sum7: number, age: number, sex: "male" | "female"): number | null {
   if (!Number.isFinite(sum7) || !Number.isFinite(age) || sum7 <= 0 || age <= 0) return null;
-  const density = 1.112 - 0.00043499 * sum7 + 0.00000055 * sum7 * sum7 - 0.00028826 * age;
+
+  const density =
+    sex === "female"
+      ? 1.097 - 0.00046971 * sum7 + 0.00000056 * sum7 * sum7 - 0.00012828 * age
+      : 1.112 - 0.00043499 * sum7 + 0.00000055 * sum7 * sum7 - 0.00028826 * age;
+
   if (!Number.isFinite(density) || density <= 0) return null;
   return round1(495 / density - 450);
 }
@@ -96,6 +113,33 @@ function Field({
       <input
         className="mt-2 w-full rounded-xl border bg-background px-3 py-2 text-sm"
         inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(e.currentTarget.value)}
+        placeholder={placeholder || ""}
+      />
+    </label>
+  );
+}
+
+function TextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  help,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  help?: string;
+}) {
+  return (
+    <label className="text-sm">
+      <div className="text-muted-foreground">{label}</div>
+      {help ? <div className="mt-1 text-xs leading-snug text-muted-foreground">{help}</div> : null}
+      <input
+        className="mt-2 w-full rounded-xl border bg-background px-3 py-2 text-sm"
         value={value}
         onChange={(e) => onChange(e.currentTarget.value)}
         placeholder={placeholder || ""}
@@ -134,7 +178,7 @@ function SelectField({
 
 export default function MeasurementsCapturePage() {
   const [localDate, setLocalDate] = React.useState(todayLocalYYYYMMDD());
-  const [entryKind, setEntryKind] = React.useState("weight");
+  const [entryKind, setEntryKind] = React.useState<EntryKind>("weight");
 
   const [weight, setWeight] = React.useState("");
   const [waist, setWaist] = React.useState("");
@@ -151,11 +195,12 @@ export default function MeasurementsCapturePage() {
   const [rightCalf, setRightCalf] = React.useState("");
 
   const [bodyFat, setBodyFat] = React.useState("");
-  const [method, setMethod] = React.useState("manual");
-  const [source, setSource] = React.useState("manual");
+  const [source, setSource] = React.useState("home_scale");
+  const [fitNote, setFitNote] = React.useState("");
   const [notes, setNotes] = React.useState("");
 
   const [skinfoldAge, setSkinfoldAge] = React.useState("");
+  const [skinfoldSex, setSkinfoldSex] = React.useState<"male" | "female">("male");
   const [sfChest, setSfChest] = React.useState("");
   const [sfAbdomen, setSfAbdomen] = React.useState("");
   const [sfThigh, setSfThigh] = React.useState("");
@@ -163,6 +208,13 @@ export default function MeasurementsCapturePage() {
   const [sfSubscapular, setSfSubscapular] = React.useState("");
   const [sfSuprailiac, setSfSuprailiac] = React.useState("");
   const [sfMidaxillary, setSfMidaxillary] = React.useState("");
+
+  const [scanFacility, setScanFacility] = React.useState("");
+  const [scanFatMass, setScanFatMass] = React.useState("");
+  const [scanLeanMass, setScanLeanMass] = React.useState("");
+  const [scanBoneMass, setScanBoneMass] = React.useState("");
+  const [scanVisceral, setScanVisceral] = React.useState("");
+  const [scanSkeletalMuscle, setScanSkeletalMuscle] = React.useState("");
 
   const [entries, setEntries] = React.useState<MeasurementEntry[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -186,7 +238,7 @@ export default function MeasurementsCapturePage() {
       : null;
 
   const calculatedSkinfoldBodyFat =
-    skinfoldSum != null ? jacksonPollock7MalePercent(skinfoldSum, Number(skinfoldAge)) : null;
+    skinfoldSum != null ? jacksonPollock7Percent(skinfoldSum, Number(skinfoldAge), skinfoldSex) : null;
 
   async function loadEntries() {
     setLoading(true);
@@ -207,13 +259,32 @@ export default function MeasurementsCapturePage() {
     void loadEntries();
   }, []);
 
+  function setEntryKindWithDefaults(next: EntryKind) {
+    setEntryKind(next);
+
+    if (next === "weight") setSource("home_scale");
+    if (next === "tape") setSource("self_tape");
+    if (next === "skinfolds") setSource("harpenden");
+    if (next === "scan") setSource("dexa");
+
+    setFlash("");
+    setStatus("");
+  }
+
+  function composedNotes() {
+    const parts = [];
+    if (fitNote) parts.push(`Fit/appearance: ${fitNote}.`);
+    if (notes.trim()) parts.push(notes.trim());
+    return parts.join("\n");
+  }
+
   function buildPayload() {
     const base: any = {
       local_date: localDate,
       entry_kind: entryKind,
       source,
       measurement_unit: "in",
-      notes,
+      notes: composedNotes(),
     };
 
     if (entryKind === "weight") {
@@ -243,23 +314,15 @@ export default function MeasurementsCapturePage() {
       };
     }
 
-    if (entryKind === "body_fat_estimate") {
-      return {
-        ...base,
-        body_fat_percent: toNum(bodyFat),
-        body_fat_method: method,
-      };
-    }
-
     if (entryKind === "skinfolds") {
       return {
         ...base,
         body_fat_percent: calculatedSkinfoldBodyFat,
-        body_fat_method: "jackson_pollock_7_site_male",
-        source: source || "manual",
+        body_fat_method: `jackson_pollock_7_site_${skinfoldSex}`,
         skinfolds_json: {
           caliper: source,
-          formula: "jackson_pollock_7_site_male",
+          protocol: `jackson_pollock_7_site_${skinfoldSex}`,
+          formula: `jackson_pollock_7_site_${skinfoldSex}`,
           age: toNum(skinfoldAge),
           unit: "mm",
           sites: {
@@ -276,38 +339,24 @@ export default function MeasurementsCapturePage() {
       };
     }
 
-    if (entryKind === "scan") {
-      return {
-        ...base,
-        weight_value: toNum(weight),
-        weight_unit: "lb",
-        body_fat_percent: toNum(bodyFat),
-        body_fat_method: source,
-        scan_json: {
-          scan_type: source,
-          notes,
-        },
-      };
-    }
-
     return {
       ...base,
-      source: "manual",
       weight_value: toNum(weight),
       weight_unit: "lb",
-      waist_value: toNum(waist),
-      abdomen_value: toNum(abdomen),
-      neck_value: toNum(neck),
-      chest_value: toNum(chest),
-      hip_value: toNum(hip),
-      left_arm_value: toNum(leftArm),
-      right_arm_value: toNum(rightArm),
-      left_thigh_value: toNum(leftThigh),
-      right_thigh_value: toNum(rightThigh),
-      left_calf_value: toNum(leftCalf),
-      right_calf_value: toNum(rightCalf),
       body_fat_percent: toNum(bodyFat),
-      body_fat_method: method,
+      body_fat_method: source,
+      waist_value: source === "three_d_scan" ? toNum(waist) : null,
+      chest_value: source === "three_d_scan" ? toNum(chest) : null,
+      hip_value: source === "three_d_scan" ? toNum(hip) : null,
+      scan_json: {
+        scan_type: source,
+        facility_or_device: scanFacility.trim() || null,
+        fat_mass_lb: toNum(scanFatMass),
+        lean_mass_lb: toNum(scanLeanMass),
+        bone_mass_lb: toNum(scanBoneMass),
+        visceral_fat: toNum(scanVisceral),
+        skeletal_muscle_mass_lb: toNum(scanSkeletalMuscle),
+      },
     };
   }
 
@@ -328,7 +377,15 @@ export default function MeasurementsCapturePage() {
       "body_fat_percent",
     ];
 
-    return keys.some((k) => payload[k] != null) || Boolean(payload.skinfolds_json || payload.scan_json);
+    if (keys.some((k) => payload[k] != null)) return true;
+
+    const scan = payload.scan_json || {};
+    if (Object.values(scan).some((v) => v != null && v !== "")) return true;
+
+    const skinfolds = payload.skinfolds_json?.sites || {};
+    if (Object.values(skinfolds).some((v) => v != null && v !== "")) return true;
+
+    return false;
   }
 
   async function saveEntry() {
@@ -372,8 +429,10 @@ export default function MeasurementsCapturePage() {
     setLeftCalf("");
     setRightCalf("");
     setBodyFat("");
+    setFitNote("");
     setNotes("");
     setSkinfoldAge("");
+    setSkinfoldSex("male");
     setSfChest("");
     setSfAbdomen("");
     setSfThigh("");
@@ -381,6 +440,12 @@ export default function MeasurementsCapturePage() {
     setSfSubscapular("");
     setSfSuprailiac("");
     setSfMidaxillary("");
+    setScanFacility("");
+    setScanFatMass("");
+    setScanLeanMass("");
+    setScanBoneMass("");
+    setScanVisceral("");
+    setScanSkeletalMuscle("");
     setFlash("");
     setStatus("");
   }
@@ -393,7 +458,7 @@ export default function MeasurementsCapturePage() {
         <div>
           <h1 className="text-xl font-semibold">Measurements · Capture</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Log weight, tape, skinfolds, body-fat estimates, and scan results as separate measurement events.
+            Log weight, tape, skinfolds, and body scans as separate measurement events.
           </p>
         </div>
 
@@ -411,40 +476,41 @@ export default function MeasurementsCapturePage() {
       <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_20rem]">
         <main className="rounded-xl border p-4">
           <div className="grid gap-4 md:grid-cols-3">
-            <SelectField label="Entry type" value={entryKind} onChange={setEntryKind}>
+            <SelectField label="Entry type" value={entryKind} onChange={(v) => setEntryKindWithDefaults(v as EntryKind)}>
               <option value="weight">Weight</option>
               <option value="tape">Tape measurements</option>
-              <option value="body_fat_estimate">Body-fat estimate</option>
               <option value="skinfolds">Skinfolds / calipers</option>
-              <option value="scan">Scan: DEXA / InBody</option>
-              <option value="general">General mixed entry</option>
+              <option value="scan">Body scan</option>
             </SelectField>
 
             {entryKind === "weight" ? (
               <SelectField label="Scale" value={source} onChange={setSource}>
                 <option value="home_scale">Home scale</option>
                 <option value="professional_scale">Professional scale</option>
-                <option value="withings">Withings</option>
-                <option value="apple_health">Apple Health</option>
-                <option value="manual">Manual entry</option>
-                <option value="other">Other scale</option>
+                <option value="other_scale">Other scale</option>
               </SelectField>
             ) : null}
 
             {entryKind === "tape" ? (
-              <SelectField label="Tape device" value={source} onChange={setSource}>
-                <option value="renpho_tape">Renpho tape</option>
-                <option value="flexible_tape">Flexible tape</option>
+              <SelectField label="Tape setup" value={source} onChange={setSource}>
+                <option value="self_tape">Self-measured</option>
                 <option value="assisted_tape">Assisted measurement</option>
-                <option value="other_tape">Other tape</option>
               </SelectField>
             ) : null}
 
             {entryKind === "skinfolds" ? (
-              <SelectField label="Caliper" value={source} onChange={setSource}>
-                <option value="harpenden">Harpenden caliper</option>
-                <option value="other_caliper">Other caliper</option>
-              </SelectField>
+              <>
+                <SelectField label="Caliper" value={source} onChange={setSource}>
+                  <option value="harpenden">Harpenden caliper</option>
+                  <option value="other_caliper">Other caliper</option>
+                </SelectField>
+                <label className="text-sm">
+                  <div className="text-muted-foreground">Protocol</div>
+                  <div className="mt-2 rounded-xl border bg-muted/10 px-3 py-2 text-sm">
+                    Jackson-Pollock 7-site {skinfoldSex}
+                  </div>
+                </label>
+              </>
             ) : null}
 
             {entryKind === "scan" ? (
@@ -467,7 +533,7 @@ export default function MeasurementsCapturePage() {
               </p>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
                 <Field label="Weight (lb)" value={weight} onChange={setWeight} placeholder="167.0" />
-                <Field label="Scale body fat % (optional)" value={bodyFat} onChange={setBodyFat} placeholder="15.5" />
+                <Field label="Scale body-fat % (optional)" value={bodyFat} onChange={setBodyFat} placeholder="15.5" />
               </div>
             </section>
           ) : null}
@@ -506,12 +572,23 @@ export default function MeasurementsCapturePage() {
                 Harpenden/Jackson-Pollock 7-site entry. Take each site consistently. A good default is 2–3 readings per site and use the average or median.
               </p>
 
-              <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <div className="mt-4 grid gap-4 md:grid-cols-4">
                 <Field label="Age" value={skinfoldAge} onChange={setSkinfoldAge} placeholder="62" />
+
+                <SelectField
+                  label="Sex equation"
+                  value={skinfoldSex}
+                  onChange={(v) => setSkinfoldSex(v as "male" | "female")}
+                >
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </SelectField>
+
                 <div className="rounded-xl border p-3 text-sm">
                   <div className="text-muted-foreground">7-site sum</div>
                   <div className="mt-1 text-lg font-semibold">{skinfoldSum != null ? `${round1(skinfoldSum)} mm` : "—"}</div>
                 </div>
+
                 <div className="rounded-xl border p-3 text-sm">
                   <div className="text-muted-foreground">Calculated body fat</div>
                   <div className="mt-1 text-lg font-semibold">{calculatedSkinfoldBodyFat != null ? `${calculatedSkinfoldBodyFat}%` : "—"}</div>
@@ -519,82 +596,58 @@ export default function MeasurementsCapturePage() {
               </div>
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <Field
-                  label="Chest skinfold (mm)"
-                  value={sfChest}
-                  onChange={setSfChest}
-                  help="Diagonal fold halfway between the front armpit line and nipple."
-                />
-                <Field
-                  label="Abdomen skinfold (mm)"
-                  value={sfAbdomen}
-                  onChange={setSfAbdomen}
-                  help="Vertical fold about 1 inch to the side of the navel."
-                />
-                <Field
-                  label="Thigh skinfold (mm)"
-                  value={sfThigh}
-                  onChange={setSfThigh}
-                  help="Vertical fold on the front midline of the thigh, halfway between hip crease and kneecap."
-                />
-                <Field
-                  label="Triceps skinfold (mm)"
-                  value={sfTriceps}
-                  onChange={setSfTriceps}
-                  help="Vertical fold on the back of the upper arm, halfway between shoulder and elbow."
-                />
-                <Field
-                  label="Subscapular skinfold (mm)"
-                  value={sfSubscapular}
-                  onChange={setSfSubscapular}
-                  help="Diagonal fold just below the lower angle of the shoulder blade."
-                />
-                <Field
-                  label="Suprailiac skinfold (mm)"
-                  value={sfSuprailiac}
-                  onChange={setSfSuprailiac}
-                  help="Diagonal fold just above the hip bone along the natural crease."
-                />
-                <Field
-                  label="Midaxillary skinfold (mm)"
-                  value={sfMidaxillary}
-                  onChange={setSfMidaxillary}
-                  help="Vertical fold on the side of the torso at the level of the sternum/xiphoid."
-                />
+                <Field label="Chest skinfold (mm)" value={sfChest} onChange={setSfChest} help="Diagonal fold halfway between the front armpit line and nipple." />
+                <Field label="Abdomen skinfold (mm)" value={sfAbdomen} onChange={setSfAbdomen} help="Vertical fold about 1 inch to the side of the navel." />
+                <Field label="Thigh skinfold (mm)" value={sfThigh} onChange={setSfThigh} help="Vertical fold on the front midline of the thigh, halfway between hip crease and kneecap." />
+                <Field label="Triceps skinfold (mm)" value={sfTriceps} onChange={setSfTriceps} help="Vertical fold on the back of the upper arm, halfway between shoulder and elbow." />
+                <Field label="Subscapular skinfold (mm)" value={sfSubscapular} onChange={setSfSubscapular} help="Diagonal fold just below the lower angle of the shoulder blade." />
+                <Field label="Suprailiac skinfold (mm)" value={sfSuprailiac} onChange={setSfSuprailiac} help="Diagonal fold just above the hip bone along the natural crease." />
+                <Field label="Midaxillary skinfold (mm)" value={sfMidaxillary} onChange={setSfMidaxillary} help="Vertical fold on the side of the torso at the level of the sternum/xiphoid." />
               </div>
             </section>
           ) : null}
 
           {entryKind === "scan" ? (
             <section className="mt-6 rounded-xl border p-4">
-              <div className="text-sm font-semibold">Scan result</div>
+              <div className="text-sm font-semibold">Body scan result</div>
               <p className="mt-1 text-xs leading-snug text-muted-foreground">
-                Use this for DEXA, InBody, 3D scan, BodPod, or other external body-composition reports.
+                Enter the main values reported by a DEXA, InBody, BodPod, hydrostatic test, or 3D scan.
               </p>
+
               <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <TextField label="Facility / device" value={scanFacility} onChange={setScanFacility} />
                 <Field label="Weight (lb)" value={weight} onChange={setWeight} />
                 <Field label="Body fat %" value={bodyFat} onChange={setBodyFat} />
+                <Field label="Fat mass (lb)" value={scanFatMass} onChange={setScanFatMass} />
+                <Field label="Lean mass (lb)" value={scanLeanMass} onChange={setScanLeanMass} />
+                <Field label="Bone mass / BMC (lb)" value={scanBoneMass} onChange={setScanBoneMass} />
+                <Field label="Visceral fat / VAT" value={scanVisceral} onChange={setScanVisceral} />
+                <Field label="Skeletal muscle mass (lb)" value={scanSkeletalMuscle} onChange={setScanSkeletalMuscle} />
+                {source === "three_d_scan" ? (
+                  <>
+                    <Field label="Waist (in)" value={waist} onChange={setWaist} />
+                    <Field label="Chest (in)" value={chest} onChange={setChest} />
+                    <Field label="Hip (in)" value={hip} onChange={setHip} />
+                  </>
+                ) : null}
               </div>
             </section>
           ) : null}
 
-          {entryKind === "general" ? (
-            <section className="mt-6 rounded-xl border p-4">
-              <div className="text-sm font-semibold">General mixed entry</div>
-              <p className="mt-1 text-xs leading-snug text-muted-foreground">
-                Use this only when you intentionally want to save several measurement types together.
-              </p>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-3">
-                <Field label="Weight (lb)" value={weight} onChange={setWeight} placeholder="167.0" />
-                <Field label="Waist (in)" value={waist} onChange={setWaist} placeholder="36.0" />
-                <Field label="Abdomen (in)" value={abdomen} onChange={setAbdomen} placeholder="36.2" />
-                <Field label="Neck (in)" value={neck} onChange={setNeck} placeholder="15.75" />
-                <Field label="Chest (in)" value={chest} onChange={setChest} placeholder="41.0" />
-                <Field label="Hip (in)" value={hip} onChange={setHip} placeholder="38.0" />
-                <Field label="Body fat %" value={bodyFat} onChange={setBodyFat} placeholder="15.5" />
-              </div>
-            </section>
+          {entryKind === "weight" || entryKind === "tape" ? (
+            <SelectField
+              label="Fit / appearance note"
+              value={fitNote}
+              onChange={setFitNote}
+              help="Optional qualitative context. Useful when scale and tape disagree."
+            >
+              <option value="">No note</option>
+              <option value="looser">Clothes fitting looser</option>
+              <option value="same">About the same</option>
+              <option value="tighter">Clothes fitting tighter</option>
+              <option value="visibly_leaner">Visibly leaner</option>
+              <option value="bloated_watery">Bloated / watery</option>
+            </SelectField>
           ) : null}
 
           <label className="mt-6 block text-sm">
@@ -614,14 +667,10 @@ export default function MeasurementsCapturePage() {
               onClick={() => void saveEntry()}
               disabled={saving}
             >
-              {saving ? "Saving..." : `Save ${entryKind.replaceAll("_", " ")} entry`}
+              {saving ? "Saving..." : `Save ${displayKind(entryKind).toLowerCase()} entry`}
             </button>
 
-            <button
-              type="button"
-              className="rounded-xl border px-4 py-2 text-sm hover:bg-muted/30"
-              onClick={clearForm}
-            >
+            <button type="button" className="rounded-xl border px-4 py-2 text-sm hover:bg-muted/30" onClick={clearForm}>
               Clear form
             </button>
           </div>
@@ -644,7 +693,7 @@ export default function MeasurementsCapturePage() {
             <div className="mt-4 rounded-xl border p-3 text-sm">
               <div className="font-medium">{latest.local_date}</div>
               <div className="mt-2 space-y-1 text-muted-foreground">
-                {latest.entry_kind ? <div>Type: {latest.entry_kind}</div> : null}
+                <div>Type: {displayKind(latest.entry_kind)}</div>
                 {latest.weight_value != null ? <div>Weight: {latest.weight_value} {latest.weight_unit || "lb"}</div> : null}
                 {latest.waist_value != null ? <div>Waist: {latest.waist_value} {latest.measurement_unit || "in"}</div> : null}
                 {latest.body_fat_percent != null ? <div>Body fat: {latest.body_fat_percent}%</div> : null}
@@ -652,9 +701,7 @@ export default function MeasurementsCapturePage() {
               </div>
             </div>
           ) : (
-            <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
-              No measurement entries yet.
-            </div>
+            <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">No measurement entries yet.</div>
           )}
 
           <div className="mt-4 space-y-2">
@@ -662,7 +709,7 @@ export default function MeasurementsCapturePage() {
               <div key={entry.measurement_entry_id} className="rounded-xl border p-3 text-xs">
                 <div className="font-medium">{entry.local_date}</div>
                 <div className="mt-1 text-muted-foreground">
-                  {entry.entry_kind || "general"} · {entry.weight_value != null ? `${entry.weight_value} ${entry.weight_unit || "lb"}` : "No weight"}
+                  {displayKind(entry.entry_kind)} · {entry.weight_value != null ? `${entry.weight_value} ${entry.weight_unit || "lb"}` : "No weight"}
                   {entry.waist_value != null ? ` · waist ${entry.waist_value}` : ""}
                   {entry.body_fat_percent != null ? ` · BF ${entry.body_fat_percent}%` : ""}
                 </div>
