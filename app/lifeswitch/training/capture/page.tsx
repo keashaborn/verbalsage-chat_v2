@@ -758,9 +758,12 @@ export default function TrainingCapturePage() {
                       {block.rows.map((row) => (
                         <div
                           key={row.draft_id}
-                            className={`grid gap-2 rounded-xl border p-2 sm:grid-cols-[3rem_1fr_1fr_1fr_5.5rem] sm:items-center ${
-                              row.done ? "bg-muted/20 opacity-60" : ""
-                            }`}
+                            className={[
+                              "grid gap-2 rounded-xl border p-2 sm:grid-cols-[3rem_1fr_1fr_1fr_5.5rem] sm:items-center",
+                              row.done
+                                ? "border-muted bg-muted/10 opacity-60"
+                                : "border-blue-500/40 bg-blue-500/10",
+                            ].join(" ")}
                         >
                           <div className="text-xs text-muted-foreground">Set {row.set_index}</div>
 
@@ -779,6 +782,8 @@ export default function TrainingCapturePage() {
                                         className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
                                         inputMode="decimal"
                                         value={seg.weight}
+                                        disabled={row.done}
+                                        readOnly={row.done}
                                         onChange={(e) =>
                                           updateDraftSegment(row.draft_id, seg.segment_index, { weight: e.currentTarget.value })
                                         }
@@ -791,6 +796,8 @@ export default function TrainingCapturePage() {
                                         className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
                                         inputMode="numeric"
                                         value={seg.reps}
+                                        disabled={row.done}
+                                        readOnly={row.done}
                                         onChange={(e) =>
                                           updateDraftSegment(row.draft_id, seg.segment_index, { reps: e.currentTarget.value })
                                         }
@@ -807,6 +814,8 @@ export default function TrainingCapturePage() {
                                     className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
                                     inputMode="decimal"
                                     value={row.weight}
+                                    disabled={row.done}
+                                    readOnly={row.done}
                                     onChange={(e) => {
                                       const value = e.currentTarget.value;
                                       updateDraftRow(row.draft_id, { weight: value });
@@ -820,6 +829,8 @@ export default function TrainingCapturePage() {
                                     className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
                                     inputMode="numeric"
                                     value={row.reps}
+                                    disabled={row.done}
+                                    readOnly={row.done}
                                     onChange={(e) => {
                                       const value = e.currentTarget.value;
                                       updateDraftRow(row.draft_id, { reps: value });
@@ -832,6 +843,8 @@ export default function TrainingCapturePage() {
                                   <input
                                     className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
                                     value={row.flags}
+                                    disabled={row.done}
+                                    readOnly={row.done}
                                     onChange={(e) => {
                                       const value = e.currentTarget.value;
                                       updateDraftRow(row.draft_id, { flags: value });
@@ -850,7 +863,7 @@ export default function TrainingCapturePage() {
                               onClick={() => updateDraftRow(row.draft_id, { done: !row.done })}
                               title={row.done ? "Mark pending" : "Mark done"}
                             >
-                              {row.done ? "Done ✓" : "Done"}
+                              {row.done ? "Done ✓" : "Enter"}
                             </button>
                         </div>
                       ))}
