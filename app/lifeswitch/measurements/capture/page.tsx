@@ -219,6 +219,7 @@ export default function MeasurementsCapturePage() {
   const [entries, setEntries] = React.useState<MeasurementEntry[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const [status, setStatus] = React.useState("");
   const [flash, setFlash] = React.useState("");
 
@@ -448,6 +449,28 @@ export default function MeasurementsCapturePage() {
     setScanSkeletalMuscle("");
     setFlash("");
     setStatus("");
+  }
+
+  async function deleteEntry(entryId: string) {
+    const ok = window.confirm("Delete this measurement entry?");
+    if (!ok) return;
+
+    setDeletingId(entryId);
+    setStatus("");
+    setFlash("");
+
+    try {
+      await fetchJson(`/api/lifeswitch/measurements/entries/${encodeURIComponent(entryId)}/deactivate`, {
+        method: "POST",
+      });
+
+      setFlash("Measurement entry deleted.");
+      await loadEntries();
+    } catch (e: any) {
+      setStatus(String(e?.message || e));
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   const latest = entries[0] || null;
@@ -701,11 +724,24 @@ export default function MeasurementsCapturePage() {
           <div className="mt-4 space-y-2">
             {entries.slice(0, 8).map((entry) => (
               <div key={entry.measurement_entry_id} className="rounded-xl border p-3 text-xs">
-                <div className="font-medium">{entry.local_date}</div>
-                <div className="mt-1 text-muted-foreground">
-                  {displayKind(entry.entry_kind)} · {entry.weight_value != null ? `${entry.weight_value} ${entry.weight_unit || "lb"}` : "No weight"}
-                  {entry.waist_value != null ? ` · waist ${entry.waist_value}` : ""}
-                  {entry.body_fat_percent != null ? ` · BF ${entry.body_fat_percent}%` : ""}
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-medium">{entry.local_date}</div>
+                    <div className="mt-1 text-muted-foreground">
+                      {displayKind(entry.entry_kind)} · {entry.weight_value != null ? `${entry.weight_value} ${entry.weight_unit || "lb"}` : "No weight"}
+                      {entry.waist_value != null ? ` · waist ${entry.waist_value}` : ""}
+                      {entry.body_fat_percent != null ? ` · BF ${entry.body_fat_percent}%` : ""}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="rounded-md border px-2 py-1 text-[11px] hover:bg-muted/30 disabled:opacity-50"
+                    disabled={deletingId === entry.measurement_entry_id}
+                    onClick={() => void deleteEntry(entry.measurement_entry_id)}
+                  >
+                    {deletingId === entry.measurement_entry_id ? "Deleting..." : "Delete"}
+                  </button>
                 </div>
               </div>
             ))}
