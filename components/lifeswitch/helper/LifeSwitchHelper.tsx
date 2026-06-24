@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { Bot, Send, X } from "lucide-react";
+import { Send, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/authFetch";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
@@ -231,6 +231,53 @@ function buildHelperPrompt(pathname: string, userText: string, contextBundle: an
   ].join("\n");
 }
 
+
+function getLocalString(key: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  const raw = window.localStorage.getItem(key);
+  if (raw == null || raw === "") return fallback;
+
+  try {
+    const parsed = JSON.parse(raw);
+    return String(parsed ?? fallback);
+  } catch {
+    return String(raw || fallback);
+  }
+}
+
+function getLocalNumber(key: string, fallback: number): number {
+  if (typeof window === "undefined") return fallback;
+  const raw = window.localStorage.getItem(key);
+  if (raw == null || raw === "") return fallback;
+
+  let value: any = raw;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    value = raw;
+  }
+
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function speechTextFromMarkdown(input: string): string {
+  return String(input || "")
+    .replace(/```[\s\S]*?```/g, " code block omitted. ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/_([^_]+)_/g, "$1")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/^\s*\d+\.\s+/gm, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function LifeSwitchHelper() {
   const pathname = usePathname() || "/lifeswitch";
   const [open, setOpen] = React.useState(false);
@@ -242,7 +289,13 @@ export function LifeSwitchHelper() {
     },
   ]);
   const [busy, setBusy] = React.useState(false);
+  const [speakOn, setSpeakOn] = React.useState(false);
+  const [ttsBusy, setTtsBusy] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = React.useRef<string | null>(null);
+  const ttsAbortRef = React.useRef<AbortController | null>(null);
+  const audioUnlockedRef = React.useRef(false);
 
   const domain = classifyDomain(pathname);
   const mode = classifyMode(pathname);
@@ -251,12 +304,160 @@ export function LifeSwitchHelper() {
     scrollRef.current?.scrollIntoView({ block: "end" });
   }, [messages, busy, open]);
 
+
+
+  function unlockHelperAudioForPlayback() {
+    if (audioUnlockedRef.current) return;
+    audioUnlockedRef.current = true;
+
+    try {
+      const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as
+        | typeof AudioContext
+        | undefined;
+
+      if (Ctx) {
+        const ctx = new Ctx();
+        const source = ctx.createBufferSource();
+        source.buffer = ctx.createBuffer(1, 1, 22050);
+        source.connect(ctx.destination);
+        source.start(0);
+        void ctx.resume();
+        window.setTimeout(() => {
+          try {
+            void ctx.close();
+          } catch {
+            // ignore
+          }
+        }, 250);
+      }
+    } catch {
+      // ignore
+    }
+
+    try {
+      // Tiny silent WAV. This must be played from a user gesture to satisfy Safari/iOS.
+      const audio = new Audio(
+        "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQQAAAAAAA==",
+      );
+      audio.volume = 0;
+      void audio.play().then(() => {
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+        } catch {
+          // ignore
+        }
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  function stopHelperTTS() {
+    try {
+      ttsAbortRef.current?.abort();
+    } catch {
+      // ignore
+    }
+    ttsAbortRef.current = null;
+
+    try {
+      audioRef.current?.pause();
+      audioRef.current!.currentTime = 0;
+    } catch {
+      // ignore
+    }
+    audioRef.current = null;
+
+    if (audioUrlRef.current) {
+      try {
+        URL.revokeObjectURL(audioUrlRef.current);
+      } catch {
+        // ignore
+      }
+      audioUrlRef.current = null;
+    }
+
+    setTtsBusy(false);
+  }
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    setSpeakOn(window.localStorage.getItem("vs_lifeswitch_helper_speak") === "1");
+  }, []);
+
+  React.useEffect(() => {
+    return () => stopHelperTTS();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function toggleSpeakOn() {
+    setSpeakOn((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("vs_lifeswitch_helper_speak", next ? "1" : "0");
+      }
+      if (next) unlockHelperAudioForPlayback();
+      if (!next) stopHelperTTS();
+      return next;
+    });
+  }
+
+  async function speakHelperReply(replyText: string) {
+    const textToSpeak = speechTextFromMarkdown(replyText);
+    if (!textToSpeak) return;
+
+    stopHelperTTS();
+    setTtsBusy(true);
+
+    const voice = getLocalString("vs_voice", "sage").trim() || "sage";
+    const model = getLocalString("vs_voice_model", "gpt-4o-mini-tts").trim() || "gpt-4o-mini-tts";
+    const speed = getLocalNumber("vs_voice_speed", 1.0) || 1.0;
+
+    const ac = new AbortController();
+    ttsAbortRef.current = ac;
+
+    try {
+      const r = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: textToSpeak,
+          voice,
+          model,
+          speed,
+        }),
+        signal: ac.signal,
+      });
+
+      if (!r.ok) throw new Error(await r.text());
+
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      audioUrlRef.current = url;
+
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      audio.addEventListener("ended", stopHelperTTS);
+      audio.addEventListener("error", stopHelperTTS);
+
+      await audio.play();
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        console.error("LifeSwitch helper TTS error:", err);
+      }
+      stopHelperTTS();
+    }
+  }
+
   async function sendMessage() {
     const text = input.trim();
     if (!text || busy) return;
 
     setInput("");
     setBusy(true);
+    if (speakOn) unlockHelperAudioForPlayback();
     setMessages((prev) => [...prev, { role: "user", text }]);
 
     try {
@@ -274,14 +475,19 @@ export function LifeSwitchHelper() {
       });
 
       const reply = await r.text();
+      const assistantText = r.ok ? reply : `Helper error: ${reply.slice(0, 1200)}`;
 
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          text: r.ok ? reply : `Helper error: ${reply.slice(0, 1200)}`,
+          text: assistantText,
         },
       ]);
+
+      if (r.ok && speakOn) {
+        void speakHelperReply(assistantText);
+      }
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
@@ -306,15 +512,30 @@ export function LifeSwitchHelper() {
                 {domain} / {mode}
               </div>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-label="Close LifeSwitch helper"
-              onClick={() => setOpen(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant={speakOn ? "default" : "ghost"}
+                size="sm"
+                aria-label={speakOn ? "Turn helper speech off" : "Turn helper speech on"}
+                title={speakOn ? "Speak on" : "Speak off"}
+                onClick={toggleSpeakOn}
+                className="gap-1 px-2"
+              >
+                {speakOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                <span className="hidden text-xs sm:inline">{ttsBusy ? "Speaking" : "Speak"}</span>
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="Close LifeSwitch helper"
+                onClick={() => setOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </header>
 
           <div className="max-h-[min(55vh,28rem)] space-y-2 overflow-y-auto px-3 py-3">
@@ -369,11 +590,16 @@ export function LifeSwitchHelper() {
       ) : (
         <Button
           type="button"
-          className="h-12 w-12 rounded-full shadow-lg"
+          className="h-12 w-12 rounded-full bg-background p-0 shadow-lg hover:bg-muted/60"
           aria-label="Open LifeSwitch helper"
           onClick={() => setOpen(true)}
         >
-          <Bot className="h-5 w-5" />
+          <img
+            src="/brand/vs-icon.svg"
+            alt=""
+            aria-hidden="true"
+            className="h-7 w-7"
+          />
         </Button>
       )}
     </div>
