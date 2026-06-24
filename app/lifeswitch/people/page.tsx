@@ -1,70 +1,462 @@
-import Link from "next/link";
-import { MessageSquare, Users, UserRoundCheck, Handshake } from "lucide-react";
+"use client";
 
-function Card({
-  href,
-  title,
-  body,
-  icon: Icon,
-}: {
-  href: string;
-  title: string;
-  body: string;
-  icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <Link href={href} className="rounded-xl border p-4 hover:bg-muted/30 active:bg-muted/40">
-      <div className="flex items-start gap-3">
-        <div className="rounded-lg border p-2">
-          <Icon className="h-4 w-4" />
-        </div>
-        <div>
-          <div className="text-sm font-semibold">{title}</div>
-          <div className="mt-1 text-xs leading-relaxed text-muted-foreground">{body}</div>
-        </div>
-      </div>
-    </Link>
-  );
+import * as React from "react";
+import Link from "next/link";
+import { MessageSquare, RefreshCw, ShieldCheck, Users } from "lucide-react";
+import { authFetch } from "@/lib/authFetch";
+
+type PersonProfile = {
+  user_id: string;
+  display_name: string;
+  email?: string | null;
+  is_active?: boolean;
+};
+
+type Relationship = {
+  relationship_id: string;
+  requester_user_id: string;
+  addressee_user_id: string;
+  other_user_id: string;
+  status: "pending" | "accepted" | "blocked" | "revoked";
+  relationship_kind: "friend" | "training_partner" | "plan_helper" | "coach";
+  label: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type RelationshipPermission = {
+  relationship_permission_id: string;
+  relationship_id: string;
+  permission_scope: PermissionScope;
+  permission_level: PermissionLevel;
+  is_enabled: boolean;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type PermissionScope =
+  | "messages:send"
+  | "training:view"
+  | "nutrition:view"
+  | "measurements:view"
+  | "plan:view"
+  | "plan:comment"
+  | "plan:edit";
+
+type PermissionLevel = "none" | "view" | "comment" | "edit" | "admin";
+
+const PERMISSIONS: Array<{
+  scope: PermissionScope;
+  label: string;
+  level: PermissionLevel;
+  description: string;
+}> = [
+  {
+    scope: "messages:send",
+    label: "Messages",
+    level: "comment",
+    description: "Allow private LifeSwitch messages.",
+  },
+  {
+    scope: "training:view",
+    label: "Training view",
+    level: "view",
+    description: "Allow viewing training plan/logs later.",
+  },
+  {
+    scope: "nutrition:view",
+    label: "Nutrition view",
+    level: "view",
+    description: "Allow viewing nutrition plan/logs later.",
+  },
+  {
+    scope: "measurements:view",
+    label: "Measurements view",
+    level: "view",
+    description: "Allow viewing measurements/body-composition data later.",
+  },
+  {
+    scope: "plan:view",
+    label: "Plan view",
+    level: "view",
+    description: "Allow viewing unified LifeSwitch plan later.",
+  },
+  {
+    scope: "plan:comment",
+    label: "Plan comment",
+    level: "comment",
+    description: "Allow comments/suggestions on the plan later.",
+  },
+  {
+    scope: "plan:edit",
+    label: "Plan edit",
+    level: "edit",
+    description: "Allow direct plan editing later. Use cautiously.",
+  },
+];
+
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const r = await authFetch(url, { cache: "no-store", ...(init || {}) });
+  if (!r.ok) {
+    const text = await r.text().catch(() => "");
+    throw new Error(text || `HTTP ${r.status}`);
+  }
+  return (await r.json()) as T;
+}
+
+function shortId(id: string | null | undefined): string {
+  if (!id) return "unknown";
+  if (id.length <= 16) return id;
+  return `${id.slice(0, 8)}…${id.slice(-6)}`;
+}
+
+function displayName(person: PersonProfile | null | undefined, fallbackId?: string | null): string {
+  const clean = String(person?.display_name || "").trim();
+  return clean || `User ${shortId(fallbackId || person?.user_id)}`;
+}
+
+function statusBadge(status?: string): string {
+  if (!status) return "not connected";
+  return status.replaceAll("_", " ");
+}
+
+function kindLabel(kind?: string): string {
+  if (!kind) return "friend";
+  return kind.replaceAll("_", " ");
 }
 
 export default function LifeSwitchPeoplePage() {
+  const [people, setPeople] = React.useState<PersonProfile[]>([]);
+  const [relationships, setRelationships] = React.useState<Relationship[]>([]);
+  const [selectedUserId, setSelectedUserId] = React.useState("");
+  const [selectedKind, setSelectedKind] = React.useState<Relationship["relationship_kind"]>("friend");
+  const [permissions, setPermissions] = React.useState<RelationshipPermission[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  const selectedPerson = people.find((p) => p.user_id === selectedUserId) || null;
+  const selectedRelationship =
+    relationships.find((r) => r.other_user_id === selectedUserId) || null;
+
+  const permissionByScope = React.useMemo(() => {
+    const m = new Map<PermissionScope, RelationshipPermission>();
+    for (const p of permissions) m.set(p.permission_scope, p);
+    return m;
+  }, [permissions]);
+
+  async function loadAll(nextSelectedUserId?: string) {
+    setLoading(true);
+    setError("");
+    try {
+      const [profileRows, relationshipRows] = await Promise.all([
+        fetchJson<PersonProfile[]>("/api/lifeswitch/people/profiles"),
+        fetchJson<Relationship[]>("/api/lifeswitch/people/relationships"),
+      ]);
+
+      setPeople(profileRows);
+      setRelationships(relationshipRows);
+
+      const next =
+        nextSelectedUserId ||
+        selectedUserId ||
+        relationshipRows[0]?.other_user_id ||
+        profileRows[0]?.user_id ||
+        "";
+
+      setSelectedUserId(next);
+
+      const rel = relationshipRows.find((r) => r.other_user_id === next);
+      if (rel) {
+        setSelectedKind(rel.relationship_kind);
+        await loadPermissions(rel.relationship_id);
+      } else {
+        setPermissions([]);
+      }
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadPermissions(relationshipId: string) {
+    if (!relationshipId) {
+      setPermissions([]);
+      return;
+    }
+
+    const rows = await fetchJson<RelationshipPermission[]>(
+      `/api/lifeswitch/people/relationships/${encodeURIComponent(relationshipId)}/permissions`
+    );
+    setPermissions(rows);
+  }
+
+  async function selectPerson(userId: string) {
+    setSelectedUserId(userId);
+    const rel = relationships.find((r) => r.other_user_id === userId);
+    if (rel) {
+      setSelectedKind(rel.relationship_kind);
+      await loadPermissions(rel.relationship_id);
+    } else {
+      setSelectedKind("friend");
+      setPermissions([]);
+    }
+  }
+
+  async function saveRelationship() {
+    if (!selectedUserId) return;
+
+    setSaving(true);
+    setError("");
+    try {
+      const person = people.find((p) => p.user_id === selectedUserId);
+      const rel = await fetchJson<Relationship>("/api/lifeswitch/people/relationships/upsert", {
+        method: "POST",
+        headers: { "content-type": "application/json; charset=utf-8" },
+        body: JSON.stringify({
+          other_user_id: selectedUserId,
+          status: "accepted",
+          relationship_kind: selectedKind,
+          label: person?.display_name || "",
+          notes: "Managed from LifeSwitch People.",
+        }),
+      });
+
+      await loadAll(rel.other_user_id);
+      await loadPermissions(rel.relationship_id);
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setPermission(scope: PermissionScope, level: PermissionLevel, enabled: boolean) {
+    if (!selectedRelationship) return;
+
+    setSaving(true);
+    setError("");
+    try {
+      await fetchJson<RelationshipPermission>(
+        `/api/lifeswitch/people/relationships/${encodeURIComponent(
+          selectedRelationship.relationship_id
+        )}/permissions/upsert`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json; charset=utf-8" },
+          body: JSON.stringify({
+            permission_scope: scope,
+            permission_level: enabled ? level : "none",
+            is_enabled: enabled ? 1 : 0,
+            notes: "Managed from LifeSwitch People permissions UI.",
+          }),
+        }
+      );
+
+      await loadPermissions(selectedRelationship.relationship_id);
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  React.useEffect(() => {
+    void loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="grid gap-4">
-      <div>
-        <div className="text-lg font-semibold">People</div>
-        <div className="mt-1 text-sm text-muted-foreground">
-          Private LifeSwitch connections for messages, workout friends, and permissioned plan help.
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="text-lg font-semibold">People</div>
+          <div className="mt-1 text-sm text-muted-foreground">
+            Private LifeSwitch connections for messages, workout friends, and permissioned plan help.
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <Link
+            href="/lifeswitch/people/messages"
+            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Messages
+          </Link>
+          <button
+            type="button"
+            onClick={() => void loadAll(selectedUserId)}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
         </div>
       </div>
 
-      <div className="grid gap-3">
-        <Card
-          href="/lifeswitch/people/messages"
-          title="Messages"
-          body="Text with workout friends and training partners. First version is private one-to-one messaging."
-          icon={MessageSquare}
-        />
+      {error ? (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+          {error}
+        </div>
+      ) : null}
 
-        <Card
-          href="/lifeswitch/people/friends"
-          title="Friends"
-          body="Manage accepted LifeSwitch connections. Invite links and contact lookup come later."
-          icon={Users}
-        />
+      <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
+        <section className="rounded-xl border">
+          <div className="flex items-center gap-2 border-b px-4 py-3">
+            <Users className="h-4 w-4" />
+            <div className="text-sm font-semibold">Known people</div>
+          </div>
 
-        <Card
-          href="/lifeswitch/people/helping"
-          title="People I Help"
-          body="For plan-helper access: build workouts, review logs, and guide someone else’s plan once permissions are added."
-          icon={UserRoundCheck}
-        />
+          <div className="grid max-h-[620px] overflow-auto">
+            {people.length === 0 ? (
+              <div className="p-4 text-sm text-muted-foreground">
+                {loading ? "Loading people…" : "No people found."}
+              </div>
+            ) : (
+              people.map((person) => {
+                const rel = relationships.find((r) => r.other_user_id === person.user_id);
+                const active = person.user_id === selectedUserId;
 
-        <Card
-          href="/lifeswitch/people/helping-me"
-          title="People Helping Me"
-          body="Control who can view, comment on, or later edit parts of your LifeSwitch plan."
-          icon={Handshake}
-        />
+                return (
+                  <button
+                    key={person.user_id}
+                    type="button"
+                    onClick={() => void selectPerson(person.user_id)}
+                    className={[
+                      "border-b px-4 py-3 text-left hover:bg-muted/30",
+                      active ? "bg-muted/20" : "",
+                    ].join(" ")}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold">{displayName(person)}</div>
+                        <div className="mt-1 truncate text-xs text-muted-foreground">
+                          {person.email || shortId(person.user_id)}
+                        </div>
+                      </div>
+                      <div className="shrink-0 rounded-full border px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {statusBadge(rel?.status)}
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      {rel ? kindLabel(rel.relationship_kind) : "No relationship yet"}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        <section className="grid gap-4">
+          <div className="rounded-xl border p-4">
+            <div className="text-sm font-semibold">
+              {selectedPerson ? displayName(selectedPerson) : "Select a person"}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {selectedPerson ? selectedPerson.user_id : "Choose someone from the list."}
+            </div>
+
+            {selectedPerson ? (
+              <div className="mt-4 grid gap-3">
+                <div className="grid gap-2 sm:grid-cols-[220px_1fr_auto]">
+                  <select
+                    value={selectedKind}
+                    onChange={(e) =>
+                      setSelectedKind(e.target.value as Relationship["relationship_kind"])
+                    }
+                    className="rounded-md border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="friend">Friend</option>
+                    <option value="training_partner">Training partner</option>
+                    <option value="plan_helper">Plan helper</option>
+                    <option value="coach">Coach</option>
+                  </select>
+
+                  <div className="rounded-md border px-3 py-2 text-sm text-muted-foreground">
+                    Status: {statusBadge(selectedRelationship?.status)}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => void saveRelationship()}
+                    disabled={saving}
+                    className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                  >
+                    {selectedRelationship ? "Update" : "Create"}
+                  </button>
+                </div>
+
+                {selectedRelationship ? (
+                  <div className="text-xs text-muted-foreground">
+                    relationship_id: {selectedRelationship.relationship_id}
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground">
+                    Create a relationship before assigning permissions.
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-xl border">
+            <div className="flex items-center gap-2 border-b px-4 py-3">
+              <ShieldCheck className="h-4 w-4" />
+              <div>
+                <div className="text-sm font-semibold">Permissions</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  These are stored now. Enforcement into plan/training/nutrition APIs comes later.
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-2 p-4">
+              {!selectedRelationship ? (
+                <div className="text-sm text-muted-foreground">
+                  Select a person with a relationship, or create one above.
+                </div>
+              ) : (
+                PERMISSIONS.map((p) => {
+                  const existing = permissionByScope.get(p.scope);
+                  const enabled = Boolean(existing?.is_enabled);
+
+                  return (
+                    <div
+                      key={p.scope}
+                      className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_auto]"
+                    >
+                      <div>
+                        <div className="text-sm font-semibold">{p.label}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">{p.description}</div>
+                        <div className="mt-1 text-[10px] text-muted-foreground">
+                          {p.scope} · level: {enabled ? existing?.permission_level || p.level : "none"}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void setPermission(p.scope, p.level, !enabled)}
+                        disabled={saving}
+                        className={[
+                          "rounded-md border px-3 py-2 text-sm disabled:opacity-50",
+                          enabled ? "bg-muted/30" : "hover:bg-muted/30",
+                        ].join(" ")}
+                      >
+                        {enabled ? "Enabled" : "Enable"}
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );
