@@ -289,8 +289,8 @@ export function LifeSwitchHelper() {
     },
   ]);
   const [busy, setBusy] = React.useState(false);
-  const [speakOn, setSpeakOn] = React.useState(false);
   const [ttsBusy, setTtsBusy] = React.useState(false);
+  const [ttsError, setTtsError] = React.useState("");
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = React.useRef<string | null>(null);
@@ -382,25 +382,31 @@ export function LifeSwitchHelper() {
   }
 
   React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    setSpeakOn(window.localStorage.getItem("vs_lifeswitch_helper_speak") === "1");
-  }, []);
-
-  React.useEffect(() => {
     return () => stopHelperTTS();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function toggleSpeakOn() {
-    setSpeakOn((prev) => {
-      const next = !prev;
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("vs_lifeswitch_helper_speak", next ? "1" : "0");
+  function latestAssistantText() {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m?.role === "assistant" && String(m.text || "").trim()) {
+        return String(m.text || "").trim();
       }
-      if (next) unlockHelperAudioForPlayback();
-      if (!next) stopHelperTTS();
-      return next;
-    });
+    }
+    return "";
+  }
+
+  function speakLatestAssistant() {
+    if (ttsBusy) {
+      stopHelperTTS();
+      return;
+    }
+
+    const latest = latestAssistantText();
+    if (!latest) return;
+
+    unlockHelperAudioForPlayback();
+    void speakHelperReply(latest);
   }
 
   async function speakHelperReply(replyText: string) {
@@ -408,6 +414,7 @@ export function LifeSwitchHelper() {
     if (!textToSpeak) return;
 
     stopHelperTTS();
+    setTtsError("");
     setTtsBusy(true);
 
     const voice = getLocalString("vs_voice", "sage").trim() || "sage";
@@ -445,7 +452,9 @@ export function LifeSwitchHelper() {
       await audio.play();
     } catch (err: any) {
       if (err?.name !== "AbortError") {
+        const msg = String(err?.message || err || "Unknown TTS error");
         console.error("LifeSwitch helper TTS error:", err);
+        setTtsError(msg);
       }
       stopHelperTTS();
     }
@@ -457,7 +466,6 @@ export function LifeSwitchHelper() {
 
     setInput("");
     setBusy(true);
-    if (speakOn) unlockHelperAudioForPlayback();
     setMessages((prev) => [...prev, { role: "user", text }]);
 
     try {
@@ -485,9 +493,6 @@ export function LifeSwitchHelper() {
         },
       ]);
 
-      if (r.ok && speakOn) {
-        void speakHelperReply(assistantText);
-      }
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
@@ -515,15 +520,15 @@ export function LifeSwitchHelper() {
             <div className="flex items-center gap-1">
               <Button
                 type="button"
-                variant={speakOn ? "default" : "ghost"}
+                variant={ttsBusy ? "default" : "ghost"}
                 size="sm"
-                aria-label={speakOn ? "Turn helper speech off" : "Turn helper speech on"}
-                title={speakOn ? "Speak on" : "Speak off"}
-                onClick={toggleSpeakOn}
+                aria-label={ttsBusy ? "Stop helper speech" : "Speak latest helper answer"}
+                title={ttsBusy ? "Stop" : "Speak latest answer"}
+                onClick={speakLatestAssistant}
                 className="gap-1 px-2"
               >
-                {speakOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-                <span className="hidden text-xs sm:inline">{ttsBusy ? "Speaking" : "Speak"}</span>
+                {ttsBusy ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                <span className="hidden text-xs sm:inline">{ttsBusy ? "Stop" : "Speak"}</span>
               </Button>
 
               <Button
@@ -537,6 +542,12 @@ export function LifeSwitchHelper() {
               </Button>
             </div>
           </header>
+
+          {ttsError ? (
+            <div className="border-b px-3 py-2 text-xs text-red-600 dark:text-red-400">
+              Voice error: {ttsError}
+            </div>
+          ) : null}
 
           <div className="max-h-[min(55vh,28rem)] space-y-2 overflow-y-auto px-3 py-3">
             {messages.map((m, i) => (
