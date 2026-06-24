@@ -80,7 +80,117 @@ function pagePurpose(domain: LifeSwitchDomain, mode: LifeSwitchMode): string {
   return "LifeSwitch page. Current product scope is nutrition, training, and measurements.";
 }
 
-function buildHelperPrompt(pathname: string, userText: string): string {
+
+function compactContextForPrompt(raw: any) {
+  if (!raw || typeof raw !== "object") return null;
+
+  const recent = raw.recent || {};
+  const plan = raw.currentPlan || {};
+
+  return {
+    page: raw.page || null,
+    window: raw.window || null,
+    currentPlan: plan
+      ? {
+          phase: plan.phase ?? null,
+          phase_label: plan.phase_label ?? null,
+          primary_goal: plan.primary_goal ?? null,
+          review_cadence: plan.review_cadence ?? null,
+          nutrition_targets: plan.nutrition_targets ?? null,
+          training_targets: plan.training_targets ?? null,
+          conditioning_targets: plan.conditioning_targets ?? null,
+          activity_targets: plan.activity_targets ?? null,
+          recovery_targets: plan.recovery_targets ?? null,
+          body_state: plan.body_state ?? null,
+          monitoring_rules: plan.monitoring_rules ?? null,
+          coach_notes: plan.coach_notes ?? null,
+        }
+      : null,
+    recent: {
+      nutrition: recent.nutrition
+        ? {
+            windowDays: recent.nutrition.windowDays,
+            loggedDays: recent.nutrition.loggedDays,
+            averageCalories: recent.nutrition.averageCalories,
+            averageProteinG: recent.nutrition.averageProteinG,
+            daysHitCalories: recent.nutrition.daysHitCalories,
+            daysHitProtein: recent.nutrition.daysHitProtein,
+            daysFullHit: recent.nutrition.daysFullHit,
+            targets: recent.nutrition.targets,
+            days: Array.isArray(recent.nutrition.days)
+              ? recent.nutrition.days.slice(0, 14)
+              : [],
+          }
+        : null,
+      training: recent.training
+        ? {
+            windowDays: recent.training.windowDays,
+            strengthSessions: recent.training.strengthSessions,
+            conditioningSessions: recent.training.conditioningSessions,
+            strengthDays: recent.training.strengthDays,
+            conditioningDays: recent.training.conditioningDays,
+            trainingDays: recent.training.trainingDays,
+            sets: recent.training.sets,
+            volume: recent.training.volume,
+            exercises: recent.training.exercises,
+            conditioningMinutes: recent.training.conditioningMinutes,
+            recentStrength: Array.isArray(recent.training.recentStrength)
+              ? recent.training.recentStrength.slice(0, 8)
+              : [],
+            recentConditioning: Array.isArray(recent.training.recentConditioning)
+              ? recent.training.recentConditioning.slice(0, 8)
+              : [],
+          }
+        : null,
+      measurements: recent.measurements
+        ? {
+            entryCount: recent.measurements.entryCount,
+            current: recent.measurements.current,
+            latestWeight: recent.measurements.latestWeight,
+            latestTape: recent.measurements.latestTape,
+            latestSkinfolds: recent.measurements.latestSkinfolds,
+            latestScan: recent.measurements.latestScan,
+          }
+        : null,
+    },
+    missing: Array.isArray(raw.missing) ? raw.missing : [],
+    errors: raw.errors || {},
+  };
+}
+
+async function fetchLifeSwitchContext(pathname: string) {
+  const u = new URL("/api/lifeswitch/helper/context", window.location.origin);
+  u.searchParams.set("route", pathname);
+  u.searchParams.set("days", "14");
+
+  const r = await authFetch(u.toString(), {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  const text = await r.text().catch(() => "");
+  let json: any = null;
+
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = { raw_text: text.slice(0, 2000) };
+  }
+
+  if (!r.ok) {
+    return {
+      ok: false,
+      error: json?.detail || json?.error || text.slice(0, 500) || `HTTP ${r.status}`,
+    };
+  }
+
+  return {
+    ok: true,
+    context: compactContextForPrompt(json),
+  };
+}
+
+function buildHelperPrompt(pathname: string, userText: string, contextBundle: any): string {
   const domain = classifyDomain(pathname);
   const mode = classifyMode(pathname);
   const purpose = pagePurpose(domain, mode);
@@ -103,6 +213,11 @@ function buildHelperPrompt(pathname: string, userText: string): string {
     `- domain: ${domain}`,
     `- mode: ${mode}`,
     `- page purpose: ${purpose}`,
+    "",
+    "LifeSwitch context bundle:",
+    contextBundle
+      ? JSON.stringify(contextBundle, null, 2)
+      : "No context bundle was available.",
     "",
     "Rules:",
     "- Help the user fill out the current page or understand what to do next.",
@@ -145,11 +260,14 @@ export function LifeSwitchHelper() {
     setMessages((prev) => [...prev, { role: "user", text }]);
 
     try {
+      const contextResult = await fetchLifeSwitchContext(pathname);
+      const contextBundle = contextResult.ok ? contextResult.context : { context_error: contextResult.error };
+
       const r = await authFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: buildHelperPrompt(pathname, text),
+          message: buildHelperPrompt(pathname, text, contextBundle),
           noStore: true,
           top_k: 3,
         }),
