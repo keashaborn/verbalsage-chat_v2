@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { MessageSquare, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
+import { supabase } from "@/lib/supabaseClient";
 
 type PersonProfile = {
   user_id: string;
@@ -128,6 +129,7 @@ function kindLabel(kind?: string): string {
 }
 
 export default function LifeSwitchPeoplePage() {
+  const [currentUserId, setCurrentUserId] = React.useState("");
   const [people, setPeople] = React.useState<PersonProfile[]>([]);
   const [relationships, setRelationships] = React.useState<Relationship[]>([]);
   const [selectedUserId, setSelectedUserId] = React.useState("");
@@ -137,7 +139,12 @@ export default function LifeSwitchPeoplePage() {
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState("");
 
-  const selectedPerson = people.find((p) => p.user_id === selectedUserId) || null;
+  const visiblePeople = React.useMemo(
+    () => people.filter((p) => !currentUserId || p.user_id !== currentUserId),
+    [people, currentUserId]
+  );
+
+  const selectedPerson = visiblePeople.find((p) => p.user_id === selectedUserId) || null;
   const selectedRelationship =
     relationships.find((r) => r.other_user_id === selectedUserId) || null;
 
@@ -159,11 +166,12 @@ export default function LifeSwitchPeoplePage() {
       setPeople(profileRows);
       setRelationships(relationshipRows);
 
+      const selectableProfiles = profileRows.filter((p) => !currentUserId || p.user_id !== currentUserId);
       const next =
         nextSelectedUserId ||
         selectedUserId ||
         relationshipRows[0]?.other_user_id ||
-        profileRows[0]?.user_id ||
+        selectableProfiles[0]?.user_id ||
         "";
 
       setSelectedUserId(next);
@@ -208,6 +216,10 @@ export default function LifeSwitchPeoplePage() {
 
   async function saveRelationship() {
     if (!selectedUserId) return;
+    if (currentUserId && selectedUserId === currentUserId) {
+      setError("You cannot create a relationship with yourself.");
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -265,9 +277,22 @@ export default function LifeSwitchPeoplePage() {
   }
 
   React.useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!cancelled) setCurrentUserId(data?.user?.id || "");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  React.useEffect(() => {
     void loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentUserId]);
 
   return (
     <div className="grid gap-4">
@@ -313,12 +338,12 @@ export default function LifeSwitchPeoplePage() {
           </div>
 
           <div className="grid max-h-[620px] overflow-auto">
-            {people.length === 0 ? (
+            {visiblePeople.length === 0 ? (
               <div className="p-4 text-sm text-muted-foreground">
                 {loading ? "Loading people…" : "No people found."}
               </div>
             ) : (
-              people.map((person) => {
+              visiblePeople.map((person) => {
                 const rel = relationships.find((r) => r.other_user_id === person.user_id);
                 const active = person.user_id === selectedUserId;
 
