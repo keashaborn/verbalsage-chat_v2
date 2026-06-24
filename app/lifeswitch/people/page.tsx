@@ -29,6 +29,8 @@ type Relationship = {
 type RelationshipPermission = {
   relationship_permission_id: string;
   relationship_id: string;
+  grantor_user_id?: string | null;
+  grantee_user_id?: string | null;
   permission_scope: PermissionScope;
   permission_level: PermissionLevel;
   is_enabled: boolean;
@@ -149,11 +151,16 @@ export default function LifeSwitchPeoplePage() {
   const selectedRelationship =
     relationships.find((r) => r.other_user_id === selectedUserId) || null;
 
+  const permissionsIGive = React.useMemo(
+    () => permissions.filter((p) => !currentUserId || p.grantor_user_id === currentUserId),
+    [permissions, currentUserId]
+  );
+
   const permissionByScope = React.useMemo(() => {
     const m = new Map<PermissionScope, RelationshipPermission>();
-    for (const p of permissions) m.set(p.permission_scope, p);
+    for (const p of permissionsIGive) m.set(p.permission_scope, p);
     return m;
-  }, [permissions]);
+  }, [permissionsIGive]);
 
   async function loadAll(nextSelectedUserId?: string) {
     setLoading(true);
@@ -454,7 +461,7 @@ export default function LifeSwitchPeoplePage() {
                     <span className="font-semibold">{displayName(selectedPerson, selectedUserId)}</span>{" "}
                     access to{" "}
                     <span className="font-semibold">{displayName(currentPerson, currentUserId)}</span>
-                    ’s LifeSwitch data.
+                    ’s LifeSwitch data. Only permissions granted by the current logged-in account are shown here.
                   </div>
 
                   {PERMISSIONS.map((p) => {
