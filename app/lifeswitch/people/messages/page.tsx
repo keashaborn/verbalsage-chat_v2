@@ -13,6 +13,7 @@ type Conversation = {
   created_at: string;
   updated_at: string;
   other_user_id: string | null;
+  other_display_name?: string | null;
   last_message_id: string | null;
   last_message_author_user_id: string | null;
   last_message_body: string | null;
@@ -23,6 +24,7 @@ type Message = {
   message_id: string;
   conversation_id: string;
   author_user_id: string;
+  author_display_name?: string | null;
   body: string;
   body_format: string;
   metadata: Record<string, unknown>;
@@ -51,6 +53,11 @@ function formatTime(v: string | null | undefined): string {
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleString();
+}
+
+function displayUserName(name: string | null | undefined, id: string | null | undefined): string {
+  const clean = String(name || "").trim();
+  return clean || `User ${shortId(id)}`;
 }
 
 export default function LifeSwitchPeopleMessagesPage() {
@@ -251,7 +258,7 @@ export default function LifeSwitchPeopleMessagesPage() {
                     ].join(" ")}
                   >
                     <div className="text-sm font-semibold">
-                      {c.title || `User ${shortId(c.other_user_id)}`}
+                      {c.title || displayUserName(c.other_display_name, c.other_user_id)}
                     </div>
                     <div className="mt-1 truncate text-xs text-muted-foreground">
                       {c.last_message_body || "No messages yet."}
@@ -269,7 +276,9 @@ export default function LifeSwitchPeopleMessagesPage() {
         <section className="rounded-xl border">
           <div className="border-b px-4 py-3">
             <div className="text-sm font-semibold">
-              {selectedConversation ? selectedConversation.title || `User ${shortId(selectedConversation.other_user_id)}` : "Select a conversation"}
+              {selectedConversation
+                ? selectedConversation.title || displayUserName(selectedConversation.other_display_name, selectedConversation.other_user_id)
+                : "Select a conversation"}
             </div>
             {selectedConversation ? (
               <div className="mt-1 text-xs text-muted-foreground">
@@ -300,7 +309,7 @@ export default function LifeSwitchPeopleMessagesPage() {
                     ].join(" ")}
                   >
                     <div className="text-xs text-muted-foreground">
-                      {mine ? "You" : shortId(m.author_user_id)} · {formatTime(m.created_at)}
+                      {mine ? "You" : displayUserName(m.author_display_name, m.author_user_id)} · {formatTime(m.created_at)}
                     </div>
                     <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{m.body}</div>
                   </div>
