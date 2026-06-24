@@ -61,6 +61,7 @@ export default function LifeSwitchPeopleMessagesPage() {
   const [loadingConversations, setLoadingConversations] = React.useState(false);
   const [loadingMessages, setLoadingMessages] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const savingRef = React.useRef(false);
   const [error, setError] = React.useState("");
 
   const selectedConversation = conversations.find((c) => c.conversation_id === selectedId) || null;
@@ -100,12 +101,15 @@ export default function LifeSwitchPeopleMessagesPage() {
   }
 
   async function startConversation() {
+    if (savingRef.current) return;
+
     const other = otherUserId.trim();
     if (!other) {
       setError("Paste the other user's Supabase UUID first.");
       return;
     }
 
+    savingRef.current = true;
     setSaving(true);
     setError("");
     try {
@@ -120,14 +124,18 @@ export default function LifeSwitchPeopleMessagesPage() {
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
 
   async function sendMessage() {
+    if (savingRef.current) return;
+
     const body = draft.trim();
     if (!selectedId || !body) return;
 
+    savingRef.current = true;
     setSaving(true);
     setError("");
     try {
@@ -146,6 +154,7 @@ export default function LifeSwitchPeopleMessagesPage() {
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
