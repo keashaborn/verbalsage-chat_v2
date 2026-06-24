@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { authFetch, authFetchJson } from "@/lib/authFetch";
 import { ChevronDown, Copy, RefreshCw, Volume2, Loader2, Square, Check } from "lucide-react";
 import { useGrokVoice, type GrokVoice } from "@/hooks/useGrokVoice";
+import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
 
 type InspectResult = {
   answer?: string;
@@ -1164,10 +1165,10 @@ export function BrainsChatPane() {
                   className={
                     m.role === "user"
                       ? "inline-block rounded-2xl bg-muted px-4 py-2 text-sm"
-                      : "inline-block max-w-[42rem] whitespace-pre-wrap text-sm leading-7"
+                      : "inline-block max-w-[42rem] text-sm leading-7"
                   }
                 >
-                  {m.content}
+                  {m.role === "assistant" ? <MarkdownMessage>{m.content}</MarkdownMessage> : m.content}
                 </div>
 
                 {m.role === "assistant" && (

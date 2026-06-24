@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Bot, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/authFetch";
+import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
 
 type LifeSwitchDomain = "plan" | "nutrition" | "training" | "measurements" | "unknown";
 type LifeSwitchMode =
@@ -209,7 +210,7 @@ export function LifeSwitchHelper() {
                     : "mr-8 bg-muted",
                 ].join(" ")}
               >
-                {m.text}
+                {m.role === "assistant" ? <MarkdownMessage>{m.text}</MarkdownMessage> : m.text}
               </div>
             ))}
             {busy ? (
