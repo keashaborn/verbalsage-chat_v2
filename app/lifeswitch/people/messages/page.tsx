@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { authFetch } from "@/lib/authFetch";
+import { supabase } from "@/lib/supabaseClient";
 
 type Conversation = {
   conversation_id: string;
@@ -58,6 +59,7 @@ export default function LifeSwitchPeopleMessagesPage() {
   const [selectedId, setSelectedId] = React.useState("");
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [draft, setDraft] = React.useState("");
+  const [currentUserId, setCurrentUserId] = React.useState("");
   const [loadingConversations, setLoadingConversations] = React.useState(false);
   const [loadingMessages, setLoadingMessages] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
@@ -158,6 +160,19 @@ export default function LifeSwitchPeopleMessagesPage() {
       setSaving(false);
     }
   }
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!cancelled) setCurrentUserId(data?.user?.id || "");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   React.useEffect(() => {
     void loadConversations();
@@ -273,14 +288,24 @@ export default function LifeSwitchPeopleMessagesPage() {
             ) : messages.length === 0 ? (
               <div className="text-sm text-muted-foreground">No messages yet.</div>
             ) : (
-              messages.map((m) => (
-                <div key={m.message_id} className="rounded-xl border p-3">
-                  <div className="text-xs text-muted-foreground">
-                    {shortId(m.author_user_id)} · {formatTime(m.created_at)}
+              messages.map((m) => {
+                const mine = currentUserId && m.author_user_id === currentUserId;
+
+                return (
+                  <div
+                    key={m.message_id}
+                    className={[
+                      "max-w-[85%] rounded-xl border p-3",
+                      mine ? "justify-self-end bg-muted/30" : "justify-self-start",
+                    ].join(" ")}
+                  >
+                    <div className="text-xs text-muted-foreground">
+                      {mine ? "You" : shortId(m.author_user_id)} · {formatTime(m.created_at)}
+                    </div>
+                    <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{m.body}</div>
                   </div>
-                  <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{m.body}</div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
