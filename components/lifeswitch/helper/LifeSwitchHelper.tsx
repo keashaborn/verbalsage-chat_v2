@@ -290,10 +290,12 @@ export function LifeSwitchHelper() {
   ]);
   const [busy, setBusy] = React.useState(false);
   const [ttsBusy, setTtsBusy] = React.useState(false);
+  const [ttsPreparing, setTtsPreparing] = React.useState(false);
   const [ttsError, setTtsError] = React.useState("");
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = React.useRef<string | null>(null);
+  const preparedSpeechTextRef = React.useRef<string>("");
   const ttsAbortRef = React.useRef<AbortController | null>(null);
   const audioUnlockedRef = React.useRef(false);
 
@@ -306,51 +308,16 @@ export function LifeSwitchHelper() {
 
 
 
-  function unlockHelperAudioForPlayback() {
-    if (audioUnlockedRef.current) return;
-    audioUnlockedRef.current = true;
-
-    try {
-      const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as
-        | typeof AudioContext
-        | undefined;
-
-      if (Ctx) {
-        const ctx = new Ctx();
-        const source = ctx.createBufferSource();
-        source.buffer = ctx.createBuffer(1, 1, 22050);
-        source.connect(ctx.destination);
-        source.start(0);
-        void ctx.resume();
-        window.setTimeout(() => {
-          try {
-            void ctx.close();
-          } catch {
-            // ignore
-          }
-        }, 250);
+  function revokePreparedSpeechUrl() {
+    if (audioUrlRef.current) {
+      try {
+        URL.revokeObjectURL(audioUrlRef.current);
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
+      audioUrlRef.current = null;
     }
-
-    try {
-      // Tiny silent WAV. This must be played from a user gesture to satisfy Safari/iOS.
-      const audio = new Audio(
-        "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQQAAAAAAA==",
-      );
-      audio.volume = 0;
-      void audio.play().then(() => {
-        try {
-          audio.pause();
-          audio.currentTime = 0;
-        } catch {
-          // ignore
-        }
-      });
-    } catch {
-      // ignore
-    }
+    preparedSpeechTextRef.current = "";
   }
 
   function stopHelperTTS() {
@@ -369,20 +336,15 @@ export function LifeSwitchHelper() {
     }
     audioRef.current = null;
 
-    if (audioUrlRef.current) {
-      try {
-        URL.revokeObjectURL(audioUrlRef.current);
-      } catch {
-        // ignore
-      }
-      audioUrlRef.current = null;
-    }
-
     setTtsBusy(false);
+    setTtsPreparing(false);
   }
 
   React.useEffect(() => {
-    return () => stopHelperTTS();
+    return () => {
+      stopHelperTTS();
+      revokePreparedSpeechUrl();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -396,26 +358,16 @@ export function LifeSwitchHelper() {
     return "";
   }
 
-  function speakLatestAssistant() {
-    if (ttsBusy) {
-      stopHelperTTS();
-      return;
-    }
-
-    const latest = latestAssistantText();
-    if (!latest) return;
-
-    unlockHelperAudioForPlayback();
-    void speakHelperReply(latest);
-  }
-
-  async function speakHelperReply(replyText: string) {
+  async function prepareHelperSpeech(replyText: string) {
     const textToSpeak = speechTextFromMarkdown(replyText);
     if (!textToSpeak) return;
 
+    if (preparedSpeechTextRef.current === textToSpeak && audioUrlRef.current) return;
+
     stopHelperTTS();
+    revokePreparedSpeechUrl();
     setTtsError("");
-    setTtsBusy(true);
+    setTtsPreparing(true);
 
     const voice = getLocalString("vs_voice", "sage").trim() || "sage";
     const model = getLocalString("vs_voice_model", "gpt-4o-mini-tts").trim() || "gpt-4o-mini-tts";
@@ -441,21 +393,53 @@ export function LifeSwitchHelper() {
 
       const blob = await r.blob();
       const url = URL.createObjectURL(blob);
-      audioUrlRef.current = url;
 
-      const audio = new Audio(url);
+      audioUrlRef.current = url;
+      preparedSpeechTextRef.current = textToSpeak;
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        const msg = String(err?.message || err || "Unknown TTS error");
+        console.error("LifeSwitch helper TTS prepare error:", err);
+        setTtsError(msg);
+      }
+      revokePreparedSpeechUrl();
+    } finally {
+      ttsAbortRef.current = null;
+      setTtsPreparing(false);
+    }
+  }
+
+  async function speakLatestAssistant() {
+    if (ttsBusy) {
+      stopHelperTTS();
+      return;
+    }
+
+    const latest = latestAssistantText();
+    const textToSpeak = speechTextFromMarkdown(latest);
+    if (!textToSpeak) return;
+
+    setTtsError("");
+
+    if (preparedSpeechTextRef.current !== textToSpeak || !audioUrlRef.current) {
+      setTtsError("Voice is preparing. Tap Speak again in a moment.");
+      void prepareHelperSpeech(latest);
+      return;
+    }
+
+    try {
+      const audio = new Audio(audioUrlRef.current);
       audioRef.current = audio;
 
       audio.addEventListener("ended", stopHelperTTS);
       audio.addEventListener("error", stopHelperTTS);
 
+      setTtsBusy(true);
       await audio.play();
     } catch (err: any) {
-      if (err?.name !== "AbortError") {
-        const msg = String(err?.message || err || "Unknown TTS error");
-        console.error("LifeSwitch helper TTS error:", err);
-        setTtsError(msg);
-      }
+      const msg = String(err?.message || err || "Unknown TTS playback error");
+      console.error("LifeSwitch helper TTS playback error:", err);
+      setTtsError(msg);
       stopHelperTTS();
     }
   }
@@ -493,6 +477,10 @@ export function LifeSwitchHelper() {
         },
       ]);
 
+      if (r.ok) {
+        void prepareHelperSpeech(assistantText);
+      }
+
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
@@ -523,12 +511,13 @@ export function LifeSwitchHelper() {
                 variant={ttsBusy ? "default" : "ghost"}
                 size="sm"
                 aria-label={ttsBusy ? "Stop helper speech" : "Speak latest helper answer"}
-                title={ttsBusy ? "Stop" : "Speak latest answer"}
+                title={ttsBusy ? "Stop" : ttsPreparing ? "Preparing voice" : "Speak latest answer"}
                 onClick={speakLatestAssistant}
+                disabled={ttsPreparing}
                 className="gap-1 px-2"
               >
                 {ttsBusy ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                <span className="hidden text-xs sm:inline">{ttsBusy ? "Stop" : "Speak"}</span>
+                <span className="hidden text-xs sm:inline">{ttsBusy ? "Stop" : ttsPreparing ? "Prep" : "Speak"}</span>
               </Button>
 
               <Button
