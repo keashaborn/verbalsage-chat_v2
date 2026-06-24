@@ -144,6 +144,7 @@ export default function LifeSwitchPeoplePage() {
     [people, currentUserId]
   );
 
+  const currentPerson = people.find((p) => p.user_id === currentUserId) || null;
   const selectedPerson = visiblePeople.find((p) => p.user_id === selectedUserId) || null;
   const selectedRelationship =
     relationships.find((r) => r.other_user_id === selectedUserId) || null;
@@ -434,9 +435,9 @@ export default function LifeSwitchPeoplePage() {
             <div className="flex items-center gap-2 border-b px-4 py-3">
               <ShieldCheck className="h-4 w-4" />
               <div>
-                <div className="text-sm font-semibold">Permissions</div>
+                <div className="text-sm font-semibold">Access I give this person</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  These are stored now. Enforcement into plan/training/nutrition APIs comes later.
+                  These controls grant the selected person access to your LifeSwitch data. They do not give you access to their data.
                 </div>
               </div>
             </div>
@@ -447,7 +448,16 @@ export default function LifeSwitchPeoplePage() {
                   Select a person with a relationship, or create one above.
                 </div>
               ) : (
-                PERMISSIONS.map((p) => {
+                <>
+                  <div className="rounded-lg border bg-muted/20 p-3 text-sm">
+                    You are granting{" "}
+                    <span className="font-semibold">{displayName(selectedPerson, selectedUserId)}</span>{" "}
+                    access to{" "}
+                    <span className="font-semibold">{displayName(currentPerson, currentUserId)}</span>
+                    ’s LifeSwitch data.
+                  </div>
+
+                  {PERMISSIONS.map((p) => {
                   const existing = permissionByScope.get(p.scope);
                   const enabled = Boolean(existing?.is_enabled);
 
@@ -477,7 +487,8 @@ export default function LifeSwitchPeoplePage() {
                       </button>
                     </div>
                   );
-                })
+                })}
+                </>
               )}
             </div>
           </div>
