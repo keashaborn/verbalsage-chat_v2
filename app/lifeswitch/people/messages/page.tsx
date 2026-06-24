@@ -33,6 +33,13 @@ type Message = {
   updated_at: string;
 };
 
+type PersonProfile = {
+  user_id: string;
+  display_name: string;
+  email?: string | null;
+  is_active?: boolean;
+};
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await authFetch(url, { cache: "no-store", ...(init || {}) });
   if (!r.ok) {
@@ -62,6 +69,9 @@ function displayUserName(name: string | null | undefined, id: string | null | un
 
 export default function LifeSwitchPeopleMessagesPage() {
   const [otherUserId, setOtherUserId] = React.useState("");
+  const [selectedPersonId, setSelectedPersonId] = React.useState("");
+  const [people, setPeople] = React.useState<PersonProfile[]>([]);
+  const [loadingPeople, setLoadingPeople] = React.useState(false);
   const [conversations, setConversations] = React.useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = React.useState("");
   const [messages, setMessages] = React.useState<Message[]>([]);
@@ -74,6 +84,19 @@ export default function LifeSwitchPeopleMessagesPage() {
   const [error, setError] = React.useState("");
 
   const selectedConversation = conversations.find((c) => c.conversation_id === selectedId) || null;
+
+  async function loadPeople() {
+    setLoadingPeople(true);
+    setError("");
+    try {
+      const rows = await fetchJson<PersonProfile[]>("/api/lifeswitch/people/profiles");
+      setPeople(rows);
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setLoadingPeople(false);
+    }
+  }
 
   async function loadConversations(selectId?: string) {
     setLoadingConversations(true);
@@ -112,9 +135,9 @@ export default function LifeSwitchPeopleMessagesPage() {
   async function startConversation() {
     if (savingRef.current) return;
 
-    const other = otherUserId.trim();
+    const other = (selectedPersonId || otherUserId).trim();
     if (!other) {
-      setError("Paste the other user's Supabase UUID first.");
+      setError("Choose a person or paste the other user's Supabase UUID first.");
       return;
     }
 
@@ -128,6 +151,7 @@ export default function LifeSwitchPeopleMessagesPage() {
         body: JSON.stringify({ other_user_id: other }),
       });
       setOtherUserId("");
+      setSelectedPersonId("");
       await loadConversations(c.conversation_id);
       await loadMessages(c.conversation_id);
     } catch (e) {
@@ -182,6 +206,7 @@ export default function LifeSwitchPeopleMessagesPage() {
   }, []);
 
   React.useEffect(() => {
+    void loadPeople();
     void loadConversations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -195,23 +220,46 @@ export default function LifeSwitchPeopleMessagesPage() {
       <div>
         <div className="text-lg font-semibold">Messages</div>
         <div className="mt-1 text-sm text-muted-foreground">
-          Internal one-to-one LifeSwitch messaging. For now, start a conversation by pasting another Supabase user UUID.
+          Internal one-to-one LifeSwitch messaging. Start a conversation by choosing a known person or pasting a Supabase user UUID.
         </div>
       </div>
 
       <div className="rounded-xl border p-4">
         <div className="text-sm font-semibold">Start conversation</div>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-2 grid gap-2 lg:grid-cols-[280px_1fr_auto]">
+          <select
+            value={selectedPersonId}
+            onChange={(e) => {
+              setSelectedPersonId(e.target.value);
+              if (e.target.value) setOtherUserId("");
+            }}
+            disabled={loadingPeople}
+            className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
+          >
+            <option value="">{loadingPeople ? "Loading people…" : "Choose a person…"}</option>
+            {people
+              .filter((p) => p.user_id !== currentUserId)
+              .map((p) => (
+                <option key={p.user_id} value={p.user_id}>
+                  {displayUserName(p.display_name, p.user_id)}
+                </option>
+              ))}
+          </select>
+
           <input
             value={otherUserId}
-            onChange={(e) => setOtherUserId(e.target.value)}
-            placeholder="other_user_id UUID"
-            className="min-w-0 flex-1 rounded-md border bg-background px-3 py-2 text-sm"
+            onChange={(e) => {
+              setOtherUserId(e.target.value);
+              if (e.target.value.trim()) setSelectedPersonId("");
+            }}
+            placeholder="Or paste other_user_id UUID"
+            className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm"
           />
+
           <button
             type="button"
             onClick={() => void startConversation()}
-            disabled={saving || !otherUserId.trim()}
+            disabled={saving || (!selectedPersonId && !otherUserId.trim())}
             className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
           >
             Start
