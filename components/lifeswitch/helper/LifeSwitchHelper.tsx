@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Send, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/authFetch";
@@ -88,6 +88,9 @@ function compactContextForPrompt(raw: any) {
   const plan = raw.currentPlan || {};
 
   return {
+    delegated_view: raw.delegated_view || false,
+    target_user_id: raw.target_user_id || null,
+    target_name: raw.target_name || null,
     page: raw.page || null,
     window: raw.window || null,
     currentPlan: plan
@@ -158,10 +161,15 @@ function compactContextForPrompt(raw: any) {
   };
 }
 
-async function fetchLifeSwitchContext(pathname: string) {
+async function fetchLifeSwitchContext(
+  pathname: string,
+  opts?: { targetUserId?: string; targetName?: string }
+) {
   const u = new URL("/api/lifeswitch/helper/context", window.location.origin);
   u.searchParams.set("route", pathname);
   u.searchParams.set("days", "14");
+  if (opts?.targetUserId) u.searchParams.set("target_user_id", opts.targetUserId);
+  if (opts?.targetName) u.searchParams.set("target_name", opts.targetName);
 
   const r = await authFetch(u.toString(), {
     method: "GET",
@@ -210,6 +218,9 @@ function buildHelperPrompt(pathname: string, userText: string, contextBundle: an
     "",
     "Current page context:",
     `- route: ${pathname}`,
+    contextBundle?.delegated_view
+      ? `- delegated view: yes; target: ${contextBundle?.target_name || contextBundle?.target_user_id || "unknown"}`
+      : "- delegated view: no",
     `- domain: ${domain}`,
     `- mode: ${mode}`,
     `- page purpose: ${purpose}`,
@@ -280,6 +291,7 @@ function speechTextFromMarkdown(input: string): string {
 
 export function LifeSwitchHelper() {
   const pathname = usePathname() || "/lifeswitch";
+  const searchParams = useSearchParams();
   const [open, setOpen] = React.useState(false);
   const [input, setInput] = React.useState("");
   const [messages, setMessages] = React.useState<HelperMessage[]>([
@@ -453,7 +465,10 @@ export function LifeSwitchHelper() {
     setMessages((prev) => [...prev, { role: "user", text }]);
 
     try {
-      const contextResult = await fetchLifeSwitchContext(pathname);
+      const contextResult = await fetchLifeSwitchContext(pathname, {
+        targetUserId: String(searchParams.get("target_user_id") || "").trim(),
+        targetName: String(searchParams.get("target_name") || "").trim(),
+      });
       const contextBundle = contextResult.ok ? contextResult.context : { context_error: contextResult.error };
 
       const r = await authFetch("/api/chat", {

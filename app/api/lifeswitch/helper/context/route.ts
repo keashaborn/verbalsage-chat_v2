@@ -22,6 +22,8 @@ export async function GET(req: NextRequest) {
       days: Number(inUrl.searchParams.get("days") || 14),
       today: String(inUrl.searchParams.get("today") || "").trim() || undefined,
       startDay: String(inUrl.searchParams.get("start_day") || "").trim() || undefined,
+      target_user_id: String(inUrl.searchParams.get("target_user_id") || "").trim() || undefined,
+      target_name: String(inUrl.searchParams.get("target_name") || "").trim() || undefined,
     });
 
     return new Response(JSON.stringify(context, null, 2), {

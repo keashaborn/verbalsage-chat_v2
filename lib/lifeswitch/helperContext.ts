@@ -192,6 +192,8 @@ export async function buildLifeSwitchHelperContext({
   days = 14,
   today = ymd(new Date()),
   startDay,
+  target_user_id,
+  target_name,
 }: {
   owner_user_id: string;
   rid: string;
@@ -199,18 +201,28 @@ export async function buildLifeSwitchHelperContext({
   days?: number;
   today?: string;
   startDay?: string;
+  target_user_id?: string;
+  target_name?: string;
 }) {
   days = clampInt(String(days), 7, 90, 14);
   startDay = startDay || daysAgo(days - 1);
 
   const domain = classifyDomain(route);
   const mode = classifyMode(route);
+  const targetUserId = String(target_user_id || "").trim();
+  const targetName = String(target_name || "").trim();
+  const isDelegatedView = Boolean(targetUserId && targetUserId !== owner_user_id);
+
+  const targetParams: Record<string, string> = isDelegatedView
+    ? { target_user_id: targetUserId }
+    : {};
 
   const missing: string[] = [];
   const errors: Record<string, any> = {};
 
   const planResp = await fetchJson("/lifeswitch/plan/profile", rid, owner_user_id, {
-    create_if_missing: "1",
+    create_if_missing: isDelegatedView ? "0" : "1",
+    ...targetParams,
   });
 
   const plan = planResp.ok ? planResp.data : null;
@@ -228,7 +240,7 @@ export async function buildLifeSwitchHelperContext({
 
   const nutritionDays = [];
   for (const day of dayList) {
-    const rawResp = await fetchJson("/lifeswitch/nutrition/log/day", rid, owner_user_id, { day });
+    const rawResp = await fetchJson("/lifeswitch/nutrition/log/day", rid, owner_user_id, { day, ...targetParams });
     if (!rawResp.ok) {
       errors[`nutrition_${day}`] = rawResp.error;
       continue;
@@ -285,8 +297,8 @@ export async function buildLifeSwitchHelperContext({
   if (nutritionLogged.length === 0) missing.push("recent nutrition logs");
 
   const [strengthResp, conditioningResp] = await Promise.all([
-    fetchJson("/lifeswitch/training/sessions", rid, owner_user_id, { limit: "500" }),
-    fetchJson("/lifeswitch/training/conditioning_sessions", rid, owner_user_id, { limit: "500" }),
+    fetchJson("/lifeswitch/training/sessions", rid, owner_user_id, { limit: "500", ...targetParams }),
+    fetchJson("/lifeswitch/training/conditioning_sessions", rid, owner_user_id, { limit: "500", ...targetParams }),
   ]);
 
   const strengthAll = strengthResp.ok && Array.isArray(strengthResp.data) ? strengthResp.data : [];
@@ -321,7 +333,7 @@ export async function buildLifeSwitchHelperContext({
 
   if (strengthRecent.length === 0 && conditioningRecent.length === 0) missing.push("recent training logs");
 
-  const measurementsResp = await fetchJson("/lifeswitch/measurements/entries", rid, owner_user_id, { limit: "250" });
+  const measurementsResp = await fetchJson("/lifeswitch/measurements/entries", rid, owner_user_id, { limit: "250", ...targetParams });
   const measurements = measurementsResp.ok && Array.isArray(measurementsResp.data) ? measurementsResp.data : [];
   if (!measurementsResp.ok) errors.measurements = measurementsResp.error;
 
@@ -366,6 +378,9 @@ export async function buildLifeSwitchHelperContext({
   return {
     ok: true,
     owner_user_id,
+    target_user_id: isDelegatedView ? targetUserId : owner_user_id,
+    target_name: isDelegatedView ? targetName || null : null,
+    delegated_view: isDelegatedView,
     page: {
       route,
       domain,
