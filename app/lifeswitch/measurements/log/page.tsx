@@ -187,6 +187,8 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 
 export default function MeasurementsLogPage() {
   const [entries, setEntries] = React.useState<MeasurementEntry[]>([]);
+  const [targetUserId, setTargetUserId] = React.useState("");
+  const [targetName, setTargetName] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [status, setStatus] = React.useState("");
 
@@ -195,7 +197,18 @@ export default function MeasurementsLogPage() {
     setStatus("");
 
     try {
-      const rows = (await fetchJson("/api/lifeswitch/measurements/entries?limit=250")) as MeasurementEntry[];
+      const params = new URLSearchParams(window.location.search);
+      const targetUid = String(params.get("target_user_id") || "").trim();
+      const targetLabel = String(params.get("target_name") || "").trim();
+
+      setTargetUserId(targetUid);
+      setTargetName(targetLabel);
+
+      const u = new URL("/api/lifeswitch/measurements/entries", window.location.origin);
+      u.searchParams.set("limit", "250");
+      if (targetUid) u.searchParams.set("target_user_id", targetUid);
+
+      const rows = (await fetchJson(u.toString())) as MeasurementEntry[];
       setEntries(Array.isArray(rows) ? rows : []);
     } catch (e: any) {
       setStatus(String(e?.message || e));
@@ -227,8 +240,16 @@ export default function MeasurementsLogPage() {
     return Array.from(m.entries()).sort((a, b) => b[0].localeCompare(a[0]));
   }, [entries]);
 
+  const isDelegatedView = Boolean(targetUserId);
+
   return (
     <div className="mx-auto max-w-5xl p-4 pb-28">
+      {isDelegatedView ? (
+        <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+          You are viewing {targetName || "this person"}’s measurements. This delegated view is read-only.
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Measurements · Log</h1>
@@ -247,12 +268,14 @@ export default function MeasurementsLogPage() {
             {loading ? "Loading..." : "Refresh"}
           </button>
 
-          <Link
-            href="/lifeswitch/measurements/capture"
-            className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
-          >
-            Add entry
-          </Link>
+          {!isDelegatedView ? (
+            <Link
+              href="/lifeswitch/measurements/capture"
+              className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
+            >
+              Add entry
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -331,12 +354,18 @@ export default function MeasurementsLogPage() {
                           </details>
                         </div>
 
-                        <Link
-                          href="/lifeswitch/measurements/capture"
-                          className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
-                        >
-                          Edit in Capture
-                        </Link>
+                        {!isDelegatedView ? (
+                          <Link
+                            href="/lifeswitch/measurements/capture"
+                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                          >
+                            Edit in Capture
+                          </Link>
+                        ) : (
+                          <div className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
+                            Read-only
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

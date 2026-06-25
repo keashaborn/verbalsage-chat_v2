@@ -133,6 +133,7 @@ export default function LifeSwitchPeopleHelpingPage() {
               const canViewPlan = group.permissions.some((p) => p.permission_scope === "plan:view");
               const canViewTraining = group.permissions.some((p) => p.permission_scope === "training:view");
               const canViewNutrition = group.permissions.some((p) => p.permission_scope === "nutrition:view");
+              const canViewMeasurements = group.permissions.some((p) => p.permission_scope === "measurements:view");
 
               return (
               <div key={group.grantor_user_id} className="rounded-xl border p-4">
@@ -166,6 +167,14 @@ export default function LifeSwitchPeopleHelpingPage() {
                         className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
                       >
                         View nutrition
+                      </Link>
+                    ) : null}
+                    {canViewMeasurements ? (
+                      <Link
+                        href={`/lifeswitch/measurements/log?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
+                        className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                      >
+                        View measurements
                       </Link>
                     ) : null}
                     <div className="rounded-md border px-3 py-2 text-xs text-muted-foreground">
