@@ -208,6 +208,12 @@ export default function TrainingCalendarPage() {
   const [conditioningSessions, setConditioningSessions] = React.useState<ConditioningSessionRow[]>([]);
   const [loading, setLoading] = React.useState(true);
 
+  const targetUserId =
+    typeof window !== "undefined"
+      ? String(new URLSearchParams(window.location.search).get("target_user_id") || "").trim()
+      : "";
+  const readOnly = Boolean(targetUserId);
+
   const today = React.useMemo(() => todayLocalYYYYMMDD(), []);
 
   async function loadSessions() {
@@ -215,9 +221,11 @@ export default function TrainingCalendarPage() {
     setStatus("loading native training sessions...");
 
     try {
+      const targetParam = targetUserId ? `&target_user_id=${encodeURIComponent(targetUserId)}` : "";
+
       const [strengthJson, conditioningJson] = await Promise.all([
-        fetchJson("/api/lifeswitch/training/sessions?limit=250"),
-        fetchJson("/api/lifeswitch/training/conditioning_sessions?limit=250"),
+        fetchJson(`/api/lifeswitch/training/sessions?limit=250${targetParam}`),
+        fetchJson(`/api/lifeswitch/training/conditioning_sessions?limit=250${targetParam}`),
       ]);
 
       const strengthArr = Array.isArray(strengthJson) ? (strengthJson as TrainingSessionRow[]) : [];
@@ -237,7 +245,9 @@ export default function TrainingCalendarPage() {
 
       setSessions(strengthArr);
       setConditioningSessions(conditioningArr);
-      setStatus(`loaded ${strengthArr.length} strength sessions and ${conditioningArr.length} conditioning sessions`);
+      setStatus(
+        `${readOnly ? "delegated read-only view · " : ""}loaded ${strengthArr.length} strength sessions and ${conditioningArr.length} conditioning sessions`
+      );
     } catch (e: any) {
       setSessions([]);
       setConditioningSessions([]);
@@ -249,9 +259,15 @@ export default function TrainingCalendarPage() {
 
   React.useEffect(() => {
     void loadSessions();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetUserId]);
 
   async function deleteSession(trainingSessionId: string, name: string) {
+    if (readOnly) {
+      setStatus("delegated read-only view: delete is not allowed");
+      return;
+    }
+
     const ok = window.confirm(`Delete logged session "${name}"?`);
     if (!ok) return;
 
@@ -337,6 +353,12 @@ export default function TrainingCalendarPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-4">
+      {readOnly ? (
+        <div className="mb-4 rounded-xl border bg-muted/20 p-3 text-sm">
+          You are viewing another person’s training log. This delegated view is read-only.
+        </div>
+      ) : null}
+
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-lg font-semibold">Training · Log</div>
