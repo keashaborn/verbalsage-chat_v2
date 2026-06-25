@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Send, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/authFetch";
@@ -291,7 +291,6 @@ function speechTextFromMarkdown(input: string): string {
 
 export function LifeSwitchHelper() {
   const pathname = usePathname() || "/lifeswitch";
-  const searchParams = useSearchParams();
   const [open, setOpen] = React.useState(false);
   const [input, setInput] = React.useState("");
   const [messages, setMessages] = React.useState<HelperMessage[]>([
@@ -465,9 +464,13 @@ export function LifeSwitchHelper() {
     setMessages((prev) => [...prev, { role: "user", text }]);
 
     try {
+      const params = new URLSearchParams(
+        typeof window !== "undefined" ? window.location.search : ""
+      );
+
       const contextResult = await fetchLifeSwitchContext(pathname, {
-        targetUserId: String(searchParams.get("target_user_id") || "").trim(),
-        targetName: String(searchParams.get("target_name") || "").trim(),
+        targetUserId: String(params.get("target_user_id") || "").trim(),
+        targetName: String(params.get("target_name") || "").trim(),
       });
       const contextBundle = contextResult.ok ? contextResult.context : { context_error: contextResult.error };
 
