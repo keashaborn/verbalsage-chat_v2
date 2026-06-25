@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { MessageSquare, RefreshCw, ShieldCheck, Users } from "lucide-react";
+import { MessageSquare, RefreshCw, ShieldCheck, UserRoundCheck, Users } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -319,6 +319,13 @@ export default function LifeSwitchPeoplePage() {
           >
             <MessageSquare className="h-4 w-4" />
             Messages
+          </Link>
+          <Link
+            href="/lifeswitch/people/helping"
+            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
+          >
+            <UserRoundCheck className="h-4 w-4" />
+            People I Help
           </Link>
           <button
             type="button"
