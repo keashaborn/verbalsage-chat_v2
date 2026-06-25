@@ -138,6 +138,27 @@ function makeDraftId(exerciseId: string, setIndex: number) {
   return `${exerciseId}::${setIndex}::${Math.random().toString(36).slice(2)}`;
 }
 
+const TRAINING_CAPTURE_DRAFT_KEY = "lifeswitch:training:capture:draft:v1";
+
+type TrainingCaptureLocalDraft = {
+  day: string;
+  selectedId: string;
+  draftRows: DraftSetRow[];
+  prefillSource?: string;
+  savedAt?: string;
+};
+
+function isDraftSetRows(x: any): x is DraftSetRow[] {
+  return Array.isArray(x) && x.every((row) => row && typeof row === "object" && typeof row.draft_id === "string");
+}
+
+function formatSavedAt(savedAt: string) {
+  if (!savedAt) return "";
+  const d = new Date(savedAt);
+  if (!Number.isFinite(d.getTime())) return "";
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 export default function TrainingCapturePage() {
   const router = useRouter();
   const [owner, setOwner] = React.useState<string | null>(null);
@@ -156,6 +177,8 @@ export default function TrainingCapturePage() {
   const [draftRows, setDraftRows] = React.useState<DraftSetRow[]>([]);
   const [finishLoading, setFinishLoading] = React.useState(false);
   const [prefillSource, setPrefillSource] = React.useState("Select a workout template to begin");
+  const [restoredLocalDraft, setRestoredLocalDraft] = React.useState(false);
+  const [draftSavedAt, setDraftSavedAt] = React.useState("");
 
   const selected = React.useMemo(() => {
     return templates.find((t) => t.workout_template_id === selectedId) || null;
@@ -193,6 +216,58 @@ export default function TrainingCapturePage() {
       volume,
     };
   }, [doneRows]);
+
+  React.useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(TRAINING_CAPTURE_DRAFT_KEY);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as Partial<TrainingCaptureLocalDraft>;
+      if (!parsed?.selectedId || !isDraftSetRows(parsed.draftRows) || !parsed.draftRows.length) return;
+
+      setDay(String(parsed.day || todayLocalYYYYMMDD()));
+      setSelectedId(String(parsed.selectedId || ""));
+      setDraftRows(parsed.draftRows);
+      setPrefillSource(parsed.prefillSource || "Restored unfinished workout draft");
+      setRestoredLocalDraft(true);
+      setDraftSavedAt(formatSavedAt(String(parsed.savedAt || "")));
+      setFlash("Restored unfinished workout draft");
+    } catch {
+      // ignore invalid local draft data
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (!selectedId || !draftRows.length) return;
+
+    try {
+      const savedAt = new Date().toISOString();
+      const payload: TrainingCaptureLocalDraft = {
+        day,
+        selectedId,
+        draftRows,
+        prefillSource,
+        savedAt,
+      };
+
+      window.localStorage.setItem(TRAINING_CAPTURE_DRAFT_KEY, JSON.stringify(payload));
+      setDraftSavedAt(formatSavedAt(savedAt));
+    } catch {
+      // local autosave is best-effort
+    }
+  }, [day, selectedId, draftRows, prefillSource]);
+
+  React.useEffect(() => {
+    if (!draftRows.length) return;
+
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [draftRows.length]);
 
   React.useEffect(() => {
     (async () => {
@@ -448,9 +523,10 @@ export default function TrainingCapturePage() {
 
   React.useEffect(() => {
     if (!selectedId) return;
+    if (restoredLocalDraft) return;
     void loadTemplateExercises(selectedId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, myExercisesById]);
+  }, [selectedId, myExercisesById, restoredLocalDraft]);
 
   function updateDraftRow(draftId: string, patch: Partial<DraftSetRow>) {
     setDraftRows((prev) => prev.map((r) => (r.draft_id === draftId ? { ...r, ...patch } : r)));
@@ -466,6 +542,26 @@ export default function TrainingCapturePage() {
         return { ...row, segments };
       })
     );
+  }
+
+  function clearLocalDraftStorage() {
+    try {
+      window.localStorage.removeItem(TRAINING_CAPTURE_DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+  }
+
+  function discardLocalDraft() {
+    clearLocalDraftStorage();
+    setSelectedId("");
+    setTemplateExercises([]);
+    setDraftRows([]);
+    setPrefillSource("Select a workout template to begin");
+    setRestoredLocalDraft(false);
+    setDraftSavedAt("");
+    setFlash("Discarded unfinished workout draft");
+    setStatus("");
   }
 
   function addSetAfter(row: DraftSetRow) {
@@ -582,6 +678,9 @@ export default function TrainingCapturePage() {
         }
       }
 
+      clearLocalDraftStorage();
+      setRestoredLocalDraft(false);
+      setDraftSavedAt("");
       setFlash(`Finished ${selected.name}: ${validRows.length} sets logged`);
       setStatus("");
 
@@ -666,7 +765,12 @@ export default function TrainingCapturePage() {
           <select
             className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm"
             value={selectedId}
-            onChange={(e) => setSelectedId(e.target.value)}
+            onChange={(e) => {
+              setRestoredLocalDraft(false);
+              setTemplateExercises([]);
+              setDraftRows([]);
+              setSelectedId(e.target.value);
+            }}
           >
             <option value="">Select workout</option>
             {templates.map((t) => (
@@ -686,7 +790,10 @@ export default function TrainingCapturePage() {
               <button
                 type="button"
                 className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
-                onClick={() => void buildDraftRows(templateExercises)}
+                onClick={() => {
+                  setRestoredLocalDraft(false);
+                  void buildDraftRows(templateExercises);
+                }}
                 disabled={!templateExercises.length}
               >
                 Reset draft from template
@@ -718,7 +825,23 @@ export default function TrainingCapturePage() {
                   ? "Loading template..."
                   : `${summary.exerciseCount} exercises · ${summary.setCount} completed sets · volume ${Math.round(summary.volume)}`}
               </div>
+              {draftRows.length ? (
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Autosaved locally{draftSavedAt ? ` at ${draftSavedAt}` : ""}.
+                </div>
+              ) : null}
             </div>
+
+            {draftRows.length ? (
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
+                onClick={discardLocalDraft}
+                disabled={finishLoading}
+              >
+                Discard draft
+              </button>
+            ) : null}
 
             <button
               type="button"
