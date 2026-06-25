@@ -32,6 +32,26 @@ type PlanProfile = {
   _delegated_view?: boolean;
 };
 
+type GrantedPermission = {
+  grantor_user_id: string;
+  permission_scope: string;
+  is_enabled: boolean;
+};
+
+type PlanComment = {
+  plan_comment_id: string;
+  plan_profile_id: string;
+  target_user_id: string;
+  author_user_id: string;
+  author_display_name?: string;
+  comment_text: string;
+  comment_kind: string;
+  is_active: boolean;
+  resolved_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type PhaseDraft = {
   phase: string;
   phase_label: string;
@@ -523,6 +543,12 @@ export function PlanProfileClient() {
   const [savingCoachNotes, setSavingCoachNotes] = React.useState(false);
   const [coachNotesDraft, setCoachNotesDraft] = React.useState("");
 
+  const [canEditDelegatedPlan, setCanEditDelegatedPlan] = React.useState(false);
+  const [canCommentDelegatedPlan, setCanCommentDelegatedPlan] = React.useState(false);
+  const [comments, setComments] = React.useState<PlanComment[]>([]);
+  const [commentDraft, setCommentDraft] = React.useState("");
+  const [savingComment, setSavingComment] = React.useState(false);
+
   React.useEffect(() => {
     let alive = true;
 
@@ -531,6 +557,10 @@ export function PlanProfileClient() {
       setError("");
 
       try {
+        setCanEditDelegatedPlan(false);
+        setCanCommentDelegatedPlan(false);
+        setComments([]);
+
         const url = targetUserId
           ? `/api/lifeswitch/plan/profile?create_if_missing=0&target_user_id=${encodeURIComponent(targetUserId)}`
           : "/api/lifeswitch/plan/profile?create_if_missing=1";
@@ -565,6 +595,43 @@ export function PlanProfileClient() {
           setConditioningActivityDraft(draftFromConditioningActivity(loaded));
           setMonitoringDraft(draftFromMonitoringRules(loaded));
           setBiomarkersDraft(draftFromBiomarkers(loaded));
+
+          if (targetUserId) {
+            try {
+              const permsResp = await authFetch("/api/lifeswitch/people/permissions/granted-to-me", {
+                cache: "no-store",
+              });
+              const permsText = await permsResp.text();
+              const perms = permsText ? JSON.parse(permsText) : [];
+              const targetPerms = Array.isArray(perms)
+                ? perms.filter((p: GrantedPermission) => p.grantor_user_id === targetUserId && p.is_enabled)
+                : [];
+
+              setCanEditDelegatedPlan(targetPerms.some((p: GrantedPermission) => p.permission_scope === "plan:edit"));
+              setCanCommentDelegatedPlan(
+                targetPerms.some((p: GrantedPermission) => p.permission_scope === "plan:comment" || p.permission_scope === "plan:edit")
+              );
+            } catch {
+              setCanEditDelegatedPlan(false);
+              setCanCommentDelegatedPlan(false);
+            }
+          } else {
+            setCanEditDelegatedPlan(true);
+            setCanCommentDelegatedPlan(true);
+          }
+
+          try {
+            const commentsUrl = targetUserId
+              ? `/api/lifeswitch/plan/profile/comments?target_user_id=${encodeURIComponent(targetUserId)}`
+              : "/api/lifeswitch/plan/profile/comments";
+            const commentsResp = await authFetch(commentsUrl, { cache: "no-store" });
+            const commentsText = await commentsResp.text();
+            const commentsData = commentsText ? JSON.parse(commentsText) : [];
+            setComments(Array.isArray(commentsData) ? commentsData : []);
+          } catch {
+            setComments([]);
+          }
+
           setStatus("ready");
         }
       } catch (e) {
@@ -581,6 +648,65 @@ export function PlanProfileClient() {
       alive = false;
     };
   }, [targetUserId]);
+
+  function planUpsertUrl(reason: string) {
+    const u = new URL("/api/lifeswitch/plan/profile/upsert", window.location.origin);
+    u.searchParams.set("snapshot_reason", reason);
+    if (targetUserId) u.searchParams.set("target_user_id", targetUserId);
+    return u.toString();
+  }
+
+  async function refreshPlanComments() {
+    const commentsUrl = targetUserId
+      ? `/api/lifeswitch/plan/profile/comments?target_user_id=${encodeURIComponent(targetUserId)}`
+      : "/api/lifeswitch/plan/profile/comments";
+    const commentsResp = await authFetch(commentsUrl, { cache: "no-store" });
+    const commentsText = await commentsResp.text();
+    const commentsData = commentsText ? JSON.parse(commentsText) : [];
+    setComments(Array.isArray(commentsData) ? commentsData : []);
+  }
+
+  async function createPlanComment() {
+    const text = commentDraft.trim();
+    if (!text || savingComment) return;
+
+    setSavingComment(true);
+    setError("");
+
+    try {
+      const u = new URL("/api/lifeswitch/plan/profile/comments/create", window.location.origin);
+      if (targetUserId) u.searchParams.set("target_user_id", targetUserId);
+
+      const r = await authFetch(u.toString(), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({
+          comment_text: text,
+          comment_kind: "comment",
+        }),
+      });
+
+      const responseText = await r.text();
+      let data: any = null;
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        throw new Error(responseText || `HTTP ${r.status}`);
+      }
+
+      if (!r.ok) throw new Error(data?.detail || data?.error || `HTTP ${r.status}`);
+
+      setCommentDraft("");
+      await refreshPlanComments();
+      setSaveMessage("Comment added.");
+    } catch (e) {
+      setError(String(e));
+      setStatus("error");
+    } finally {
+      setSavingComment(false);
+    }
+  }
 
   async function saveCurrentPhase() {
     setSavingPhase(true);
@@ -607,7 +733,7 @@ export function PlanProfileClient() {
         coach_notes: phaseDraft.coach_notes,
       };
 
-      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=current_phase_editor", {
+      const r = await authFetch(planUpsertUrl("current_phase_editor"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         cache: "no-store",
@@ -674,7 +800,7 @@ export function PlanProfileClient() {
         coach_notes: plan?.coach_notes || "",
       };
 
-      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=nutrition_targets_editor", {
+      const r = await authFetch(planUpsertUrl("nutrition_targets_editor"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         cache: "no-store",
@@ -746,7 +872,7 @@ export function PlanProfileClient() {
         coach_notes: plan?.coach_notes || "",
       };
 
-      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=training_targets_editor", {
+      const r = await authFetch(planUpsertUrl("training_targets_editor"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         cache: "no-store",
@@ -820,7 +946,7 @@ export function PlanProfileClient() {
         coach_notes: plan?.coach_notes || "",
       };
 
-      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=body_state_editor", {
+      const r = await authFetch(planUpsertUrl("body_state_editor"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         cache: "no-store",
@@ -891,7 +1017,7 @@ export function PlanProfileClient() {
         coach_notes: plan?.coach_notes || "",
       };
 
-      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=recovery_targets_editor", {
+      const r = await authFetch(planUpsertUrl("recovery_targets_editor"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         cache: "no-store",
@@ -964,7 +1090,7 @@ export function PlanProfileClient() {
         coach_notes: plan?.coach_notes || "",
       };
 
-      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=conditioning_activity_editor", {
+      const r = await authFetch(planUpsertUrl("conditioning_activity_editor"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         cache: "no-store",
@@ -1037,7 +1163,7 @@ export function PlanProfileClient() {
         coach_notes: plan?.coach_notes || "",
       };
 
-      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=monitoring_rules_editor", {
+      const r = await authFetch(planUpsertUrl("monitoring_rules_editor"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         cache: "no-store",
@@ -1117,7 +1243,7 @@ export function PlanProfileClient() {
         coach_notes: plan?.coach_notes || "",
       };
 
-      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=biomarkers_summary_editor", {
+      const r = await authFetch(planUpsertUrl("biomarkers_summary_editor"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         cache: "no-store",
@@ -1183,7 +1309,7 @@ export function PlanProfileClient() {
         coach_notes: coachNotesDraft,
       };
 
-      const r = await authFetch("/api/lifeswitch/plan/profile/upsert?snapshot_reason=coach_notes_editor", {
+      const r = await authFetch(planUpsertUrl("coach_notes_editor"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         cache: "no-store",
@@ -1227,7 +1353,10 @@ export function PlanProfileClient() {
 
   const phase = plan?.phase ? PHASE_LABELS[plan.phase] || plan.phase : "Maintenance";
   const phaseLabel = plan?.phase_label?.trim();
-  const readOnly = Boolean(plan?._delegated_view || targetUserId);
+  const delegatedView = Boolean(plan?._delegated_view || targetUserId);
+  const canEditPlan = !delegatedView || canEditDelegatedPlan;
+  const canCommentPlan = !delegatedView || canCommentDelegatedPlan || canEditDelegatedPlan;
+  const readOnly = delegatedView && !canEditPlan;
 
   return (
     <div className="mx-auto grid max-w-6xl gap-4 p-4 pb-24 md:p-6">
@@ -1244,15 +1373,15 @@ export function PlanProfileClient() {
         <div className="mt-3 text-xs text-muted-foreground">
           {status === "loading" ? "Loading current plan…" : null}
           {status === "ready" && plan
-            ? `${readOnly ? "Delegated read-only view" : "Loaded from backend"} · Updated ${updatedLabel(plan)}`
+            ? `${delegatedView ? (canEditPlan ? "Delegated editable view" : "Delegated read-only view") : "Loaded from backend"} · Updated ${updatedLabel(plan)}`
             : null}
           {status === "unauthorized" ? "Sign in required to load your saved LifeSwitch plan." : null}
           {status === "error" ? `Could not load plan: ${error}` : null}
         </div>
 
-        {readOnly ? (
-          <div className="mt-4 rounded-xl border bg-muted/20 p-3 text-sm">
-            You are viewing {targetName ? `${targetName}’s` : "another person’s"} LifeSwitch plan. This delegated view is read-only.
+        {delegatedView ? (
+          <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+            You are viewing {targetName ? `${targetName}’s` : "another person’s"} LifeSwitch plan. This delegated view is {canEditPlan ? "editable because plan edit access is granted" : "read-only"}.
           </div>
         ) : null}
 
@@ -1268,6 +1397,51 @@ export function PlanProfileClient() {
           <a href="#coach-notes" className="rounded-full border px-3 py-1 hover:bg-muted/40">Notes</a>
         </div>
       </div>
+
+      <SectionCard id="plan-comments" eyebrow="Delegated collaboration" title="Plan Comments">
+        <div className="grid gap-3">
+          {canCommentPlan ? (
+            <div className="grid gap-2">
+              <FieldTextArea
+                label="Add comment"
+                value={commentDraft}
+                placeholder="Add a plan comment, recommendation, or review note."
+                onChange={setCommentDraft}
+              />
+              <div>
+                <button
+                  type="button"
+                  className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                  onClick={() => void createPlanComment()}
+                  disabled={savingComment || !commentDraft.trim()}
+                >
+                  {savingComment ? "Adding…" : "Add comment"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border bg-muted/20 p-3 text-sm text-muted-foreground">
+              Comment access is not granted for this plan.
+            </div>
+          )}
+
+          {comments.length ? (
+            <div className="grid gap-2">
+              {comments.map((c) => (
+                <div key={c.plan_comment_id} className="rounded-xl border p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <div>{c.author_display_name || c.author_user_id}</div>
+                    <div>{c.created_at ? new Date(c.created_at).toLocaleString() : ""}</div>
+                  </div>
+                  <div className="mt-2 whitespace-pre-wrap text-sm">{c.comment_text}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">No plan comments yet.</div>
+          )}
+        </div>
+      </SectionCard>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="grid gap-4 lg:col-span-2">
