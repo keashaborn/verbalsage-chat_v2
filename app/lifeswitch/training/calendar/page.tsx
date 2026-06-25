@@ -428,7 +428,7 @@ export default function TrainingCalendarPage() {
                 {m.sessions.map((s) => (
                   <Link
                     key={s.training_session_id}
-                    href={`/lifeswitch/training/session?session_id=${encodeURIComponent(s.training_session_id)}`}
+                    href={`/lifeswitch/training/session?session_id=${encodeURIComponent(s.training_session_id)}${targetUserId ? `&target_user_id=${encodeURIComponent(targetUserId)}&target_name=${encodeURIComponent(targetName)}` : ""}`}
                     className="block rounded-xl border p-4 hover:bg-muted/30"
                   >
                     <div className="flex items-start justify-between gap-3">

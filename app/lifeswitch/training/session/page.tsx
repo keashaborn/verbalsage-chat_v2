@@ -100,6 +100,12 @@ export default function TrainingSessionPage() {
 
   const sp = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const sessionId = String(sp.get("session_id") || "").trim();
+  const targetUserId = String(sp.get("target_user_id") || "").trim();
+  const targetName = String(sp.get("target_name") || "").trim();
+  const readOnly = Boolean(targetUserId);
+  const targetParam = targetUserId
+    ? `&target_user_id=${encodeURIComponent(targetUserId)}&target_name=${encodeURIComponent(targetName)}`
+    : "";
 
   async function loadSession() {
     if (!sessionId) {
@@ -115,15 +121,19 @@ export default function TrainingSessionPage() {
     setStatus("loading native session...");
 
     try {
-      const s = (await fetchJson(`/api/lifeswitch/training/sessions/${encodeURIComponent(sessionId)}`)) as TrainingSessionRow;
-      const rows = (await fetchJson(`/api/lifeswitch/training/sessions/${encodeURIComponent(sessionId)}/sets`)) as TrainingSetLogRow[];
+      const s = (await fetchJson(
+        `/api/lifeswitch/training/sessions/${encodeURIComponent(sessionId)}?${targetUserId ? `target_user_id=${encodeURIComponent(targetUserId)}` : ""}`
+      )) as TrainingSessionRow;
+      const rows = (await fetchJson(
+        `/api/lifeswitch/training/sessions/${encodeURIComponent(sessionId)}/sets?${targetUserId ? `target_user_id=${encodeURIComponent(targetUserId)}` : ""}`
+      )) as TrainingSetLogRow[];
       const setRows = Array.isArray(rows) ? rows : [];
 
       const dropRows = setRows.filter((row) => String(row.set_type || "straight").toLowerCase() === "drop");
       const segmentEntries = await Promise.all(
         dropRows.map(async (row) => {
           const segs = (await fetchJson(
-            `/api/lifeswitch/training/sessions/${encodeURIComponent(sessionId)}/sets/${encodeURIComponent(row.training_set_log_id)}/segments`
+            `/api/lifeswitch/training/sessions/${encodeURIComponent(sessionId)}/sets/${encodeURIComponent(row.training_set_log_id)}/segments${targetUserId ? `?target_user_id=${encodeURIComponent(targetUserId)}` : ""}`
           )) as TrainingSetLogSegmentRow[];
 
           const arr = Array.isArray(segs) ? segs.slice() : [];
@@ -175,8 +185,17 @@ export default function TrainingSessionPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-4">
+      {readOnly ? (
+        <div className="mb-4 rounded-xl border bg-muted/20 p-3 text-sm">
+          You are viewing {targetName ? `${targetName}’s` : "another person’s"} training session. This delegated view is read-only.
+        </div>
+      ) : null}
+
       <div className="mb-4">
-        <Link href="/lifeswitch/training/calendar" className="text-sm text-muted-foreground hover:underline">
+        <Link
+          href={`/lifeswitch/training/calendar${targetUserId ? `?target_user_id=${encodeURIComponent(targetUserId)}&target_name=${encodeURIComponent(targetName)}` : ""}`}
+          className="text-sm text-muted-foreground hover:underline"
+        >
           ← Back to Training Log
         </Link>
       </div>
