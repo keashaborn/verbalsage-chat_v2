@@ -480,6 +480,7 @@ function FieldSelect({
 export function PlanProfileClient() {
   const searchParams = useSearchParams();
   const targetUserId = searchParams.get("target_user_id") || "";
+  const targetName = searchParams.get("target_name") || "";
 
   const [plan, setPlan] = React.useState<PlanProfile | null>(null);
   const [status, setStatus] = React.useState<"loading" | "ready" | "unauthorized" | "error">("loading");
@@ -1251,7 +1252,7 @@ export function PlanProfileClient() {
 
         {readOnly ? (
           <div className="mt-4 rounded-xl border bg-muted/20 p-3 text-sm">
-            You are viewing another person’s LifeSwitch plan. This delegated view is read-only.
+            You are viewing {targetName ? `${targetName}’s` : "another person’s"} LifeSwitch plan. This delegated view is read-only.
           </div>
         ) : null}
 

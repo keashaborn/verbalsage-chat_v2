@@ -184,7 +184,7 @@ function MonthCalendar(props: { ym: string; workoutDates: Set<string>; condition
             "h-7 flex items-center justify-center rounded-full border transition-colors",
             state === "strength" ? "border-blue-500/80 bg-blue-500/10 text-blue-900 dark:text-blue-100 font-semibold" : "",
             state === "conditioning" ? "border-yellow-400/80 bg-yellow-500/20 text-yellow-100 font-semibold" : "",
-            state === "both" ? "border-green-400/80 bg-green-500/20 text-green-100 font-semibold" : "",
+            state === "both" ? "border-green-500/80 bg-green-500/20 text-green-900 dark:text-green-100 font-semibold" : "",
             state === "none" ? "border-transparent opacity-60" : "",
             isToday ? "underline underline-offset-4" : "",
           ]
@@ -208,10 +208,11 @@ export default function TrainingCalendarPage() {
   const [conditioningSessions, setConditioningSessions] = React.useState<ConditioningSessionRow[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  const targetUserId =
-    typeof window !== "undefined"
-      ? String(new URLSearchParams(window.location.search).get("target_user_id") || "").trim()
-      : "";
+  const searchParams =
+    typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+
+  const targetUserId = String(searchParams.get("target_user_id") || "").trim();
+  const targetName = String(searchParams.get("target_name") || "").trim();
   const readOnly = Boolean(targetUserId);
 
   const today = React.useMemo(() => todayLocalYYYYMMDD(), []);
@@ -355,7 +356,7 @@ export default function TrainingCalendarPage() {
     <div className="mx-auto max-w-5xl p-4">
       {readOnly ? (
         <div className="mb-4 rounded-xl border bg-muted/20 p-3 text-sm">
-          You are viewing another person’s training log. This delegated view is read-only.
+          You are viewing {targetName ? `${targetName}’s` : "another person’s"} training log. This delegated view is read-only.
         </div>
       ) : null}
 

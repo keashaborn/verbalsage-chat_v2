@@ -145,7 +145,7 @@ export default function LifeSwitchPeopleHelpingPage() {
                   <div className="flex flex-wrap gap-2">
                     {canViewPlan ? (
                       <Link
-                        href={`/lifeswitch/plan?target_user_id=${encodeURIComponent(group.grantor_user_id)}`}
+                        href={`/lifeswitch/plan?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
                         className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
                       >
                         View plan
@@ -153,7 +153,7 @@ export default function LifeSwitchPeopleHelpingPage() {
                     ) : null}
                     {canViewTraining ? (
                       <Link
-                        href={`/lifeswitch/training/calendar?target_user_id=${encodeURIComponent(group.grantor_user_id)}`}
+                        href={`/lifeswitch/training/calendar?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
                         className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
                       >
                         View training
