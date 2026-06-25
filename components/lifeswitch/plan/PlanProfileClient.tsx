@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { authFetch } from "@/lib/authFetch";
 
 type JsonObject = Record<string, unknown>;
@@ -26,6 +27,9 @@ type PlanProfile = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  _viewer_user_id?: string;
+  _target_user_id?: string;
+  _delegated_view?: boolean;
 };
 
 type PhaseDraft = {
@@ -474,6 +478,9 @@ function FieldSelect({
 
 
 export function PlanProfileClient() {
+  const searchParams = useSearchParams();
+  const targetUserId = searchParams.get("target_user_id") || "";
+
   const [plan, setPlan] = React.useState<PlanProfile | null>(null);
   const [status, setStatus] = React.useState<"loading" | "ready" | "unauthorized" | "error">("loading");
   const [error, setError] = React.useState<string>("");
@@ -523,7 +530,11 @@ export function PlanProfileClient() {
       setError("");
 
       try {
-        const r = await authFetch("/api/lifeswitch/plan/profile?create_if_missing=1", {
+        const url = targetUserId
+          ? `/api/lifeswitch/plan/profile?create_if_missing=0&target_user_id=${encodeURIComponent(targetUserId)}`
+          : "/api/lifeswitch/plan/profile?create_if_missing=1";
+
+        const r = await authFetch(url, {
           cache: "no-store",
         });
 
@@ -568,7 +579,7 @@ export function PlanProfileClient() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [targetUserId]);
 
   async function saveCurrentPhase() {
     setSavingPhase(true);
@@ -1215,6 +1226,7 @@ export function PlanProfileClient() {
 
   const phase = plan?.phase ? PHASE_LABELS[plan.phase] || plan.phase : "Maintenance";
   const phaseLabel = plan?.phase_label?.trim();
+  const readOnly = Boolean(plan?._delegated_view || targetUserId);
 
   return (
     <div className="mx-auto grid max-w-6xl gap-4 p-4 pb-24 md:p-6">
@@ -1230,10 +1242,18 @@ export function PlanProfileClient() {
 
         <div className="mt-3 text-xs text-muted-foreground">
           {status === "loading" ? "Loading current plan…" : null}
-          {status === "ready" && plan ? `Loaded from backend · Updated ${updatedLabel(plan)}` : null}
+          {status === "ready" && plan
+            ? `${readOnly ? "Delegated read-only view" : "Loaded from backend"} · Updated ${updatedLabel(plan)}`
+            : null}
           {status === "unauthorized" ? "Sign in required to load your saved LifeSwitch plan." : null}
           {status === "error" ? `Could not load plan: ${error}` : null}
         </div>
+
+        {readOnly ? (
+          <div className="mt-4 rounded-xl border bg-muted/20 p-3 text-sm">
+            You are viewing another person’s LifeSwitch plan. This delegated view is read-only.
+          </div>
+        ) : null}
 
         <div className="mt-4 flex flex-wrap gap-2 text-xs">
           <a href="#current-phase" className="rounded-full border px-3 py-1 hover:bg-muted/40">Phase</a>
@@ -1314,7 +1334,7 @@ export function PlanProfileClient() {
                     type="button"
                     className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
                     onClick={() => void saveCurrentPhase()}
-                    disabled={savingPhase || status === "unauthorized"}
+                    disabled={readOnly || savingPhase || status === "unauthorized"}
                   >
                     {savingPhase ? "Saving…" : "Save current phase"}
                   </button>
@@ -1348,7 +1368,7 @@ export function PlanProfileClient() {
                       setEditingPhase(true);
                       setSaveMessage("");
                     }}
-                    disabled={status === "loading" || status === "unauthorized"}
+                    disabled={readOnly || status === "loading" || status === "unauthorized"}
                   >
                     Edit current phase
                   </button>
@@ -1402,7 +1422,7 @@ export function PlanProfileClient() {
                     type="button"
                     className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
                     onClick={() => void saveNutritionTargets()}
-                    disabled={savingNutrition || status === "unauthorized"}
+                    disabled={readOnly || savingNutrition || status === "unauthorized"}
                   >
                     {savingNutrition ? "Saving…" : "Save nutrition targets"}
                   </button>
@@ -1445,7 +1465,7 @@ export function PlanProfileClient() {
                       setEditingNutrition(true);
                       setSaveMessage("");
                     }}
-                    disabled={status === "loading" || status === "unauthorized"}
+                    disabled={readOnly || status === "loading" || status === "unauthorized"}
                   >
                     Edit nutrition targets
                   </button>
@@ -1499,7 +1519,7 @@ export function PlanProfileClient() {
                     type="button"
                     className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
                     onClick={() => void saveTrainingTargets()}
-                    disabled={savingTraining || status === "unauthorized"}
+                    disabled={readOnly || savingTraining || status === "unauthorized"}
                   >
                     {savingTraining ? "Saving…" : "Save training targets"}
                   </button>
@@ -1542,7 +1562,7 @@ export function PlanProfileClient() {
                       setEditingTraining(true);
                       setSaveMessage("");
                     }}
-                    disabled={status === "loading" || status === "unauthorized"}
+                    disabled={readOnly || status === "loading" || status === "unauthorized"}
                   >
                     Edit training targets
                   </button>
@@ -1596,7 +1616,7 @@ export function PlanProfileClient() {
                     type="button"
                     className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
                     onClick={() => void saveConditioningActivity()}
-                    disabled={savingConditioningActivity || status === "unauthorized"}
+                    disabled={readOnly || savingConditioningActivity || status === "unauthorized"}
                   >
                     {savingConditioningActivity ? "Saving…" : "Save conditioning / activity"}
                   </button>
@@ -1631,7 +1651,7 @@ export function PlanProfileClient() {
                       setEditingConditioningActivity(true);
                       setSaveMessage("");
                     }}
-                    disabled={status === "loading" || status === "unauthorized"}
+                    disabled={readOnly || status === "loading" || status === "unauthorized"}
                   >
                     Edit conditioning / activity
                   </button>
@@ -1701,7 +1721,7 @@ export function PlanProfileClient() {
                     type="button"
                     className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
                     onClick={() => void saveBodyState()}
-                    disabled={savingBodyState || status === "unauthorized"}
+                    disabled={readOnly || savingBodyState || status === "unauthorized"}
                   >
                     {savingBodyState ? "Saving…" : "Save body state"}
                   </button>
@@ -1736,7 +1756,7 @@ export function PlanProfileClient() {
                       setEditingBodyState(true);
                       setSaveMessage("");
                     }}
-                    disabled={status === "loading" || status === "unauthorized"}
+                    disabled={readOnly || status === "loading" || status === "unauthorized"}
                   >
                     Edit body state
                   </button>
@@ -1811,7 +1831,7 @@ export function PlanProfileClient() {
                     type="button"
                     className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
                     onClick={() => void saveBiomarkers()}
-                    disabled={savingBiomarkers || status === "unauthorized"}
+                    disabled={readOnly || savingBiomarkers || status === "unauthorized"}
                   >
                     {savingBiomarkers ? "Saving…" : "Save biomarkers summary"}
                   </button>
@@ -1857,7 +1877,7 @@ export function PlanProfileClient() {
                       setEditingBiomarkers(true);
                       setSaveMessage("");
                     }}
-                    disabled={status === "loading" || status === "unauthorized"}
+                    disabled={readOnly || status === "loading" || status === "unauthorized"}
                   >
                     Edit biomarkers summary
                   </button>
@@ -1902,7 +1922,7 @@ export function PlanProfileClient() {
                     type="button"
                     className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
                     onClick={() => void saveRecoveryTargets()}
-                    disabled={savingRecovery || status === "unauthorized"}
+                    disabled={readOnly || savingRecovery || status === "unauthorized"}
                   >
                     {savingRecovery ? "Saving…" : "Save recovery targets"}
                   </button>
@@ -1936,7 +1956,7 @@ export function PlanProfileClient() {
                       setEditingRecovery(true);
                       setSaveMessage("");
                     }}
-                    disabled={status === "loading" || status === "unauthorized"}
+                    disabled={readOnly || status === "loading" || status === "unauthorized"}
                   >
                     Edit recovery targets
                   </button>
@@ -1995,7 +2015,7 @@ export function PlanProfileClient() {
                     type="button"
                     className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
                     onClick={() => void saveMonitoringRules()}
-                    disabled={savingMonitoring || status === "unauthorized"}
+                    disabled={readOnly || savingMonitoring || status === "unauthorized"}
                   >
                     {savingMonitoring ? "Saving…" : "Save monitoring rules"}
                   </button>
@@ -2040,7 +2060,7 @@ export function PlanProfileClient() {
                       setEditingMonitoring(true);
                       setSaveMessage("");
                     }}
-                    disabled={status === "loading" || status === "unauthorized"}
+                    disabled={readOnly || status === "loading" || status === "unauthorized"}
                   >
                     Edit monitoring rules
                   </button>
@@ -2068,7 +2088,7 @@ What should be adjusted next if the trend is wrong?`}
                     type="button"
                     className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
                     onClick={() => void saveCoachNotes()}
-                    disabled={savingCoachNotes || status === "unauthorized"}
+                    disabled={readOnly || savingCoachNotes || status === "unauthorized"}
                   >
                     {savingCoachNotes ? "Saving…" : "Save coach notes"}
                   </button>
@@ -2110,7 +2130,7 @@ What should be adjusted next if the trend is wrong?`}
                       setEditingCoachNotes(true);
                       setSaveMessage("");
                     }}
-                    disabled={status === "loading" || status === "unauthorized"}
+                    disabled={readOnly || status === "loading" || status === "unauthorized"}
                   >
                     Edit coach notes
                   </button>

@@ -129,7 +129,10 @@ export default function LifeSwitchPeopleHelpingPage() {
               No one has granted this account access yet.
             </div>
           ) : (
-            groups.map((group) => (
+            groups.map((group) => {
+              const canViewPlan = group.permissions.some((p) => p.permission_scope === "plan:view");
+
+              return (
               <div key={group.grantor_user_id} className="rounded-xl border p-4">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -138,8 +141,18 @@ export default function LifeSwitchPeopleHelpingPage() {
                       Relationship: {group.relationship_kind.replaceAll("_", " ")}
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {group.permissions.length} permission{group.permissions.length === 1 ? "" : "s"}
+                  <div className="flex flex-wrap gap-2">
+                    {canViewPlan ? (
+                      <Link
+                        href={`/lifeswitch/plan?target_user_id=${encodeURIComponent(group.grantor_user_id)}`}
+                        className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                      >
+                        View plan
+                      </Link>
+                    ) : null}
+                    <div className="rounded-md border px-3 py-2 text-xs text-muted-foreground">
+                      {group.permissions.length} permission{group.permissions.length === 1 ? "" : "s"}
+                    </div>
                   </div>
                 </div>
 
@@ -157,7 +170,8 @@ export default function LifeSwitchPeopleHelpingPage() {
                   ))}
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
