@@ -243,6 +243,8 @@ export default function NutritionLogPage() {
   const TARGET_KCAL = 2200;
 
   const [owner, setOwner] = React.useState<string>("");
+  const [targetUserId, setTargetUserId] = React.useState<string>("");
+  const [targetName, setTargetName] = React.useState<string>("");
   const [status, setStatus] = React.useState<string>("auth: loading…");
   const [days, setDays] = React.useState<DaySummary[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -250,10 +252,11 @@ export default function NutritionLogPage() {
   const [savingEntryId, setSavingEntryId] = React.useState<string>("");
   const [savedEntryId, setSavedEntryId] = React.useState<string>("");
   const [entrySaveError, setEntrySaveError] = React.useState<Record<string, string>>({});
-  async function refreshOneDay(uid: string, day: string) {
+  async function refreshOneDay(uid: string, day: string, targetUid = targetUserId) {
     const u = new URL("/api/lifeswitch/nutrition/log/day", window.location.origin);
     u.searchParams.set("owner_user_id", uid);
     u.searchParams.set("day", day);
+    if (targetUid) u.searchParams.set("target_user_id", targetUid);
 
     const raw = await fetchJson(u.toString());
     const t = extractTotals(raw);
@@ -284,9 +287,15 @@ export default function NutritionLogPage() {
           throw new Error(who?.error || "not signed in");
         }
         const uid = String(who.sub).trim();
+        const params = new URLSearchParams(window.location.search);
+        const targetUid = String(params.get("target_user_id") || "").trim();
+        const targetLabel = String(params.get("target_name") || "").trim();
+
         if (cancelled) return;
         setOwner(uid);
-        setStatus("loading days…");
+        setTargetUserId(targetUid);
+        setTargetName(targetLabel);
+        setStatus(targetUid ? `loading ${targetLabel || "delegated"} nutrition…` : "loading days…");
 
         const N = 60;
         const base = new Date();
@@ -307,6 +316,7 @@ export default function NutritionLogPage() {
               const u = new URL("/api/lifeswitch/nutrition/log/day", window.location.origin);
               u.searchParams.set("owner_user_id", uid);
               u.searchParams.set("day", day);
+              if (targetUid) u.searchParams.set("target_user_id", targetUid);
               const raw = await fetchJson(u.toString());
               const t = extractTotals(raw);
 
@@ -413,7 +423,7 @@ export default function NutritionLogPage() {
 
     try {
       await patchLogEntry(owner, nutrition_entry_id, grams);
-      await refreshOneDay(owner, day);
+      await refreshOneDay(owner, day, "");
       setSavedEntryId(nutrition_entry_id);
       window.setTimeout(() => {
         setSavedEntryId((current) => (current === nutrition_entry_id ? "" : current));
@@ -425,13 +435,21 @@ export default function NutritionLogPage() {
     }
   }
 
+  const isDelegatedView = Boolean(targetUserId);
+
   return (
     <div className="mx-auto max-w-5xl p-4">
+      {isDelegatedView ? (
+        <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+          You are viewing {targetName || "this person"}’s nutrition log. This delegated view is read-only.
+        </div>
+      ) : null}
 
       <details className="mt-4">
         <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
         <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
           <div>auth: {owner ? owner : "not signed in"}</div>
+          <div>target: {targetUserId || "self"}</div>
           <div>status: {status}</div>
           <div>days: {days.length}</div>
           <div>months: {months.length}</div>
@@ -563,6 +581,11 @@ export default function NutritionLogPage() {
 
                                     {/* right: edit + delete */}
                                     <div className="shrink-0">
+                                      {isDelegatedView ? (
+                                        <div className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
+                                          Read-only
+                                        </div>
+                                      ) : (
                                       <details className="group">
                                         <summary className="list-none cursor-pointer select-none rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 opacity-70 hover:opacity-100 [&::-webkit-details-marker]:hidden">
                                           ⋯ <span className="opacity-60 group-open:hidden">▾</span><span className="opacity-60 hidden group-open:inline">▴</span>
@@ -612,7 +635,7 @@ export default function NutritionLogPage() {
                                             onClick={() => {
                                               if (!confirm("Delete this entry?")) return;
                                               void deleteLogEntry(owner, String(e.nutrition_entry_id))
-                                                .then(() => refreshOneDay(owner, String(d.day)))
+                                                .then(() => refreshOneDay(owner, String(d.day), ""))
                                                 .catch(() => { });
                                             }}
                                             title="Delete entry"
@@ -622,6 +645,7 @@ export default function NutritionLogPage() {
                                         </div>
 
                                       </details>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
