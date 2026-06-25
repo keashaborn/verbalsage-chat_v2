@@ -163,7 +163,7 @@ export default function TrainingSessionPage() {
   React.useEffect(() => {
     void loadSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+  }, [sessionId, targetUserId]);
 
   const summary = React.useMemo(() => {
     const exercises = new Set<string>();
