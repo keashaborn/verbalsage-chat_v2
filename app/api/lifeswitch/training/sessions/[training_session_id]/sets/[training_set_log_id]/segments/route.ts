@@ -17,11 +17,13 @@ export async function GET(
   if (!owner_user_id) return unauthorizedLifeSwitch(rid);
 
   const { training_session_id, training_set_log_id } = await ctx.params;
+  const inUrl = new URL(req.url);
   const upstream = new URL(
     `${BRAINS_URL}/lifeswitch/training/sessions/${encodeURIComponent(training_session_id)}/sets/${encodeURIComponent(
       training_set_log_id
     )}/segments`
   );
+  upstream.search = inUrl.search;
   injectOwnerUserId(upstream, owner_user_id);
 
   try {

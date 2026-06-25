@@ -14,7 +14,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ training_se
   if (!owner_user_id) return unauthorizedLifeSwitch(rid);
 
   const { training_session_id } = await ctx.params;
+  const inUrl = new URL(req.url);
   const upstream = new URL(`${BRAINS_URL}/lifeswitch/training/sessions/${encodeURIComponent(training_session_id)}`);
+  upstream.search = inUrl.search;
   injectOwnerUserId(upstream, owner_user_id);
 
   try {
