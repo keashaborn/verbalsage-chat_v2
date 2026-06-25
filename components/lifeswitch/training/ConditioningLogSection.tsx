@@ -47,7 +47,13 @@ function safeNum(x: any, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-export default function ConditioningLogSection() {
+export default function ConditioningLogSection({
+  targetUserId = "",
+  readOnly = false,
+}: {
+  targetUserId?: string;
+  readOnly?: boolean;
+}) {
   const [rows, setRows] = React.useState<ConditioningSessionRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [status, setStatus] = React.useState("loading conditioning sessions...");
@@ -57,7 +63,8 @@ export default function ConditioningLogSection() {
     setStatus("loading conditioning sessions...");
 
     try {
-      const j = (await fetchJson("/api/lifeswitch/training/conditioning_sessions?limit=250")) as ConditioningSessionRow[];
+      const targetParam = targetUserId ? `&target_user_id=${encodeURIComponent(targetUserId)}` : "";
+      const j = (await fetchJson(`/api/lifeswitch/training/conditioning_sessions?limit=250${targetParam}`)) as ConditioningSessionRow[];
       const arr = Array.isArray(j) ? j : [];
 
       arr.sort((a, b) => {
@@ -78,9 +85,15 @@ export default function ConditioningLogSection() {
 
   React.useEffect(() => {
     void loadRows();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetUserId]);
 
   async function deleteRow(id: string, name: string) {
+    if (readOnly) {
+      setStatus("delegated read-only view: delete is not allowed");
+      return;
+    }
+
     const ok = window.confirm(`Delete conditioning session "${name}"?`);
     if (!ok) return;
 
@@ -137,13 +150,15 @@ export default function ConditioningLogSection() {
                   {c.notes ? <div className="mt-2 text-xs text-muted-foreground">{c.notes}</div> : null}
                 </div>
 
-                <button
-                  type="button"
-                  className="shrink-0 rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
-                  onClick={() => void deleteRow(c.conditioning_session_log_id, c.name)}
-                >
-                  Delete
-                </button>
+                {!readOnly ? (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                    onClick={() => void deleteRow(c.conditioning_session_log_id, c.name)}
+                  >
+                    Delete
+                  </button>
+                ) : null}
               </div>
             </div>
           ))}

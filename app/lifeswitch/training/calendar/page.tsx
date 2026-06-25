@@ -442,17 +442,19 @@ export default function TrainingCalendarPage() {
 
                       <div className="flex shrink-0 items-center gap-2 text-xs">
                         <span className="text-muted-foreground">View</span>
-                        <button
-                          type="button"
-                          className="rounded-md border px-2 py-1 hover:bg-muted/30"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            void deleteSession(s.training_session_id, s.name);
-                          }}
-                        >
-                          Delete
-                        </button>
+                        {!readOnly ? (
+                          <button
+                            type="button"
+                            className="rounded-md border px-2 py-1 hover:bg-muted/30"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              void deleteSession(s.training_session_id, s.name);
+                            }}
+                          >
+                            Delete
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   </Link>
@@ -467,7 +469,7 @@ export default function TrainingCalendarPage() {
         )}
       </div>
 
-        <ConditioningLogSection />
+        <ConditioningLogSection targetUserId={targetUserId} readOnly={readOnly} />
     </div>
   );
 }
