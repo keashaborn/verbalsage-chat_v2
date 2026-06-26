@@ -39,6 +39,27 @@ type RelationshipPermission = {
   updated_at: string;
 };
 
+type Invitation = {
+  invitation_id: string;
+  created_by_user_id: string;
+  creator_display_name?: string;
+  accepted_by_user_id?: string | null;
+  accepted_display_name?: string | null;
+  relationship_kind: Relationship["relationship_kind"];
+  label: string;
+  notes: string;
+  status: "pending" | "accepted" | "revoked" | "expired";
+  expires_at: string;
+  accepted_at?: string | null;
+  revoked_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type CreatedInvitation = Invitation & {
+  token: string;
+};
+
 type PermissionScope =
   | "messages:send"
   | "training:view"
@@ -137,6 +158,11 @@ export default function LifeSwitchPeoplePage() {
   const [selectedUserId, setSelectedUserId] = React.useState("");
   const [selectedKind, setSelectedKind] = React.useState<Relationship["relationship_kind"]>("friend");
   const [permissions, setPermissions] = React.useState<RelationshipPermission[]>([]);
+  const [invitations, setInvitations] = React.useState<Invitation[]>([]);
+  const [inviteKind, setInviteKind] = React.useState<Relationship["relationship_kind"]>("friend");
+  const [inviteLabel, setInviteLabel] = React.useState("");
+  const [lastInviteLink, setLastInviteLink] = React.useState("");
+  const [copyMessage, setCopyMessage] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -166,13 +192,15 @@ export default function LifeSwitchPeoplePage() {
     setLoading(true);
     setError("");
     try {
-      const [profileRows, relationshipRows] = await Promise.all([
+      const [profileRows, relationshipRows, inviteRows] = await Promise.all([
         fetchJson<PersonProfile[]>("/api/lifeswitch/people/profiles"),
         fetchJson<Relationship[]>("/api/lifeswitch/people/relationships"),
+        fetchJson<Invitation[]>("/api/lifeswitch/people/invitations"),
       ]);
 
       setPeople(profileRows);
       setRelationships(relationshipRows);
+      setInvitations(Array.isArray(inviteRows) ? inviteRows : []);
 
       const selectableProfiles = profileRows.filter((p) => !currentUserId || p.user_id !== currentUserId);
       const next =
@@ -219,6 +247,70 @@ export default function LifeSwitchPeoplePage() {
     } else {
       setSelectedKind("friend");
       setPermissions([]);
+    }
+  }
+
+  function buildInviteLink(token: string): string {
+    if (typeof window === "undefined") return `/invite/lifeswitch/${encodeURIComponent(token)}`;
+    return `${window.location.origin}/invite/lifeswitch/${encodeURIComponent(token)}`;
+  }
+
+  async function createInviteLink() {
+    setSaving(true);
+    setError("");
+    setCopyMessage("");
+
+    try {
+      const created = await fetchJson<CreatedInvitation>("/api/lifeswitch/people/invitations/create", {
+        method: "POST",
+        headers: { "content-type": "application/json; charset=utf-8" },
+        body: JSON.stringify({
+          relationship_kind: inviteKind,
+          label: inviteLabel,
+          notes: "Created from LifeSwitch People invite link.",
+        }),
+      });
+
+      const link = buildInviteLink(created.token);
+      setLastInviteLink(link);
+      setInviteLabel("");
+      await loadAll(selectedUserId);
+
+      try {
+        await navigator.clipboard.writeText(link);
+        setCopyMessage("Invite link created and copied.");
+      } catch {
+        setCopyMessage("Invite link created. Copy it below.");
+      }
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function copyInviteLink(link: string) {
+    setCopyMessage("");
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopyMessage("Copied.");
+    } catch {
+      setCopyMessage("Could not copy automatically.");
+    }
+  }
+
+  async function revokeInvite(invitationId: string) {
+    setSaving(true);
+    setError("");
+    try {
+      await fetchJson(`/api/lifeswitch/people/invitations/${encodeURIComponent(invitationId)}/revoke`, {
+        method: "POST",
+      });
+      await loadAll(selectedUserId);
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -344,6 +436,104 @@ export default function LifeSwitchPeoplePage() {
           {error}
         </div>
       ) : null}
+
+      <section className="rounded-xl border">
+        <div className="border-b px-4 py-3">
+          <div className="text-sm font-semibold">Invite link</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Create a connection-only invite link. Send it by text, email, or LifeSwitch message.
+          </div>
+        </div>
+
+        <div className="grid gap-3 p-4">
+          <div className="grid gap-2 sm:grid-cols-[220px_1fr_auto]">
+            <select
+              value={inviteKind}
+              onChange={(e) => setInviteKind(e.target.value as Relationship["relationship_kind"])}
+              className="rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              <option value="friend">Friend</option>
+              <option value="training_partner">Training partner</option>
+              <option value="plan_helper">Plan helper</option>
+              <option value="coach">Coach</option>
+            </select>
+
+            <input
+              value={inviteLabel}
+              onChange={(e) => setInviteLabel(e.target.value)}
+              placeholder="Optional label"
+              className="rounded-md border bg-background px-3 py-2 text-sm"
+            />
+
+            <button
+              type="button"
+              onClick={() => void createInviteLink()}
+              disabled={saving}
+              className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+            >
+              Create link
+            </button>
+          </div>
+
+          {lastInviteLink ? (
+            <div className="grid gap-2 rounded-xl border bg-muted/10 p-3">
+              <div className="text-xs font-medium text-muted-foreground">Latest invite link</div>
+              <div className="break-all text-sm">{lastInviteLink}</div>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => void copyInviteLink(lastInviteLink)}
+                  className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                >
+                  Copy link
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {copyMessage ? (
+            <div className="text-xs text-muted-foreground">{copyMessage}</div>
+          ) : null}
+
+          <div className="rounded-xl border">
+            <div className="border-b px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Pending invites
+            </div>
+            <div className="grid">
+              {invitations.length === 0 ? (
+                <div className="p-3 text-sm text-muted-foreground">No pending invites.</div>
+              ) : (
+                invitations.map((inv) => {
+                  const inviteUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/invite/lifeswitch/${inv.invitation_id}`;
+                  return (
+                    <div key={inv.invitation_id} className="grid gap-2 border-b p-3 last:border-0">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <div className="text-sm font-medium">{kindLabel(inv.relationship_kind)}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Created {inv.created_at ? new Date(inv.created_at).toLocaleString() : ""}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void revokeInvite(inv.invitation_id)}
+                          disabled={saving}
+                          className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30 disabled:opacity-50"
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Expires {inv.expires_at ? new Date(inv.expires_at).toLocaleDateString() : "later"}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
 
       <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
         <section className="rounded-xl border">
