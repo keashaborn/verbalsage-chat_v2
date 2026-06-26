@@ -871,8 +871,6 @@ export function VantageProfilePage({
       {msg ? <div className="px-1 text-xs text-muted-foreground">{msg}</div> : null}
       <div className="px-1 text-xs text-muted-foreground">Default Vantage: {defaultProfile ? defaultProfile.name : "(none)"}</div>
 
-      {isAdmin ? (
-      <>
       <Group
         title="Conversation context"
         help={
@@ -948,6 +946,7 @@ export function VantageProfilePage({
 
 
 
+      {isAdmin ? (
       <details className="space-y-3 rounded-xl border p-3">
         <summary className="cursor-pointer select-none text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           Admin tuning
@@ -1129,7 +1128,6 @@ export function VantageProfilePage({
       </Group>
         </div>
       </details>
-      </>
       ) : null}
 
     </div>
