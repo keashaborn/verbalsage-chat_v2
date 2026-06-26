@@ -5,7 +5,7 @@ import { PlusIcon, Pencil, Trash2 } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { authFetchJson } from "@/lib/authFetch";
 
-type ThreadItem = { thread_id: string; title: string; updated_at: string };
+type ThreadItem = { thread_id: string; id?: string; title: string; updated_at: string };
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return authFetchJson<T>(url, init);
@@ -23,8 +23,14 @@ export function BrainsThreadList() {
   async function refresh() {
     setLoading(true);
     try {
-      const data = await fetchJson<ThreadItem[]>("/api/threads");
-      setThreads(Array.isArray(data) ? data : []);
+      const data = await fetchJson<any[]>("/api/threads");
+      const normalized = (Array.isArray(data) ? data : [])
+        .map((t: any) => ({
+          ...t,
+          thread_id: String(t?.thread_id || t?.id || "").trim(),
+        }))
+        .filter((t: ThreadItem) => !!t.thread_id);
+      setThreads(normalized);
     } catch {
       setThreads([]);
     } finally {
@@ -44,6 +50,7 @@ export function BrainsThreadList() {
 
       const tid =
         created?.thread_id ||
+        created?.id ||
         (await fetchJson<{ thread_id: string | null }>("/api/threads/active")).thread_id;
 
       if (tid) {
