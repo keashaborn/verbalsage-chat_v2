@@ -35,9 +35,22 @@ export async function GET(req: Request) {
     );
   }
 
-  return new NextResponse(txt, {
+  let rows: any[] = [];
+  try {
+    const parsed = JSON.parse(txt);
+    rows = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    rows = [];
+  }
+
+  const normalized = rows.map((t: any) => ({
+    ...t,
+    thread_id: String(t?.thread_id || t?.id || "").trim(),
+  })).filter((t: any) => t.thread_id);
+
+  return NextResponse.json(normalized, {
     status: 200,
-    headers: { "Content-Type": "application/json", "x-request-id": requestId },
+    headers: { "x-request-id": requestId },
   });
 }
 
@@ -70,11 +83,13 @@ export async function POST(req: Request) {
   try {
     data = JSON.parse(txt);
   } catch { }
-  const thread_id = String(data?.thread_id || "").trim();
 
-  const res = new NextResponse(txt, {
+  const thread_id = String(data?.thread_id || data?.id || "").trim();
+  if (thread_id) data.thread_id = thread_id;
+
+  const res = NextResponse.json(data, {
     status: 200,
-    headers: { "Content-Type": "application/json", "x-request-id": requestId },
+    headers: { "x-request-id": requestId },
   });
 
   if (thread_id) {
