@@ -67,6 +67,46 @@ function displayUserName(name: string | null | undefined, id: string | null | un
   return clean || `User ${shortId(id)}`;
 }
 
+function renderMessageBody(body: string) {
+  const text = String(body || "");
+  const re = /(https?:\/\/[^\s]+|\/share\/workout\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%-]+)/g;
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = re.exec(text)) !== null) {
+    const raw = match[0];
+    const start = match.index;
+
+    if (start > last) {
+      parts.push(text.slice(last, start));
+    }
+
+    const href = raw.startsWith("/") ? raw : raw;
+    const label = raw;
+
+    parts.push(
+      <a
+        key={`${start}-${raw}`}
+        href={href}
+        className="break-all underline underline-offset-4 hover:text-foreground"
+        target={raw.startsWith("http") ? "_blank" : undefined}
+        rel={raw.startsWith("http") ? "noreferrer" : undefined}
+      >
+        {label}
+      </a>
+    );
+
+    last = start + raw.length;
+  }
+
+  if (last < text.length) {
+    parts.push(text.slice(last));
+  }
+
+  return parts;
+}
+
 export default function LifeSwitchPeopleMessagesPage() {
   const [otherUserId, setOtherUserId] = React.useState("");
   const [selectedPersonId, setSelectedPersonId] = React.useState("");
@@ -359,7 +399,9 @@ export default function LifeSwitchPeopleMessagesPage() {
                     <div className="text-xs text-muted-foreground">
                       {mine ? "You" : displayUserName(m.author_display_name, m.author_user_id)} · {formatTime(m.created_at)}
                     </div>
-                    <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{m.body}</div>
+                    <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
+                      {renderMessageBody(m.body)}
+                    </div>
                   </div>
                 );
               })
