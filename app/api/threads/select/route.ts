@@ -21,11 +21,7 @@ export async function POST(req: Request) {
 
   if (!UUID_RE.test(thread_id)) {
     return Response.json(
-      {
-        error: "invalid_thread_id",
-        received_thread_id: thread_id,
-        received_keys: body && typeof body === "object" ? Object.keys(body) : [],
-      },
+      { error: "invalid_thread_id" },
       { status: 400, headers: { "x-request-id": requestId } }
     );
   }
