@@ -37,6 +37,25 @@ async function fetchJson(url: string, init?: RequestInit) {
   return data;
 }
 
+async function syncIdentityBestEffort() {
+  try {
+    const { data } = await supabase.auth.getUser();
+    const u = data?.user;
+    if (!u?.id) return;
+
+    const full_name = String(u?.user_metadata?.full_name || "").trim();
+    const email = String(u?.email || "").trim();
+
+    await authFetch("/api/identity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ full_name, email }),
+    });
+  } catch {
+    // best effort only
+  }
+}
+
 export default function LifeSwitchInvitePage({
   params,
 }: {
@@ -91,6 +110,7 @@ export default function LifeSwitchInvitePage({
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      await syncIdentityBestEffort();
       await load();
     } catch (e: any) {
       setMessage(String(e?.message || e));
@@ -121,6 +141,7 @@ export default function LifeSwitchInvitePage({
     setBusy(true);
     setMessage("");
     try {
+      await syncIdentityBestEffort();
       const r = await authFetch("/api/lifeswitch/people/invitations/accept", {
         method: "POST",
         headers: { "content-type": "application/json; charset=utf-8" },
