@@ -139,6 +139,17 @@ function applyProfileCookiesFromSession(session: any): boolean {
 
       if (active.limits == null) clearCookie("vs_vantage_limits");
       else writeJsonCookie("vs_vantage_limits", active.limits);
+
+      if (active.pragmatics == null) clearCookie("vs_vantage_pragmatics");
+      else writeJsonCookie("vs_vantage_pragmatics", active.pragmatics);
+
+      if (active.roleplay == null) {
+        clearCookie("vs_vantage_definition_overlay");
+        clearCookie("vs_vantage_roleplay");
+      } else {
+        writeJsonCookie("vs_vantage_definition_overlay", active.roleplay);
+        writeJsonCookie("vs_vantage_roleplay", active.roleplay);
+      }
     }
 
     if (cloudUpdatedAt) lsSet(LS_CLOUD_UPDATED_AT, cloudUpdatedAt);
