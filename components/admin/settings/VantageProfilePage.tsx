@@ -53,6 +53,138 @@ const DEFAULT_MIX: MixControls = {
   similarity_threshold: 0.4,
 };
 const DEFAULT_PRAGMATICS: PragmaticsControls = { rfg: 0.0, df: 0.7, pe: 2 };
+
+function makeBuiltinProfile(args: {
+  id: string;
+  name: string;
+  limits: VantageLimits;
+  routing: RoutingControls;
+  mix: MixControls;
+  pragmatics: PragmaticsControls;
+}): VantageProfile {
+  return {
+    id: args.id,
+    name: args.name,
+    state: {
+      vantageId: args.name.toUpperCase(),
+      limits: args.limits,
+      routing: args.routing,
+      mix: args.mix,
+      pragmatics: args.pragmatics,
+      roleplay: {
+        on: false,
+        strict: false,
+        script: "",
+        use_personalization: "none",
+      },
+    },
+    created_at: "2026-06-26T00:00:00.000Z",
+    updated_at: "2026-06-26T00:00:00.000Z",
+  };
+}
+
+const BUILTIN_VANTAGE_PROFILES: VantageProfile[] = [
+  makeBuiltinProfile({
+    id: "builtin-resse",
+    name: "RESSE",
+    mix: {
+      conversation: 0.7,
+      memory_cards: 0.7,
+      corpus: 0.8,
+      lens_fm: 0.7,
+      recency_bias: 0.7,
+      similarity_threshold: 0.4,
+    },
+    routing: {
+      answer_first: true,
+      clarify_bias: 0.1,
+      max_clarify_questions: 1,
+    },
+    pragmatics: {
+      rfg: 0.35,
+      df: 0.8,
+      pe: 2,
+    },
+    limits: {
+      Y: 0.2,
+      R: 0.6,
+      C: 0.4,
+      S: 0.25,
+    },
+  }),
+  makeBuiltinProfile({
+    id: "builtin-morgan",
+    name: "MORGAN",
+    mix: {
+      conversation: 0.75,
+      memory_cards: 0.55,
+      corpus: 0.45,
+      lens_fm: 0.2,
+      recency_bias: 0.7,
+      similarity_threshold: 0.35,
+    },
+    routing: {
+      answer_first: true,
+      clarify_bias: 0.15,
+      max_clarify_questions: 1,
+    },
+    pragmatics: {
+      rfg: 0.7,
+      df: 0.8,
+      pe: 2,
+    },
+    limits: {
+      Y: 0.25,
+      R: 0.6,
+      C: 0.4,
+      S: 0.4,
+    },
+  }),
+  makeBuiltinProfile({
+    id: "builtin-riley",
+    name: "RILEY",
+    mix: {
+      conversation: 0.8,
+      memory_cards: 0.6,
+      corpus: 0.35,
+      lens_fm: 0.1,
+      recency_bias: 0.75,
+      similarity_threshold: 0.3,
+    },
+    routing: {
+      answer_first: true,
+      clarify_bias: 0.2,
+      max_clarify_questions: 1,
+    },
+    pragmatics: {
+      rfg: 0.85,
+      df: 0.75,
+      pe: 3,
+    },
+    limits: {
+      Y: 0.3,
+      R: 0.6,
+      C: 0.4,
+      S: 0.5,
+    },
+  }),
+];
+
+function isBuiltinProfileId(id: string): boolean {
+  return String(id || "").startsWith("builtin-");
+}
+
+function mergeBuiltinProfiles(userProfiles: VantageProfile[]): VantageProfile[] {
+  const user = normalizeProfileList(userProfiles).filter((p: any) => !isBuiltinProfileId(String(p.id || "")));
+  const userNames = new Set(user.map((p: any) => normalizeVantageId(p?.state?.vantageId || p?.name)));
+  const builtins = BUILTIN_VANTAGE_PROFILES.filter((p) => !userNames.has(normalizeVantageId(p.state.vantageId)));
+  return [...builtins, ...user];
+}
+
+function userProfilesOnly(profiles: VantageProfile[]): VantageProfile[] {
+  return normalizeProfileList(profiles).filter((p: any) => !isBuiltinProfileId(String(p.id || "")));
+}
+
 const LS_PROFILES = "vs_vantage_profiles";
 const LS_DEFAULT_PROFILE_ID = "vs_vantage_default_id";
 const LS_LEGACY_PRESETS = "vs_vantage_presets";
@@ -489,7 +621,7 @@ export function VantageProfilePage({
       // Cloud is authoritative for cross-browser consistency.
       // If not signed in, show empty presets (do not silently fall back to local).
       const cloud = await cloudGetPresets();
-      const ps = normalizeProfileList((cloud && cloud.profiles) ? cloud.profiles : []);
+      const ps = mergeBuiltinProfiles(normalizeProfileList((cloud && cloud.profiles) ? cloud.profiles : []));
       const defId = (cloud && typeof cloud.defaultId === "string") ? cloud.defaultId : "";
 
       setProfiles(ps);
@@ -642,8 +774,8 @@ export function VantageProfilePage({
               );
               setProfiles(next);
               saveProfiles(next);
-              void cloudSetPresets(next, defaultId);
-              void brainsSyncVantagePresets({ profiles: next, defaultId, active: appliedActivePayload() });
+              void cloudSetPresets(userProfilesOnly(next), defaultId);
+              void brainsSyncVantagePresets({ profiles: userProfilesOnly(next), defaultId, active: appliedActivePayload() });
               setSelectedId(existing.id);
               setMsg(`Overwrote Vantage "${namespace}".`);
               return;
@@ -653,8 +785,8 @@ export function VantageProfilePage({
             const next = [p, ...profiles];
             setProfiles(next);
             saveProfiles(next);
-            void cloudSetPresets(next, defaultId);
-              void brainsSyncVantagePresets({ profiles: next, defaultId, active: appliedActivePayload() });
+            void cloudSetPresets(userProfilesOnly(next), defaultId);
+              void brainsSyncVantagePresets({ profiles: userProfilesOnly(next), defaultId, active: appliedActivePayload() });
             setSelectedId(p.id);
             setMsg(`Saved Vantage "${namespace}".`);
           }}
@@ -667,8 +799,8 @@ export function VantageProfilePage({
             if (!selectedId) return;
             setDefaultProfileId(selectedId); // local cache
             setDefaultId(selectedId);
-            void cloudSetPresets(profiles as any, selectedId);
-            void brainsSyncVantagePresets({ profiles: profiles as any, defaultId: selectedId, active: appliedActivePayload() });
+            void cloudSetPresets(userProfilesOnly(profiles as any), selectedId);
+            void brainsSyncVantagePresets({ profiles: userProfilesOnly(profiles as any), defaultId: selectedId, active: appliedActivePayload() });
             setMsg("Set default Vantage.");
           }}
         /><ActionRow
@@ -685,8 +817,8 @@ export function VantageProfilePage({
 
             const nextDefaultId = defaultId === selected.id ? "" : defaultId;
             if (defaultId === selected.id) clearDefaultProfileId(); // local cache
-            void cloudSetPresets(next as any, nextDefaultId);
-            void brainsSyncVantagePresets({ profiles: next as any, defaultId: nextDefaultId, active: appliedActivePayload() });
+            void cloudSetPresets(userProfilesOnly(next as any), nextDefaultId);
+            void brainsSyncVantagePresets({ profiles: userProfilesOnly(next as any), defaultId: nextDefaultId, active: appliedActivePayload() });
 
             if (defaultId === selected.id) setDefaultId("");
             setSelectedId("");
