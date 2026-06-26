@@ -111,6 +111,8 @@ export default function TrainingWorkoutsPage() {
   const [openExerciseIds, setOpenExerciseIds] = React.useState<Record<string, boolean>>({});
   const [templateExerciseSegments, setTemplateExerciseSegments] = React.useState<Record<string, WorkoutTemplateExerciseSegmentRow[]>>({});
   const [segmentLoadingIds, setSegmentLoadingIds] = React.useState<Record<string, boolean>>({});
+  const [shareUrl, setShareUrl] = React.useState("");
+  const [shareStatus, setShareStatus] = React.useState("");
 
   React.useEffect(() => {
     (async () => {
@@ -218,6 +220,8 @@ export default function TrainingWorkoutsPage() {
     setOpenExerciseIds({});
     setTemplateExerciseSegments({});
     setSegmentLoadingIds({});
+    setShareUrl("");
+    setShareStatus("");
   }, [selectedId]);
 
   const myExercisesById = React.useMemo(() => {
@@ -316,6 +320,44 @@ export default function TrainingWorkoutsPage() {
       }),
     });
     await loadTemplates();
+  }
+
+  async function createShareLink() {
+    if (!owner || !selected) return;
+
+    setShareStatus("Creating share link…");
+    setShareUrl("");
+
+    try {
+      const qs = new URLSearchParams({
+        workout_template_id: selected.workout_template_id,
+      });
+
+      const j = await fetchJson(`/api/lifeswitch/training/workout_template_shares/create?${qs.toString()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: selected.name,
+          notes: "",
+        }),
+      });
+
+      const token = String(j?.token || "").trim();
+      if (!token) throw new Error("share token missing");
+
+      const url = `${window.location.origin}/share/workout/${encodeURIComponent(token)}`;
+      setShareUrl(url);
+      setShareStatus("Share link created.");
+
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareStatus("Share link created and copied.");
+      } catch {
+        // Clipboard can fail in some browsers/contexts. Showing the URL is enough.
+      }
+    } catch (e: any) {
+      setShareStatus(`Share failed: ${String(e?.message || e)}`);
+    }
   }
 
   async function deactivateTemplate(workout_template_id: string) {
@@ -745,14 +787,36 @@ export default function TrainingWorkoutsPage() {
                     ) : null}
                   </div>
 
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-1.5 text-sm hover:bg-muted/30"
-                    onClick={() => setEditingSelected((v) => !v)}
-                  >
-                    {editingSelected ? "Done" : "Edit"}
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      className="rounded-xl border px-3 py-1.5 text-sm hover:bg-muted/30 disabled:opacity-50"
+                      onClick={() => void createShareLink()}
+                      disabled={!owner || !selected}
+                    >
+                      Share
+                    </button>
+
+                    <button
+                      type="button"
+                      className="rounded-xl border px-3 py-1.5 text-sm hover:bg-muted/30"
+                      onClick={() => setEditingSelected((v) => !v)}
+                    >
+                      {editingSelected ? "Done" : "Edit"}
+                    </button>
+                  </div>
                 </div>
+
+                {shareStatus || shareUrl ? (
+                  <div className="mt-4 rounded-xl border bg-muted/20 p-3 text-sm">
+                    {shareStatus ? <div>{shareStatus}</div> : null}
+                    {shareUrl ? (
+                      <div className="mt-2 break-all text-xs text-muted-foreground">
+                        {shareUrl}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {editingSelected ? (
                   <div className="mt-4 grid gap-3">
