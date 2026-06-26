@@ -62,16 +62,25 @@ export function BrainsThreadList() {
   }
 
   async function select(thread_id: string) {
+    const tid = String(thread_id || "").trim();
+
+    if (!tid) {
+      alert("Thread id missing. Refreshing thread list.");
+      await refresh();
+      return;
+    }
+
     try {
       await fetchJson("/api/threads/select", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ thread_id }),
+        body: JSON.stringify({ thread_id: tid }),
       });
-      window.dispatchEvent(new CustomEvent("vs_active_thread", { detail: { thread_id } }));
+      window.dispatchEvent(new CustomEvent("vs_active_thread", { detail: { thread_id: tid } }));
       if (isMobile) setOpenMobile(false);
     } catch (e: any) {
       alert(e?.message || String(e));
+      await refresh();
     }
   }
 
@@ -145,24 +154,27 @@ export function BrainsThreadList() {
 
       <div className="flex flex-col">
         {filtered.map((t) => {
-          const isEditing = editingId === t.thread_id;
+          const tid = String(t.thread_id || t.id || "").trim();
+          if (!tid) return null;
+
+          const isEditing = editingId === tid;
 
           return (
             <div
-              key={t.thread_id}
+              key={tid}
               className="group flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-muted"
               title={t.updated_at}
             >
               <button
                 className="min-w-0 flex-1 truncate px-1 py-2 text-left text-sm"
-                onClick={() => select(t.thread_id)}
+                onClick={() => select(tid)}
               >
                 {t.title || "New chat"}
               </button>
 
               <button
                 className="rounded-md p-3 sm:p-2 text-muted-foreground hover:text-foreground opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-                onClick={() => startRename(t)}
+                onClick={() => startRename({ ...t, thread_id: tid })}
                 aria-label="Rename"
               >
                 <Pencil className="size-4" />
@@ -170,7 +182,7 @@ export function BrainsThreadList() {
 
               <button
                 className="rounded-md p-3 sm:p-2 text-muted-foreground hover:text-foreground opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-                onClick={() => deleteThread(t.thread_id)}
+                onClick={() => deleteThread(tid)}
                 aria-label="Delete"
               >
                 <Trash2 className="size-4" />
@@ -185,7 +197,7 @@ export function BrainsThreadList() {
                       value={editingTitle}
                       onChange={(e) => setEditingTitle(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") commitRename(t.thread_id);
+                        if (e.key === "Enter") commitRename(tid);
                         if (e.key === "Escape") {
                           setEditingId(null);
                           setEditingTitle("");
@@ -205,7 +217,7 @@ export function BrainsThreadList() {
                       </button>
                       <button
                         className="rounded-xl bg-muted px-3 py-2 text-sm"
-                        onClick={() => commitRename(t.thread_id)}
+                        onClick={() => commitRename(tid)}
                       >
                         Save
                       </button>
