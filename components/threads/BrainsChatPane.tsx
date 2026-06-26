@@ -697,7 +697,7 @@ export function BrainsChatPane() {
   async function ensureThread(): Promise<string> {
     if (threadId) return threadId;
 
-    const r = await fetch("/api/threads", {
+    const r = await authFetch("/api/threads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: "New chat" }),
