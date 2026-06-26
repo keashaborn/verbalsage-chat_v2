@@ -3,43 +3,15 @@ export const dynamic = "force-dynamic";
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { createRemoteJWKSet, jwtVerify } from "jose";
-import { randomUUID } from "crypto";
+import {
+  forbiddenThread,
+  getRequestId,
+  getThreadUserId,
+  threadBelongsToUser,
+  unauthorized,
+  UUID_RE,
+} from "@/app/api/threads/_threadAuth";
 
-const JWKS = process.env.SUPABASE_JWKS_URL
-  ? createRemoteJWKSet(new URL(process.env.SUPABASE_JWKS_URL))
-  : null;
-
-const ISSUER = process.env.SUPABASE_ISSUER;
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function getRequestId(req: Request) {
-  return (
-    req.headers.get("x-request-id") ||
-    req.headers.get("x-correlation-id") ||
-    randomUUID()
-  );
-}
-
-async function getUserId(req: NextRequest): Promise<string | null> {
-  if (!JWKS || !ISSUER) return null;
-
-  const auth = req.headers.get("authorization");
-  const token = auth?.replace("Bearer ", "");
-  if (!token) return null;
-
-  try {
-    const { payload } = await jwtVerify(token, JWKS, {
-      issuer: ISSUER,
-    });
-
-    return (payload.sub as string) || null;
-  } catch {
-    return null;
-  }
-}
 
 function cleanTitle(s: string) {
   return String(s || "")
@@ -82,13 +54,8 @@ async function generateTitle(input: string) {
 export async function POST(req: NextRequest, context: { params: Promise<{ thread_id: string }> }) {
   const requestId = getRequestId(req);
 
-  const user_id = await getUserId(req);
-  if (!user_id) {
-    return NextResponse.json(
-      { error: "unauthorized" },
-      { status: 401, headers: { "x-request-id": requestId } }
-    );
-  }
+  const user_id = await getThreadUserId(req);
+  if (!user_id) return unauthorized(requestId);
 
   const { thread_id } = await context.params;
   const tid = String(thread_id || "").trim();
@@ -98,6 +65,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ thread
       { status: 400, headers: { "x-request-id": requestId } }
     );
   }
+
+  const ownsThread = await threadBelongsToUser(tid, user_id, requestId);
+  if (!ownsThread) return forbiddenThread(requestId);
 
   const body = await req.json().catch(() => ({}));
   const input = String(body?.input || body?.text || "").trim();
