@@ -159,6 +159,11 @@ function formatSavedAt(savedAt: string) {
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+function selectNumberInputValue(e: React.FocusEvent<HTMLInputElement>) {
+  const input = e.currentTarget;
+  window.setTimeout(() => input.select(), 0);
+}
+
 export default function TrainingCapturePage() {
   const router = useRouter();
   const [owner, setOwner] = React.useState<string | null>(null);
@@ -907,6 +912,7 @@ export default function TrainingCapturePage() {
                                         value={seg.weight}
                                         disabled={row.done}
                                         readOnly={row.done}
+                                        onFocus={selectNumberInputValue}
                                         onChange={(e) =>
                                           updateDraftSegment(row.draft_id, seg.segment_index, { weight: e.currentTarget.value })
                                         }
@@ -921,6 +927,7 @@ export default function TrainingCapturePage() {
                                         value={seg.reps}
                                         disabled={row.done}
                                         readOnly={row.done}
+                                        onFocus={selectNumberInputValue}
                                         onChange={(e) =>
                                           updateDraftSegment(row.draft_id, seg.segment_index, { reps: e.currentTarget.value })
                                         }
@@ -939,6 +946,7 @@ export default function TrainingCapturePage() {
                                     value={row.weight}
                                     disabled={row.done}
                                     readOnly={row.done}
+                                    onFocus={selectNumberInputValue}
                                     onChange={(e) => {
                                       const value = e.currentTarget.value;
                                       updateDraftRow(row.draft_id, { weight: value });
@@ -954,6 +962,7 @@ export default function TrainingCapturePage() {
                                     value={row.reps}
                                     disabled={row.done}
                                     readOnly={row.done}
+                                    onFocus={selectNumberInputValue}
                                     onChange={(e) => {
                                       const value = e.currentTarget.value;
                                       updateDraftRow(row.draft_id, { reps: value });
