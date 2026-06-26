@@ -362,6 +362,7 @@ function DrawerInner({
         {current === "vantage_profile" && (
           <div className="space-y-3">
             <VantageProfilePage
+              isAdmin={isAdmin}
               onEditPersonalization={(vid) => {
                 setPersonalizationVantageId(String(vid || "RESSE").trim().slice(0, 64).toUpperCase() || "RESSE");
                 push("vantage_personalization");

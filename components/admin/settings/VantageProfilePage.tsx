@@ -463,8 +463,10 @@ function sameState(a: VantageProfile["state"], b: VantageProfile["state"]) {
 
 export function VantageProfilePage({
   onEditPersonalization,
+  isAdmin = false,
 }: {
   onEditPersonalization?: (vantageId: string) => void;
+  isAdmin?: boolean;
 }) {
   const { applied, draft, setDraft } = useSettingsStore();
 
@@ -616,6 +618,7 @@ export function VantageProfilePage({
           Header <span className="font-semibold">Apply</span> makes the draft settings active in chat. Vantages here are synced to your account.
         </div>
 
+        {isAdmin ? (
         <details className="border-t">
           <summary className="cursor-pointer select-none px-3 py-2 text-sm font-semibold hover:bg-muted/60">
             Manage Vantage
@@ -692,11 +695,14 @@ export function VantageProfilePage({
         />
           </div>
         </details>
+        ) : null}
         </Group>
 
       {msg ? <div className="px-1 text-xs text-muted-foreground">{msg}</div> : null}
       <div className="px-1 text-xs text-muted-foreground">Default Vantage: {defaultProfile ? defaultProfile.name : "(none)"}</div>
 
+      {isAdmin ? (
+      <>
       <Group
         title="Conversation context"
         help={
@@ -774,19 +780,19 @@ export function VantageProfilePage({
 
       <details className="space-y-3 rounded-xl border p-3">
         <summary className="cursor-pointer select-none text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Advanced tuning
+          Admin tuning
         </summary>
 
         <div className="pt-3 space-y-4">
       <Group
-        title="Retrieval filters & ranking"
+        title="Context filters & ranking"
         help={
           <div className="space-y-1">
             <div>
-              <span className="font-semibold">Similarity cutoff</span>: higher = stricter threshold (fewer hits).
+              <span className="font-semibold">Context match strictness</span>: higher = only use closer retrieval matches.
             </div>
             <div>
-              <span className="font-semibold">Recency bias</span>: higher = reranks toward newer items (not a hard
+              <span className="font-semibold">Prefer recent context</span>: higher = reranks toward newer items (not a hard
               filter).
             </div>
             <div className="pt-1">
@@ -796,29 +802,29 @@ export function VantageProfilePage({
         }
       >
         <SliderRow
-          title="Similarity cutoff"
+          title="Context match strictness"
           value={mix.similarity_threshold}
           onChange={(v) => setDraft((s) => ({ ...s, mix: { ...sanitizeMix(s.mix), similarity_threshold: v } }))}
         />
         <SliderRow
-          title="Recency bias"
+          title="Prefer recent context"
           value={mix.recency_bias}
           onChange={(v) => setDraft((s) => ({ ...s, mix: { ...sanitizeMix(s.mix), recency_bias: v } }))}
         />
       </Group>
 
       <Group
-        title="Routing policy"
+        title="Answering behavior"
         help={
           <div className="space-y-1">
             <div>
-              <span className="font-semibold">Answer-first</span>: ON answers immediately (suppresses clarifying). OFF allows clarifying.
+              <span className="font-semibold">Answer directly by default</span>: ON prefers a direct answer. OFF allows more clarification first.
             </div>
             <div>
-              <span className="font-semibold">Clarify bias</span>: 0 disables clarifying; higher increases tendency to ask clarifying questions (when allowed).
+              <span className="font-semibold">Ask-questions tendency</span>: 0 disables clarification. Higher increases the tendency to ask clarifying questions when allowed.
             </div>
             <div>
-              <span className="font-semibold">Max clarify</span>: hard cap on clarifying questions. 0 disables clarifying; 1–3 limits question count.
+              <span className="font-semibold">Question limit before answering</span>: hard cap on clarifying questions. 0 disables clarifying; 1–3 limits question count.
             </div>
             <div className="pt-1">
               Cookie: <code>vs_vantage_routing</code>
@@ -827,7 +833,7 @@ export function VantageProfilePage({
         }
       >
         <Row
-          left="Answer-first"
+          left="Answer directly by default"
           right={
             <input
               type="checkbox"
@@ -839,12 +845,12 @@ export function VantageProfilePage({
           }
         />
         <SliderRow
-          title="Clarify bias"
+          title="Ask-questions tendency"
           value={routing.clarify_bias}
           onChange={(v) => setDraft((s) => ({ ...s, routing: { ...sanitizeRouting(s.routing), clarify_bias: v } }))}
         />
         <SliderRow
-          title="Max clarify questions"
+          title="Question limit before answering"
           value={routing.max_clarify_questions}
           min={0}
           max={3}
@@ -860,12 +866,11 @@ export function VantageProfilePage({
       </Group>
 
       <Group
-        title="Social presence"
+        title="Social behavior"
         help={
           <div className="space-y-1">
             <div>
-              Controls how the assistant handles greetings/check-ins and how humanlike its self-references are.
-              These are separate from verbosity (S) and retrieval.
+              Controls greetings/check-ins, social presence, and AI self-disclosure. Separate from retrieval and extra wording.
             </div>
             <div className="pt-1">
               Cookie: <code>vs_vantage_pragmatics</code>
@@ -874,7 +879,7 @@ export function VantageProfilePage({
         }
       >
         <SliderRow
-          title="RFG — Ritual-first gate"
+          title="Conversational opening"
           value={pragmatics.rfg}
           onChange={(v) =>
             setDraft((s: any) => ({
@@ -884,7 +889,7 @@ export function VantageProfilePage({
           }
         />
         <SliderRow
-          title="DF — Disclosure friction"
+          title="AI disclaimer restraint"
           value={pragmatics.df}
           onChange={(v) =>
             setDraft((s: any) => ({
@@ -894,7 +899,7 @@ export function VantageProfilePage({
           }
         />
         <SliderRow
-          title="PE — Persona embodiment"
+          title="Persona intensity"
           value={pragmatics.pe}
           min={0}
           max={3}
@@ -910,22 +915,20 @@ export function VantageProfilePage({
       </Group>
 
       <Group
-        title="Limiters (Y/R/C/S)"
+        title="Response limiters"
         help={
           <div className="space-y-1">
             <div>
-              <span className="font-semibold">Y</span>: higher = concedes/defers more under pressure; lower = holds
-              firm.
+              <span className="font-semibold">Agreeability under pressure</span>: higher = concedes/defers more when challenged; lower = holds firm.
             </div>
             <div>
-              <span className="font-semibold">R</span>: higher = revises more readily; lower = more stable.
+              <span className="font-semibold">Evidence-based revision</span>: higher = revises more readily when new facts appear; lower = more stable.
             </div>
             <div>
-              <span className="font-semibold">C</span>: coupling gain for longer-run shaping (verify actual effect
-              via inspector/meta).
+              <span className="font-semibold">Adaptation strength</span>: longer-run shaping/coupling; verify actual effect via inspector/meta.
             </div>
             <div>
-              <span className="font-semibold">S</span>: higher = more verbosity/hedges/affirmations/compliments.
+              <span className="font-semibold">Extra wording</span>: higher = more verbosity, hedges, affirmations, compliments, and decorative phrasing.
             </div>
             <div className="pt-1">
               Cookie: <code>vs_vantage_limits</code>
@@ -934,28 +937,30 @@ export function VantageProfilePage({
         }
       >
         <SliderRow
-          title="Y — Concession cap"
+          title="Agreeability under pressure"
           value={limits.Y}
           onChange={(v) => setDraft((s) => ({ ...s, limits: { ...sanitizeLimits(s.limits), Y: v } }))}
         />
         <SliderRow
-          title="R — Ledger update gate"
+          title="Evidence-based revision"
           value={limits.R}
           onChange={(v) => setDraft((s) => ({ ...s, limits: { ...sanitizeLimits(s.limits), R: v } }))}
         />
         <SliderRow
-          title="C — Policy coupling gain"
+          title="Adaptation strength"
           value={limits.C}
           onChange={(v) => setDraft((s) => ({ ...s, limits: { ...sanitizeLimits(s.limits), C: v } }))}
         />
         <SliderRow
-          title="S — Ornament budget"
+          title="Extra wording"
           value={limits.S}
           onChange={(v) => setDraft((s) => ({ ...s, limits: { ...sanitizeLimits(s.limits), S: v } }))}
         />
       </Group>
         </div>
       </details>
+      </>
+      ) : null}
 
     </div>
   );
