@@ -723,12 +723,12 @@ export function VantageProfilePage({
   return (
     <div className="space-y-4">
       <div className="text-xs text-muted-foreground">
-        Use Apply to make this Vantage’s routing, retrieval, and behavior settings active in chat.
+        Choose an assistant profile. Apply makes this Vantage active in chat.
       </div>
 
       <Group title="Profile">
         <Row
-          left="Vantage name"
+          left="Active Vantage"
           right={
             <input
               className="w-[210px] rounded-lg border bg-background px-2 py-1.5 text-sm"
@@ -754,7 +754,7 @@ export function VantageProfilePage({
         </div>
 
         <Row
-          left="Switch Vantage"
+          left="Choose Vantage"
           right={
             <select
               className="w-[210px] rounded-lg border bg-background px-2 py-1.5 text-sm"
@@ -777,7 +777,6 @@ export function VantageProfilePage({
                 .map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
-                    {p.id === defaultId ? " (default)" : ""}
                   </option>
                 ))}
             </select>
@@ -785,10 +784,9 @@ export function VantageProfilePage({
         />
 
         <div className="px-1 text-xs text-muted-foreground">
-          Header <span className="font-semibold">Apply</span> makes the draft settings active in chat. Vantages here are synced to your account.
+          <span className="font-semibold">Apply</span> makes the selected Vantage active in chat. Built-in Vantages are available to everyone.
         </div>
 
-        {isAdmin ? (
         <details className="border-t">
           <summary className="cursor-pointer select-none px-3 py-2 text-sm font-semibold hover:bg-muted/60">
             Manage Vantage
@@ -828,19 +826,6 @@ export function VantageProfilePage({
             setSelectedId(p.id);
             setMsg(`Saved Vantage "${namespace}".`);
           }}
-        />
-
-        <ActionRow
-          label="Set default Vantage"
-          disabled={!selectedId}
-          onClick={() => {
-            if (!selectedId) return;
-            setDefaultProfileId(selectedId); // local cache
-            setDefaultId(selectedId);
-            void cloudSetPresets(userProfilesOnly(profiles as any), selectedId);
-            void brainsSyncVantagePresets({ profiles: userProfilesOnly(profiles as any), defaultId: selectedId, active: appliedActivePayload() });
-            setMsg("Set default Vantage.");
-          }}
         /><ActionRow
           label="Delete Vantage"
           disabled={!selectedId}
@@ -865,12 +850,9 @@ export function VantageProfilePage({
         />
           </div>
         </details>
-        ) : null}
         </Group>
 
       {msg ? <div className="px-1 text-xs text-muted-foreground">{msg}</div> : null}
-      <div className="px-1 text-xs text-muted-foreground">Default Vantage: {defaultProfile ? defaultProfile.name : "(none)"}</div>
-
       <Group
         title="Conversation context"
         help={
@@ -901,7 +883,7 @@ export function VantageProfilePage({
               retrieved (also requires <code>VANTAGE_PERSONAL_MEMORY=1</code> on Brains).
             </div>
             <div>
-              <span className="font-semibold">Corpus</span>: scales how many corpus hits are retrieved.
+              <span className="font-semibold">Fractal Monism corpus</span>: scales how much the current Fractal Monism knowledge base is used.
             </div>
             <div className="pt-1">
               Cookie: <code>vs_vantage_mix</code>
@@ -927,8 +909,7 @@ export function VantageProfilePage({
         help={
           <div className="space-y-1">
             <div>
-              <span className="font-semibold">FM lens</span>: injects a framing constraint block into the
-              prompt (instruction overlay, not retrieval).
+              <span className="font-semibold">Fractal Monism lens</span>: injects a Fractal Monism framing constraint block into the prompt (instruction overlay, not retrieval).
             </div>
             <div className="pt-1">
               Cookie: <code>vs_vantage_mix</code>
@@ -937,7 +918,7 @@ export function VantageProfilePage({
         }
       >
         <SliderRow
-          title="FM lens strength"
+          title="Fractal Monism lens"
           value={mix.lens_fm}
           onChange={(v) => setDraft((s) => ({ ...s, mix: { ...sanitizeMix(s.mix), lens_fm: v } }))}
         />
