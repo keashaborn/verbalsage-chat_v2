@@ -110,7 +110,12 @@ export default function WorkoutSharePage({ params }: { params: Promise<{ token: 
       setImportedId(id);
       setImportStatus(`Imported ${j?.imported_workout?.name || "workout"}.`);
     } catch (e: any) {
-      setImportStatus(`Import failed: ${String(e?.message || e)}`);
+      const msg = String(e?.message || e);
+      if (msg.includes("401") || msg.toLowerCase().includes("unauthorized") || msg.toLowerCase().includes("not signed")) {
+        setImportStatus("Import failed: please sign in first, then return to this link and import again.");
+      } else {
+        setImportStatus(`Import failed: ${msg}`);
+      }
     } finally {
       setImporting(false);
     }
@@ -194,20 +199,14 @@ export default function WorkoutSharePage({ params }: { params: Promise<{ token: 
             </section>
 
             <div className="mt-6 flex flex-wrap items-center gap-2">
-              {signedIn ? (
-                <button
-                  type="button"
-                  className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/30 disabled:opacity-50"
-                  onClick={() => void importWorkout()}
-                  disabled={importing || Boolean(inactive)}
-                >
-                  {importing ? "Importing…" : "Import to My Workouts"}
-                </button>
-              ) : (
-                <a className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/30" href="/">
-                  Sign in to import
-                </a>
-              )}
+              <button
+                type="button"
+                className="rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/30 disabled:opacity-50"
+                onClick={() => void importWorkout()}
+                disabled={importing || Boolean(inactive)}
+              >
+                {importing ? "Importing…" : "Import to My Workouts"}
+              </button>
 
               <a className="rounded-xl border px-4 py-2 text-sm hover:bg-muted/30" href="/lifeswitch/training/workouts">
                 Open Workouts
