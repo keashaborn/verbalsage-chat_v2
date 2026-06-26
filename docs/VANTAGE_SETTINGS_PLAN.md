@@ -121,3 +121,11 @@ In casual conversation, end naturally.
 5. Create universal profile presets: RESSE, Morgan, Riley.
 6. Verify Supabase cross-device persistence for active vantage settings.
 7. Later: add LifeSwitch/training/nutrition knowledge-base collections.
+
+## Built-in persona rollout
+
+Step 1: Built-in Vantage definition overlays give RESSE, Morgan, and Riley universal behavior even when a user has no saved personalization card.
+
+Step 2: The Personalization editor should display the built-in default text when no user-specific override exists, then let the user save a private override.
+
+Longer-term: move built-in persona fallback into backend prompt construction so runtime behavior does not depend only on frontend-sent definition overlays.
