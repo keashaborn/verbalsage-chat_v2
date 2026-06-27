@@ -166,4 +166,54 @@ The registry is the conceptual source of truth, but only selected routes are wir
 4. `user_data.forget_recent`
 5. `memory_cards.delete`
 6. later: LifeSwitch shared-access capabilities
+---
+
+## 2026-06-27 Capability Enforcement Checkpoint
+
+### Route Families Converted
+
+The following routes now use the capability authorization helper:
+
+- `inspector.view`
+  - `/api/chat/inspect`
+  - `/api/admin/debug_cookie`
+
+- `memory_cards.view`
+  - `/api/admin/cards`
+  - `/api/admin/vantage-cards`
+
+- `memory_cards.delete`
+  - `/api/admin/cards/[card_id]`
+
+- `user_data.export`
+  - `/api/admin/export`
+
+- `user_data.delete`
+  - `/api/admin/delete_all`
+
+- `user_data.forget_recent`
+  - `/api/admin/forget_recent`
+
+- `voice.realtime_token`
+  - `/api/voice/ws-token`
+
+### Current Guard Audit
+
+- Active `/api/admin/*` routes no longer call `requireAdmin()` directly.
+- `requireAdmin()` remains defined only as a compatibility helper.
+- Most ordinary application routes still use `getSupabaseUserIdFromRequest()`, which is appropriate for user-authenticated routes.
+- `/api/dev/models` remains unauthenticated and currently returns only a static model allowlist.
+- `/api/telemetry/event` can accept anonymous telemetry but stamps `actor_user_id` when authenticated.
+
+### Security Position
+
+The core admin/security surface has moved from binary admin checks toward explicit capability enforcement. This is a stronger base for future roles such as developer, operator, beta tester, power user, coach/helper, and owner.
+
+### Recommended Next Work
+
+- Add an effective-permissions preview for the current account.
+- Add database-backed role/capability overrides later.
+- Add capability checks to future diagnostics routes.
+- Keep `/api/dev/models` public only if it remains a harmless static allowlist.
+- Revisit anonymous telemetry if telemetry payloads become sensitive or abusable.
 
