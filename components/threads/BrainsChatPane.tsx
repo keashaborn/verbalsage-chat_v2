@@ -84,9 +84,10 @@ async function callInspect(input: string, tid: string, regen: boolean): Promise<
 async function maybeInspect(
   input: string,
   tid: string,
-  regen: boolean
+  regen: boolean,
+  isAdmin: boolean
 ): Promise<{ inspect: InspectResult | null; inspect_error: string | null }> {
-  if (!hasInspectorCookie()) return { inspect: null, inspect_error: null };
+  if (!isAdmin || !hasInspectorCookie()) return { inspect: null, inspect_error: null };
   try {
     const data = await callInspect(input, tid, regen);
     return { inspect: data, inspect_error: null };
@@ -101,6 +102,7 @@ export function BrainsChatPane() {
   const [loading, setLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
   const [listening, setListening] = React.useState(false);
+  const [isAdmin, setIsAdmin] = React.useState(false);
 
   const micStreamRef = React.useRef<MediaStream | null>(null);
   const micCtxRef = React.useRef<AudioContext | null>(null);
@@ -114,6 +116,51 @@ export function BrainsChatPane() {
   });
   const stopVoiceInFlightRef = React.useRef(false);
   const didAutoScrollForThreadRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    async function refreshAdminFlag() {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const role = (data?.user as any)?.app_metadata?.role;
+        const nextIsAdmin = role === "admin";
+        if (!mounted) return;
+
+        setIsAdmin(nextIsAdmin);
+
+        // Clear stale Inspector payloads when switching from an admin account
+        // to a non-admin account in the same browser session.
+        if (!nextIsAdmin) {
+          setMsgs((prev) =>
+            prev.map((m) =>
+              m.inspect || m.inspect_error ? { ...m, inspect: null, inspect_error: null } : m
+            )
+          );
+        }
+      } catch {
+        if (mounted) {
+          setIsAdmin(false);
+          setMsgs((prev) =>
+            prev.map((m) =>
+              m.inspect || m.inspect_error ? { ...m, inspect: null, inspect_error: null } : m
+            )
+          );
+        }
+      }
+    }
+
+    void refreshAdminFlag();
+
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      void refreshAdminFlag();
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
   // Tune later if needed
   const VAD_START_RMS = 0.02;       // speech start threshold
@@ -291,7 +338,7 @@ export function BrainsChatPane() {
               const t0 = performance.now();
 
               const replyText = await callChat(transcript, tid, false, true); // noStore=true
-              const { inspect, inspect_error } = await maybeInspect(transcript, tid, false);
+              const { inspect, inspect_error } = await maybeInspect(transcript, tid, false, isAdmin);
 
               const ms = Math.round(performance.now() - t0);
               setFreeformDebug({ transcript, reply: replyText, ms, inspect, inspect_error });
@@ -678,7 +725,7 @@ export function BrainsChatPane() {
       const data = await fetchJson<Msg[]>(`/api/threads/${encodeURIComponent(tid)}/messages`);
       const normalized = (Array.isArray(data) ? data : []).map((m) => (m.role === "assistant" ? { ...m, v: 1 } : m));
 
-      if (attach && (attach.inspect || attach.inspect_error)) {
+      if (isAdmin && attach && (attach.inspect || attach.inspect_error)) {
         const idx = lastAssistantIndex(normalized);
         if (idx >= 0) {
           normalized[idx] = { ...normalized[idx], inspect: attach.inspect, inspect_error: attach.inspect_error };
@@ -757,7 +804,7 @@ export function BrainsChatPane() {
     setSending(true);
     try {
       const replyText = await callChat(lastUser, tid!, true);
-      const { inspect, inspect_error } = await maybeInspect(lastUser, tid!, true);
+      const { inspect, inspect_error } = await maybeInspect(lastUser, tid!, true, isAdmin);
 
       setMsgs((prev) => {
         const idx = lastAssistantIndex(prev);
@@ -1047,7 +1094,7 @@ export function BrainsChatPane() {
         }
       })();
 
-      const { inspect, inspect_error } = await maybeInspect(msg, tid, false);
+      const { inspect, inspect_error } = await maybeInspect(msg, tid, false, isAdmin);
 
       setMsgs((prev): Msg[] => {
         const next: Msg[] = [...prev, { role: "assistant", content: replyText, v: 1, inspect, inspect_error }];
@@ -1220,7 +1267,7 @@ export function BrainsChatPane() {
                       )}
                     </div>
 
-                    {(m.inspect || m.inspect_error) && (
+                    {isAdmin && (m.inspect || m.inspect_error) && (
                       <details className="mt-2 max-w-[42rem] rounded-xl border bg-background/30 p-3 text-xs">
                         <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                           Inspector
