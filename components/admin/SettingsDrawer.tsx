@@ -44,7 +44,7 @@ const PAGE_TITLES: Record<PageId, string> = {
   models_voice: "Models & Voice",
   vantage_profile: "Vantage Profile",
   vantage_personalization: "Personalization",
-  memory_cards: "Developer",
+  memory_cards: "Admin Console",
   security: "Security",
 };
 
@@ -270,11 +270,11 @@ function DrawerInner({
             {isAdmin ? (
               <div className="space-y-2">
                 <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Developer
+                  Admin Console
                 </div>
                 <div className="overflow-hidden rounded-xl border">
                   <div className="divide-y">
-                    <SettingsRow label="Developer tools" onClick={() => push("memory_cards")} />
+                    <SettingsRow label="Admin Console" onClick={() => push("memory_cards")} />
                   </div>
                 </div>
               </div>
