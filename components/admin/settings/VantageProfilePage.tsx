@@ -897,7 +897,7 @@ export function VantageProfilePage({
           onChange={(v) => setDraft((s) => ({ ...s, mix: { ...sanitizeMix(s.mix), memory_cards: v } }))}
         />
         <SliderRow
-          title="Corpus"
+          title="Fractal Monism corpus"
           value={mix.corpus}
           onChange={(v) => setDraft((s) => ({ ...s, mix: { ...sanitizeMix(s.mix), corpus: v } }))}
         />
