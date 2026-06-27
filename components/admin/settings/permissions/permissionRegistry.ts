@@ -28,6 +28,7 @@ export type PermissionCategory =
   | "assistant_profile"
   | "inspection"
   | "diagnostics"
+  | "voice"
   | "memory"
   | "admin_console"
   | "account_data"
@@ -183,6 +184,18 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     label: "Run Diagnostics",
     description: "Run diagnostic probes or test suites that may create telemetry.",
     category: "diagnostics",
+    scope: "system",
+    access: "use",
+    risk: "high",
+    defaultRoles: ["owner", "admin", "developer"],
+    backendEnforced: true,
+  },
+
+  {
+    key: "voice.realtime_token",
+    label: "Use Realtime Voice Token",
+    description: "Request the server-side realtime voice websocket token.",
+    category: "voice",
     scope: "system",
     access: "use",
     risk: "high",

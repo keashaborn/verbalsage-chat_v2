@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs";
-import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
+import { requireCapability } from "@/app/api/_auth/requireCapability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,9 +22,9 @@ function readEnvFileToken(path: string): string | null {
 }
 
 export async function GET(req: Request) {
-  const user_id = await getSupabaseUserIdFromRequest(req);
-  if (!user_id) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const cap = await requireCapability(req, "voice.realtime_token");
+  if (!cap.ok) {
+    return NextResponse.json({ ok: false, error: cap.msg }, { status: cap.status });
   }
 
   const wsToken =
