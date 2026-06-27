@@ -227,7 +227,7 @@ function DrawerInner({
               <div className="overflow-hidden rounded-xl border">
                 <div className="divide-y">
                   <SettingsRow
-                    label="Vantage Profile"
+                    label="Assistant Profile"
                     value={String(applied.vantageId || "default").slice(0, 32)}
                     onClick={() => push("vantage_profile")}
                   />

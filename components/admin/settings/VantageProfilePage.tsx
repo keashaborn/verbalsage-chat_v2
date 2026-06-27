@@ -788,7 +788,7 @@ export function VantageProfilePage({
         />
 
         <div className="px-1 text-xs text-muted-foreground">
-          <span className="font-semibold">Apply</span> makes the selected Vantage active in chat. Built-in Vantages are available to everyone.
+          <span className="font-semibold">Apply</span> makes the selected assistant profile active in chat. Built-in profiles are available to everyone.
         </div>
 
         <details className="border-t">
@@ -797,7 +797,7 @@ export function VantageProfilePage({
           </summary>
           <div className="divide-y">
 <ActionRow
-          label={`Save Vantage "${namespace}"`}
+          label={`Save Profile "${namespace}"`}
           onClick={() => {
             setMsg("");
             const now = new Date().toISOString();
@@ -806,7 +806,7 @@ export function VantageProfilePage({
             const state = { ...currentDraftState(), vantageId: namespace };
 
             if (existing) {
-              const ok = window.confirm(`Overwrite existing Vantage "${existing.name}"?`);
+              const ok = window.confirm(`Overwrite existing Profile "${existing.name}"?`);
               if (!ok) return;
 
               const next = profiles.map((p) =>
