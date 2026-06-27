@@ -20,7 +20,7 @@ function clearCookie(name: string) {
   document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
 }
 
-export function DeveloperToolsPage() {
+export function AdminConsolePage() {
   const [inspectorEnabled, setInspectorEnabled] = React.useState(false);
   const [status, setStatus] = React.useState("");
 

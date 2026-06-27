@@ -12,7 +12,7 @@ import { SecurityPanel } from "@/components/admin/SecurityPanel";
 import { ChatModelPanel } from "@/components/admin/ChatModelPanel";
 import { VantageProfilePage } from "@/components/admin/settings/VantageProfilePage";
 import { VantagePersonalizationEditor } from "@/components/admin/settings/VantagePersonalizationEditor";
-import { DeveloperToolsPage } from "@/components/admin/settings/DeveloperToolsPage";
+import { AdminConsolePage } from "@/components/admin/settings/AdminConsolePage";
 
 
 import { SettingsRow } from "@/components/admin/settings/SettingsRow";
@@ -379,7 +379,7 @@ function DrawerInner({
 
         {current === "memory_cards" && isAdmin && (
           <div className="space-y-3">
-            <DeveloperToolsPage />
+            <AdminConsolePage />
           </div>
         )}
 
