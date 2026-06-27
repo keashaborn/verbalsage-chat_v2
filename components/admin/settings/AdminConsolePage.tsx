@@ -164,6 +164,16 @@ export function AdminConsolePage() {
               ))}
             </div>
           </div>
+
+          <div className="mt-3 rounded-lg border p-3">
+            <div className="text-sm font-semibold">Vantage Permissions</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Placeholder for configuring which controls are hidden, visible, locked, or editable for normal users.
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              Future rule: frontend visibility is convenience; /api/chat must enforce permissions server-side.
+            </div>
+          </div>
         </div>
       </div>
 
