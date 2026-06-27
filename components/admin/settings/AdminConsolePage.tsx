@@ -1,7 +1,6 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
-import { supabase } from "@/lib/supabaseClient";
 import * as React from "react";
 import { CardsPanel } from "@/components/admin/settings/CardsPanel";
 import { VANTAGE_CONTROL_REGISTRY } from "@/components/admin/settings/vantage/controlRegistry";
@@ -28,10 +27,34 @@ function normalizePermissionRoleClient(raw: any): PermissionRole {
   return PERMISSION_ROLES.some((r) => r.key === v) ? (v as PermissionRole) : "user";
 }
 
+type EffectiveCapability = {
+  key: string;
+  label: string;
+  category: string;
+  scope: string;
+  access: string;
+  risk: string;
+  backendEnforced: boolean;
+};
+
+type EffectivePermissionsResponse = {
+  ok: boolean;
+  authenticated: boolean;
+  user_id?: string;
+  role: PermissionRole;
+  capabilities: EffectiveCapability[];
+  capability_count: number;
+  critical_count: number;
+  backend_enforced_count: number;
+  total_capabilities: number;
+  error?: string;
+};
+
 export function AdminConsolePage() {
   const [inspectorEnabled, setInspectorEnabled] = React.useState(false);
   const [status, setStatus] = React.useState("");
   const [currentRole, setCurrentRole] = React.useState<PermissionRole>("user");
+  const [effectivePermissions, setEffectivePermissions] = React.useState<EffectivePermissionsResponse | null>(null);
 
   const stableControls = VANTAGE_CONTROL_REGISTRY.filter((c) => c.status === "stable").length;
   const experimentalControls = VANTAGE_CONTROL_REGISTRY.filter((c) => c.status === "experimental").length;
@@ -41,10 +64,16 @@ export function AdminConsolePage() {
   const criticalCapabilities = CAPABILITY_REGISTRY.filter((c) => c.risk === "critical").length;
   const backendEnforcedCapabilities = CAPABILITY_REGISTRY.filter((c) => c.backendEnforced).length;
   const capabilityCategories = Array.from(new Set(CAPABILITY_REGISTRY.map((c) => c.category))).length;
-  const effectiveCapabilities = capabilitiesForRole(currentRole);
+  const fallbackEffectiveCapabilities = capabilitiesForRole(currentRole);
+  const effectiveCapabilities = effectivePermissions?.capabilities ?? fallbackEffectiveCapabilities;
   const effectiveCapabilityKeys = new Set(effectiveCapabilities.map((c) => c.key));
-  const effectiveCriticalCapabilities = effectiveCapabilities.filter((c) => c.risk === "critical").length;
-  const effectiveBackendCapabilities = effectiveCapabilities.filter((c) => c.backendEnforced).length;
+  const effectiveCriticalCapabilities =
+    effectivePermissions?.critical_count ?? fallbackEffectiveCapabilities.filter((c) => c.risk === "critical").length;
+  const effectiveBackendCapabilities =
+    effectivePermissions?.backend_enforced_count ?? fallbackEffectiveCapabilities.filter((c) => c.backendEnforced).length;
+  const effectiveCapabilityCount = effectivePermissions?.capability_count ?? effectiveCapabilities.length;
+  const effectiveTotalCapabilities = effectivePermissions?.total_capabilities ?? CAPABILITY_REGISTRY.length;
+  const effectiveSource = effectivePermissions?.ok ? "server" : "client fallback";
 
   React.useEffect(() => {
     setInspectorEnabled(hasCookie("vs_debug_token"));
@@ -52,11 +81,17 @@ export function AdminConsolePage() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await supabase.auth.getUser();
-        const role = normalizePermissionRoleClient((data?.user as any)?.app_metadata?.role);
-        if (!cancelled) setCurrentRole(role);
+        const r = await authFetch("/api/auth/capabilities", { method: "GET", cache: "no-store" });
+        const j = await r.json().catch(() => null) as EffectivePermissionsResponse | null;
+        if (!cancelled && r.ok && j?.ok) {
+          setEffectivePermissions(j);
+          setCurrentRole(normalizePermissionRoleClient(j.role));
+        }
       } catch {
-        if (!cancelled) setCurrentRole("user");
+        if (!cancelled) {
+          setEffectivePermissions(null);
+          setCurrentRole("user");
+        }
       }
     })();
 
@@ -229,10 +264,13 @@ export function AdminConsolePage() {
               <div className="mt-1 text-xs text-muted-foreground">
                 Current role: <span className="font-semibold uppercase text-foreground">{currentRole}</span>
               </div>
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                Source: {effectiveSource}
+              </div>
 
               <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                 <div className="rounded-lg border p-2">
-                  <div className="font-semibold">{effectiveCapabilities.length} / {CAPABILITY_REGISTRY.length}</div>
+                  <div className="font-semibold">{effectiveCapabilityCount} / {effectiveTotalCapabilities}</div>
                   <div className="text-muted-foreground">allowed</div>
                 </div>
                 <div className="rounded-lg border p-2">
