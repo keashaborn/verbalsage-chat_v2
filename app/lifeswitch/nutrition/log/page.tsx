@@ -235,8 +235,12 @@ function MonthCalendar(props: { ym: string; hitDates: Set<string>; anyDates: Set
           const isToday = date === today;
 
           const cls = [
-            "h-7 flex items-center justify-center",
-            hit ? "font-semibold" : hasAny ? "opacity-85" : "opacity-60",
+            "h-7 flex items-center justify-center rounded-md border text-xs",
+            hit
+              ? "border-emerald-500/30 bg-emerald-500/10 font-semibold"
+              : hasAny
+                ? "border-amber-500/30 bg-amber-500/10"
+                : "border-transparent opacity-55",
             isToday ? "underline underline-offset-4" : "",
           ].join(" ");
 
@@ -495,6 +499,28 @@ export default function NutritionLogPage() {
         <div className="mt-2 text-xs text-muted-foreground">
           Targets: {targetKcal != null ? `${targetKcal} kcal` : "no calorie target"} · {targetProteinG != null ? `${targetProteinG}g protein` : "no protein target"} · {targetStatus}
         </div>
+
+        <div className="mt-3 rounded-xl border bg-muted/10 p-3 text-xs text-muted-foreground">
+          <div className="font-medium text-foreground">Day scoring</div>
+          <div className="mt-1">
+            A hit day means protein is at or above the Plan target and calories are at or below the Plan target.
+            {(targetKcal == null || targetProteinG == null) ? " Set both targets in Plan to score hit days." : ""}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-3">
+            <span className="inline-flex items-center gap-1">
+              <span className="h-3 w-3 rounded border border-emerald-500/30 bg-emerald-500/10" />
+              Hit
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-3 w-3 rounded border border-amber-500/30 bg-amber-500/10" />
+              Logged but not hit
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-3 w-3 rounded border border-muted/40" />
+              No log
+            </span>
+          </div>
+        </div>
       </div>
 
       {isDelegatedView ? (
@@ -548,8 +574,15 @@ export default function NutritionLogPage() {
               <div className="mt-8">
                 {m.days.filter((d: any) => d.any).slice(0, 20).map((d, didx) => (
                   <div key={d.day} className={didx ? "mt-6 pt-6 border-t border-muted/20" : ""}>
-                    <div className="text-lg font-semibold">
-                      {d.day} {d.hit ? "· HIT" : ""}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="text-lg font-semibold">{d.day}</div>
+                      <div className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-wide ${
+                        d.hit
+                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                          : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                      }`}>
+                        {d.hit ? "Hit" : "Logged"}
+                      </div>
                     </div>
                     <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-xl border border-muted/20 bg-background/40 px-3 py-2 text-xs">
                       <div className="flex items-baseline gap-2">
