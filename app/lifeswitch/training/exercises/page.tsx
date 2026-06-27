@@ -1,5 +1,5 @@
-"use client";
-import ExercisesUI from "@/components/lifeswitch/training/ExercisesPage";
-export default function TrainingExercisesPage() {
-  return <ExercisesUI />;
+import { redirect } from "next/navigation";
+
+export default function TrainingExercisesRedirect() {
+  redirect("/lifeswitch/training/design/exercises");
 }

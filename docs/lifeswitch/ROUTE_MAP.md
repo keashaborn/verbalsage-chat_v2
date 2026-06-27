@@ -48,10 +48,12 @@ Aliases / compatibility routes:
 - `/lifeswitch/training/plan`
   - redirects to `/lifeswitch/plan#training-targets`
 
-Legacy or convenience routes to eventually review:
+Aliases / compatibility routes:
 
 - `/lifeswitch/training/workouts`
+  - redirects to `/lifeswitch/training/design/workouts`
 - `/lifeswitch/training/exercises`
+  - redirects to `/lifeswitch/training/design/exercises`
 
 Visible navigation should prefer the canonical `/lifeswitch/training/design/*` routes.
 
