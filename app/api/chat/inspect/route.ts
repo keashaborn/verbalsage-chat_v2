@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
-import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
+import { getSupabaseAuthContextFromRequest } from "@/app/api/_auth/supabaseUser";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -80,6 +80,35 @@ function sanitizePragmatics(raw: any): { rfg: number; df: number; pe: number } |
   };
 }
 
+function enforceVantagePermissions(args: {
+  isAdmin: boolean;
+  mix: any | null;
+  routing: any | null;
+  limits: any | null;
+  pragmatics: any | null;
+}) {
+  if (args.isAdmin) return args;
+
+  // Normal users may adjust visible Assistant Profile controls only.
+  // Admin-only controls are stripped server-side even if manually sent in body/cookies.
+  const safeMix = args.mix
+    ? {
+        conversation: args.mix.conversation,
+        memory_cards: args.mix.memory_cards,
+        corpus: args.mix.corpus,
+        lens_fm: args.mix.lens_fm,
+      }
+    : null;
+
+  return {
+    isAdmin: args.isAdmin,
+    mix: safeMix,
+    routing: args.routing,
+    limits: null,
+    pragmatics: null,
+  };
+}
+
 function sanitizeRoleplay(raw: any): { on: boolean; strict: boolean; script: string } | null {
   if (!raw || typeof raw !== "object") return null;
 
@@ -107,9 +136,9 @@ export async function POST(req: Request) {
       !!process.env.VS_DEBUG_TOKEN &&
       (debugTokenHdr === process.env.VS_DEBUG_TOKEN || debugTokenCookie === process.env.VS_DEBUG_TOKEN);
 
-    const authedUserId = await getSupabaseUserIdFromRequest(req);
+    const authCtx = await getSupabaseAuthContextFromRequest(req);
 
-    if (!debugAllowed && !authedUserId) {
+    if (!debugAllowed && !authCtx?.user_id) {
       return new Response("unauthorized", {
         status: 401,
         headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
@@ -122,7 +151,8 @@ export async function POST(req: Request) {
     const allowGuest = process.env.VS_DEV_ALLOW_GUEST === "1";
     const devTestUser = (process.env.VS_DEV_TEST_USER_ID || "").trim();
 
-    const user_id = authedUserId || (allowGuest && devTestUser ? devTestUser : "");
+    const user_id = authCtx?.user_id || (allowGuest && devTestUser ? devTestUser : "");
+    const isAdmin = !!authCtx?.is_admin;
     if (!user_id) {
       return new Response("unauthorized", {
         status: 401,
@@ -221,6 +251,12 @@ export async function POST(req: Request) {
         } catch { }
       }
     }
+
+    const permittedVantage = enforceVantagePermissions({ isAdmin, mix, routing, limits, pragmatics });
+    mix = permittedVantage.mix;
+    routing = permittedVantage.routing;
+    limits = permittedVantage.limits;
+    pragmatics = permittedVantage.pragmatics;
 
     // Call Brains with inspect_only + debug
     const r = await fetch(`${BRAINS_URL}/vantage/query`, {

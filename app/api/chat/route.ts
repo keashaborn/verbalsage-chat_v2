@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
-import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
+import { getSupabaseAuthContextFromRequest } from "@/app/api/_auth/supabaseUser";
 
 
 const UUID_RE =
@@ -104,6 +104,35 @@ function sanitizePragmatics(raw: any): { rfg: number; df: number; pe: number } |
   };
 }
 
+function enforceVantagePermissions(args: {
+  isAdmin: boolean;
+  mix: any | null;
+  routing: any | null;
+  limits: any | null;
+  pragmatics: any | null;
+}) {
+  if (args.isAdmin) return args;
+
+  // Normal users may adjust visible Assistant Profile controls only.
+  // Admin-only controls are stripped server-side even if manually sent in body/cookies.
+  const safeMix = args.mix
+    ? {
+        conversation: args.mix.conversation,
+        memory_cards: args.mix.memory_cards,
+        corpus: args.mix.corpus,
+        lens_fm: args.mix.lens_fm,
+      }
+    : null;
+
+  return {
+    isAdmin: args.isAdmin,
+    mix: safeMix,
+    routing: args.routing,
+    limits: null,
+    pragmatics: null,
+  };
+}
+
 function sanitizeRoleplay(raw: any): { on: boolean; strict: boolean; script: string } | null {
   if (!raw || typeof raw !== "object") return null;
 
@@ -164,16 +193,18 @@ export async function POST(req: Request) {
     const BRAINS_URL = process.env.BRAINS_URL || "http://172.31.32.171:8088";
 
     const jar = await cookies();
-    const authedUserId = await getSupabaseUserIdFromRequest(req);
+    const authCtx = await getSupabaseAuthContextFromRequest(req);
 
     // DEV escape hatch (OFF by default)
     const allowGuest = process.env.VS_DEV_ALLOW_GUEST === "1";
     const devTestUser = (process.env.VS_DEV_TEST_USER_ID || "").trim();
 
     let user_id: string;
+    let isAdmin = false;
 
-    if (authedUserId) {
-      user_id = authedUserId;
+    if (authCtx?.user_id) {
+      user_id = authCtx.user_id;
+      isAdmin = !!authCtx.is_admin;
     } else if (allowGuest && devTestUser) {
       // dev-only: force a stable test user id for local/manual testing
       user_id = devTestUser;
@@ -267,6 +298,12 @@ export async function POST(req: Request) {
         } catch { }
       }
     }
+
+    const permittedVantage = enforceVantagePermissions({ isAdmin, mix, routing, limits, pragmatics });
+    mix = permittedVantage.mix;
+    routing = permittedVantage.routing;
+    limits = permittedVantage.limits;
+    pragmatics = permittedVantage.pragmatics;
 
     // 1) Log user message (authoritative transcript)
     // (skip if noStore to avoid polluting memory with probes/tests)
