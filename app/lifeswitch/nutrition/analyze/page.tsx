@@ -180,11 +180,13 @@ function extractTotals(raw: any) {
 
 export default function NutritionAnalyzePage() {
   const [rangeDays, setRangeDays] = React.useState<RangeDays>(30);
-  const [status, setStatus] = React.useState("loading...");
+  const [status, setStatus] = React.useState("loading…");
   const [loading, setLoading] = React.useState(true);
   const [owner, setOwner] = React.useState("");
   const [plan, setPlan] = React.useState<PlanProfile | null>(null);
   const [days, setDays] = React.useState<DaySummary[]>([]);
+  const showDebug =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debug") === "1";
 
   const today = React.useMemo(() => todayLocalYYYYMMDD(), []);
   const startDay = React.useMemo(() => daysAgoYYYYMMDD(rangeDays - 1), [rangeDays]);
@@ -194,7 +196,7 @@ export default function NutritionAnalyzePage() {
 
   async function loadRows() {
     setLoading(true);
-    setStatus("loading nutrition analysis...");
+    setStatus("loading nutrition analysis…");
 
     try {
       const who = await fetchJson("/api/auth/whoami");
@@ -349,20 +351,22 @@ export default function NutritionAnalyzePage() {
             onClick={() => void loadRows()}
             disabled={loading}
           >
-            {loading ? "Loading..." : "Refresh"}
+            {loading ? "Loading…" : "Refresh"}
           </button>
         </div>
       </div>
 
-      <details className="mt-4">
-        <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
-        <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
-          <div>owner: {owner || "not loaded"}</div>
-          <div>status: {status}</div>
-          <div>days loaded: {days.length}</div>
-          <div>logged days in range: {summary.loggedDays}</div>
-        </div>
-      </details>
+      {showDebug ? (
+        <details className="mt-4">
+          <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
+          <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
+            <div>owner: {owner || "not loaded"}</div>
+            <div>status: {status}</div>
+            <div>days loaded: {days.length}</div>
+            <div>logged days in range: {summary.loggedDays}</div>
+          </div>
+        </details>
+      ) : null}
 
       <section className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Logged days" value={summary.loggedDays} sub={`${summary.missingDays} days with no intake logged`} />
@@ -447,7 +451,7 @@ export default function NutritionAnalyzePage() {
       <section className="mt-6 rounded-xl border p-4">
         <div className="text-sm font-semibold">Graph explorer</div>
         <div className="mt-2 text-sm text-muted-foreground">
-          Next pass: metric dropdowns and ABA-style repeated-measure graphs for calories, protein, carbs, fat, adherence, and later bodyweight overlays.
+          Trend graphs will appear here once graph controls are enabled.
         </div>
       </section>
     </div>

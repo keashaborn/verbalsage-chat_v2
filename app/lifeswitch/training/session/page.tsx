@@ -103,6 +103,7 @@ export default function TrainingSessionPage() {
   const targetUserId = String(sp.get("target_user_id") || "").trim();
   const targetName = String(sp.get("target_name") || "").trim();
   const readOnly = Boolean(targetUserId);
+  const showDebug = String(sp.get("debug") || "") === "1";
   const targetParam = targetUserId
     ? `&target_user_id=${encodeURIComponent(targetUserId)}&target_name=${encodeURIComponent(targetName)}`
     : "";
@@ -118,7 +119,7 @@ export default function TrainingSessionPage() {
     }
 
     setLoading(true);
-    setStatus("loading native session...");
+    setStatus("loading session...");
 
     try {
       const s = (await fetchJson(
@@ -215,21 +216,23 @@ export default function TrainingSessionPage() {
           onClick={() => void loadSession()}
           disabled={loading || !sessionId}
         >
-          {loading ? "Loading..." : "Refresh"}
+          {loading ? "Loading…" : "Refresh"}
         </button>
       </div>
 
-      <details className="mt-3">
-        <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
-        <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
-          <div>session_id: {sessionId || "missing"}</div>
-          <div>status: {status}</div>
-        </div>
-      </details>
+      {showDebug ? (
+        <details className="mt-3">
+          <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
+          <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
+            <div>session_id: {sessionId || "missing"}</div>
+            <div>status: {status}</div>
+          </div>
+        </details>
+      ) : null}
 
       <div className="mt-8">
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading...</div>
+          <div className="text-sm text-muted-foreground">Loading…</div>
         ) : !sessionId ? (
           <div className="rounded-xl border p-4 text-sm text-muted-foreground">
             Missing session_id. Open a session from Training Log.

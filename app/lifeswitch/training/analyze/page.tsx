@@ -109,18 +109,20 @@ async function fetchJson(url: string, init?: RequestInit) {
 
 export default function TrainingAnalyzePage() {
   const [rangeDays, setRangeDays] = React.useState<RangeDays>(30);
-  const [status, setStatus] = React.useState("loading...");
+  const [status, setStatus] = React.useState("loading…");
   const [loading, setLoading] = React.useState(true);
 
   const [strengthSessions, setStrengthSessions] = React.useState<TrainingSessionRow[]>([]);
   const [conditioningSessions, setConditioningSessions] = React.useState<ConditioningSessionRow[]>([]);
+  const showDebug =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debug") === "1";
 
   const today = React.useMemo(() => todayLocalYYYYMMDD(), []);
   const startDay = React.useMemo(() => daysAgoYYYYMMDD(rangeDays - 1), [rangeDays]);
 
   async function loadRows() {
     setLoading(true);
-    setStatus("loading training analysis...");
+    setStatus("loading training analysis…");
 
     try {
       const [strengthJson, conditioningJson] = await Promise.all([
@@ -266,15 +268,17 @@ export default function TrainingAnalyzePage() {
             onClick={() => void loadRows()}
             disabled={loading}
           >
-            {loading ? "Loading..." : "Refresh"}
+            {loading ? "Loading…" : "Refresh"}
           </button>
         </div>
       </div>
 
-      <details className="mt-4">
-        <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
-        <div className="mt-2 text-xs font-mono text-muted-foreground">{status}</div>
-      </details>
+      {showDebug ? (
+        <details className="mt-4">
+          <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
+          <div className="mt-2 text-xs font-mono text-muted-foreground">{status}</div>
+        </details>
+      ) : null}
 
       <section className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Training days" value={summary.trainingDays} sub={`${summary.strengthDays} strength · ${summary.conditioningDays} conditioning`} />
@@ -334,7 +338,7 @@ export default function TrainingAnalyzePage() {
       <section className="mt-6 rounded-xl border p-4">
         <div className="text-sm font-semibold">Graph explorer</div>
         <div className="mt-2 text-sm text-muted-foreground">
-          Next pass: add metric dropdowns and ABA-style single-subject graphs for volume, sets, sessions, conditioning time, and later nutrition/bodyweight overlays.
+          Trend graphs will appear here once graph controls are enabled.
         </div>
       </section>
     </div>
