@@ -134,4 +134,36 @@ Frontend visibility is convenience only. Server-side enforcement is now active f
 ### Recommendation
 
 Pause Admin Console expansion here. The foundation is sufficient. Next work should return to product functionality unless a specific security issue appears.
+---
+
+## 2026-06-27 Capability System Progress
+
+### Added
+
+- Static capability registry added at `components/admin/settings/permissions/permissionRegistry.ts`.
+- Admin Console now displays the capability registry read-only.
+- Shared `requireCapability(req, capabilityKey)` helper added at `app/api/_auth/requireCapability.ts`.
+- Admin auth helper now reuses the shared Supabase auth context.
+- Memory card view routes now enforce `memory_cards.view`.
+- Prompt Inspector route now enforces `inspector.view`.
+
+### Current Enforcement Model
+
+- Roles are read from Supabase `app_metadata.role`.
+- Static default role grants are defined in the capability registry.
+- Capability helper currently evaluates role defaults only.
+- No custom per-user overrides or database-backed policy table exist yet.
+
+### Current Limitation
+
+The registry is the conceptual source of truth, but only selected routes are wired to it so far. Several routes still use `requireAdmin()` directly and should be migrated one route family at a time.
+
+### Recommended Next Route Families
+
+1. `diagnostics.view` / `diagnostics.run`
+2. `user_data.export`
+3. `user_data.delete`
+4. `user_data.forget_recent`
+5. `memory_cards.delete`
+6. later: LifeSwitch shared-access capabilities
 
