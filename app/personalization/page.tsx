@@ -245,7 +245,7 @@ export default function PersonalizationPage() {
               </div>
               <div className="mt-3 space-y-2 text-sm text-muted-foreground">
                 <div>
-                  <span className="font-semibold text-foreground">Switch vantages:</span> Settings → Vantage Profile →
+                  <span className="font-semibold text-foreground">Switch profiles:</span> Settings → Assistant Profile →
                   header Save → then open Personalization.
                 </div>
                 <div>

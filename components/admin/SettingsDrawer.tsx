@@ -186,7 +186,7 @@ function DrawerInner({
                   className="rounded-lg px-3 py-1.5 text-sm font-semibold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
                   onClick={save}
                   disabled={!dirty}
-                  title={dirty ? "Apply these Vantage settings to chat" : "No Vantage changes to apply"}
+                  title={dirty ? "Apply these Assistant Profile settings to chat" : "No Assistant Profile changes to apply"}
                 >
                   Apply
                 </button>
