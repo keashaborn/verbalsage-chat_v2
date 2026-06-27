@@ -117,7 +117,7 @@ const PERMISSIONS: Array<{
     scope: "plan:edit",
     label: "Plan edit",
     level: "edit",
-    description: "Allow direct plan editing later. Use cautiously.",
+    description: "Allow direct shared plan editing. Use cautiously.",
   },
 ];
 

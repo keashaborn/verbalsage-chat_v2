@@ -116,7 +116,7 @@ export default function LifeSwitchPeopleHelpingPage() {
           <div>
             <div className="text-sm font-semibold">Access granted to me</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              These permissions let this account help or view another person’s LifeSwitch data later.
+              These permissions let this account help or view another person’s LifeSwitch data.
             </div>
           </div>
         </div>
