@@ -52,48 +52,73 @@ export function AdminConsolePage() {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-xl border p-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold">Inspector</div>
-            <div className="text-xs text-muted-foreground">
-              Enables prompt inspection for this browser (cookie <code>vs_debug_token</code>).
-            </div>
-          </div>
-
-          <input
-            type="checkbox"
-            checked={inspectorEnabled}
-            onChange={(e) => {
-              if (e.target.checked) enableInspector();
-              else disableInspector();
-            }}
-          />
-        </div>
-
-        {status ? <div className="mt-2 text-xs text-muted-foreground">{status}</div> : null}
-      </div>
-
-      <div className="rounded-xl border p-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold">Diagnostics</div>
-            <div className="text-xs text-muted-foreground">
-              Run probe suites, store telemetry in seebx, and graph model behavior.
-            </div>
-          </div>
-
-          <a
-            href="/developer/diagnostics"
-            className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
-          >
-            Open
-          </a>
+    <div className="space-y-4">
+      <div className="rounded-xl border bg-muted/20 p-3">
+        <div className="text-sm font-semibold">Admin Console</div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          System tools for inspection, diagnostics, memory/card review, and future administrative controls.
         </div>
       </div>
 
-      <CardsPanel />
+      <div className="space-y-2">
+        <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Inspection
+        </div>
+
+        <div className="rounded-xl border p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold">Prompt Inspector</div>
+              <div className="text-xs text-muted-foreground">
+                Enables prompt inspection for this browser. Uses cookie <code>vs_debug_token</code>.
+              </div>
+            </div>
+
+            <input
+              type="checkbox"
+              checked={inspectorEnabled}
+              onChange={(e) => {
+                if (e.target.checked) enableInspector();
+                else disableInspector();
+              }}
+            />
+          </div>
+
+          {status ? <div className="mt-2 text-xs text-muted-foreground">{status}</div> : null}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Diagnostics
+        </div>
+
+        <div className="rounded-xl border p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold">Model Diagnostics</div>
+              <div className="text-xs text-muted-foreground">
+                Run probe suites, store telemetry in seebx, and graph model behavior.
+              </div>
+            </div>
+
+            <a
+              href="/developer/diagnostics"
+              className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
+            >
+              Open
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Memory Cards
+        </div>
+
+        <CardsPanel />
+      </div>
     </div>
   );
 }
