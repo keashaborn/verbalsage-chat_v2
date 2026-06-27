@@ -216,4 +216,45 @@ The core admin/security surface has moved from binary admin checks toward explic
 - Add capability checks to future diagnostics routes.
 - Keep `/api/dev/models` public only if it remains a harmless static allowlist.
 - Revisit anonymous telemetry if telemetry payloads become sensitive or abusable.
+---
+
+## 2026-06-27 Server-Derived Effective Permissions
+
+### Added
+
+- `/api/auth/capabilities`
+  - derives the current user's role from the Supabase JWT
+  - normalizes the role through the same server helper used by `requireCapability`
+  - returns the effective capability list for that role
+  - returns counts for total allowed, critical, and backend-enforced capabilities
+
+### Admin Console
+
+The Permissions panel now displays an Effective Permissions Preview from the server:
+
+- current role
+- source: server
+- allowed capability count
+- critical capability count
+- backend-enforced capability count
+- per-capability allowed/blocked list
+
+### Current State
+
+For the Eric admin account, the preview reports:
+
+- role: `ADMIN`
+- source: `server`
+- allowed: `28 / 28`
+- critical: `12`
+- backend-enforced: `27`
+
+This keeps the UI aligned with server-side capability enforcement. Frontend visibility remains a convenience layer; backend capability checks remain the actual security boundary.
+
+### Next Permission Work
+
+- Add database-backed capability overrides later.
+- Add an owner role account if needed.
+- Add separate capability checks for future diagnostics routes.
+- Consider hiding or capability-gating `/api/dev/models` only if it stops being a harmless static allowlist.
 
