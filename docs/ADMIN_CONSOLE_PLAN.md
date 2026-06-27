@@ -63,6 +63,25 @@ Target: Supabase is canonical for active Vantage and persistent settings. Cookie
 
 Future improvement: built-in Vantage versioning so built-in updates refresh cleanly without requiring manual re-Apply.
 
+## Future Vantage Controls
+
+The current Vantage controls should not be treated as final. Several current levers were created to solve specific observed behavior problems. The registry should support both current controls and future better-organized controls.
+
+Likely future user-facing controls:
+
+- Response length: brief, balanced, detailed.
+- Social warmth: minimal, natural, warm.
+- Decorative language: plain, expressive, stylized.
+- Initiative / next-step tendency: wait for direction, suggest when useful, actively guide workflow.
+- Correction style: gentle, direct, strict.
+- Domain mode: general, technical/workflow, behavior-change, philosophical, social/conversational, fitness/nutrition.
+- Process discipline: conversational, careful, strict verification.
+- Memory scope: none, current project only, user preferences, personal history, broad memory.
+- Context relevance discipline: loose associative, balanced, strict relevance only.
+- Motivational orientation: experimental future control for shaping whether the assistant merely responds, gently prompts action, supports reflection, or actively guides behavior change.
+
+Important product note: avoid assistants that force unsolicited next-step lists or pull unrelated prior context just because it appeared earlier. Context should be functionally relevant, not merely available.
+
 ## Build Sequence
 
 1. Harden current admin routes. Status: completed for known routes.
