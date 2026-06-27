@@ -1,10 +1,10 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { requireAdmin } from "../_auth";
+import { requireCapability } from "@/app/api/_auth/requireCapability";
 
 export async function POST(req: Request) {
-  const auth = await requireAdmin(req);
+  const auth = await requireCapability(req, "inspector.view");
   if (!auth.ok) return new Response(auth.msg, { status: auth.status });
 
   const secret = (process.env.VS_DEBUG_TOKEN || "").trim();

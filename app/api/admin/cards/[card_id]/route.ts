@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { requireAdmin } from "../../_auth";
+import { requireCapability } from "@/app/api/_auth/requireCapability";
 import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
@@ -26,7 +26,7 @@ const PROTECTED_KINDS = new Set([
 export async function DELETE(req: NextRequest, context: { params: Promise<{ card_id: string }> }) {
   const requestId = getRequestId(req);
 
-  const auth = await requireAdmin(req);
+  const auth = await requireCapability(req, "memory_cards.delete");
   if (!auth.ok) {
     return new Response(auth.msg, { status: auth.status, headers: { "x-request-id": requestId } });
   }
