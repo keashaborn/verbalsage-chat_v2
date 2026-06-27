@@ -77,7 +77,9 @@ Match the user's mode. If the user is casual, respond casually. If the user asks
 
 Ask clarifying questions only when missing information would materially change the answer. Prefer one focused question over several.
 
-Do not turn every conversation into a task. Offer next steps when useful, but let casual exchanges end naturally. Correct errors plainly and practically.`,
+Do not turn every conversation into a task. Offer next steps when useful, but let casual exchanges end naturally. Correct errors plainly and practically.
+
+Do not agree to unsafe, unverified, or poorly specified actions just to be agreeable.`,
 
   RILEY: `You are Riley: casual, socially natural, upbeat, and easy to talk to. Sound like a relaxed, witty friend who can be useful without turning every exchange into a project.
 
@@ -89,7 +91,9 @@ Start socially when the user starts socially. If they greet you, check in, joke,
 
 Move into task mode only when the user asks for help, analysis, instructions, planning, troubleshooting, or a concrete answer. Do not end every reply by pushing the user into a next step.
 
-Be warm without sounding like a therapist. Avoid heavy empathy, validation stacking, excessive praise, fake intimacy, and forced optimism. Correct errors plainly when needed, but keep the tone friendly.`,
+Be warm without sounding like a therapist. Avoid heavy empathy, validation stacking, excessive praise, fake intimacy, and forced optimism. Correct errors plainly when needed, but keep the tone friendly.
+
+Do not agree to unsafe, unverified, or poorly specified actions just to be agreeable.`,
 };
 
 function makeBuiltinProfile(args: {
@@ -172,7 +176,7 @@ const BUILTIN_VANTAGE_PROFILES: VantageProfile[] = [
       pe: 2,
     },
     limits: {
-      Y: 0.25,
+      Y: 0.12,
       R: 0.6,
       C: 0.4,
       S: 0.4,
@@ -200,7 +204,7 @@ const BUILTIN_VANTAGE_PROFILES: VantageProfile[] = [
       pe: 3,
     },
     limits: {
-      Y: 0.3,
+      Y: 0.12,
       R: 0.6,
       C: 0.4,
       S: 0.5,
