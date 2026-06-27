@@ -39,7 +39,7 @@ export default function LifeSwitchLayout({ children }: { children: ReactNode }) 
       </header>
 
       {/* Content (pad bottom so fixed nav doesn't cover it) */}
-      <main className="mx-auto max-w-5xl max-w-full px-4 pt-4 overflow-x-hidden pb-[calc(5.0rem+env(safe-area-inset-bottom))]">
+      <main className="mx-auto max-w-5xl px-4 pt-4 overflow-x-hidden pb-[calc(5.0rem+env(safe-area-inset-bottom))]">
         {children}
       </main>
 
