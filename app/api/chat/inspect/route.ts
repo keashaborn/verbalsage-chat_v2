@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
-import { getSupabaseAuthContextFromRequest } from "@/app/api/_auth/supabaseUser";
+import { requireCapability } from "@/app/api/_auth/requireCapability";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -136,26 +136,18 @@ export async function POST(req: Request) {
       !!process.env.VS_DEBUG_TOKEN &&
       (debugTokenHdr === process.env.VS_DEBUG_TOKEN || debugTokenCookie === process.env.VS_DEBUG_TOKEN);
 
-    const authCtx = await getSupabaseAuthContextFromRequest(req);
+    const cap = await requireCapability(req, "inspector.view");
 
-    // Inspector is admin-only. A stale browser debug cookie must not grant
-    // Inspector access after switching to a non-admin account.
-    const isAdmin = !!authCtx?.is_admin;
-    const debugAllowed = isAdmin && debugTokenValid;
-
-    if (!authCtx?.user_id) {
-      return new Response("unauthorized", {
-        status: 401,
+    if (!cap.ok) {
+      return new Response(cap.msg, {
+        status: cap.status,
         headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
       });
     }
 
-    if (!isAdmin) {
-      return new Response("admin required", {
-        status: 403,
-        headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
-      });
-    }
+    // Inspector access is capability-gated. A stale browser debug cookie must not
+    // grant Inspector access after switching to an account without inspector.view.
+    const debugAllowed = debugTokenValid;
 
     if (!debugAllowed) {
       return new Response("debug token required", {
@@ -165,7 +157,8 @@ export async function POST(req: Request) {
     }
 
     // Primary: Supabase user_id from Authorization header
-    const user_id = authCtx.user_id;
+    const user_id = String((cap as any).payload?.sub || "");
+    const isAdmin = (cap as any).role === "owner" || (cap as any).role === "admin";
 
     let body: any = {};
     try {
