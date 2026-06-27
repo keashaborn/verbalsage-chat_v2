@@ -690,7 +690,7 @@ export default function TrainingCapturePage() {
       setStatus("");
 
       window.setTimeout(() => {
-        router.push("/lifeswitch/training/log");
+        router.push("/lifeswitch/training/calendar");
       }, 700);
     } catch (e: any) {
       setStatus(String(e?.message || e));

@@ -208,7 +208,7 @@ export default function WorkoutSharePage({ params }: { params: Promise<{ token: 
                 {importing ? "Importing…" : "Import to My Workouts"}
               </button>
 
-              <a className="rounded-xl border px-4 py-2 text-sm hover:bg-muted/30" href="/lifeswitch/training/workouts">
+              <a className="rounded-xl border px-4 py-2 text-sm hover:bg-muted/30" href="/lifeswitch/training/design/workouts">
                 Open Workouts
               </a>
             </div>
@@ -218,7 +218,7 @@ export default function WorkoutSharePage({ params }: { params: Promise<{ token: 
                 {importStatus}
                 {importedId ? (
                   <div className="mt-2">
-                    <a className="underline underline-offset-4" href="/lifeswitch/training/workouts">
+                    <a className="underline underline-offset-4" href="/lifeswitch/training/design/workouts">
                       View imported workout
                     </a>
                   </div>
