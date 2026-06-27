@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+import { requireAdmin } from "../_auth";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
@@ -15,6 +16,14 @@ function getRequestId(req: Request): string {
 
 export async function DELETE(req: Request) {
   const requestId = getRequestId(req);
+
+  const auth = await requireAdmin(req);
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.msg },
+      { status: auth.status, headers: { "x-request-id": requestId } }
+    );
+  }
 
   const BRAINS = process.env.BRAINS_URL || "http://172.31.32.171:8088";
   const user_id = await getSupabaseUserIdFromRequest(req);

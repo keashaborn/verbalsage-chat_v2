@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+import { requireAdmin } from "../_auth";
 import { cookieSecure } from "@/lib/cookieSecure";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
@@ -16,6 +17,14 @@ function getRequestId(req: Request): string {
 
 export async function DELETE(req: Request) {
   const requestId = getRequestId(req);
+
+  const auth = await requireAdmin(req);
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.msg },
+      { status: auth.status, headers: { "x-request-id": requestId } }
+    );
+  }
 
   if (process.env.VS_ALLOW_DELETE_ALL !== "true") {
     return NextResponse.json({ error: "delete_all disabled" }, { status: 403, headers: { "x-request-id": requestId } });
