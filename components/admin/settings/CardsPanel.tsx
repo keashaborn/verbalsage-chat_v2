@@ -1,6 +1,7 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
+import { supabase } from "@/lib/supabaseClient";
 import * as React from "react";
 
 type CardSource = "vantage" | "legacy";
@@ -11,6 +12,68 @@ type CardKindOption = {
   kinds?: string;
   topicIncludes?: string;
 };
+
+const CLOUD_PRESETS_KEY = "vs_vantage_profiles_v1";
+const LS_PROFILES = "vs_vantage_profiles";
+const LS_CARDS_VANTAGE_ID = "vs_cards_vantage_id";
+
+const BUILTIN_CARD_VANTAGES = ["RESSE", "MORGAN", "RILEY", "EVA", "default"];
+
+function normalizeCardVantageId(raw: any): string {
+  const v = String(raw || "").trim().slice(0, 64);
+  return v || "";
+}
+
+function addProfileIdsFromArray(out: Set<string>, arr: any[]) {
+  if (!Array.isArray(arr)) return;
+
+  for (const p of arr) {
+    if (!p || typeof p !== "object") continue;
+
+    const direct =
+      normalizeCardVantageId((p as any)?.state?.vantageId) ||
+      normalizeCardVantageId((p as any)?.vantageId) ||
+      normalizeCardVantageId((p as any)?.name);
+
+    if (direct) out.add(direct);
+  }
+}
+
+async function readProfileRegistryVantageIds(): Promise<string[]> {
+  const out = new Set<string>(BUILTIN_CARD_VANTAGES);
+
+  try {
+    const stored = localStorage.getItem(LS_CARDS_VANTAGE_ID);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const v = normalizeCardVantageId(parsed);
+      if (v) out.add(v);
+    }
+  } catch { }
+
+  try {
+    const raw = localStorage.getItem(LS_PROFILES);
+    if (raw) addProfileIdsFromArray(out, JSON.parse(raw));
+  } catch { }
+
+  try {
+    const { data } = await supabase.auth.getUser();
+    const um: any = data?.user?.user_metadata || {};
+    const blob = um[CLOUD_PRESETS_KEY];
+
+    if (blob && typeof blob === "object") {
+      addProfileIdsFromArray(out, Array.isArray(blob.profiles) ? blob.profiles : []);
+    }
+  } catch { }
+
+  return Array.from(out).filter(Boolean).sort((a, b) => {
+    const rank = (v: string) => {
+      const idx = BUILTIN_CARD_VANTAGES.indexOf(v);
+      return idx >= 0 ? idx : 100;
+    };
+    return rank(a) - rank(b) || a.localeCompare(b);
+  });
+}
 
 export function CardsPanel() {
   const [open, setOpen] = React.useState(false);
@@ -56,39 +119,57 @@ export function CardsPanel() {
     { key: "desire", label: "Desire", kinds: "desire" },
   ];
 
-  const VANTAGE_OPTIONS = ["RESSE", "MORGAN", "RILEY", "EVA"];
+  const [vantageOptions, setVantageOptions] = React.useState<string[]>(BUILTIN_CARD_VANTAGES);
 
   function kindOptions(src: CardSource) {
     return src === "vantage" ? VANTAGE_KIND_OPTIONS : LEGACY_KIND_OPTIONS;
   }
 
   React.useEffect(() => {
-    let nextSource: CardSource = "vantage";
-    let nextVantage = "RESSE";
-    let nextKindKey = "all";
+    let cancelled = false;
 
-    try {
-      const src = localStorage.getItem("vs_cards_source");
-      if (src === "legacy" || src === "vantage") nextSource = src;
+    (async () => {
+      let nextSource: CardSource = "vantage";
+      let nextVantage = "RESSE";
+      let nextKindKey = "all";
 
-      const vid = localStorage.getItem("vs_cards_vantage_id");
-      if (vid) nextVantage = JSON.parse(vid);
+      try {
+        const src = localStorage.getItem("vs_cards_source");
+        if (src === "legacy" || src === "vantage") nextSource = src;
 
-      const k = localStorage.getItem("vs_cards_kind");
-      if (k) nextKindKey = JSON.parse(k);
+        const vid = localStorage.getItem(LS_CARDS_VANTAGE_ID);
+        if (vid) nextVantage = JSON.parse(vid);
 
-      const sa = localStorage.getItem("vs_cards_show_all");
-      if (sa != null) setShowAllVersions(JSON.parse(sa));
+        const k = localStorage.getItem("vs_cards_kind");
+        if (k) nextKindKey = JSON.parse(k);
 
-      const sr = localStorage.getItem("vs_cards_show_raw");
-      if (sr != null) setShowRaw(JSON.parse(sr));
-    } catch { }
+        const sa = localStorage.getItem("vs_cards_show_all");
+        if (sa != null) setShowAllVersions(JSON.parse(sa));
 
-    setSourceKey(nextSource);
-    setVantageId(nextVantage);
-    setKindKey(nextKindKey);
+        const sr = localStorage.getItem("vs_cards_show_raw");
+        if (sr != null) setShowRaw(JSON.parse(sr));
+      } catch { }
 
-    load(nextKindKey, nextSource, nextVantage);
+      const options = await readProfileRegistryVantageIds();
+      if (cancelled) return;
+
+      setVantageOptions(options);
+
+      if (nextSource === "vantage" && !options.includes(nextVantage)) {
+        nextVantage = options.includes("RESSE") ? "RESSE" : options[0] || "RESSE";
+        try { localStorage.setItem(LS_CARDS_VANTAGE_ID, JSON.stringify(nextVantage)); } catch { }
+      }
+
+      setSourceKey(nextSource);
+      setVantageId(nextVantage);
+      setKindKey(nextKindKey);
+
+      load(nextKindKey, nextSource, nextVantage);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -341,7 +422,7 @@ export function CardsPanel() {
               load(kindKey, sourceKey, v);
             }}
           >
-            {VANTAGE_OPTIONS.map((v) => (
+            {vantageOptions.map((v) => (
               <option key={v} value={v}>
                 {v}
               </option>
