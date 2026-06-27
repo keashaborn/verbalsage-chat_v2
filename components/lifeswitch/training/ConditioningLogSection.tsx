@@ -54,6 +54,8 @@ export default function ConditioningLogSection({
   targetUserId?: string;
   readOnly?: boolean;
 }) {
+  const showDebug =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debug") === "1";
   const [rows, setRows] = React.useState<ConditioningSessionRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [status, setStatus] = React.useState("loading conditioning sessions...");
@@ -123,14 +125,16 @@ export default function ConditioningLogSection({
           onClick={() => void loadRows()}
           disabled={loading}
         >
-          {loading ? "Loading..." : "Refresh conditioning"}
+          {loading ? "Loading…" : "Refresh conditioning"}
         </button>
       </div>
 
-      <details className="mt-3">
-        <summary className="cursor-pointer text-xs text-muted-foreground">Debug</summary>
-        <div className="mt-2 text-xs font-mono text-muted-foreground">{status}</div>
-      </details>
+      {showDebug ? (
+        <details className="mt-3">
+          <summary className="cursor-pointer text-xs text-muted-foreground">Debug</summary>
+          <div className="mt-2 text-xs font-mono text-muted-foreground">{status}</div>
+        </details>
+      ) : null}
 
       {rows.length ? (
         <div className="mt-4 space-y-3">

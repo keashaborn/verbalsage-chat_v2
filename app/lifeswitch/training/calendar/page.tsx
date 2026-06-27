@@ -214,12 +214,13 @@ export default function TrainingCalendarPage() {
   const targetUserId = String(searchParams.get("target_user_id") || "").trim();
   const targetName = String(searchParams.get("target_name") || "").trim();
   const readOnly = Boolean(targetUserId);
+  const showDebug = String(searchParams.get("debug") || "") === "1";
 
   const today = React.useMemo(() => todayLocalYYYYMMDD(), []);
 
   async function loadSessions() {
     setLoading(true);
-    setStatus("loading native training sessions...");
+    setStatus("loading training sessions...");
 
     try {
       const targetParam = targetUserId ? `&target_user_id=${encodeURIComponent(targetUserId)}` : "";
@@ -364,7 +365,7 @@ export default function TrainingCalendarPage() {
         <div>
           <div className="text-lg font-semibold">Training · Log</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Native completed strength and conditioning sessions from Training Capture.
+            Review completed strength and conditioning sessions from Training Capture.
           </div>
         </div>
 
@@ -374,24 +375,51 @@ export default function TrainingCalendarPage() {
           onClick={() => void loadSessions()}
           disabled={loading}
         >
-          {loading ? "Loading..." : "Refresh"}
+          {loading ? "Loading…" : "Refresh"}
         </button>
       </div>
 
-      <details className="mt-4">
-        <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
-        <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
-          <div>status: {status}</div>
+      <div className="mt-4 rounded-xl border bg-muted/10 p-3 text-xs text-muted-foreground">
+        <div className="font-medium text-foreground">Training days</div>
+        <div className="mt-1">
+          Strength and conditioning are tracked separately. A green day means both were logged.
+        </div>
+        <div className="mt-2 flex flex-wrap gap-3">
+          <span className="inline-flex items-center gap-1">
+            <span className="h-3 w-3 rounded-full border border-blue-500/80 bg-blue-500/10" />
+            Strength
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-3 w-3 rounded-full border border-yellow-400/80 bg-yellow-500/20" />
+            Conditioning
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-3 w-3 rounded-full border border-green-500/80 bg-green-500/20" />
+            Both
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-3 w-3 rounded-full border border-muted/40" />
+            No log
+          </span>
+        </div>
+      </div>
+
+      {showDebug ? (
+        <details className="mt-4">
+          <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
+          <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
+            <div>status: {status}</div>
             <div>strength sessions: {sessions.length}</div>
             <div>conditioning sessions: {conditioningSessions.length}</div>
-          <div>months: {months.length}</div>
-        </div>
-      </details>
+            <div>months: {months.length}</div>
+          </div>
+        </details>
+      ) : null}
 
 
       <div className="mt-8">
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading...</div>
+          <div className="text-sm text-muted-foreground">Loading…</div>
         ) : months.length ? (
           months.map((m, idx) => (
             <section key={m.ym} className={idx ? "mt-10 border-t border-muted/20 pt-10" : ""}>
@@ -465,7 +493,7 @@ export default function TrainingCalendarPage() {
           ))
         ) : (
           <div className="rounded-xl border p-4 text-sm text-muted-foreground">
-            No native training sessions yet. Finish a workout from Capture and it will appear here.
+            No training sessions yet. Finish a workout from Capture and it will appear here.
           </div>
         )}
       </div>
