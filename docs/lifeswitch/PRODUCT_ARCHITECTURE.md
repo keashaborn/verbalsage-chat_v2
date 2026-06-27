@@ -42,7 +42,7 @@ Do not build pricing or billing assumptions into the product now.
 
 Instead, preserve optional future access boundaries through capabilities and module structure.
 
-Potential future capability families:
+Future/module capability vocabulary now exists in the Admin Console registry as planning-level entries, including:
 
 - `lifeswitch.training.view`
 - `lifeswitch.training.edit`
@@ -50,8 +50,8 @@ Potential future capability families:
 - `lifeswitch.nutrition.edit`
 - `lifeswitch.measurements.view`
 - `lifeswitch.measurements.edit`
-- `lifeswitch.people.use`
-- `lifeswitch.sharing.manage`
+- `lifeswitch.plan.view`
+- `lifeswitch.plan.edit`
 - `lifeswitch.helper.use`
 - `lifeswitch.analysis.use`
 - `lifeswitch.behavior.view`
@@ -60,6 +60,8 @@ Potential future capability families:
 - `lifeswitch.verbal.edit`
 
 These capabilities may later map to tiers, roles, coach access, or clinical/team plans.
+
+They are not currently route-enforced. Delegated access is currently enforced by Brains relationship scopes such as `training:view`, `nutrition:view`, `measurements:view`, `plan:view`, `plan:comment`, and `plan:edit`.
 
 ## UX Consistency Rules
 
