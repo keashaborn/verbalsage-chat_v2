@@ -99,9 +99,22 @@ function displayKind(k?: string | null) {
   return k || "General";
 }
 
-function selectNumberInputValue(e: React.FocusEvent<HTMLInputElement>) {
+function selectNumberInputValue(e: React.FocusEvent<HTMLInputElement> | React.MouseEvent<HTMLInputElement>) {
   const input = e.currentTarget;
-  window.setTimeout(() => input.select(), 0);
+
+  const selectAll = () => {
+    try {
+      input.focus();
+      input.select();
+      input.setSelectionRange(0, input.value.length);
+    } catch {
+      // Some mobile browsers may reject setSelectionRange for certain input states.
+    }
+  };
+
+  window.requestAnimationFrame(selectAll);
+  window.setTimeout(selectAll, 40);
+  window.setTimeout(selectAll, 120);
 }
 
 function entrySummary(entry: MeasurementEntry): string {
@@ -177,6 +190,7 @@ function Field({
         inputMode="decimal"
         value={value}
         onFocus={selectNumberInputValue}
+        onClick={selectNumberInputValue}
         onChange={(e) => onChange(e.currentTarget.value)}
         placeholder={placeholder || ""}
       />
