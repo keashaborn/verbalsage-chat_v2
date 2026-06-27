@@ -1722,7 +1722,7 @@ export function PlanProfileClient() {
                 <PlanRow label="Recovery constraints" value={readValue(trainingTargets, ["recovery_constraints", "constraints"], "Pain, surgery limits, fatigue, soreness, deload triggers")} />
                 <div className="pt-2 text-xs">
                   Related:{" "}
-                  <Link href="/lifeswitch/training/workouts" className="underline">Strength Workouts</Link>
+                  <Link href="/lifeswitch/training/design/workouts" className="underline">Strength Workouts</Link>
                   {" · "}
                   <Link href="/lifeswitch/training/capture" className="underline">Training Capture</Link>
                   {" · "}
