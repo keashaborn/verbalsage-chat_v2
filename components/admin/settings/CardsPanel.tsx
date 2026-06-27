@@ -56,7 +56,7 @@ export function CardsPanel() {
     { key: "desire", label: "Desire", kinds: "desire" },
   ];
 
-  const VANTAGE_OPTIONS = ["RESSE", "EVA"];
+  const VANTAGE_OPTIONS = ["RESSE", "MORGAN", "RILEY", "EVA"];
 
   function kindOptions(src: CardSource) {
     return src === "vantage" ? VANTAGE_KIND_OPTIONS : LEGACY_KIND_OPTIONS;
