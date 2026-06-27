@@ -486,7 +486,7 @@ export default function NutritionCapturePage() {
           className={`rounded border px-3 py-1 text-sm ${mode === "foods" ? "bg-muted" : ""}`}
           onClick={() => setMode("foods")}
         >
-          Individual Foods
+          Foods
         </button>
 
         <button
