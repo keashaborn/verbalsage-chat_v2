@@ -281,7 +281,7 @@ function DrawerInner({
             ) : null}
 
             <div className="text-xs text-muted-foreground">
-              Vantage changes are draft-only until Save. Chat model and voice settings apply immediately.
+              Assistant profile changes are draft-only until Save. Chat model and voice settings apply immediately.
             </div>
           </div>
         )}
