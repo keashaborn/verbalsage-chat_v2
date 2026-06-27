@@ -1,10 +1,11 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
+import { supabase } from "@/lib/supabaseClient";
 import * as React from "react";
 import { CardsPanel } from "@/components/admin/settings/CardsPanel";
 import { VANTAGE_CONTROL_REGISTRY } from "@/components/admin/settings/vantage/controlRegistry";
-import { CAPABILITY_REGISTRY, PERMISSION_ROLES } from "@/components/admin/settings/permissions/permissionRegistry";
+import { CAPABILITY_REGISTRY, PERMISSION_ROLES, type PermissionRole, capabilitiesForRole } from "@/components/admin/settings/permissions/permissionRegistry";
 
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -22,9 +23,15 @@ function clearCookie(name: string) {
   document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
 }
 
+function normalizePermissionRoleClient(raw: any): PermissionRole {
+  const v = String(raw || "").trim();
+  return PERMISSION_ROLES.some((r) => r.key === v) ? (v as PermissionRole) : "user";
+}
+
 export function AdminConsolePage() {
   const [inspectorEnabled, setInspectorEnabled] = React.useState(false);
   const [status, setStatus] = React.useState("");
+  const [currentRole, setCurrentRole] = React.useState<PermissionRole>("user");
 
   const stableControls = VANTAGE_CONTROL_REGISTRY.filter((c) => c.status === "stable").length;
   const experimentalControls = VANTAGE_CONTROL_REGISTRY.filter((c) => c.status === "experimental").length;
@@ -34,9 +41,28 @@ export function AdminConsolePage() {
   const criticalCapabilities = CAPABILITY_REGISTRY.filter((c) => c.risk === "critical").length;
   const backendEnforcedCapabilities = CAPABILITY_REGISTRY.filter((c) => c.backendEnforced).length;
   const capabilityCategories = Array.from(new Set(CAPABILITY_REGISTRY.map((c) => c.category))).length;
+  const effectiveCapabilities = capabilitiesForRole(currentRole);
+  const effectiveCapabilityKeys = new Set(effectiveCapabilities.map((c) => c.key));
+  const effectiveCriticalCapabilities = effectiveCapabilities.filter((c) => c.risk === "critical").length;
+  const effectiveBackendCapabilities = effectiveCapabilities.filter((c) => c.backendEnforced).length;
 
   React.useEffect(() => {
     setInspectorEnabled(hasCookie("vs_debug_token"));
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const role = normalizePermissionRoleClient((data?.user as any)?.app_metadata?.role);
+        if (!cancelled) setCurrentRole(role);
+      } catch {
+        if (!cancelled) setCurrentRole("user");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function enableInspector() {
@@ -196,6 +222,47 @@ export function AdminConsolePage() {
 
             <div className="mt-2 text-xs text-muted-foreground">
               Categories: {capabilityCategories}. Future rule: frontend visibility is convenience; backend enforcement is the security boundary.
+            </div>
+
+            <div className="mt-3 rounded-lg border p-3">
+              <div className="text-sm font-semibold">Effective Permissions Preview</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Current role: <span className="font-semibold uppercase text-foreground">{currentRole}</span>
+              </div>
+
+              <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                <div className="rounded-lg border p-2">
+                  <div className="font-semibold">{effectiveCapabilities.length} / {CAPABILITY_REGISTRY.length}</div>
+                  <div className="text-muted-foreground">allowed</div>
+                </div>
+                <div className="rounded-lg border p-2">
+                  <div className="font-semibold">{effectiveCriticalCapabilities}</div>
+                  <div className="text-muted-foreground">critical</div>
+                </div>
+                <div className="rounded-lg border p-2">
+                  <div className="font-semibold">{effectiveBackendCapabilities}</div>
+                  <div className="text-muted-foreground">backend</div>
+                </div>
+              </div>
+
+              <div className="mt-3 max-h-40 overflow-auto rounded-lg border">
+                <div className="divide-y">
+                  {CAPABILITY_REGISTRY.map((cap) => {
+                    const allowed = effectiveCapabilityKeys.has(cap.key);
+                    return (
+                      <div key={cap.key} className="flex items-center justify-between gap-3 px-3 py-2">
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium">{cap.key}</div>
+                          <div className="text-[11px] text-muted-foreground">{cap.category} · {cap.risk}</div>
+                        </div>
+                        <div className={allowed ? "text-xs font-semibold" : "text-xs text-muted-foreground"}>
+                          {allowed ? "allowed" : "blocked"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             <div className="mt-3 max-h-52 overflow-auto rounded-lg border">
