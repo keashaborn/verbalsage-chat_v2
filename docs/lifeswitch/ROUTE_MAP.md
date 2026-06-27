@@ -91,7 +91,7 @@ Canonical module pages:
 Aliases / compatibility routes:
 
 - `/lifeswitch/measurements`
-  - redirects to `/lifeswitch/measurements/log`
+  - module landing page with Log, Methods, Capture, Plan, and Analyze cards
 - `/lifeswitch/measurements/plan`
   - redirects to `/lifeswitch/plan#body-state`
 
