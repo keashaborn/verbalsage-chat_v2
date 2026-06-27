@@ -135,6 +135,7 @@ export function LifeSwitchModeNav() {
 
   if (!domain) return null;
 
+  const logHref = domain === "training" ? "/lifeswitch/training/calendar" : `/lifeswitch/${domain}/log`;
   const captureHref = `/lifeswitch/${domain}/capture`;
   const designHref = designHrefForDomain(domain);
   const designLabel = designLabelForDomain(domain);
@@ -150,7 +151,7 @@ export function LifeSwitchModeNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto grid max-w-5xl grid-cols-5 px-2 pt-2">
         <Tab
-          href={`/lifeswitch/${domain}/log`}
+          href={logHref}
           label="Log"
           Icon={CalendarDays}
           active={mode === "log"}

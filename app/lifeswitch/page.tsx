@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function LifeSwitchRootRedirect() {
-  redirect("/lifeswitch/nutrition/foods");
+  redirect("/lifeswitch/training/calendar");
 }

@@ -11,7 +11,7 @@ export default function TrainingHome() {
       </div>
 
       <div className="grid gap-3">
-        <Link href="/lifeswitch/training/log" className="rounded-xl border p-4 hover:bg-muted/30">
+        <Link href="/lifeswitch/training/calendar" className="rounded-xl border p-4 hover:bg-muted/30">
           <div className="text-sm font-semibold">Log</div>
           <div className="mt-1 text-xs text-muted-foreground">Calendar, completed sessions, sets, and volume.</div>
         </Link>

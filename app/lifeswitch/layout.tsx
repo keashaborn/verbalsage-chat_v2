@@ -6,7 +6,7 @@ import { WorkspaceMenu } from "@/components/nav/WorkspaceMenu";
 import { LifeSwitchModeNav } from "@/components/lifeswitch/LifeSwitchModeNav";
 import { LifeSwitchHelper } from "@/components/lifeswitch/helper/LifeSwitchHelper";
 
-const DEFAULT_LIFESWITCH = "/lifeswitch/training/log";
+const DEFAULT_LIFESWITCH = "/lifeswitch/training/calendar";
 
 export default function LifeSwitchLayout({ children }: { children: ReactNode }) {
   return (
