@@ -42,7 +42,7 @@ const PAGE_TITLES: Record<PageId, string> = {
   account: "Account",
   appearance: "Appearance",
   models_voice: "Models & Voice",
-  vantage_profile: "Vantage Profile",
+  vantage_profile: "Assistant Profile",
   vantage_personalization: "Personalization",
   memory_cards: "Admin Console",
   security: "Security",
