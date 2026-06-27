@@ -327,10 +327,14 @@ export async function POST(req: Request) {
     // DEBUG gate: only allow debug output if VS_DEBUG_TOKEN matches header or cookie
     const debugTokenHdr = req.headers.get("x-vs-debug-token") || "";
     const debugTokenCookie = jar.get("vs_debug_token")?.value || "";
-    const debugAllowed =
+    const debugTokenValid =
       !!process.env.VS_DEBUG_TOKEN &&
       (debugTokenHdr === process.env.VS_DEBUG_TOKEN ||
         debugTokenCookie === process.env.VS_DEBUG_TOKEN);
+
+    // Inspector/debug output is admin-only. A stale browser debug cookie must not
+    // grant Inspector access after switching to a non-admin account.
+    const debugAllowed = isAdmin && debugTokenValid;
 
     const wantDebug = body?.debug === true && debugAllowed;
 

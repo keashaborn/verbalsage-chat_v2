@@ -132,33 +132,40 @@ export async function POST(req: Request) {
     // Debug gate (same rule as /api/chat)
     const debugTokenHdr = req.headers.get("x-vs-debug-token") || "";
     const debugTokenCookie = jar.get("vs_debug_token")?.value || "";
-    const debugAllowed =
+    const debugTokenValid =
       !!process.env.VS_DEBUG_TOKEN &&
       (debugTokenHdr === process.env.VS_DEBUG_TOKEN || debugTokenCookie === process.env.VS_DEBUG_TOKEN);
 
     const authCtx = await getSupabaseAuthContextFromRequest(req);
 
-    if (!debugAllowed && !authCtx?.user_id) {
+    // Inspector is admin-only. A stale browser debug cookie must not grant
+    // Inspector access after switching to a non-admin account.
+    const isAdmin = !!authCtx?.is_admin;
+    const debugAllowed = isAdmin && debugTokenValid;
+
+    if (!authCtx?.user_id) {
       return new Response("unauthorized", {
         status: 401,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
+      });
+    }
+
+    if (!isAdmin) {
+      return new Response("admin required", {
+        status: 403,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
+      });
+    }
+
+    if (!debugAllowed) {
+      return new Response("debug token required", {
+        status: 403,
         headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
       });
     }
 
     // Primary: Supabase user_id from Authorization header
-
-    // Dev fallback (optional)
-    const allowGuest = process.env.VS_DEV_ALLOW_GUEST === "1";
-    const devTestUser = (process.env.VS_DEV_TEST_USER_ID || "").trim();
-
-    const user_id = authCtx?.user_id || (allowGuest && devTestUser ? devTestUser : "");
-    const isAdmin = !!authCtx?.is_admin;
-    if (!user_id) {
-      return new Response("unauthorized", {
-        status: 401,
-        headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
-      });
-    }
+    const user_id = authCtx.user_id;
 
     let body: any = {};
     try {
