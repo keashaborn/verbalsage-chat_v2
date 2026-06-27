@@ -727,12 +727,12 @@ export function VantageProfilePage({
   return (
     <div className="space-y-4">
       <div className="text-xs text-muted-foreground">
-        Choose an assistant profile. Apply makes this Vantage active in chat.
+        Choose an assistant profile. Apply makes this profile active in chat.
       </div>
 
       <Group title="Profile">
         <Row
-          left="Active Vantage"
+          left="Active Assistant Profile"
           right={
             <input
               className="w-[210px] rounded-lg border bg-background px-2 py-1.5 text-sm"
@@ -753,12 +753,12 @@ export function VantageProfilePage({
               else window.location.assign(`/personalization?vantage_id=${encodeURIComponent(vid)}`);
             }}
           >
-            Edit Personalization for this vantage
+            Edit personalization for this profile
           </button>
         </div>
 
         <Row
-          left="Choose Vantage"
+          left="Choose Assistant Profile"
           right={
             <select
               className="w-[210px] rounded-lg border bg-background px-2 py-1.5 text-sm"
@@ -793,7 +793,7 @@ export function VantageProfilePage({
 
         <details className="border-t">
           <summary className="cursor-pointer select-none px-3 py-2 text-sm font-semibold hover:bg-muted/60">
-            Manage Vantage
+            Manage Profile
           </summary>
           <div className="divide-y">
 <ActionRow
@@ -817,7 +817,7 @@ export function VantageProfilePage({
               void cloudSetPresets(userProfilesOnly(next), defaultId);
               void brainsSyncVantagePresets({ profiles: userProfilesOnly(next), defaultId, active: appliedActivePayload() });
               setSelectedId(existing.id);
-              setMsg(`Overwrote Vantage "${namespace}".`);
+              setMsg(`Overwrote Profile "${namespace}".`);
               return;
             }
 
@@ -828,14 +828,14 @@ export function VantageProfilePage({
             void cloudSetPresets(userProfilesOnly(next), defaultId);
               void brainsSyncVantagePresets({ profiles: userProfilesOnly(next), defaultId, active: appliedActivePayload() });
             setSelectedId(p.id);
-            setMsg(`Saved Vantage "${namespace}".`);
+            setMsg(`Saved Profile "${namespace}".`);
           }}
         /><ActionRow
-          label="Delete Vantage"
+          label="Delete Profile"
           disabled={!selectedId}
           onClick={() => {
             if (!selected) return;
-            const ok = window.confirm(`Delete Vantage "${selected.name}"?`);
+            const ok = window.confirm(`Delete Profile "${selected.name}"?`);
             if (!ok) return;
 
             const next = profiles.filter((p) => p.id !== selected.id);
