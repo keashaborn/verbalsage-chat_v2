@@ -4,6 +4,7 @@ import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { CardsPanel } from "@/components/admin/settings/CardsPanel";
 import { VANTAGE_CONTROL_REGISTRY } from "@/components/admin/settings/vantage/controlRegistry";
+import { CAPABILITY_REGISTRY, PERMISSION_ROLES } from "@/components/admin/settings/permissions/permissionRegistry";
 
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -30,6 +31,9 @@ export function AdminConsolePage() {
   const futureControls = VANTAGE_CONTROL_REGISTRY.filter((c) => c.status === "future").length;
   const userVisibleControls = VANTAGE_CONTROL_REGISTRY.filter((c) => c.audience === "user").length;
   const adminControls = VANTAGE_CONTROL_REGISTRY.filter((c) => c.audience === "admin").length;
+  const criticalCapabilities = CAPABILITY_REGISTRY.filter((c) => c.risk === "critical").length;
+  const backendEnforcedCapabilities = CAPABILITY_REGISTRY.filter((c) => c.backendEnforced).length;
+  const capabilityCategories = Array.from(new Set(CAPABILITY_REGISTRY.map((c) => c.category))).length;
 
   React.useEffect(() => {
     setInspectorEnabled(hasCookie("vs_debug_token"));
@@ -166,12 +170,51 @@ export function AdminConsolePage() {
           </div>
 
           <div className="mt-3 rounded-lg border p-3">
-            <div className="text-sm font-semibold">Vantage Permissions</div>
+            <div className="text-sm font-semibold">Permissions</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Placeholder for configuring which controls are hidden, visible, locked, or editable for normal users.
+              Read-only capability registry for roles, admin tools, Assistant Profile levers, memory tools, diagnostics, account data, and LifeSwitch sharing.
             </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-lg border p-2">
+                <div className="font-semibold">{PERMISSION_ROLES.length}</div>
+                <div className="text-muted-foreground">roles</div>
+              </div>
+              <div className="rounded-lg border p-2">
+                <div className="font-semibold">{CAPABILITY_REGISTRY.length}</div>
+                <div className="text-muted-foreground">capabilities</div>
+              </div>
+              <div className="rounded-lg border p-2">
+                <div className="font-semibold">{criticalCapabilities}</div>
+                <div className="text-muted-foreground">critical</div>
+              </div>
+              <div className="rounded-lg border p-2">
+                <div className="font-semibold">{backendEnforcedCapabilities}</div>
+                <div className="text-muted-foreground">backend enforced</div>
+              </div>
+            </div>
+
             <div className="mt-2 text-xs text-muted-foreground">
-              Future rule: frontend visibility is convenience; /api/chat must enforce permissions server-side.
+              Categories: {capabilityCategories}. Future rule: frontend visibility is convenience; backend enforcement is the security boundary.
+            </div>
+
+            <div className="mt-3 max-h-52 overflow-auto rounded-lg border">
+              <div className="divide-y">
+                {CAPABILITY_REGISTRY.map((cap) => (
+                  <div key={cap.key} className="px-3 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-medium">{cap.label}</div>
+                      <div className="shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">
+                        {cap.category} · {cap.access} · {cap.risk}
+                      </div>
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">{cap.description}</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      Roles: {cap.defaultRoles.join(", ")} · Backend: {cap.backendEnforced ? "yes" : "no"}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
