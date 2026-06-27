@@ -61,7 +61,7 @@ function ActiveVantageBadge() {
     <div className="min-w-0 flex-1 leading-tight">
       <div className="truncate text-sm font-semibold">{vid}</div>
       <div className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
-        Active Vantage
+        Active Profile
       </div>
     </div>
   );

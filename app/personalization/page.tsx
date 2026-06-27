@@ -229,7 +229,7 @@ export default function PersonalizationPage() {
                 className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60 disabled:opacity-40"
                 onClick={save}
                 disabled={saving || !ready}
-                title="Save to Brains user_instructions card for the active vantage"
+                title="Save to Brains user_instructions card for the active profile"
               >
                 {saving ? "Saving…" : "Save"}
               </button>
@@ -284,7 +284,7 @@ export default function PersonalizationPage() {
             <div className="space-y-2">
               <div className="text-sm font-semibold">About you</div>
               <div className="text-xs text-muted-foreground">
-                Relationship context for the active vantage (not global identity unless that is your intent).
+                Relationship context for the active profile (not global identity unless that is your intent).
               </div>
               <textarea
                 className="h-40 w-full rounded-xl border bg-background px-3 py-2 text-sm"
