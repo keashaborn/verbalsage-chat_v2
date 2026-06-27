@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireAdmin } from "../_auth";
+import { requireCapability } from "@/app/api/_auth/requireCapability";
 import { randomUUID } from "crypto";
 
 
@@ -16,7 +16,7 @@ function getRequestId(req: Request): string {
 export async function GET(req: Request) {
   const requestId = getRequestId(req);
 
-  const auth = await requireAdmin(req);
+  const auth = await requireCapability(req, "memory_cards.view");
   if (!auth.ok) {
     return new Response(auth.msg, {
       status: auth.status,
