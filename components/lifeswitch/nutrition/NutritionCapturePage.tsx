@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 
@@ -419,7 +420,7 @@ export default function NutritionCapturePage() {
       const selectedItems = mealItems.filter((item) => includedMealItemIds[item.meal_item_id] !== false);
 
       if (selectedItems.length === 0) {
-        setStatus("no selected rows to log");
+        setStatus("Choose at least one food to log.");
         return;
       }
 
@@ -443,7 +444,7 @@ export default function NutritionCapturePage() {
       }
 
       if (count === 0) {
-        setStatus("no valid rows to log");
+        setStatus("No selected foods had a valid gram amount.");
         return;
       }
 
@@ -464,7 +465,7 @@ export default function NutritionCapturePage() {
         <div>
           <div className="text-lg font-semibold">Nutrition · Capture</div>
           <div className="text-xs text-muted-foreground">
-            Individual foods or meals. All writes remain atomic.
+            Log single foods or saved meals for the selected day.
           </div>
         </div>
 
@@ -502,7 +503,7 @@ export default function NutritionCapturePage() {
             <div>
               <div className="text-sm font-semibold">Meals</div>
               <div className="text-xs text-muted-foreground">
-                Select a meal, edit grams if needed, then log all rows.
+                Select a meal, adjust grams if needed, then log the selected foods.
               </div>
             </div>
 
@@ -511,7 +512,7 @@ export default function NutritionCapturePage() {
               onClick={() => void loadMeals()}
               disabled={mealsLoading}
             >
-              {mealsLoading ? "Loading..." : "Refresh"}
+              {mealsLoading ? "Loading…" : "Refresh"}
             </button>
           </div>
 
@@ -544,13 +545,13 @@ export default function NutritionCapturePage() {
                   onClick={() => void logMealCombo()}
                   disabled={mealItemsLoading || mealItems.length === 0}
                 >
-                  Log Selected
+                  Log selected
                 </button>
               </div>
 
               <div className="mt-3 space-y-2">
                 {mealItemsLoading && (
-                  <div className="text-xs text-muted-foreground">Loading meal foods...</div>
+                  <div className="text-xs text-muted-foreground">Loading meal foods…</div>
                 )}
 
                 {!mealItemsLoading &&
@@ -594,6 +595,8 @@ export default function NutritionCapturePage() {
                           <input
                             className="w-20 border rounded px-2 py-1 text-sm text-right"
                             value={grams}
+                            inputMode="decimal"
+                            aria-label={`${item.display_name} grams`}
                             onChange={(e) =>
                               setGramsByMealItem((p) => ({
                                 ...p,
@@ -601,6 +604,7 @@ export default function NutritionCapturePage() {
                               }))
                             }
                           />
+                          <div className="text-xs text-muted-foreground">g</div>
 
                           <button
                             className="border rounded px-2 py-1 text-sm"
@@ -624,8 +628,12 @@ export default function NutritionCapturePage() {
                   })}
 
                 {!mealItemsLoading && selectedMeal && mealItems.length === 0 && (
-                  <div className="text-xs text-muted-foreground">
-                    This meal has no foods yet. Add foods in Library / Meals.
+                  <div className="rounded-xl border bg-muted/20 p-3 text-xs text-muted-foreground">
+                    This meal has no foods yet. Add foods in{" "}
+                    <Link href="/lifeswitch/nutrition/design/meals" className="font-medium underline underline-offset-4">
+                      Library / Meals
+                    </Link>
+                    .
                   </div>
                 )}
               </div>
@@ -636,11 +644,11 @@ export default function NutritionCapturePage() {
 
       {mode === "foods" && (
         <div className="mt-4">
-          <div className="text-sm font-semibold">Individual Foods</div>
+          <div className="text-sm font-semibold">Foods</div>
 
           <input
             className="mt-2 border rounded px-2 py-1 w-full text-sm"
-            placeholder="search foods"
+            placeholder="Search foods"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -650,7 +658,7 @@ export default function NutritionCapturePage() {
             onClick={() => void loadFoods()}
             disabled={foodsLoading}
           >
-            {foodsLoading ? "Loading..." : "Refresh"}
+            {foodsLoading ? "Loading…" : "Refresh"}
           </button>
 
           <div className="mt-3 space-y-2">
@@ -661,7 +669,7 @@ export default function NutritionCapturePage() {
                     {overrides[f.my_food_id]?.alias || f.display_name}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    P {safeNum(f.protein_g)}g · C {safeNum(f.carbs_g)}g · F {safeNum(f.fat_g)}g
+                    kcal {safeNum(f.kcal)} · P {safeNum(f.protein_g)}g · C {safeNum(f.carbs_g)}g · F {safeNum(f.fat_g)}g
                   </div>
                 </div>
 
@@ -669,6 +677,8 @@ export default function NutritionCapturePage() {
                   <input
                     className="w-20 border rounded px-2 py-1 text-sm text-right"
                     value={gramsByFood[f.my_food_id] || ""}
+                    inputMode="decimal"
+                    aria-label={`${overrides[f.my_food_id]?.alias || f.display_name} grams`}
                     onChange={(e) =>
                       setGramsByFood((p) => ({
                         ...p,
@@ -676,6 +686,7 @@ export default function NutritionCapturePage() {
                       }))
                     }
                   />
+                  <div className="text-xs text-muted-foreground">g</div>
 
                   <button
                     className="border rounded px-2 py-1 text-sm"
@@ -688,8 +699,12 @@ export default function NutritionCapturePage() {
             ))}
 
             {!foodsLoading && foods.length === 0 && (
-              <div className="text-xs text-muted-foreground">
-                No foods loaded. Search or refresh after adding foods in Library.
+              <div className="rounded-xl border bg-muted/20 p-3 text-xs text-muted-foreground">
+                No foods loaded. Search again or add foods in{" "}
+                <Link href="/lifeswitch/nutrition/design/foods" className="font-medium underline underline-offset-4">
+                  Library / Foods
+                </Link>
+                .
               </div>
             )}
           </div>
