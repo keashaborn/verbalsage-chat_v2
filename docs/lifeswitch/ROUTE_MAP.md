@@ -47,9 +47,6 @@ Aliases / compatibility routes:
   - redirects to `/lifeswitch/training/design/workouts`
 - `/lifeswitch/training/plan`
   - redirects to `/lifeswitch/plan#training-targets`
-
-Aliases / compatibility routes:
-
 - `/lifeswitch/training/workouts`
   - redirects to `/lifeswitch/training/design/workouts`
 - `/lifeswitch/training/exercises`
