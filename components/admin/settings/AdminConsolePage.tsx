@@ -3,6 +3,7 @@
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { CardsPanel } from "@/components/admin/settings/CardsPanel";
+import { VANTAGE_CONTROL_REGISTRY } from "@/components/admin/settings/vantage/controlRegistry";
 
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -23,6 +24,12 @@ function clearCookie(name: string) {
 export function AdminConsolePage() {
   const [inspectorEnabled, setInspectorEnabled] = React.useState(false);
   const [status, setStatus] = React.useState("");
+
+  const stableControls = VANTAGE_CONTROL_REGISTRY.filter((c) => c.status === "stable").length;
+  const experimentalControls = VANTAGE_CONTROL_REGISTRY.filter((c) => c.status === "experimental").length;
+  const futureControls = VANTAGE_CONTROL_REGISTRY.filter((c) => c.status === "future").length;
+  const userVisibleControls = VANTAGE_CONTROL_REGISTRY.filter((c) => c.audience === "user").length;
+  const adminControls = VANTAGE_CONTROL_REGISTRY.filter((c) => c.audience === "admin").length;
 
   React.useEffect(() => {
     setInspectorEnabled(hasCookie("vs_debug_token"));
@@ -108,6 +115,54 @@ export function AdminConsolePage() {
             >
               Open
             </a>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Vantage Controls
+        </div>
+
+        <div className="rounded-xl border p-3">
+          <div className="text-sm font-semibold">Control Registry</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Read-only inventory of Vantage levers. Later this becomes the admin control surface for visibility, editability, and server-side enforcement.
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-lg border p-2">
+              <div className="font-semibold">{VANTAGE_CONTROL_REGISTRY.length}</div>
+              <div className="text-muted-foreground">total controls</div>
+            </div>
+            <div className="rounded-lg border p-2">
+              <div className="font-semibold">{userVisibleControls}</div>
+              <div className="text-muted-foreground">user-facing planned</div>
+            </div>
+            <div className="rounded-lg border p-2">
+              <div className="font-semibold">{adminControls}</div>
+              <div className="text-muted-foreground">admin / system</div>
+            </div>
+            <div className="rounded-lg border p-2">
+              <div className="font-semibold">{stableControls} / {experimentalControls} / {futureControls}</div>
+              <div className="text-muted-foreground">stable / experimental / future</div>
+            </div>
+          </div>
+
+          <div className="mt-3 max-h-52 overflow-auto rounded-lg border">
+            <div className="divide-y">
+              {VANTAGE_CONTROL_REGISTRY.map((control) => (
+                <div key={control.key} className="px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-medium">{control.label}</div>
+                    <div className="shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">
+                      {control.audience} · {control.status} · {control.risk}
+                    </div>
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">{control.description}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
