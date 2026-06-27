@@ -50,6 +50,26 @@ type EffectivePermissionsResponse = {
   error?: string;
 };
 
+function capabilityStatusLabel(cap: { backendEnforced: boolean; notes?: string }) {
+  if (String(cap.notes || "").includes("Future/hidden module")) return "future/hidden";
+  if (String(cap.notes || "").includes("Future module/tier capability")) return "planning";
+  return cap.backendEnforced ? "backend enforced" : "frontend only";
+}
+
+function capabilityStatusClass(cap: { backendEnforced: boolean; notes?: string }) {
+  const label = capabilityStatusLabel(cap);
+  if (label === "backend enforced") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+  if (label === "planning") return "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300";
+  if (label === "future/hidden") return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+  return "border-muted bg-muted/30 text-muted-foreground";
+}
+
+function riskClass(risk: string) {
+  if (risk === "critical") return "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300";
+  if (risk === "high") return "border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300";
+  return "border-muted bg-muted/30 text-muted-foreground";
+}
+
 export function AdminConsolePage() {
   const [inspectorEnabled, setInspectorEnabled] = React.useState(false);
   const [status, setStatus] = React.useState("");
@@ -63,6 +83,8 @@ export function AdminConsolePage() {
   const adminControls = VANTAGE_CONTROL_REGISTRY.filter((c) => c.audience === "admin").length;
   const criticalCapabilities = CAPABILITY_REGISTRY.filter((c) => c.risk === "critical").length;
   const backendEnforcedCapabilities = CAPABILITY_REGISTRY.filter((c) => c.backendEnforced).length;
+  const planningCapabilities = CAPABILITY_REGISTRY.filter((c) => capabilityStatusLabel(c) === "planning").length;
+  const futureHiddenCapabilities = CAPABILITY_REGISTRY.filter((c) => capabilityStatusLabel(c) === "future/hidden").length;
   const capabilityCategories = Array.from(new Set(CAPABILITY_REGISTRY.map((c) => c.category))).length;
   const fallbackEffectiveCapabilities = capabilitiesForRole(currentRole);
   const effectiveCapabilities = effectivePermissions?.capabilities ?? fallbackEffectiveCapabilities;
@@ -233,7 +255,7 @@ export function AdminConsolePage() {
           <div className="mt-3 rounded-lg border p-3">
             <div className="text-sm font-semibold">Permissions</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Read-only capability registry for roles, admin tools, Assistant Profile levers, memory tools, diagnostics, account data, and LifeSwitch sharing.
+              Read-only capability registry for roles, admin tools, Assistant Profile levers, memory tools, diagnostics, account data, and LifeSwitch module planning.
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -252,6 +274,14 @@ export function AdminConsolePage() {
               <div className="rounded-lg border p-2">
                 <div className="font-semibold">{backendEnforcedCapabilities}</div>
                 <div className="text-muted-foreground">backend enforced</div>
+              </div>
+              <div className="rounded-lg border p-2">
+                <div className="font-semibold">{planningCapabilities}</div>
+                <div className="text-muted-foreground">planning</div>
+              </div>
+              <div className="rounded-lg border p-2">
+                <div className="font-semibold">{futureHiddenCapabilities}</div>
+                <div className="text-muted-foreground">future / hidden</div>
               </div>
             </div>
 
@@ -307,15 +337,24 @@ export function AdminConsolePage() {
               <div className="divide-y">
                 {CAPABILITY_REGISTRY.map((cap) => (
                   <div key={cap.key} className="px-3 py-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-sm font-medium">{cap.label}</div>
-                      <div className="shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">
-                        {cap.category} · {cap.access} · {cap.risk}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium">{cap.label}</div>
+                        <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">{cap.key}</div>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap justify-end gap-1 text-[10px] uppercase tracking-wide">
+                        <span className={`rounded-full border px-2 py-0.5 ${capabilityStatusClass(cap)}`}>
+                          {capabilityStatusLabel(cap)}
+                        </span>
+                        <span className={`rounded-full border px-2 py-0.5 ${riskClass(cap.risk)}`}>
+                          {cap.risk}
+                        </span>
                       </div>
                     </div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">{cap.description}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{cap.description}</div>
+                    {cap.notes ? <div className="mt-1 text-[11px] text-muted-foreground">{cap.notes}</div> : null}
                     <div className="mt-1 text-[11px] text-muted-foreground">
-                      Roles: {cap.defaultRoles.join(", ")} · Backend: {cap.backendEnforced ? "yes" : "no"}
+                      {cap.category} · {cap.scope} · {cap.access} · Roles: {cap.defaultRoles.join(", ")}
                     </div>
                   </div>
                 ))}
