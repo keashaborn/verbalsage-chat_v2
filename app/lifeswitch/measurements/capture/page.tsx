@@ -99,6 +99,11 @@ function displayKind(k?: string | null) {
   return k || "General";
 }
 
+function selectNumberInputValue(e: React.FocusEvent<HTMLInputElement>) {
+  const input = e.currentTarget;
+  window.setTimeout(() => input.select(), 0);
+}
+
 function entrySummary(entry: MeasurementEntry): string {
   const kind = entry.entry_kind || "general";
   const parts: string[] = [];
@@ -171,6 +176,7 @@ function Field({
         className="mt-2 w-full rounded-xl border bg-background px-3 py-2 text-sm"
         inputMode="decimal"
         value={value}
+        onFocus={selectNumberInputValue}
         onChange={(e) => onChange(e.currentTarget.value)}
         placeholder={placeholder || ""}
       />

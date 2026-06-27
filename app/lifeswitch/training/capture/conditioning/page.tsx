@@ -56,6 +56,11 @@ function safeNum(x: any, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function selectNumberInputValue(e: React.FocusEvent<HTMLInputElement>) {
+  const input = e.currentTarget;
+  window.setTimeout(() => input.select(), 0);
+}
+
 export default function ConditioningCapturePage() {
   const [owner, setOwner] = React.useState<string | null>(null);
   const [authErr, setAuthErr] = React.useState<string | null>(null);

@@ -94,6 +94,11 @@ function resolvedItemGrams(item: MealComboItem): number | null {
   return item.qty_g_resolved ?? item.qty_g;
 }
 
+function selectNumberInputValue(e: React.FocusEvent<HTMLInputElement>) {
+  const input = e.currentTarget;
+  window.setTimeout(() => input.select(), 0);
+}
+
 async function fetchJson(url: string, init?: RequestInit) {
   const r = await authFetch(url, { cache: "no-store", ...(init || {}) });
   const t = await r.text();
@@ -597,6 +602,7 @@ export default function NutritionCapturePage() {
                             value={grams}
                             inputMode="decimal"
                             aria-label={`${item.display_name} grams`}
+                            onFocus={selectNumberInputValue}
                             onChange={(e) =>
                               setGramsByMealItem((p) => ({
                                 ...p,
@@ -679,6 +685,7 @@ export default function NutritionCapturePage() {
                     value={gramsByFood[f.my_food_id] || ""}
                     inputMode="decimal"
                     aria-label={`${overrides[f.my_food_id]?.alias || f.display_name} grams`}
+                    onFocus={selectNumberInputValue}
                     onChange={(e) =>
                       setGramsByFood((p) => ({
                         ...p,
