@@ -1,10 +1,9 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { requireAdmin } from "../_auth";
+import { requireCapability } from "@/app/api/_auth/requireCapability";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
 
 
 function getRequestId(req: Request): string {
@@ -17,7 +16,7 @@ function getRequestId(req: Request): string {
 export async function DELETE(req: Request) {
   const requestId = getRequestId(req);
 
-  const auth = await requireAdmin(req);
+  const auth = await requireCapability(req, "user_data.forget_recent");
   if (!auth.ok) {
     return NextResponse.json(
       { error: auth.msg },
@@ -26,7 +25,7 @@ export async function DELETE(req: Request) {
   }
 
   const BRAINS = process.env.BRAINS_URL || "http://172.31.32.171:8088";
-  const user_id = await getSupabaseUserIdFromRequest(req);
+  const user_id = String((auth as any).payload?.sub || "");
   if (!user_id) return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { "x-request-id": requestId } });
 
   const url = new URL(req.url);
