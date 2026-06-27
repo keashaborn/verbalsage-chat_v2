@@ -21,6 +21,15 @@ function monthLabel(ym: string) {
 function daysInMonthUTC(year: number, month1: number) { return new Date(Date.UTC(year, month1, 0)).getUTCDate(); }
 function firstDowUTC(year: number, month1: number) { return new Date(Date.UTC(year, month1 - 1, 1)).getUTCDay(); }
 function safeNum(x: any, fallback = 0) { const n = Number(x); return Number.isFinite(n) ? n : fallback; }
+function firstNumber(value: any): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const raw = String(value ?? "").replace(/,/g, " ").trim();
+  if (!raw) return null;
+  const m = raw.match(/-?\d+(\.\d+)?/);
+  if (!m) return null;
+  const n = Number(m[0]);
+  return Number.isFinite(n) ? n : null;
+}
 function formatK(n: number) {
   const x = safeNum(n, 0);
   const abs = Math.abs(x);
@@ -239,8 +248,9 @@ function MonthCalendar(props: { ym: string; hitDates: Set<string>; anyDates: Set
 }
 
 export default function NutritionLogPage() {
-  const TARGET_PROTEIN_G = 180;
-  const TARGET_KCAL = 2200;
+  const [targetProteinG, setTargetProteinG] = React.useState<number | null>(null);
+  const [targetKcal, setTargetKcal] = React.useState<number | null>(null);
+  const [targetStatus, setTargetStatus] = React.useState<string>("loading Plan targets…");
 
   const [owner, setOwner] = React.useState<string>("");
   const [targetUserId, setTargetUserId] = React.useState<string>("");
@@ -252,6 +262,19 @@ export default function NutritionLogPage() {
   const [savingEntryId, setSavingEntryId] = React.useState<string>("");
   const [savedEntryId, setSavedEntryId] = React.useState<string>("");
   const [entrySaveError, setEntrySaveError] = React.useState<Record<string, string>>({});
+
+  function targetHit(any: boolean, t: { kcal: number | null; protein_g: number | null }, kcalTarget = targetKcal, proteinTarget = targetProteinG) {
+    return (
+      any &&
+      proteinTarget != null &&
+      kcalTarget != null &&
+      t.protein_g != null &&
+      t.kcal != null &&
+      t.protein_g >= proteinTarget &&
+      t.kcal <= kcalTarget
+    );
+  }
+
   async function refreshOneDay(uid: string, day: string, targetUid = targetUserId) {
     const u = new URL("/api/lifeswitch/nutrition/log/day", window.location.origin);
     u.searchParams.set("owner_user_id", uid);
@@ -262,10 +285,7 @@ export default function NutritionLogPage() {
     const t = extractTotals(raw);
     const any = hasAnyData(raw, t);
 
-    const hit =
-      any &&
-      (t.protein_g != null ? t.protein_g >= TARGET_PROTEIN_G : false) &&
-      (t.kcal != null ? t.kcal <= TARGET_KCAL : false);
+    const hit = targetHit(any, t);
 
     setDays((prev) =>
       (prev || []).map((x) => (x.day === day ? ({ ...x, raw, any, ...t, hit } as any) : x))
@@ -297,6 +317,36 @@ export default function NutritionLogPage() {
         setTargetName(targetLabel);
         setStatus(targetUid ? `loading ${targetLabel || "delegated"} nutrition…` : "loading days…");
 
+        const planUrl = new URL("/api/lifeswitch/plan/profile", window.location.origin);
+        planUrl.searchParams.set("create_if_missing", targetUid ? "0" : "1");
+        if (targetUid) planUrl.searchParams.set("target_user_id", targetUid);
+
+        let nextTargetKcal: number | null = null;
+        let nextTargetProteinG: number | null = null;
+
+        try {
+          const planJson = await fetchJson(planUrl.toString());
+          const nt = planJson?.nutrition_targets || {};
+          nextTargetKcal = firstNumber(nt.calories ?? nt.target_kcal ?? nt.kcal);
+          nextTargetProteinG = firstNumber(nt.protein_g ?? nt.target_protein_g ?? nt.protein);
+
+          if (!cancelled) {
+            setTargetKcal(nextTargetKcal);
+            setTargetProteinG(nextTargetProteinG);
+            setTargetStatus(
+              nextTargetKcal != null || nextTargetProteinG != null
+                ? "loaded from Plan"
+                : "no calorie/protein targets found in Plan"
+            );
+          }
+        } catch (e: any) {
+          if (!cancelled) {
+            setTargetKcal(null);
+            setTargetProteinG(null);
+            setTargetStatus(`Plan target error: ${e?.message || String(e)}`);
+          }
+        }
+
         const N = 60;
         const base = new Date();
         const dayList: string[] = [];
@@ -322,10 +372,7 @@ export default function NutritionLogPage() {
 
               const any = hasAnyData(raw, t);
 
-              const hit =
-                any &&
-                (t.protein_g != null ? t.protein_g >= TARGET_PROTEIN_G : false) &&
-                (t.kcal != null ? t.kcal <= TARGET_KCAL : false);
+              const hit = targetHit(any, t, nextTargetKcal, nextTargetProteinG);
 
               return { day, raw, any, ...t, hit };
             })
@@ -436,25 +483,39 @@ export default function NutritionLogPage() {
   }
 
   const isDelegatedView = Boolean(targetUserId);
+  const showDebug = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debug") === "1";
 
   return (
     <div className="mx-auto max-w-5xl p-4">
+      <div>
+        <div className="text-lg font-semibold">Nutrition · Log</div>
+        <div className="mt-1 text-sm text-muted-foreground">
+          Review recent intake, daily totals, and Plan-based calorie/protein adherence.
+        </div>
+        <div className="mt-2 text-xs text-muted-foreground">
+          Targets: {targetKcal != null ? `${targetKcal} kcal` : "no calorie target"} · {targetProteinG != null ? `${targetProteinG}g protein` : "no protein target"} · {targetStatus}
+        </div>
+      </div>
+
       {isDelegatedView ? (
         <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
           You are viewing {targetName || "this person"}’s nutrition log. This delegated view is read-only.
         </div>
       ) : null}
 
-      <details className="mt-4">
-        <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
-        <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
-          <div>auth: {owner ? owner : "not signed in"}</div>
-          <div>target: {targetUserId || "self"}</div>
-          <div>status: {status}</div>
-          <div>days: {days.length}</div>
-          <div>months: {months.length}</div>
-        </div>
-      </details>
+      {showDebug ? (
+        <details className="mt-4">
+          <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
+          <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
+            <div>auth: {owner ? owner : "not signed in"}</div>
+            <div>target: {targetUserId || "self"}</div>
+            <div>status: {status}</div>
+            <div>target status: {targetStatus}</div>
+            <div>days: {days.length}</div>
+            <div>months: {months.length}</div>
+          </div>
+        </details>
+      ) : null}
 
       <div className="mt-8">
         {loading ? (
