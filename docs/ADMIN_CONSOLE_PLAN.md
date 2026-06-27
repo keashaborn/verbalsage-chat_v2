@@ -91,3 +91,47 @@ Important product note: avoid assistants that force unsolicited next-step lists 
 5. Add configurable Vantage exposure.
 6. Add server-side Vantage enforcement in /api/chat.
 7. Add mature Supabase RBAC, user management, and audit logs later.
+---
+
+## 2026-06-27 Admin Console Checkpoint
+
+### Completed
+
+- Sensitive `/api/admin/*` routes now require admin authorization.
+- The old Developer section was renamed to Admin Console.
+- Admin Console shell now includes:
+  - Prompt Inspector
+  - Model Diagnostics
+  - Vantage Controls / Control Registry
+  - Vantage Permissions placeholder
+  - Memory System Status placeholder
+  - Memory Cards
+- User-facing Vantage language was changed to Assistant Profile / Active Profile.
+- Internal/admin terminology remains Vantage where technically appropriate.
+- `/api/chat` and `/api/chat/inspect` now use Supabase auth context with `user_id`, `role`, and `is_admin`.
+- Non-admin users can use visible Assistant Profile controls but cannot manually force hidden/admin-only Vantage controls through request bodies or cookies.
+- Prompt Inspector is now admin-only server-side.
+- Prompt Inspector UI is hidden for non-admin users and stale Inspector payloads are cleared when switching accounts.
+
+### Current Security Boundary
+
+Frontend visibility is convenience only. Server-side enforcement is now active for:
+
+- Inspector/debug access.
+- Non-admin Vantage control stripping.
+- Sensitive admin routes.
+
+### Known Future Work
+
+- Replace duplicate admin auth helper logic with the shared Supabase auth context helper.
+- Convert Vantage Permissions placeholder into a real policy table.
+- Add explicit Inspector metadata showing whether hidden controls were stripped.
+- Build Memory System Status into a real diagnostic panel.
+- Audit old Developer routes such as `/developer/diagnostics`, `/developer/forms`, and `/developer/sslg`.
+- Decide whether admin routes should be hidden from routing entirely for non-admin users, not just inaccessible.
+- Eventually move more profile/config state from browser cookies to Supabase-backed persistent state.
+
+### Recommendation
+
+Pause Admin Console expansion here. The foundation is sufficient. Next work should return to product functionality unless a specific security issue appears.
+
