@@ -256,7 +256,7 @@ export default function NutritionLogPage() {
 
   const [targetUserId, setTargetUserId] = React.useState<string>("");
   const [targetName, setTargetName] = React.useState<string>("");
-  const [status, setStatus] = React.useState<string>("auth: loading…");
+  const [status, setStatus] = React.useState<string>("loading nutrition log…");
   const [days, setDays] = React.useState<DaySummary[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [editGramsByEntryId, setEditGramsByEntryId] = React.useState<Record<string, string>>({});
@@ -299,7 +299,7 @@ export default function NutritionLogPage() {
 
     (async () => {
       setLoading(true);
-      setStatus("auth: loading…");
+      setStatus("loading nutrition log…");
 
       try {
         const params = new URLSearchParams(window.location.search);
