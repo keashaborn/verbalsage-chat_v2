@@ -86,9 +86,8 @@ type OverrideRow = {
   updated_at: string;
 };
 
-async function fetchOverridesFromDb(owner_user_id: string): Promise<Record<string, FoodOverride>> {
-  const qs = new URLSearchParams({ owner_user_id });
-  const r = await authFetch(`/api/lifeswitch/nutrition/my_food_overrides?${qs.toString()}`, { cache: "no-store" });
+async function fetchOverridesFromDb(): Promise<Record<string, FoodOverride>> {
+  const r = await authFetch("/api/lifeswitch/nutrition/my_food_overrides", { cache: "no-store" });
   const t = await r.text().catch(() => "");
   if (!r.ok) throw new Error(t.slice(0, 200) || `HTTP ${r.status}`);
   const j = t ? JSON.parse(t) : [];
@@ -107,14 +106,12 @@ async function fetchOverridesFromDb(owner_user_id: string): Promise<Record<strin
 }
 
 async function upsertOverrideToDb(args: {
-  owner_user_id: string;
   my_food_id: string;
   alias?: string;
   default_grams?: number;
   sort_order?: number;
 }) {
   const qs = new URLSearchParams({
-    owner_user_id: args.owner_user_id,
     my_food_id: args.my_food_id,
   });
   if (args.alias && args.alias.trim()) qs.set("alias", args.alias.trim());
@@ -187,78 +184,40 @@ export default function NutritionFoodsPage() {
   const [editAlias, setEditAlias] = React.useState<string>("");
   const [editGrams, setEditGrams] = React.useState<string>("");
 
-  // auth (optional for USDA search; required for My Foods + overrides persistence)
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const r = await authFetch("/api/auth/whoami", { cache: "no-store" });
-        const j = await r.json().catch(() => null);
-
-        if (!j?.ok) {
-          setOwner(null);
-          setAuthErr(j?.error || "not signed in");
-          return;
-        }
-
-        const sub = String(j.sub || "").trim();
-        if (!sub) {
-          setOwner(null);
-          setAuthErr("missing sub");
-          return;
-        }
-
-        setOwner(sub);
-        setAuthErr(null);
-      } catch (e: any) {
-        setOwner(null);
-        setAuthErr(String(e?.message || e));
-      }
-    })();
-  }, []);
-
   React.useEffect(() => {
     // local fallback immediately (fast paint)
     setFoodOverrides(loadLocalOverrides());
   }, []);
 
   React.useEffect(() => {
-    // once signed in, prefer DB overrides + migrate local once
-    if (!owner) return;
-
-    (async () => {
-      // 1) migrate local -> DB once
+    void (async () => {
       try {
         const migrated = localStorage.getItem(LS_OV_MIGRATED);
         if (!migrated) {
           const local = loadLocalOverrides();
           const keys = Object.keys(local || {});
+
           if (keys.length) {
             for (const my_food_id of keys) {
               const ov = local[my_food_id] || {};
               await upsertOverrideToDb({
-                owner_user_id: owner,
                 my_food_id,
                 alias: ov.alias,
                 default_grams: ov.default_grams,
               });
             }
           }
-          localStorage.setItem(LS_OV_MIGRATED, "1");
-          // optional: keep local as backup, or remove to avoid confusion
-          // localStorage.removeItem(LS_OV_KEY);
-        }
-      } catch { }
 
-      // 2) load from DB
-      try {
-        const db = await fetchOverridesFromDb(owner);
+          localStorage.setItem(LS_OV_MIGRATED, "1");
+        }
+
+        const db = await fetchOverridesFromDb();
         setFoodOverrides(db);
       } catch (e) {
-        // keep local fallback if DB fails
-        console.warn("override load failed:", e);
+        console.warn("override sync failed:", e);
       }
     })();
-  }, [owner]);
+  }, []);
 
   function closeFoodEditor() {
     setEditFoodId(null);
@@ -288,19 +247,15 @@ export default function NutritionFoodsPage() {
     setFoodOverrides(next);
 
     try {
-      if (owner) {
-        await upsertOverrideToDb({
-          owner_user_id: owner,
-          my_food_id: editFoodId,
-          alias: alias ? alias : undefined,
-          default_grams: Number.isFinite(gramsNum) && gramsNum > 0 ? gramsNum : undefined,
-        });
-        // refresh from DB for source-of-truth
-        const db = await fetchOverridesFromDb(owner);
-        setFoodOverrides(db);
-      } else {
-        saveLocalOverrides(next);
-      }
+      await upsertOverrideToDb({
+        my_food_id: editFoodId,
+        alias: alias ? alias : undefined,
+        default_grams: Number.isFinite(gramsNum) && gramsNum > 0 ? gramsNum : undefined,
+      });
+
+      // refresh from DB for source-of-truth
+      const db = await fetchOverridesFromDb();
+      setFoodOverrides(db);
     } catch (e) {
       // fallback: keep local if DB write fails
       saveLocalOverrides(next);
@@ -427,17 +382,16 @@ export default function NutritionFoodsPage() {
   }, [usdaQ]);
 
   const loadMyFoods = React.useCallback(async () => {
-    if (!owner) return;
-
     setMyLoading(true);
     setMyErr(null);
 
     try {
-      const p = new URLSearchParams({ owner_user_id: owner });
+      const p = new URLSearchParams();
       const q = myFilter.trim();
       if (q) p.set("q", q);
 
-      const r = await authFetch(`/api/lifeswitch/nutrition/my_foods?${p.toString()}`, { cache: "no-store" });
+      const url = p.toString() ? `/api/lifeswitch/nutrition/my_foods?${p.toString()}` : "/api/lifeswitch/nutrition/my_foods";
+      const r = await authFetch(url, { cache: "no-store" });
       if (!r.ok) {
         const t = await r.text();
         throw new Error(`my_foods HTTP ${r.status}: ${t.slice(0, 200)}`);
@@ -450,11 +404,11 @@ export default function NutritionFoodsPage() {
     } finally {
       setMyLoading(false);
     }
-  }, [owner, myFilter]);
+  }, [myFilter]);
 
   React.useEffect(() => {
-    if (owner) void loadMyFoods();
-  }, [owner, loadMyFoods]);
+    void loadMyFoods();
+  }, [loadMyFoods]);
 
   const importedUsdaKeys = React.useMemo(() => {
     const set = new Set<string>();
@@ -471,10 +425,7 @@ export default function NutritionFoodsPage() {
 
   async function importFromUsda(hit: UsdaHit) {
     setUsdaErr(null);
-    if (!owner) {
-      setUsdaErr("sign in required to import into My Foods");
-      return;
-    }
+
     if (!hit?.fdc_id) {
       setUsdaErr("missing fdc_id");
       return;
@@ -484,7 +435,6 @@ export default function NutritionFoodsPage() {
       setImportingFdc(hit.fdc_id);
 
       const p = new URLSearchParams({
-        owner_user_id: owner,
         fdc_id: String(hit.fdc_id),
       });
       const v = variant.trim();
@@ -507,7 +457,6 @@ export default function NutritionFoodsPage() {
   }
 
   async function deactivateMyFood(my_food_id: string) {
-    if (!owner) return;
     try {
       await authFetch(`/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/deactivate`, {
         method: "POST",
@@ -596,11 +545,10 @@ export default function NutritionFoodsPage() {
                       className="w-full lg:w-auto rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
                       onClick={() => void importFromUsda(h)}
                       disabled={
-                        !owner ||
                         importingFdc === h.fdc_id ||
                         importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)
                       }
-                      title={!owner ? "Sign in to import" : "Import into My Foods"}
+                      title="Import into My Foods"
                     >
                       {importingFdc === h.fdc_id
                         ? "Importing…"
