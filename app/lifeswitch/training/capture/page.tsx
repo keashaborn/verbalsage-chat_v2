@@ -166,8 +166,6 @@ function selectNumberInputValue(e: React.FocusEvent<HTMLInputElement>) {
 
 export default function TrainingCapturePage() {
   const router = useRouter();
-  const [owner, setOwner] = React.useState<string | null>(null);
-  const [authErr, setAuthErr] = React.useState<string | null>(null);
 
   const [day, setDay] = React.useState(todayLocalYYYYMMDD());
   const [templates, setTemplates] = React.useState<WorkoutTemplateRow[]>([]);
@@ -274,41 +272,14 @@ export default function TrainingCapturePage() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [draftRows.length]);
 
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const j = await fetchJson("/api/auth/whoami");
-        if (!j?.ok) {
-          setOwner(null);
-          setAuthErr(j?.error || "not signed in");
-          return;
-        }
 
-        const sub = String(j.sub || "").trim();
-        if (!sub) {
-          setOwner(null);
-          setAuthErr("missing sub");
-          return;
-        }
-
-        setOwner(sub);
-        setAuthErr(null);
-      } catch (e: any) {
-        setOwner(null);
-        setAuthErr(String(e?.message || e));
-      }
-    })();
-  }, []);
 
   async function loadTemplates() {
-    if (!owner) return;
-
     setLoadingTemplates(true);
     setStatus("");
 
     try {
-      const qs = new URLSearchParams({ owner_user_id: owner });
-      const list = (await fetchJson(`/api/lifeswitch/training/workout_templates?${qs.toString()}`)) as WorkoutTemplateRow[];
+      const list = (await fetchJson("/api/lifeswitch/training/workout_templates")) as WorkoutTemplateRow[];
       const active = Array.isArray(list) ? list.filter((x) => x?.is_active) : [];
 
       setTemplates(active);
@@ -321,11 +292,8 @@ export default function TrainingCapturePage() {
   }
 
   async function loadMyExercises() {
-    if (!owner) return;
-
     try {
-      const qs = new URLSearchParams({ owner_user_id: owner });
-      const list = (await fetchJson(`/api/lifeswitch/training/my_exercises?${qs.toString()}`)) as MyExerciseRow[];
+      const list = (await fetchJson("/api/lifeswitch/training/my_exercises")) as MyExerciseRow[];
       setMyExercises(Array.isArray(list) ? list.filter((x) => x?.is_active) : []);
     } catch {
       setMyExercises([]);
@@ -520,11 +488,10 @@ export default function TrainingCapturePage() {
   }
 
   React.useEffect(() => {
-    if (!owner) return;
     void loadTemplates();
     void loadMyExercises();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owner]);
+  }, []);
 
   React.useEffect(() => {
     if (!selectedId) return;
@@ -594,7 +561,7 @@ export default function TrainingCapturePage() {
   }
 
   async function finishSession() {
-    if (!owner || !selected) return;
+    if (!selected) return;
 
     const validRows = doneRows.filter((r) => {
       if (r.set_type === "drop") {
@@ -714,17 +681,7 @@ export default function TrainingCapturePage() {
       .map(([key, rows]) => ({ key, rows }));
   }, [draftRows]);
 
-  if (authErr) {
-    return (
-      <div className="mx-auto max-w-5xl p-4">
-        <div className="text-lg font-semibold">Training · Capture</div>
-        <div className="mt-3 rounded-xl border p-3 text-sm">
-          <div className="font-medium">Not signed in</div>
-          <div className="mt-1 text-muted-foreground">/api/auth/whoami: {authErr}</div>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="mx-auto max-w-6xl p-4">
@@ -852,7 +809,7 @@ export default function TrainingCapturePage() {
               type="button"
               className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
               onClick={() => void finishSession()}
-              disabled={!owner || !selected || finishLoading || summary.setCount === 0}
+              disabled={!selected || finishLoading || summary.setCount === 0}
             >
               {finishLoading ? "Finishing..." : "Finish Session"}
             </button>
