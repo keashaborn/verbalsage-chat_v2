@@ -62,54 +62,27 @@ function norm(s: string) {
 }
 
 export default function TrainingExercisesPage() {
-  const [owner, setOwner] = React.useState<string | null>(null);
-  const [authErr, setAuthErr] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const j = await fetchJson("/api/auth/whoami");
-        if (!j?.ok) {
-          setOwner(null);
-          setAuthErr(j?.error || "not signed in");
-          return;
-        }
-        const sub = String(j.sub || "").trim();
-        if (!sub) {
-          setOwner(null);
-          setAuthErr("missing sub");
-          return;
-        }
-        setOwner(sub);
-        setAuthErr(null);
-      } catch (e: any) {
-        setOwner(null);
-        setAuthErr(String(e?.message || e));
-      }
-    })();
-  }, []);
-
   // Unique Exercises (DB)
   const [myExercises, setMyExercises] = React.useState<MyExerciseRow[]>([]);
   const [myLoading, setMyLoading] = React.useState(false);
 
   const loadMyExercises = React.useCallback(async () => {
-    if (!owner) return;
     setMyLoading(true);
     try {
-      const qs = new URLSearchParams({ owner_user_id: owner });
-      const j = (await fetchJson(`/api/lifeswitch/training/my_exercises?${qs.toString()}`)) as MyExerciseRow[];
+      const j = (await fetchJson("/api/lifeswitch/training/my_exercises")) as MyExerciseRow[];
       setMyExercises(Array.isArray(j) ? j : []);
     } catch {
       setMyExercises([]);
     } finally {
       setMyLoading(false);
     }
-  }, [owner]);
+  }, []);
+
 
   React.useEffect(() => {
-    if (owner) void loadMyExercises();
-  }, [owner, loadMyExercises]);
+    void loadMyExercises();
+  }, [loadMyExercises]);
+
 
   // Catalog search (global)
   const [q, setQ] = React.useState("");
@@ -155,12 +128,10 @@ export default function TrainingExercisesPage() {
   }, [myExercises]);
 
   async function saveExercise(h: ExerciseSearchHit) {
-    if (!owner) return;
     setSaveErr(null);
 
     // Backend expects these in query (FastAPI 422 loc=["query",...])
     const qs = new URLSearchParams();
-    qs.set("owner_user_id", owner);
     qs.set("exercise_id", String(h.exercise_id || "").trim());
     qs.set("display_name", String(h.display_name || "").trim());
 
@@ -185,27 +156,14 @@ export default function TrainingExercisesPage() {
   }
 
   async function removeExercise(row: MyExerciseRow) {
-    if (!owner) return;
-    const qs = new URLSearchParams({ owner_user_id: owner });
     await fetchJson(
-      `/api/lifeswitch/training/my_exercises/${encodeURIComponent(row.my_exercise_id)}/deactivate?${qs.toString()}`,
+      `/api/lifeswitch/training/my_exercises/${encodeURIComponent(row.my_exercise_id)}/deactivate`,
       { method: "POST" }
     );
     await loadMyExercises();
   }
 
-  // If you’re not signed in, show that clearly (matches nutrition pattern)
-  if (authErr) {
-    return (
-      <div className="mx-auto max-w-3xl p-4">
-        <h1 className="text-xl font-semibold">Unique Exercises</h1>
-        <div className="mt-2 rounded-md border p-3 text-sm">
-          <div className="font-medium">Not signed in</div>
-          <div className="mt-1 text-muted-foreground">/api/auth/whoami: {authErr}</div>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="mx-auto max-w-3xl p-4">
@@ -221,7 +179,7 @@ export default function TrainingExercisesPage() {
         />
         <div className="text-xs text-muted-foreground">
           {hitsLoading ? "searching…" : hitsStatus}
-          {owner ? "" : " · not signed in"}
+
         </div>
         {saveErr ? (
           <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs">
@@ -259,8 +217,8 @@ export default function TrainingExercisesPage() {
                       type="button"
                       className="w-full sm:w-auto rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
                       onClick={() => void saveExercise(h)}
-                      disabled={!owner || saved}
-                      title={!owner ? "Sign in required" : saved ? "Already saved" : "Save to Unique Exercises"}
+                      disabled={saved}
+                      title={saved ? "Already saved" : "Save to Unique Exercises"}
                     >
                       {saved ? "Saved" : "Save"}
                     </button>
@@ -296,7 +254,7 @@ export default function TrainingExercisesPage() {
                   type="button"
                   className="shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30"
                   onClick={() => void removeExercise(x)}
-                  disabled={!owner}
+
                 >
                   Remove
                 </button>
