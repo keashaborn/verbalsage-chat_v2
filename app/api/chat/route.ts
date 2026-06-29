@@ -15,6 +15,21 @@ function getRequestId(req: Request): string {
   return randomUUID();
 }
 
+function brainsHeaders(requestId: string, actorUserId?: string): HeadersInit {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "x-request-id": requestId,
+  };
+
+  const serviceToken = (process.env.VS_SERVICE_TOKEN || "").trim();
+  if (serviceToken) headers["x-vs-service-token"] = serviceToken;
+
+  const actor = String(actorUserId || "").trim();
+  if (actor) headers["x-vs-actor-user-id"] = actor;
+
+  return headers;
+}
+
 
 function extractTextFromMessages(messages: any[]): string {
   const lastUser = [...messages].reverse().find((m: any) => m?.role === "user");
@@ -311,7 +326,7 @@ export async function POST(req: Request) {
       try {
         await fetch(`${BRAINS_URL}/log`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-request-id": requestId },
+          headers: brainsHeaders(requestId, user_id),
           body: JSON.stringify({
             user_id,
             thread_id,
@@ -429,7 +444,7 @@ export async function POST(req: Request) {
       try {
         await fetch(`${BRAINS_URL}/log`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-request-id": requestId },
+          headers: brainsHeaders(requestId, user_id),
           body: JSON.stringify({
             user_id,
             thread_id,
