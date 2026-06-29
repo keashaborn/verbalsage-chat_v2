@@ -70,8 +70,6 @@ function riskLabel(value: string) {
 }
 
 export default function ConditioningPage() {
-  const [owner, setOwner] = React.useState<string | null>(null);
-  const [authErr, setAuthErr] = React.useState<string | null>(null);
 
   const [library, setLibrary] = React.useState<ConditioningLibraryRow[]>([]);
   const [prescriptions, setPrescriptions] = React.useState<MyConditioningPrescriptionRow[]>([]);
@@ -132,29 +130,7 @@ export default function ConditioningPage() {
     });
   }, [library, query, categoryFilter]);
 
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const j = await fetchJson("/api/auth/whoami");
-        if (!j?.ok) {
-          setOwner(null);
-          setAuthErr(j?.error || "not signed in");
-          return;
-        }
-        const sub = String(j.sub || "").trim();
-        if (!sub) {
-          setOwner(null);
-          setAuthErr("missing sub");
-          return;
-        }
-        setOwner(sub);
-        setAuthErr(null);
-      } catch (e: any) {
-        setOwner(null);
-        setAuthErr(String(e?.message || e));
-      }
-    })();
-  }, []);
+
 
   const loadLibrary = React.useCallback(async () => {
     const rows = (await fetchJson("/api/lifeswitch/training/conditioning_library")) as ConditioningLibraryRow[];
@@ -165,31 +141,27 @@ export default function ConditioningPage() {
   }, [selectedLibraryId]);
 
   const loadPrescriptions = React.useCallback(async () => {
-    if (!owner) return;
-    const qs = new URLSearchParams({ owner_user_id: owner });
-    const rows = (await fetchJson(`/api/lifeswitch/training/my_conditioning_prescriptions?${qs.toString()}`)) as MyConditioningPrescriptionRow[];
+    const rows = (await fetchJson("/api/lifeswitch/training/my_conditioning_prescriptions")) as MyConditioningPrescriptionRow[];
     const arr = Array.isArray(rows) ? rows.filter((x) => x.is_active) : [];
     arr.sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
     setPrescriptions(arr);
     if (!selectedPrescriptionId && arr.length) setSelectedPrescriptionId(arr[0].my_conditioning_prescription_id);
-  }, [owner, selectedPrescriptionId]);
+  }, [selectedPrescriptionId]);
+
 
   React.useEffect(() => {
     void loadLibrary();
   }, [loadLibrary]);
 
   React.useEffect(() => {
-    if (!owner) return;
     void loadPrescriptions();
-  }, [owner, loadPrescriptions]);
+  }, [loadPrescriptions]);
 
   async function addLibraryToMine(row: ConditioningLibraryRow) {
-    if (!owner) return;
     setLoading(true);
     setStatus("");
     try {
       const qs = new URLSearchParams({
-        owner_user_id: owner,
         conditioning_library_id: row.conditioning_library_id,
         name: row.name,
         category: row.category,
@@ -218,13 +190,12 @@ export default function ConditioningPage() {
   }
 
   async function updatePrescription(patch: Partial<MyConditioningPrescriptionRow>) {
-    if (!owner || !selectedPrescription) return;
+    if (!selectedPrescription) return;
     setLoading(true);
     setStatus("");
     try {
       const merged = { ...selectedPrescription, ...patch };
       const qs = new URLSearchParams({
-        owner_user_id: owner,
         my_conditioning_prescription_id: merged.my_conditioning_prescription_id,
         conditioning_library_id: merged.conditioning_library_id || "",
         name: merged.name || "",
@@ -254,12 +225,10 @@ export default function ConditioningPage() {
   }
 
   async function deactivatePrescription(id: string) {
-    if (!owner) return;
     setLoading(true);
     setStatus("");
     try {
-      const qs = new URLSearchParams({ owner_user_id: owner });
-      await fetchJson(`/api/lifeswitch/training/my_conditioning_prescriptions/${encodeURIComponent(id)}/deactivate?${qs.toString()}`, {
+      await fetchJson(`/api/lifeswitch/training/my_conditioning_prescriptions/${encodeURIComponent(id)}/deactivate`, {
         method: "POST",
       });
       setStatus("Removed prescription");
@@ -272,17 +241,7 @@ export default function ConditioningPage() {
     }
   }
 
-  if (authErr) {
-    return (
-      <div className="mx-auto max-w-3xl p-4">
-        <div className="text-xl font-semibold">Training · Conditioning</div>
-        <div className="mt-2 rounded-md border p-3 text-sm">
-          <div className="font-medium">Not signed in</div>
-          <div className="mt-1 text-muted-foreground">/api/auth/whoami: {authErr}</div>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="mx-auto w-full max-w-6xl overflow-x-hidden p-4">
@@ -386,7 +345,7 @@ export default function ConditioningPage() {
               <button
                 type="button"
                 className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                disabled={!selectedLibrary || !owner || loading}
+                disabled={!selectedLibrary || loading}
                 onClick={() => selectedLibrary && void addLibraryToMine(selectedLibrary)}
               >
                 Add to my conditioning
