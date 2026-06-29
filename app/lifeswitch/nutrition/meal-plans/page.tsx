@@ -254,7 +254,7 @@ export default function MealPlansPage() {
                 </option>
               ))}
             </select>
-            <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void loadPlans()} disabled={foodLoading}>
+            <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void loadPlans()}>
               Refresh
             </button>
           </div>
@@ -292,7 +292,7 @@ export default function MealPlansPage() {
               <input className="rounded-md border bg-background px-2 py-2 text-sm" value={createC} onChange={(e) => setCreateC(e.target.value)} placeholder="carbs g" />
               <input className="rounded-md border bg-background px-2 py-2 text-sm" value={createF} onChange={(e) => setCreateF(e.target.value)} placeholder="fat g" />
             </div>
-            <button className="mt-2 w-full rounded-md border px-3 py-2 text-sm" onClick={() => void createPlan()} disabled={foodLoading}>
+            <button className="mt-2 w-full rounded-md border px-3 py-2 text-sm" onClick={() => void createPlan()} disabled={!createName.trim()}>
               Save plan
             </button>
           </div>
