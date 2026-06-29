@@ -96,32 +96,7 @@ async function fetchJson(url: string, init?: RequestInit) {
 }
 
 export default function MealPlansPage() {
-  const [owner, setOwner] = React.useState<string | null>(null);
-  const [authErr, setAuthErr] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const j = await fetchJson("/api/auth/whoami");
-        if (!j?.ok) {
-          setOwner(null);
-          setAuthErr(j?.error || "not signed in");
-          return;
-        }
-        const sub = String(j.sub || "").trim();
-        if (!sub) {
-          setOwner(null);
-          setAuthErr("missing sub");
-          return;
-        }
-        setOwner(sub);
-        setAuthErr(null);
-      } catch (e: any) {
-        setOwner(null);
-        setAuthErr(String(e?.message || e));
-      }
-    })();
-  }, []);
 
   const [plans, setPlans] = React.useState<MealPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = React.useState<string>("");
@@ -147,17 +122,16 @@ export default function MealPlansPage() {
   const [addingId, setAddingId] = React.useState<string | null>(null);
 
   const loadPlans = React.useCallback(async () => {
-    if (!owner) return;
     setErr(null);
     try {
-      const j = (await fetchJson(`/api/lifeswitch/nutrition/meal_plans?owner_user_id=${encodeURIComponent(owner)}`)) as MealPlan[];
+      const j = (await fetchJson("/api/lifeswitch/nutrition/meal_plans")) as MealPlan[];
       setPlans(Array.isArray(j) ? j : []);
       if (!selectedPlanId && Array.isArray(j) && j.length) setSelectedPlanId(j[0].meal_plan_id);
     } catch (e: any) {
       setErr(String(e?.message || e));
       setPlans([]);
     }
-  }, [owner, selectedPlanId]);
+  }, [selectedPlanId]);
 
   const loadItems = React.useCallback(async (meal_plan_id: string) => {
     if (!meal_plan_id) return;
@@ -172,19 +146,17 @@ export default function MealPlansPage() {
   }, []);
 
   React.useEffect(() => {
-    if (owner) void loadPlans();
-  }, [owner, loadPlans]);
+    void loadPlans();
+  }, [loadPlans]);
 
   React.useEffect(() => {
     if (selectedPlanId) void loadItems(selectedPlanId);
   }, [selectedPlanId, loadItems]);
 
   async function createPlan() {
-    if (!owner) return;
     setErr(null);
     try {
       const qs = new URLSearchParams({
-        owner_user_id: owner,
         name: createName.trim(),
         goal: createGoal,
         target_kcal: createKcal,
@@ -201,14 +173,14 @@ export default function MealPlansPage() {
   }
 
   async function searchMyFoods() {
-    if (!owner) return;
     setFoodLoading(true);
     setErr(null);
     try {
-      const qs = new URLSearchParams({ owner_user_id: owner });
+      const qs = new URLSearchParams();
       const q = foodQ.trim();
       if (q) qs.set("q", q);
-      const j = (await fetchJson(`/api/lifeswitch/nutrition/my_foods?${qs.toString()}`)) as MyFood[];
+      const url = qs.toString() ? `/api/lifeswitch/nutrition/my_foods?${qs.toString()}` : "/api/lifeswitch/nutrition/my_foods";
+      const j = (await fetchJson(url)) as MyFood[];
       setFoodHits(Array.isArray(j) ? j.filter((x) => x.is_active) : []);
     } catch (e: any) {
       setErr(String(e?.message || e));
@@ -219,7 +191,7 @@ export default function MealPlansPage() {
   }
 
   async function addToPlan(my_food_id: string) {
-    if (!owner || !selectedPlanId) return;
+    if (!selectedPlanId) return;
     setErr(null);
     try {
       setAddingId(my_food_id);
@@ -261,13 +233,6 @@ export default function MealPlansPage() {
         Build templates from <span className="font-medium">My Foods</span>. No USDA/catalog search here.
       </div>
 
-      {authErr ? (
-        <div className="mt-3 rounded-md border p-3 text-sm">
-          <div className="font-medium">Not signed in</div>
-          <div className="mt-1 text-muted-foreground">/api/auth/whoami: {authErr}</div>
-        </div>
-      ) : null}
-
       {err ? <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900">{err}</div> : null}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -280,7 +245,7 @@ export default function MealPlansPage() {
               className="w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={selectedPlanId}
               onChange={(e) => setSelectedPlanId(e.target.value)}
-              disabled={!owner}
+              disabled={foodLoading}
             >
               <option value="">(select plan)</option>
               {plans.map((p) => (
@@ -289,7 +254,7 @@ export default function MealPlansPage() {
                 </option>
               ))}
             </select>
-            <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void loadPlans()} disabled={!owner}>
+            <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void loadPlans()} disabled={foodLoading}>
               Refresh
             </button>
           </div>
@@ -327,7 +292,7 @@ export default function MealPlansPage() {
               <input className="rounded-md border bg-background px-2 py-2 text-sm" value={createC} onChange={(e) => setCreateC(e.target.value)} placeholder="carbs g" />
               <input className="rounded-md border bg-background px-2 py-2 text-sm" value={createF} onChange={(e) => setCreateF(e.target.value)} placeholder="fat g" />
             </div>
-            <button className="mt-2 w-full rounded-md border px-3 py-2 text-sm" onClick={() => void createPlan()} disabled={!owner}>
+            <button className="mt-2 w-full rounded-md border px-3 py-2 text-sm" onClick={() => void createPlan()} disabled={foodLoading}>
               Save plan
             </button>
           </div>
@@ -365,25 +330,33 @@ export default function MealPlansPage() {
               value={foodQ}
               onChange={(e) => setFoodQ(e.target.value)}
               placeholder='search your My Foods (e.g. "salmon", "96/4", "cheddar")'
-              disabled={!owner}
               onKeyDown={(e) => {
                 if (e.key === "Enter") void searchMyFoods();
               }}
             />
-            <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void searchMyFoods()} disabled={!owner || foodLoading}>
+            <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void searchMyFoods()} disabled={foodLoading}>
               {foodLoading ? "…" : "Search"}
             </button>
           </div>
 
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <select className="rounded-md border bg-background px-2 py-2 text-sm" value={addMealLabel} onChange={(e) => setAddMealLabel(e.target.value as any)} disabled={!owner}>
+            <select
+              className="rounded-md border bg-background px-2 py-2 text-sm"
+              value={addMealLabel}
+              onChange={(e) => setAddMealLabel(e.target.value as any)}
+            >
               <option value="breakfast">breakfast</option>
               <option value="lunch">lunch</option>
               <option value="dinner">dinner</option>
               <option value="snack">snack</option>
               <option value="other">other</option>
             </select>
-            <input className="rounded-md border bg-background px-2 py-2 text-sm" value={addQtyG} onChange={(e) => setAddQtyG(e.target.value)} placeholder="qty_g (e.g. 150)" disabled={!owner} />
+            <input
+              className="rounded-md border bg-background px-2 py-2 text-sm"
+              value={addQtyG}
+              onChange={(e) => setAddQtyG(e.target.value)}
+              placeholder="qty_g (e.g. 150)"
+            />
           </div>
 
           <div className="mt-3 space-y-2">
@@ -405,7 +378,7 @@ export default function MealPlansPage() {
                   <button
                     className="shrink-0 rounded-md border px-3 py-1.5 text-xs"
                     onClick={() => void addToPlan(f.my_food_id)}
-                    disabled={!owner || !selectedPlanId || addingId === f.my_food_id}
+                    disabled={!selectedPlanId || addingId === f.my_food_id}
                     title={!selectedPlanId ? "Select a plan first" : "Add to plan"}
                   >
                     {addingId === f.my_food_id ? "Adding…" : "Add"}
@@ -413,7 +386,7 @@ export default function MealPlansPage() {
                 </div>
               </div>
             ))}
-            {owner && foodHits.length == 0 ? (
+            {foodHits.length == 0 ? (
               <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
                 Search your My Foods to add items to this plan.
               </div>
