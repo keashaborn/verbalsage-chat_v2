@@ -182,7 +182,6 @@ export default function NutritionAnalyzePage() {
   const [rangeDays, setRangeDays] = React.useState<RangeDays>(30);
   const [status, setStatus] = React.useState("loading…");
   const [loading, setLoading] = React.useState(true);
-  const [owner, setOwner] = React.useState("");
   const [plan, setPlan] = React.useState<PlanProfile | null>(null);
   const [days, setDays] = React.useState<DaySummary[]>([]);
   const showDebug =
@@ -199,14 +198,6 @@ export default function NutritionAnalyzePage() {
     setStatus("loading nutrition analysis…");
 
     try {
-      const who = await fetchJson("/api/auth/whoami");
-      if (!who?.ok || !String(who?.sub || "").trim()) {
-        throw new Error(who?.error || "not signed in");
-      }
-
-      const uid = String(who.sub).trim();
-      setOwner(uid);
-
       const planJson = await fetchJson("/api/lifeswitch/plan/profile?create_if_missing=1");
       setPlan(planJson && typeof planJson === "object" ? (planJson as PlanProfile) : null);
 
@@ -227,7 +218,6 @@ export default function NutritionAnalyzePage() {
         const results = await Promise.all(
           chunk.map(async (day) => {
             const u = new URL("/api/lifeswitch/nutrition/log/day", window.location.origin);
-            u.searchParams.set("owner_user_id", uid);
             u.searchParams.set("day", day);
 
             const raw = await fetchJson(u.toString());
@@ -360,7 +350,6 @@ export default function NutritionAnalyzePage() {
         <details className="mt-4">
           <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
           <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
-            <div>owner: {owner || "not loaded"}</div>
             <div>status: {status}</div>
             <div>days loaded: {days.length}</div>
             <div>logged days in range: {summary.loggedDays}</div>
