@@ -89,8 +89,6 @@ function norm(s: string) {
 }
 
 export default function TrainingWorkoutsPage() {
-  const [owner, setOwner] = React.useState<string | null>(null);
-  const [authErr, setAuthErr] = React.useState<string | null>(null);
 
   const [myExercises, setMyExercises] = React.useState<MyExerciseRow[]>([]);
   const [templates, setTemplates] = React.useState<WorkoutTemplateRow[]>([]);
@@ -114,36 +112,11 @@ export default function TrainingWorkoutsPage() {
   const [shareUrl, setShareUrl] = React.useState("");
   const [shareStatus, setShareStatus] = React.useState("");
 
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const j = await fetchJson("/api/auth/whoami");
-        if (!j?.ok) {
-          setOwner(null);
-          setAuthErr(j?.error || "not signed in");
-          return;
-        }
-        const sub = String(j.sub || "").trim();
-        if (!sub) {
-          setOwner(null);
-          setAuthErr("missing sub");
-          return;
-        }
-        setOwner(sub);
-        setAuthErr(null);
-      } catch (e: any) {
-        setOwner(null);
-        setAuthErr(String(e?.message || e));
-      }
-    })();
-  }, []);
 
   const loadMyExercises = React.useCallback(async () => {
-    if (!owner) return;
     setMyLoading(true);
     try {
-      const qs = new URLSearchParams({ owner_user_id: owner });
-      const j = (await fetchJson(`/api/lifeswitch/training/my_exercises?${qs.toString()}`)) as any;
+      const j = (await fetchJson("/api/lifeswitch/training/my_exercises")) as any;
       const arr = Array.isArray(j) ? (j as MyExerciseRow[]) : [];
       setMyExercises(arr.filter((x) => x.is_active));
     } catch {
@@ -151,14 +124,12 @@ export default function TrainingWorkoutsPage() {
     } finally {
       setMyLoading(false);
     }
-  }, [owner]);
+  }, []);
 
   const loadTemplates = React.useCallback(async () => {
-    if (!owner) return;
     setTplLoading(true);
     try {
-      const qs = new URLSearchParams({ owner_user_id: owner });
-      const j = (await fetchJson(`/api/lifeswitch/training/workout_templates?${qs.toString()}`)) as any;
+      const j = (await fetchJson("/api/lifeswitch/training/workout_templates")) as any;
       const arr = Array.isArray(j) ? (j as WorkoutTemplateRow[]) : [];
       const active = arr.filter((x) => x.is_active);
       active.sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
@@ -169,20 +140,18 @@ export default function TrainingWorkoutsPage() {
     } finally {
       setTplLoading(false);
     }
-  }, [owner, selectedId]);
+  }, [selectedId]);
 
   const loadTemplateExercises = React.useCallback(
     async (workout_template_id: string) => {
-      if (!owner) return;
       if (!workout_template_id) {
         setTemplateExercises([]);
         return;
       }
       setExLoading(true);
       try {
-        const qs = new URLSearchParams({ owner_user_id: owner });
         const j = (await fetchJson(
-          `/api/lifeswitch/training/workout_templates/${encodeURIComponent(workout_template_id)}/exercises?${qs.toString()}`
+          `/api/lifeswitch/training/workout_templates/${encodeURIComponent(workout_template_id)}/exercises`
         )) as any;
         const arr = Array.isArray(j) ? (j as WorkoutTemplateExerciseRow[]) : [];
         arr.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
@@ -193,23 +162,19 @@ export default function TrainingWorkoutsPage() {
         setExLoading(false);
       }
     },
-    [owner]
+    []
   );
-
   React.useEffect(() => {
-    if (!owner) return;
     void loadMyExercises();
     void loadTemplates();
-  }, [owner, loadMyExercises, loadTemplates]);
-
+  }, [loadMyExercises, loadTemplates]);
   React.useEffect(() => {
-    if (!owner) return;
     if (!selectedId) {
       setTemplateExercises([]);
       return;
     }
     void loadTemplateExercises(selectedId);
-  }, [owner, selectedId, loadTemplateExercises]);
+  }, [selectedId, loadTemplateExercises]);
 
   const selected = React.useMemo(() => {
     return templates.find((t) => t.workout_template_id === selectedId) || null;
@@ -280,12 +245,9 @@ export default function TrainingWorkoutsPage() {
   }, [q]);
 
   async function createTemplate() {
-    if (!owner) return;
     const name = newName.trim();
     if (!name) return;
-
-    const qs = new URLSearchParams({ owner_user_id: owner });
-    const created = (await fetchJson(`/api/lifeswitch/training/workout_templates/upsert?${qs.toString()}`, {
+    const created = (await fetchJson(`/api/lifeswitch/training/workout_templates/upsert`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, notes: "" }),
@@ -308,9 +270,8 @@ export default function TrainingWorkoutsPage() {
   }
 
   async function updateSelected(patch: { name?: string; notes?: string | null }) {
-    if (!owner || !selected) return;
-    const qs = new URLSearchParams({ owner_user_id: owner });
-    await fetchJson(`/api/lifeswitch/training/workout_templates/upsert?${qs.toString()}`, {
+    if (!selected) return;
+    await fetchJson(`/api/lifeswitch/training/workout_templates/upsert`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -323,7 +284,7 @@ export default function TrainingWorkoutsPage() {
   }
 
   async function createShareLink() {
-    if (!owner || !selected) return;
+    if (!selected) return;
 
     setShareStatus("Creating share link…");
     setShareUrl("");
@@ -361,10 +322,8 @@ export default function TrainingWorkoutsPage() {
   }
 
   async function deactivateTemplate(workout_template_id: string) {
-    if (!owner) return;
-    const qs = new URLSearchParams({ owner_user_id: owner });
     await fetchJson(
-      `/api/lifeswitch/training/workout_templates/${encodeURIComponent(workout_template_id)}/deactivate?${qs.toString()}`,
+      `/api/lifeswitch/training/workout_templates/${encodeURIComponent(workout_template_id)}/deactivate`,
       { method: "POST" }
     );
     if (selectedId === workout_template_id) setSelectedId("");
@@ -393,10 +352,7 @@ export default function TrainingWorkoutsPage() {
     model_name?: string | null;
     matched_source?: string | null;
   }) {
-    if (!owner) throw new Error("missing owner");
-
     const qs = new URLSearchParams();
-    qs.set("owner_user_id", owner);
     qs.set("exercise_id", String(input.exercise_id || "").trim());
     qs.set("display_name", String(input.display_name || "").trim());
     qs.set("kind", String(input.kind || "strength").trim());
@@ -415,7 +371,7 @@ export default function TrainingWorkoutsPage() {
   }
 
   async function addCatalogExerciseToSelected(hit: ExerciseSearchHit) {
-    if (!owner || !selected) return;
+    if (!selected) return;
 
     setAddStatus("");
 
@@ -440,7 +396,7 @@ export default function TrainingWorkoutsPage() {
   }
 
   async function createCustomAndAddToSelected() {
-    if (!owner || !selected) return;
+    if (!selected) return;
 
     const name = q.trim();
     if (!name) return;
@@ -463,14 +419,12 @@ export default function TrainingWorkoutsPage() {
     }
   }
   async function addExerciseToSelected(exercise_id: string, display_name_snapshot?: string) {
-    if (!owner || !selected) return;
+    if (!selected) return;
     if (templateExercises.some((e) => e.exercise_id === exercise_id)) return;
-
-    const qs = new URLSearchParams({ owner_user_id: owner });
     const maxSort = templateExercises.length ? Math.max(...templateExercises.map((x) => x.sort_order || 0)) : 0;
 
     await fetchJson(
-      `/api/lifeswitch/training/workout_templates/${encodeURIComponent(selected.workout_template_id)}/exercises/upsert?${qs.toString()}`,
+      `/api/lifeswitch/training/workout_templates/${encodeURIComponent(selected.workout_template_id)}/exercises/upsert`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -491,13 +445,12 @@ export default function TrainingWorkoutsPage() {
   }
 
   async function removeExerciseFromSelected(workout_template_exercise_id: string) {
-    if (!owner || !selected) return;
-    const qs = new URLSearchParams({ owner_user_id: owner });
+    if (!selected) return;
 
     await fetchJson(
       `/api/lifeswitch/training/workout_templates/${encodeURIComponent(
         selected.workout_template_id
-      )}/exercises/${encodeURIComponent(workout_template_exercise_id)}/delete?${qs.toString()}`,
+      )}/exercises/${encodeURIComponent(workout_template_exercise_id)}/delete`,
       { method: "POST" }
     );
 
@@ -505,13 +458,12 @@ export default function TrainingWorkoutsPage() {
   }
 
   async function reorderExercises(next: WorkoutTemplateExerciseRow[]) {
-    if (!owner || !selected) return;
-    const qs = new URLSearchParams({ owner_user_id: owner });
+    if (!selected) return;
 
     for (let i = 0; i < next.length; i++) {
       const row = next[i];
       await fetchJson(
-        `/api/lifeswitch/training/workout_templates/${encodeURIComponent(selected.workout_template_id)}/exercises/upsert?${qs.toString()}`,
+        `/api/lifeswitch/training/workout_templates/${encodeURIComponent(selected.workout_template_id)}/exercises/upsert`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -546,7 +498,6 @@ export default function TrainingWorkoutsPage() {
   }
 
   async function loadTemplateExerciseSegments(workout_template_exercise_id: string) {
-    if (!owner) return;
 
     setSegmentLoadingIds((prev) => ({ ...prev, [workout_template_exercise_id]: true }));
 
@@ -587,7 +538,6 @@ export default function TrainingWorkoutsPage() {
   }
 
   async function resizeDropSegments(row: WorkoutTemplateExerciseRow, drops: number) {
-    if (!owner) return;
 
     const id = row.workout_template_exercise_id;
     const safeDrops = Math.max(1, Math.min(9, Math.floor(Number(drops) || 1)));
@@ -645,13 +595,12 @@ export default function TrainingWorkoutsPage() {
   }
 
   async function updateExercise(workout_template_exercise_id: string, patch: Partial<WorkoutTemplateExerciseRow>) {
-    if (!owner || !selected) return;
+    if (!selected) return;
     const row = templateExercises.find((x) => x.workout_template_exercise_id === workout_template_exercise_id);
     if (!row) return;
-    const qs = new URLSearchParams({ owner_user_id: owner });
 
     await fetchJson(
-      `/api/lifeswitch/training/workout_templates/${encodeURIComponent(selected.workout_template_id)}/exercises/upsert?${qs.toString()}`,
+      `/api/lifeswitch/training/workout_templates/${encodeURIComponent(selected.workout_template_id)}/exercises/upsert`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -676,17 +625,7 @@ export default function TrainingWorkoutsPage() {
     }
   }
 
-  if (authErr) {
-    return (
-      <div className="mx-auto max-w-3xl p-4">
-        <div className="text-xl font-semibold">Training · Workouts</div>
-        <div className="mt-2 rounded-md border p-3 text-sm">
-          <div className="font-medium">Not signed in</div>
-          <div className="mt-1 text-muted-foreground">/api/auth/whoami: {authErr}</div>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="mx-auto w-full max-w-6xl overflow-x-hidden p-4">
@@ -722,7 +661,7 @@ export default function TrainingWorkoutsPage() {
               type="button"
               className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
               onClick={() => void createTemplate()}
-              disabled={!newName.trim() || !owner}
+              disabled={!newName.trim()}
               title="Create workout"
             >
               Save new workout
@@ -760,7 +699,6 @@ export default function TrainingWorkoutsPage() {
                       className="mt-2 rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-muted/30"
                       onClick={() => void deactivateTemplate(t.workout_template_id)}
                       title="Delete workout"
-                      disabled={!owner}
                     >
                       Delete
                     </button>
@@ -792,7 +730,7 @@ export default function TrainingWorkoutsPage() {
                       type="button"
                       className="rounded-xl border px-3 py-1.5 text-sm hover:bg-muted/30 disabled:opacity-50"
                       onClick={() => void createShareLink()}
-                      disabled={!owner || !selected}
+                      disabled={!selected}
                     >
                       Share
                     </button>
@@ -1094,7 +1032,7 @@ export default function TrainingWorkoutsPage() {
                                   type="button"
                                   className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
                                   onClick={() => void addExerciseToSelected(h.exercise_id, h.display_name)}
-                                  disabled={!owner || !selected || alreadyIn}
+                                  disabled={!selected || alreadyIn}
                                   title="Add exercise to workout"
                                 >
                                   {alreadyIn ? "Added" : "Add"}
@@ -1141,7 +1079,7 @@ export default function TrainingWorkoutsPage() {
                                   type="button"
                                   className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
                                   onClick={() => void addCatalogExerciseToSelected(h)}
-                                  disabled={!owner || !selected || alreadyIn}
+                                  disabled={!selected || alreadyIn}
                                   title="Add catalog exercise to workout"
                                 >
                                   {alreadyIn ? "Added" : "Add"}
@@ -1164,7 +1102,7 @@ export default function TrainingWorkoutsPage() {
                         type="button"
                         className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
                         onClick={() => void createCustomAndAddToSelected()}
-                        disabled={!owner || !selected || !q.trim()}
+                        disabled={!selected || !q.trim()}
                       >
                         Create custom + add
                       </button>
