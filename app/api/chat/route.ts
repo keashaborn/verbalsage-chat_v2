@@ -365,7 +365,7 @@ export async function POST(req: Request) {
     // 2) Brains answer via /vantage/query
     const r = await fetch(`${BRAINS_URL}/vantage/query`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-request-id": requestId },
+      headers: brainsHeaders(requestId, user_id),
       body: JSON.stringify({
         user_id,
         message: msg,
