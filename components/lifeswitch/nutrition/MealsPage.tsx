@@ -106,9 +106,8 @@ async function fetchJson(url: string, init?: RequestInit) {
 }
 
 
-async function fetchOverridesFromDb(owner_user_id: string): Promise<Record<string, FoodOverride>> {
-  const qs = new URLSearchParams({ owner_user_id });
-  const rows = (await fetchJson(`/api/lifeswitch/nutrition/my_food_overrides?${qs.toString()}`)) as OverrideRow[];
+async function fetchOverridesFromDb(): Promise<Record<string, FoodOverride>> {
+  const rows = (await fetchJson("/api/lifeswitch/nutrition/my_food_overrides")) as OverrideRow[];
 
   const out: Record<string, FoodOverride> = {};
   for (const row of Array.isArray(rows) ? rows : []) {
@@ -124,34 +123,8 @@ async function fetchOverridesFromDb(owner_user_id: string): Promise<Record<strin
   return out;
 }
 
+
 export default function MealsPage() {
-  const [owner, setOwner] = React.useState<string | null>(null);
-  const [authErr, setAuthErr] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const j = await fetchJson("/api/auth/whoami");
-        if (!j?.ok) {
-          setOwner(null);
-          setAuthErr(j?.error || "not signed in");
-          return;
-        }
-        const sub = String(j.sub || "").trim();
-        if (!sub) {
-          setOwner(null);
-          setAuthErr("missing sub");
-          return;
-        }
-        setOwner(sub);
-        setAuthErr(null);
-      } catch (e: any) {
-        setOwner(null);
-        setAuthErr(String(e?.message || e));
-      }
-    })();
-  }, []);
-
   const [meals, setMeals] = React.useState<Meal[]>([]);
   const [selectedMealId, setSelectedMealId] = React.useState<string>("");
   const [items, setItems] = React.useState<MealItem[]>([]);
@@ -189,12 +162,12 @@ export default function MealsPage() {
   const [deletingMealId, setDeletingMealId] = React.useState<string | null>(null);
 
   const loadMeals = React.useCallback(async () => {
-    if (!owner) return;
     setErr(null);
-    const j = (await fetchJson(`/api/lifeswitch/nutrition/meals?owner_user_id=${encodeURIComponent(owner)}`)) as Meal[];
+    const j = (await fetchJson("/api/lifeswitch/nutrition/meals")) as Meal[];
     setMeals(Array.isArray(j) ? j : []);
     if (!selectedMealId && Array.isArray(j) && j.length) setSelectedMealId(j[0].meal_id);
-  }, [owner, selectedMealId]);
+  }, [selectedMealId]);
+
 
   const loadItems = React.useCallback(async (mealId: string) => {
     if (!mealId) return;
@@ -204,11 +177,9 @@ export default function MealsPage() {
   }, []);
 
   React.useEffect(() => {
-    if (!owner) return;
-
     void (async () => {
       try {
-        const db = await fetchOverridesFromDb(owner);
+        const db = await fetchOverridesFromDb();
         setFoodOverrides(db);
       } catch {
         setFoodOverrides({});
@@ -216,18 +187,17 @@ export default function MealsPage() {
     })();
 
     void loadMeals();
-  }, [owner, loadMeals]);
+  }, [loadMeals]);
+
 
   React.useEffect(() => {
     if (selectedMealId) void loadItems(selectedMealId);
   }, [selectedMealId, loadItems]);
 
   async function createMeal() {
-    if (!owner) return;
     setErr(null);
     try {
       const qs = new URLSearchParams({
-        owner_user_id: owner,
         name: createName.trim(),
         meal_type: createType,
       });
@@ -239,12 +209,12 @@ export default function MealsPage() {
     }
   }
 
+
   async function searchMyFoods() {
-    if (!owner) return;
     setLoading(true);
     setErr(null);
     try {
-      const qs = new URLSearchParams({ owner_user_id: owner });
+      const qs = new URLSearchParams();
       const qq = q.trim();
       if (qq) qs.set("q", qq);
       const j = (await fetchJson(`/api/lifeswitch/nutrition/my_foods?${qs.toString()}`)) as MyFood[];
@@ -257,8 +227,9 @@ export default function MealsPage() {
     }
   }
 
+
   async function addItem(my_food_id: string, gramsStr: string) {
-    if (!owner || !selectedMealId) return;
+    if (!selectedMealId) return;
     setErr(null);
     try {
       setAddingId(my_food_id);
@@ -281,13 +252,12 @@ export default function MealsPage() {
   }
 
   async function deleteItem(meal_item_id: string) {
-    if (!owner || !selectedMealId) return;
+    if (!selectedMealId) return;
     setErr(null);
     try {
       setDeletingId(meal_item_id);
-      const qs = new URLSearchParams({ owner_user_id: owner });
       await fetchJson(
-        `/api/lifeswitch/nutrition/meals/${encodeURIComponent(selectedMealId)}/items/${encodeURIComponent(meal_item_id)}/delete?${qs.toString()}`,
+        `/api/lifeswitch/nutrition/meals/${encodeURIComponent(selectedMealId)}/items/${encodeURIComponent(meal_item_id)}/delete`,
         { method: "POST" }
       );
       await loadItems(selectedMealId);
@@ -298,8 +268,9 @@ export default function MealsPage() {
     }
   }
 
+
   async function deactivateMeal() {
-    if (!owner || !selectedMealId) return;
+    if (!selectedMealId) return;
 
     const selected = meals.find((m) => m.meal_id === selectedMealId);
     const label = selected ? `${selected.meal_type} · ${selected.name}` : "this meal";
@@ -364,13 +335,6 @@ export default function MealsPage() {
         </div>
       </div>
 
-      {authErr ? (
-        <div className="mt-3 rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
-          <div className="font-medium">Not signed in</div>
-          <div className="mt-1">/api/auth/whoami: {authErr}</div>
-        </div>
-      ) : null}
-
       {err ? (
         <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900">
           {err}
@@ -386,13 +350,11 @@ export default function MealsPage() {
               value={createName}
               onChange={(e) => setCreateName(e.target.value)}
               placeholder="Meal name"
-              disabled={!owner}
             />
             <select
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
               value={createType}
               onChange={(e) => setCreateType(e.target.value as any)}
-              disabled={!owner}
             >
               <option value="breakfast">breakfast</option>
               <option value="lunch">lunch</option>
@@ -403,7 +365,7 @@ export default function MealsPage() {
             <button
               className="w-full rounded-md border px-3 py-2 text-sm"
               onClick={() => void createMeal()}
-              disabled={!owner || !createName.trim()}
+              disabled={!createName.trim()}
             >
               Save new meal
             </button>
@@ -414,7 +376,6 @@ export default function MealsPage() {
             <button
               className="rounded-md border px-2 py-1 text-xs"
               onClick={() => void loadMeals()}
-              disabled={!owner}
             >
               Refresh
             </button>
@@ -437,7 +398,6 @@ export default function MealsPage() {
                           selectedMealId === m.meal_id ? "bg-muted" : ""
                         }`}
                         onClick={() => setSelectedMealId(m.meal_id)}
-                        disabled={!owner}
                       >
                         {m.name}
                       </button>
@@ -468,7 +428,7 @@ export default function MealsPage() {
               <button
                 className="rounded-md border border-red-300 px-3 py-2 text-sm text-red-700"
                 onClick={() => void deactivateMeal()}
-                disabled={!owner || !selectedMealId || deletingMealId === selectedMealId}
+                disabled={!selectedMealId || deletingMealId === selectedMealId}
                 title={!selectedMealId ? "Select a meal first" : "Delete selected meal"}
               >
                 {deletingMealId === selectedMealId ? "Deleting…" : "Delete Meal"}
@@ -544,7 +504,7 @@ export default function MealsPage() {
                   <button
                     className="shrink-0 rounded-md border px-3 py-1.5 text-xs"
                     onClick={() => void deleteItem(it.meal_item_id)}
-                    disabled={!owner || deletingId === it.meal_item_id}
+                    disabled={deletingId === it.meal_item_id}
                     title="Remove from meal"
                   >
                     {deletingId === it.meal_item_id ? "Deleting…" : "Remove"}
@@ -569,7 +529,6 @@ export default function MealsPage() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search My Foods"
-              disabled={!owner}
               onKeyDown={(e) => {
                 if (e.key === "Enter") void searchMyFoods();
               }}
@@ -577,7 +536,7 @@ export default function MealsPage() {
             <button
               className="rounded-md border px-3 py-2 text-sm"
               onClick={() => void searchMyFoods()}
-              disabled={!owner || loading}
+              disabled={loading}
             >
               {loading ? "Searching…" : "Search"}
             </button>
@@ -607,12 +566,11 @@ export default function MealsPage() {
                       setAddGramsByFoodId((p) => ({ ...p, [f.my_food_id]: e.target.value }))
                     }
                     placeholder="g"
-                    disabled={!owner}
                   />
                   <button
                     className="rounded-md border px-3 py-2 text-sm"
                     onClick={() => void addItem(f.my_food_id, gramsFor(f.my_food_id))}
-                    disabled={!owner || !selectedMealId || addingId === f.my_food_id}
+                    disabled={!selectedMealId || addingId === f.my_food_id}
                     title={!selectedMealId ? "Select a meal first" : "Add to meal"}
                   >
                     {addingId === f.my_food_id ? "Adding…" : "Add"}
@@ -621,7 +579,7 @@ export default function MealsPage() {
               </div>
             ))}
 
-            {owner && hits.length === 0 ? (
+            {hits.length === 0 ? (
               <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
                 Search your saved foods, then add foods to the selected meal template.
               </div>
