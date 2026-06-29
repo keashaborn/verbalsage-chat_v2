@@ -4,7 +4,7 @@ import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 
 const DOW = ["S", "M", "T", "W", "T", "F", "S"];
-const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 function pad2(n: number) { return n < 10 ? `0${n}` : String(n); }
 function todayLocalYYYYMMDD() {
@@ -42,16 +42,15 @@ async function fetchJson(url: string, init?: RequestInit) {
   const r = await authFetch(url, { cache: "no-store", ...(init || {}) });
   const t = await r.text().catch(() => "");
   let j: any = null;
-  try { j = t ? JSON.parse(t) : null; } catch {}
+  try { j = t ? JSON.parse(t) : null; } catch { }
   if (!r.ok) {
     const detail = j?.detail || j?.error || t?.slice(0, 200) || `HTTP ${r.status}`;
     throw new Error(String(detail));
   }
   return j;
 }
-async function patchLogEntry(owner_user_id: string, nutrition_entry_id: string, qty_g: number) {
+async function patchLogEntry(nutrition_entry_id: string, qty_g: number) {
   const u = new URL("/api/lifeswitch/nutrition/log/entry", window.location.origin);
-  u.searchParams.set("owner_user_id", owner_user_id);
   u.searchParams.set("nutrition_entry_id", nutrition_entry_id);
   u.searchParams.set("qty_g", String(qty_g));
 
@@ -63,9 +62,8 @@ async function patchLogEntry(owner_user_id: string, nutrition_entry_id: string, 
   return j;
 }
 
-async function deleteLogEntry(owner_user_id: string, nutrition_entry_id: string) {
+async function deleteLogEntry(nutrition_entry_id: string) {
   const u = new URL("/api/lifeswitch/nutrition/log/entry", window.location.origin);
-  u.searchParams.set("owner_user_id", owner_user_id);
   u.searchParams.set("nutrition_entry_id", nutrition_entry_id);
 
   const r = await authFetch(u.toString(), { method: "DELETE", cache: "no-store" });
@@ -256,7 +254,6 @@ export default function NutritionLogPage() {
   const [targetKcal, setTargetKcal] = React.useState<number | null>(null);
   const [targetStatus, setTargetStatus] = React.useState<string>("loading Plan targets…");
 
-  const [owner, setOwner] = React.useState<string>("");
   const [targetUserId, setTargetUserId] = React.useState<string>("");
   const [targetName, setTargetName] = React.useState<string>("");
   const [status, setStatus] = React.useState<string>("auth: loading…");
@@ -279,9 +276,8 @@ export default function NutritionLogPage() {
     );
   }
 
-  async function refreshOneDay(uid: string, day: string, targetUid = targetUserId) {
+  async function refreshOneDay(day: string, targetUid = targetUserId) {
     const u = new URL("/api/lifeswitch/nutrition/log/day", window.location.origin);
-    u.searchParams.set("owner_user_id", uid);
     u.searchParams.set("day", day);
     if (targetUid) u.searchParams.set("target_user_id", targetUid);
 
@@ -306,17 +302,12 @@ export default function NutritionLogPage() {
       setStatus("auth: loading…");
 
       try {
-        const who = await fetchJson("/api/auth/whoami");
-        if (!who?.ok || !String(who?.sub || "").trim()) {
-          throw new Error(who?.error || "not signed in");
-        }
-        const uid = String(who.sub).trim();
         const params = new URLSearchParams(window.location.search);
         const targetUid = String(params.get("target_user_id") || "").trim();
         const targetLabel = String(params.get("target_name") || "").trim();
 
         if (cancelled) return;
-        setOwner(uid);
+
         setTargetUserId(targetUid);
         setTargetName(targetLabel);
         setStatus(targetUid ? `loading ${targetLabel || "delegated"} nutrition…` : "loading days…");
@@ -368,7 +359,6 @@ export default function NutritionLogPage() {
           const results = await Promise.all(
             chunk.map(async (day) => {
               const u = new URL("/api/lifeswitch/nutrition/log/day", window.location.origin);
-              u.searchParams.set("owner_user_id", uid);
               u.searchParams.set("day", day);
               if (targetUid) u.searchParams.set("target_user_id", targetUid);
               const raw = await fetchJson(u.toString());
@@ -454,11 +444,6 @@ export default function NutritionLogPage() {
   async function saveEditedGrams(day: string, nutrition_entry_id: string, rawValue: string) {
     const grams = Number(String(rawValue || "").trim());
 
-    if (!owner) {
-      setEntrySaveError((prev) => ({ ...prev, [nutrition_entry_id]: "not signed in" }));
-      return;
-    }
-
     if (!Number.isFinite(grams) || grams <= 0) {
       setEntrySaveError((prev) => ({ ...prev, [nutrition_entry_id]: "grams must be > 0" }));
       return;
@@ -473,8 +458,8 @@ export default function NutritionLogPage() {
     });
 
     try {
-      await patchLogEntry(owner, nutrition_entry_id, grams);
-      await refreshOneDay(owner, day, "");
+      await patchLogEntry(nutrition_entry_id, grams);
+      await refreshOneDay(day, "");
       setSavedEntryId(nutrition_entry_id);
       window.setTimeout(() => {
         setSavedEntryId((current) => (current === nutrition_entry_id ? "" : current));
@@ -533,7 +518,6 @@ export default function NutritionLogPage() {
         <details className="mt-4">
           <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
           <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
-            <div>auth: {owner ? owner : "not signed in"}</div>
             <div>target: {targetUserId || "self"}</div>
             <div>status: {status}</div>
             <div>target status: {targetStatus}</div>
@@ -576,11 +560,10 @@ export default function NutritionLogPage() {
                   <div key={d.day} className={didx ? "mt-6 pt-6 border-t border-muted/20" : ""}>
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="text-lg font-semibold">{d.day}</div>
-                      <div className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-wide ${
-                        d.hit
-                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                          : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                      }`}>
+                      <div className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-wide ${d.hit
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                        : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                        }`}>
                         {d.hit ? "Hit" : "Logged"}
                       </div>
                     </div>
@@ -680,65 +663,65 @@ export default function NutritionLogPage() {
                                           Read-only
                                         </div>
                                       ) : (
-                                      <details className="group">
-                                        <summary className="list-none cursor-pointer select-none rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 opacity-70 hover:opacity-100 [&::-webkit-details-marker]:hidden">
-                                          ⋯ <span className="opacity-60 group-open:hidden">▾</span><span className="opacity-60 hidden group-open:inline">▴</span>
-                                        </summary>
+                                        <details className="group">
+                                          <summary className="list-none cursor-pointer select-none rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 opacity-70 hover:opacity-100 [&::-webkit-details-marker]:hidden">
+                                            ⋯ <span className="opacity-60 group-open:hidden">▾</span><span className="opacity-60 hidden group-open:inline">▴</span>
+                                          </summary>
 
 
-                                        <div className="mt-2 flex flex-wrap items-center gap-2 justify-end">
-                                          <input
-                                            className="w-20 rounded-xl border bg-background px-2 py-1.5 text-xs text-right"
-                                            value={gramsDraft}
-                                            inputMode="decimal"
-                                            onChange={(ev) => {
-                                              const value = ev.currentTarget.value;
-                                              setEditGramsByEntryId((prev) => ({
-                                                ...prev,
-                                                [entryId]: value,
-                                              }));
-                                            }}
-                                            onKeyDown={(ev) => {
-                                              if (ev.key !== "Enter") return;
-                                              const value = ev.currentTarget.value;
-                                              void saveEditedGrams(String(d.day), entryId, value);
-                                            }}
-                                            title="Edit grams, then Save"
-                                          />
-                                          <div className="text-xs text-muted-foreground">g</div>
+                                          <div className="mt-2 flex flex-wrap items-center gap-2 justify-end">
+                                            <input
+                                              className="w-20 rounded-xl border bg-background px-2 py-1.5 text-xs text-right"
+                                              value={gramsDraft}
+                                              inputMode="decimal"
+                                              onChange={(ev) => {
+                                                const value = ev.currentTarget.value;
+                                                setEditGramsByEntryId((prev) => ({
+                                                  ...prev,
+                                                  [entryId]: value,
+                                                }));
+                                              }}
+                                              onKeyDown={(ev) => {
+                                                if (ev.key !== "Enter") return;
+                                                const value = ev.currentTarget.value;
+                                                void saveEditedGrams(String(d.day), entryId, value);
+                                              }}
+                                              title="Edit grams, then Save"
+                                            />
+                                            <div className="text-xs text-muted-foreground">g</div>
 
-                                          <button
-                                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30 disabled:opacity-50"
-                                            onClick={() => void saveEditedGrams(String(d.day), entryId, gramsDraft)}
-                                            disabled={!entryId || !gramsChanged || savingEntryId === entryId}
-                                            title="Save grams"
-                                          >
-                                            {savingEntryId === entryId ? "Saving…" : "Save"}
-                                          </button>
+                                            <button
+                                              className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30 disabled:opacity-50"
+                                              onClick={() => void saveEditedGrams(String(d.day), entryId, gramsDraft)}
+                                              disabled={!entryId || !gramsChanged || savingEntryId === entryId}
+                                              title="Save grams"
+                                            >
+                                              {savingEntryId === entryId ? "Saving…" : "Save"}
+                                            </button>
 
-                                          {savedEntryId === entryId ? (
-                                            <div className="text-xs text-green-600">Saved</div>
-                                          ) : null}
+                                            {savedEntryId === entryId ? (
+                                              <div className="text-xs text-green-600">Saved</div>
+                                            ) : null}
 
-                                          {entrySaveError[entryId] ? (
-                                            <div className="text-xs text-red-600">{entrySaveError[entryId]}</div>
-                                          ) : null}
+                                            {entrySaveError[entryId] ? (
+                                              <div className="text-xs text-red-600">{entrySaveError[entryId]}</div>
+                                            ) : null}
 
-                                          <button
-                                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
-                                            onClick={() => {
-                                              if (!confirm("Delete this entry?")) return;
-                                              void deleteLogEntry(owner, String(e.nutrition_entry_id))
-                                                .then(() => refreshOneDay(owner, String(d.day), ""))
-                                                .catch(() => { });
-                                            }}
-                                            title="Delete entry"
-                                          >
-                                            Delete
-                                          </button>
-                                        </div>
+                                            <button
+                                              className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                                              onClick={() => {
+                                                if (!confirm("Delete this entry?")) return;
+                                                void deleteLogEntry(String(e.nutrition_entry_id))
+                                                  .then(() => refreshOneDay(String(d.day), ""))
+                                                  .catch(() => { });
+                                              }}
+                                              title="Delete entry"
+                                            >
+                                              Delete
+                                            </button>
+                                          </div>
 
-                                      </details>
+                                        </details>
                                       )}
                                     </div>
                                   </div>
