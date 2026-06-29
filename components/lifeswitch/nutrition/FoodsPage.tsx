@@ -141,9 +141,6 @@ function fmt(n: number | null, digits = 0) {
 }
 
 export default function NutritionFoodsPage() {
-  // auth (optional for search; required for "My Foods" + importing)
-  const [owner, setOwner] = React.useState<string | null>(null);
-  const [authErr, setAuthErr] = React.useState<string | null>(null);
 
   // USDA search
   const [usdaQ, setUsdaQ] = React.useState("");
@@ -567,12 +564,11 @@ export default function NutritionFoodsPage() {
         <div>
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-medium">Foods</div>
-            <button className="rounded-md border px-3 py-1.5 text-xs" onClick={() => void loadMyFoods()} disabled={!owner || myLoading}>
+            <button className="rounded-md border px-3 py-1.5 text-xs" onClick={() => void loadMyFoods()} disabled={myLoading}>
               {myLoading ? "Loading…" : "Refresh"}
             </button>
           </div>
 
-          {!owner ? <div className="mt-2 text-xs text-muted-foreground">Sign in to view/save My Foods.</div> : null}
           {myErr ? <div className="mt-2 text-xs text-red-500">{myErr}</div> : null}
 
           <div className="mt-3 divide-y divide-muted/20">
@@ -724,7 +720,7 @@ export default function NutritionFoodsPage() {
                         <button
                           className="rounded-xl border px-3 py-2 text-xs hover:bg-muted/30 disabled:opacity-50"
                           onClick={() => void createServing(f.my_food_id)}
-                          disabled={!owner || !!servCreating[f.my_food_id]}
+                          disabled={!!servCreating[f.my_food_id]}
                         >
                           {servCreating[f.my_food_id] ? "Saving…" : "Add serving"}
                         </button>
