@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
-import { getLifeSwitchOwnerUserId, injectOwnerUserId, unauthorizedLifeSwitch } from "@/app/api/lifeswitch/_owner";
+import { getLifeSwitchOwnerUserId, injectOwnerUserId, unauthorizedLifeSwitch, lifeSwitchUpstreamHeaders } from "@/app/api/lifeswitch/_owner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

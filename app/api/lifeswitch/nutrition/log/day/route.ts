@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
-import { getLifeSwitchOwnerUserId, injectOwnerUserId, unauthorizedLifeSwitch } from "@/app/api/lifeswitch/_owner";
+import { getLifeSwitchOwnerUserId, injectOwnerUserId, unauthorizedLifeSwitch, lifeSwitchUpstreamHeaders } from "@/app/api/lifeswitch/_owner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   injectOwnerUserId(upstream, owner_user_id);
 
   const r = await fetch(upstream.toString(), {
-    headers: { "x-request-id": rid },
+    headers: lifeSwitchUpstreamHeaders(rid, owner_user_id),
     cache: "no-store",
   });
 
