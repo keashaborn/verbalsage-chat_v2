@@ -62,8 +62,6 @@ function selectNumberInputValue(e: React.FocusEvent<HTMLInputElement>) {
 }
 
 export default function ConditioningCapturePage() {
-  const [owner, setOwner] = React.useState<string | null>(null);
-  const [authErr, setAuthErr] = React.useState<string | null>(null);
 
   const [day, setDay] = React.useState(todayLocalYYYYMMDD());
   const [prescriptions, setPrescriptions] = React.useState<MyConditioningPrescriptionRow[]>([]);
@@ -84,39 +82,14 @@ export default function ConditioningCapturePage() {
     return prescriptions.find((p) => p.my_conditioning_prescription_id === selectedId) || null;
   }, [prescriptions, selectedId]);
 
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const j = await fetchJson("/api/auth/whoami");
-        if (!j?.ok) {
-          setOwner(null);
-          setAuthErr(j?.error || "not signed in");
-          return;
-        }
-        const sub = String(j.sub || "").trim();
-        if (!sub) {
-          setOwner(null);
-          setAuthErr("missing sub");
-          return;
-        }
-        setOwner(sub);
-        setAuthErr(null);
-      } catch (e: any) {
-        setOwner(null);
-        setAuthErr(String(e?.message || e));
-      }
-    })();
-  }, []);
+
 
   const loadPrescriptions = React.useCallback(async () => {
-    if (!owner) return;
-
     setLoading(true);
     setStatus("");
 
     try {
-      const qs = new URLSearchParams({ owner_user_id: owner });
-      const rows = (await fetchJson(`/api/lifeswitch/training/my_conditioning_prescriptions?${qs.toString()}`)) as MyConditioningPrescriptionRow[];
+      const rows = (await fetchJson("/api/lifeswitch/training/my_conditioning_prescriptions")) as MyConditioningPrescriptionRow[];
       const arr = Array.isArray(rows) ? rows.filter((x) => x.is_active) : [];
       arr.sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
       setPrescriptions(arr);
@@ -127,12 +100,12 @@ export default function ConditioningCapturePage() {
     } finally {
       setLoading(false);
     }
-  }, [owner, selectedId]);
+  }, [selectedId]);
+
 
   React.useEffect(() => {
-    if (!owner) return;
     void loadPrescriptions();
-  }, [owner, loadPrescriptions]);
+  }, [loadPrescriptions]);
 
   React.useEffect(() => {
     if (!selected) return;
@@ -145,7 +118,7 @@ export default function ConditioningCapturePage() {
   }, [selected]);
 
   async function saveSession() {
-    if (!owner || !selected) return;
+    if (!selected) return;
 
     const duration = safeNum(durationMin, 0);
     if (!duration || duration <= 0) {
@@ -158,7 +131,6 @@ export default function ConditioningCapturePage() {
 
     try {
       const qs = new URLSearchParams();
-      qs.set("owner_user_id", owner);
       qs.set("my_conditioning_prescription_id", selected.my_conditioning_prescription_id);
       qs.set("day", day);
       qs.set("name", selected.name);
@@ -183,17 +155,7 @@ export default function ConditioningCapturePage() {
     }
   }
 
-  if (authErr) {
-    return (
-      <div className="mx-auto max-w-5xl p-4">
-        <div className="text-lg font-semibold">Training · Conditioning Capture</div>
-        <div className="mt-3 rounded-xl border p-3 text-sm">
-          <div className="font-medium">Not signed in</div>
-          <div className="mt-1 text-muted-foreground">/api/auth/whoami: {authErr}</div>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="mx-auto max-w-5xl p-4">
@@ -273,7 +235,7 @@ export default function ConditioningCapturePage() {
               type="button"
               className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
               onClick={() => void saveSession()}
-              disabled={!owner || !selected || saving}
+              disabled={!selected || saving}
             >
               {saving ? "Saving..." : "Save conditioning session"}
             </button>
