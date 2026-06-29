@@ -129,9 +129,8 @@ type OverrideRow = {
   updated_at: string;
 };
 
-async function fetchOverridesFromDb(owner_user_id: string): Promise<Record<string, FoodOverride>> {
-  const qs = new URLSearchParams({ owner_user_id });
-  const rows = (await fetchJson(`/api/lifeswitch/nutrition/my_food_overrides?${qs.toString()}`)) as OverrideRow[];
+async function fetchOverridesFromDb(): Promise<Record<string, FoodOverride>> {
+  const rows = (await fetchJson("/api/lifeswitch/nutrition/my_food_overrides")) as OverrideRow[];
 
   const out: Record<string, FoodOverride> = {};
   for (const row of Array.isArray(rows) ? rows : []) {
@@ -148,8 +147,6 @@ async function fetchOverridesFromDb(owner_user_id: string): Promise<Record<strin
 }
 
 export default function NutritionCapturePage() {
-  const [owner, setOwner] = React.useState<string | null>(null);
-  const [authErr, setAuthErr] = React.useState<string | null>(null);
 
   const [mode, setMode] = React.useState<CaptureMode>("foods");
 
@@ -207,49 +204,18 @@ export default function NutritionCapturePage() {
   }, [mealItems, gramsByMealItem, includedMealItemIds]);
 
   // ----------------------------
-  // AUTH
-  // ----------------------------
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const j = await fetchJson("/api/auth/whoami");
-
-        if (!j?.ok) {
-          setOwner(null);
-          setAuthErr(j?.error || "not signed in");
-          return;
-        }
-
-        const sub = String(j.sub || "").trim();
-        if (!sub) {
-          setOwner(null);
-          setAuthErr("missing sub");
-          return;
-        }
-
-        setOwner(sub);
-        setAuthErr(null);
-      } catch (e: any) {
-        setOwner(null);
-        setAuthErr(String(e?.message || e));
-      }
-    })();
-  }, []);
-
-  // ----------------------------
   // LOAD FOODS
   // ----------------------------
   async function loadFoods() {
-    if (!owner) return;
-
     setFoodsLoading(true);
     setStatus("");
 
     try {
-      const p = new URLSearchParams({ owner_user_id: owner });
+      const p = new URLSearchParams();
       if (q.trim()) p.set("q", q.trim());
 
-      const list = (await fetchJson(`/api/lifeswitch/nutrition/my_foods?${p.toString()}`)) as MyFood[];
+      const url = p.toString() ? `/api/lifeswitch/nutrition/my_foods?${p.toString()}` : "/api/lifeswitch/nutrition/my_foods";
+      const list = (await fetchJson(url)) as MyFood[];
       const active = Array.isArray(list) ? list.filter((x) => x?.is_active) : [];
 
       setFoods(active);
@@ -265,14 +231,11 @@ export default function NutritionCapturePage() {
   // LOAD MEAL COMBOS
   // ----------------------------
   async function loadMeals() {
-    if (!owner) return;
-
     setMealsLoading(true);
     setStatus("");
 
     try {
-      const p = new URLSearchParams({ owner_user_id: owner });
-      const list = (await fetchJson(`/api/lifeswitch/nutrition/meals?${p.toString()}`)) as MealCombo[];
+      const list = (await fetchJson("/api/lifeswitch/nutrition/meals")) as MealCombo[];
       const active = Array.isArray(list) ? list.filter((x) => x?.is_active) : [];
 
       setMeals(active);
@@ -321,11 +284,9 @@ export default function NutritionCapturePage() {
   }
 
   React.useEffect(() => {
-    if (!owner) return;
-
     void (async () => {
       try {
-        const db = await fetchOverridesFromDb(owner);
+        const db = await fetchOverridesFromDb();
         setOverrides(db);
       } catch {
         setOverrides({});
@@ -334,7 +295,7 @@ export default function NutritionCapturePage() {
 
     void loadFoods();
     void loadMeals();
-  }, [owner]);
+  }, []);
 
   React.useEffect(() => {
     if (!selectedMealId) {
@@ -372,7 +333,6 @@ export default function NutritionCapturePage() {
   // LOG (ATOMIC)
   // ----------------------------
   async function logFood(my_food_id: string, grams: number) {
-    if (!owner) throw new Error("not signed in");
 
     if (!Number.isFinite(grams) || grams <= 0) {
       throw new Error("grams must be greater than 0");
@@ -382,7 +342,6 @@ export default function NutritionCapturePage() {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        owner_user_id: owner,
         day,
         my_food_id,
         qty_g: grams,
@@ -482,7 +441,6 @@ export default function NutritionCapturePage() {
         />
       </div>
 
-      {authErr && <div className="mt-3 text-sm text-red-500">{authErr}</div>}
 
       {flash && <div className="mt-3 text-sm text-green-600">{flash}</div>}
 
