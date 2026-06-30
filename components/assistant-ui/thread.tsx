@@ -405,7 +405,7 @@ async function speakTextFromButton(btn: HTMLElement) {
   const model = String(getLS<string>("vs_voice_model", "gpt-4o-mini-tts")).trim();
   const speed = Number(getLS<number>("vs_voice_speed", 1.0)) || 1.0;
 
-  const r = await fetch("/api/tts", {
+  const r = await authFetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: cleaned, voice, speed, model }),
