@@ -185,8 +185,7 @@ export default function DiagnosticsPage() {
   const [modelId, setModelId] = React.useState("gpt-4o-mini");
 
   // Canonical subject_id used for telemetry + metrics grouping.
-  // - OpenAI models: "openai:<model>"
-  // - Provider-prefixed models (e.g., "xai:..."): keep as-is
+  // OpenAI-only model selection.
   const subjectId = React.useMemo(() => {
     const m = String(modelId || "").trim();
     if (!m) return "openai:gpt-4o-mini";
