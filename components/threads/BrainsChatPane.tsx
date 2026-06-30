@@ -4,7 +4,6 @@ import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch, authFetchJson } from "@/lib/authFetch";
 import { ChevronDown, Copy, RefreshCw, Volume2, Loader2, Square, Check } from "lucide-react";
-import { useGrokVoice, type GrokVoice } from "@/hooks/useGrokVoice";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
 
 type InspectResult = {
@@ -47,7 +46,7 @@ function getLS<T>(key: string, fallback: T): T {
     try {
       return JSON.parse(raw) as T;
     } catch {
-      // Back-compat for legacy raw values like: grok_realtime, Rex, 1.0, true
+      // Back-compat for legacy raw localStorage values.
       if (typeof fallback === "string") return raw as any;
       if (typeof fallback === "number") return (Number(raw) as any);
       if (typeof fallback === "boolean") return ((raw === "true") as any);
@@ -58,10 +57,6 @@ function getLS<T>(key: string, fallback: T): T {
   }
 }
 
-function getSpeakMode(): "verbatim" | "freeform" {
-  const v = String(getLS<any>("vs_grok_voice_mode", "verbatim")).trim();
-  return v === "freeform" ? "freeform" : "verbatim";
-}
 
 async function callInspect(input: string, tid: string, regen: boolean): Promise<InspectResult> {
   const r = await authFetch("/api/chat/inspect", {
@@ -228,43 +223,6 @@ export function BrainsChatPane() {
   // WebAudio fallback (Safari can block HTMLAudioElement.play() after async fetch)
   const audioCtxRef = React.useRef<AudioContext | null>(null);
 
-  const GROK_VOICES = ["Ara", "Rex", "Sal", "Eve", "Leo"] as const;
-  function normalizeGrokVoice(raw: string): GrokVoice {
-    const v = (raw || "").trim();
-    return (GROK_VOICES as readonly string[]).includes(v) ? (v as GrokVoice) : "Ara";
-  }
-  const grokVoice = normalizeGrokVoice(String(getLS<string>("vs_grok_voice", "Ara")));
-  const [grokWsToken, setGrokWsToken] = React.useState<string>("");
-  const grokPlayingIdxRef = React.useRef<number | null>(null);
-
-  const grokSttActiveRef = React.useRef(false);
-  const grokSttTextRef = React.useRef<string>("");
-  const lastSendWasMicRef = React.useRef(false);
-  const micLaneRef = React.useRef<"verbatim" | "freeform">("verbatim");
-  const lastSttEventIdRef = React.useRef<string>("");
-
-  // fetch Grok WS token (admin-only route)
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const r = await authFetch("/api/voice/ws-token");
-        if (!r.ok) return;
-        const j = await r.json().catch(() => ({} as any));
-        if (cancelled) return;
-        const tok = String(j?.token || "").trim();
-        if (tok) setGrokWsToken(tok);
-      } catch { }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const grokInstructions = String(
-    getLS<string>("vs_grok_voice_instructions", "You are a helpful assistant.")
-  ).trim();
-  const grokVolume = Number(getLS<number>("vs_grok_voice_volume", 1)) || 1;
   const [freeformDebug, setFreeformDebug] = React.useState<{
     transcript: string;
     reply: string;
@@ -273,108 +231,7 @@ export function BrainsChatPane() {
     inspect_error: string | null;
   } | null>(null);
 
-  const GROK_STT_INSTRUCTIONS = [
-    "You are a speech-to-text transcriber.",
-    "Transcribe the user's audio into plain text.",
-    "Return ONLY the transcript. No commentary. No answering. No paraphrasing.",
-    "",
-    "Output MUST be exactly:",
-    "<TRANSCRIPT>",
-    "(the transcript only)",
-    "</TRANSCRIPT>",
-    "",
-    "If you cannot transcribe, output: <TRANSCRIPT></TRANSCRIPT>",
-  ].join("\n");
-
-  const grok = useGrokVoice({
-    voice: grokVoice,
-    token: grokWsToken,
-    instructions: grokInstructions,
-    turn: "none",
-    volume: grokVolume,
-    onEvent: (ev) => {
-      const t = ev?.type;
-
-      // STT flow (mic): use INPUT transcription events (not assistant output)
-      if (grokSttActiveRef.current) {
-
-        // This is the user speech transcript.
-        if (t === "conversation.item.input_audio_transcription.completed") {
-          const eid = String((ev as any)?.event_id || "");
-          if (eid && lastSttEventIdRef.current === eid) return;
-          if (eid) lastSttEventIdRef.current = eid;
-
-          const transcript = String(
-            (ev as any)?.transcript ??
-            (ev as any)?.text ??
-            (ev as any)?.item?.transcript ??
-            (ev as any)?.item?.content?.[0]?.transcript ??
-            (ev as any)?.item?.content?.[0]?.text ??
-            ""
-          ).trim();
-
-          grokSttActiveRef.current = false;
-          grokSttTextRef.current = "";
-
-          console.log("[stt transcript]", transcript, ev);
-
-          if (!transcript) {
-            alert("STT completed but transcript was empty. Check console for event payload.");
-            return;
-          }
-
-          if (micLaneRef.current === "verbatim") {
-            // Write to chat + normal Brains reply
-            lastSendWasMicRef.current = true;
-            void sendMessage(transcript);
-            return;
-          }
-
-          // freeform lane: do NOT write to chat. Ask Brains with noStore, then speak it.
-          // Also capture Inspector output so you can debug without needing a chat bubble.
-          (async () => {
-            try {
-              const tid = threadId || (await ensureThread());
-              const t0 = performance.now();
-
-              const replyText = await callChat(transcript, tid, false, true); // noStore=true
-              const { inspect, inspect_error } = await maybeInspect(transcript, tid, false, isAdmin);
-
-              const ms = Math.round(performance.now() - t0);
-              setFreeformDebug({ transcript, reply: replyText, ms, inspect, inspect_error });
-
-              grok.setVolume(grokVolume);
-              grok.speakText(replyText);
-            } catch (e: any) {
-              alert(e?.message || String(e));
-            }
-          })();
-          return;
-        }
-
-        // If STT fails, do not leave the system “armed”.
-        if (t === "conversation.item.input_audio_transcription.failed" || t === "error") {
-          grokSttActiveRef.current = false;
-          grokSttTextRef.current = "";
-          console.warn("[stt error]", ev);
-          alert("STT error (see console).");
-          return;
-        }
-
-        // While STT is active, ignore everything else.
-        return;
-      }
-
-      // TTS flow: end-of-audio cleanup
-      if (t === "response.done") {
-        if (grokPlayingIdxRef.current != null) {
-          grokPlayingIdxRef.current = null;
-          keepAwakeStop();
-          setTtsPlayingIdx(null);
-        }
-      }
-    },
-  });
+  // Legacy non-OpenAI realtime voice is disabled. OpenAI Realtime is staged separately.
 
   const audioNodeRef = React.useRef<AudioBufferSourceNode | null>(null);
 
@@ -566,40 +423,9 @@ export function BrainsChatPane() {
     setTtsLoadingIdx(idx);
     setTtsPlayingIdx(null);
 
-    const engine = String(getLS<string>("vs_voice_engine", "openai_tts")).trim();
-
-    if (engine === "grok_realtime") {
-      if (!grokWsToken) {
-        alert("Grok voice not available (missing token / not authorized).");
-        stopTTS();
-        return;
-      }
-
-      try {
-        // hard stop any existing stream, then reconnect for a clean utterance
-        grok.disconnect();
-        await grok.connect();
-
-        grok.setVolume(grokVolume);
-
-        if (ttsEpochRef.current !== epoch) return;
-
-        setTtsLoadingIdx(null);
-        setTtsPlayingIdx(idx);
-        grokPlayingIdxRef.current = idx;
-
-        grok.speakText(t);
-        return;
-      } catch (e: any) {
-        console.error(e);
-        alert(e?.message || String(e));
-        stopTTS();
-        return;
-      } finally {
-        if (ttsEpochRef.current === epoch) setTtsLoadingIdx(null);
-      }
-    }
-
+    try {
+      localStorage.setItem("vs_voice_engine", "openai_tts");
+    } catch { }
 
     const voice = String(getLS<string>("vs_voice", "sage")).trim();
     const model = String(getLS<string>("vs_voice_model", "gpt-4o-mini-tts")).trim();
@@ -872,174 +698,13 @@ export function BrainsChatPane() {
   }
 
   async function startListening() {
-    if (listening) return;
-
-    if (!grokWsToken) {
-      alert("Grok voice not available (missing token / not authorized).");
-      return;
-    }
-
-    // Ensure Grok WS + playback audio context are unlocked from this click
-    try {
-      await grok.connect();
-    } catch (e: any) {
-      alert(e?.message || String(e));
-      return;
-    }
-
-    // reset VAD state per utterance
-    vadRef.current = { speech: false, silenceMs: 0, stopScheduled: false };
-
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-    });
-
-    micStreamRef.current = stream;
-
-    const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
-    const ctx = new Ctx({ latencyHint: "interactive" });
-    micCtxRef.current = ctx;
-
-    const src = ctx.createMediaStreamSource(stream);
-    micSrcRef.current = src;
-    micSrcRateRef.current = ctx.sampleRate || 48000;
-
-    const proc = ctx.createScriptProcessor(4096, 1, 1);
-    micProcRef.current = proc;
-    micBufRef.current = [];
-
-    proc.onaudioprocess = (e) => {
-      const input = e.inputBuffer.getChannelData(0);
-      micBufRef.current.push(new Float32Array(input));
-
-      // auto stop on end-of-speech silence
-      if (stopVoiceInFlightRef.current) return;
-
-      let sum = 0;
-      for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
-      const rms = Math.sqrt(sum / Math.max(1, input.length));
-      const dtMs = (input.length / (ctx.sampleRate || 48000)) * 1000;
-
-      const vad = vadRef.current;
-
-      if (!vad.speech) {
-        if (rms >= VAD_START_RMS) {
-          vad.speech = true;
-          vad.silenceMs = 0;
-        }
-        return;
-      }
-
-      if (rms < VAD_END_RMS) vad.silenceMs += dtMs;
-      else vad.silenceMs = 0;
-
-      if (vad.silenceMs >= VAD_END_SILENCE_MS && !vad.stopScheduled) {
-        vad.stopScheduled = true;
-
-        // schedule outside audio callback
-        setTimeout(() => {
-          vad.stopScheduled = false;
-          void stopListeningAndRespond();
-        }, 0);
-      }
-    };
-
-    src.connect(proc);
-    proc.connect(ctx.destination);
-
-    setListening(true);
+    setListening(false);
+    alert("OpenAI Realtime voice is staged but not wired into the chat UI yet. Text-to-speech remains available.");
   }
 
   async function stopListeningAndRespond() {
     setListening(false);
-    if (stopVoiceInFlightRef.current) return;
-    stopVoiceInFlightRef.current = true;
-
-    try {
-      try { micProcRef.current?.disconnect(); } catch { }
-      try { micSrcRef.current?.disconnect(); } catch { }
-      try { await micCtxRef.current?.close(); } catch { }
-
-      micProcRef.current = null;
-      micSrcRef.current = null;
-      micCtxRef.current = null;
-
-      try {
-        micStreamRef.current?.getTracks().forEach((t) => t.stop());
-      } catch { }
-      micStreamRef.current = null;
-
-      const chunks = micBufRef.current;
-      micBufRef.current = [];
-      if (!chunks.length) return;
-
-      console.log("[mic] chunks=", chunks.length);
-
-      const srcRate = micSrcRateRef.current || 48000;
-      const f32 = f32Concat(chunks);
-      const f32_24k = resampleLinear(f32, srcRate, 24000);
-      const pcm16 = f32ToPcm16leBytes(f32_24k);
-
-      console.log("[mic] srcRate=", srcRate, "f32=", f32.length, "f32_24k=", f32_24k.length, "pcm16_bytes=", pcm16.length);
-
-      // Ensure WS is connected and configured for STT
-      try {
-        await grok.connect();
-
-        // Make sure the session can emit text, and force STT-only behavior
-        grok.sendEvent({
-          type: "session.update",
-          session: {
-            // STT-only: do NOT allow the realtime server to create a spoken answer
-            modalities: ["text"],
-
-            // Explicitly disable auto-response on xAI side
-            turn_detection: { create_response: false },
-
-            // You can keep instructions
-            instructions: GROK_STT_INSTRUCTIONS,
-          },
-        });
-
-        // Start from a clean buffer each utterance
-
-      } catch (e: any) {
-        alert(e?.message || String(e));
-        return;
-      }
-
-      console.log("[stt] armed");
-
-      // Upload audio to Grok
-      const CHUNK = 24000 * 2; // ~1 second of PCM16@24k
-      for (let i = 0; i < pcm16.length; i += CHUNK) {
-        grok.sendEvent({
-          type: "input_audio_buffer.append",
-          audio: u8ToB64(pcm16.subarray(i, i + CHUNK)),
-        });
-      }
-
-      const mode = getSpeakMode();
-      micLaneRef.current = mode;
-
-      // Always use STT event as the “turn delimiter” for both lanes
-      grokSttActiveRef.current = true;
-      grokSttTextRef.current = "";
-
-      // Always keep Grok muted during STT.
-      grok.setVolume(0);
-
-      grok.sendEvent({ type: "input_audio_buffer.commit" });
-      console.log("[stt] commit sent (waiting for input transcription completed)");
-      return;
-
-    } finally {
-      stopVoiceInFlightRef.current = false;
-    }
+    stopVoiceInFlightRef.current = false;
   }
 
   async function sendMessage(overrideText?: string) {
@@ -1099,11 +764,6 @@ export function BrainsChatPane() {
       setMsgs((prev): Msg[] => {
         const next: Msg[] = [...prev, { role: "assistant", content: replyText, v: 1, inspect, inspect_error }];
         const idx = next.length - 1;
-
-        if (lastSendWasMicRef.current) {
-          lastSendWasMicRef.current = true;
-          requestAnimationFrame(() => speak(replyText, idx));
-        }
 
         return next;
       });
