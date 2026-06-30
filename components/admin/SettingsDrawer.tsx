@@ -7,7 +7,6 @@ import Image from "next/image";
 
 import { PersonalizationPanel } from "@/components/admin/PersonalizationPanel";
 import { VoicePanel } from "@/components/admin/VoicePanel";
-import GrokVoiceRealtimePanel from "@/components/admin/GrokVoiceRealtimePanel";
 import { SecurityPanel } from "@/components/admin/SecurityPanel";
 import { ChatModelPanel } from "@/components/admin/ChatModelPanel";
 import { VantageProfilePage } from "@/components/admin/settings/VantageProfilePage";
@@ -89,44 +88,15 @@ function DrawerInner({
 
   const [personalizationVantageId, setPersonalizationVantageId] = React.useState<string>("RESSE");
 
-  const [voiceEngine, setVoiceEngine] = React.useState<"openai_tts" | "grok_realtime">("openai_tts");
+    React.useEffect(() => {
+      try {
+        localStorage.setItem("vs_voice_engine", "openai_tts");
+      } catch { }
 
-  React.useEffect(() => {
-    let cancelled = false;
-
-    try {
-      const v = (localStorage.getItem("vs_voice_engine") || "").trim();
-      setVoiceEngine(v === "grok_realtime" ? "grok_realtime" : "openai_tts");
-    } catch { }
-
-    void (async () => {
-      const { data } = await supabase.auth.getUser();
-      const md: any = data?.user?.user_metadata || {};
-      const cloudEngine = String(md?.vs_voice_engine || "").trim();
-
-      if (cancelled) return;
-      if (cloudEngine === "grok_realtime" || cloudEngine === "openai_tts") {
-        setVoiceEngine(cloudEngine);
-        try {
-          localStorage.setItem("vs_voice_engine", cloudEngine);
-        } catch { }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  React.useEffect(() => {
-    try {
-      localStorage.setItem("vs_voice_engine", voiceEngine);
-    } catch { }
-
-    void supabase.auth.updateUser({
-      data: { vs_voice_engine: voiceEngine },
-    });
-  }, [voiceEngine]);
+      void supabase.auth.updateUser({
+        data: { vs_voice_engine: "openai_tts" },
+      });
+    }, []);
 
   const current = stack[stack.length - 1] ?? "root";
   const title = PAGE_TITLES[current] || "Settings";
@@ -321,43 +291,25 @@ function DrawerInner({
           </div>
         )}
 
-        {current === "models_voice" && (
-          <div className="space-y-3">
-            <ChatModelPanel />
+          {current === "models_voice" && (
+            <div className="space-y-3">
+              <ChatModelPanel />
 
-            <div className="space-y-2 overflow-hidden rounded-xl border p-3">
-              <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Voice engine
-              </div>
-
-              <select
-                value={voiceEngine}
-                onChange={(e) => setVoiceEngine(e.target.value as "openai_tts" | "grok_realtime")}
-                className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-              >
-                <option value="openai_tts">OpenAI TTS (file)</option>
-                <option value="grok_realtime">Grok (realtime streaming)</option>
-              </select>
-
-              <div className="px-1 text-xs text-muted-foreground">
-                OpenAI uses <code>/api/tts</code>. Grok uses <code>/ws/voice</code> (streaming).
-              </div>
-            </div>
-
-            {voiceEngine === "openai_tts" ? (
-              <VoicePanel />
-            ) : (
               <div className="space-y-2 overflow-hidden rounded-xl border p-3">
                 <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Realtime Voice (Grok — streaming)
+                  Voice engine
                 </div>
-                <div className="pt-2">
-                  <GrokVoiceRealtimePanel />
+                <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+                  OpenAI TTS
+                </div>
+                <div className="px-1 text-xs text-muted-foreground">
+                  OpenAI voice is the active provider. Realtime voice will use the OpenAI Realtime endpoint.
                 </div>
               </div>
-            )}
-          </div>
-        )}
+
+              <VoicePanel />
+            </div>
+          )}
 
         {current === "vantage_profile" && (
           <div className="space-y-3">

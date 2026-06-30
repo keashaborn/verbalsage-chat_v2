@@ -105,8 +105,11 @@ function applyProfileCookiesFromSession(session: any): boolean {
     if (v1.model) {
       writeStringCookie("vs_model", String(v1.model).trim().slice(0, 64));
     }
-    if (md.vs_voice_engine === "openai_tts" || md.vs_voice_engine === "grok_realtime") {
+    // OpenAI-only voice engine. Ignore legacy non-OpenAI metadata.
+    if (md.vs_voice_engine === "openai_tts") {
       lsSet("vs_voice_engine", md.vs_voice_engine);
+    } else {
+      lsSet("vs_voice_engine", "openai_tts");
     }
 
     if (typeof md.vs_voice === "string" && md.vs_voice.trim()) {
@@ -119,10 +122,6 @@ function applyProfileCookiesFromSession(session: any): boolean {
 
     if (md.vs_voice_speed != null && Number.isFinite(Number(md.vs_voice_speed))) {
       lsSet("vs_voice_speed", JSON.stringify(Number(md.vs_voice_speed)));
-    }
-
-    if (typeof md.vs_grok_voice === "string" && md.vs_grok_voice.trim()) {
-      lsSet("vs_grok_voice", JSON.stringify(md.vs_grok_voice.trim()));
     }
 
 
