@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { authFetch } from "@/lib/authFetch";
 
 function getLS<T>(k: string, fallback: T): T {
   try {
@@ -217,7 +218,7 @@ export function VoicePanel() {
         audioRef.current = null;
       }
 
-      const r = await fetch("/api/tts", {
+      const r = await authFetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: msg, voice, speed, model }),

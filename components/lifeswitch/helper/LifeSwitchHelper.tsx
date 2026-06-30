@@ -388,7 +388,7 @@ export function LifeSwitchHelper() {
     ttsAbortRef.current = ac;
 
     try {
-      const r = await fetch("/api/tts", {
+      const r = await authFetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
