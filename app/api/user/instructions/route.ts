@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 
 
@@ -90,7 +91,7 @@ export async function GET(req: Request) {
     `${BRAINS_URL}/cards/${encodeURIComponent(user_id)}?vantage_id=${encodeURIComponent(
       vantage_id
     )}&kinds=user_instructions&limit=1`,
-    { method: "GET", headers: { "x-request-id": requestId } }
+    { method: "GET", headers: brainsUpstreamHeaders(requestId, user_id) }
   );
 
   const rawText = await r.text().catch(() => "");
@@ -155,7 +156,7 @@ export async function POST(req: Request) {
     `${BRAINS_URL}/cards/${encodeURIComponent(user_id)}?vantage_id=${encodeURIComponent(vantage_id)}`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-request-id": requestId },
+      headers: brainsUpstreamHeaders(requestId, user_id, { "Content-Type": "application/json" }),
       body: JSON.stringify({
         kind: "user_instructions",
         topic_key: "__singleton__",

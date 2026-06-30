@@ -1,5 +1,6 @@
 import { requireCapability } from "@/app/api/_auth/requireCapability";
 import { randomUUID } from "crypto";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
     `${BRAINS}/user/${encodeURIComponent(user_id)}/export?limit=${encodeURIComponent(limit)}`,
     {
       method: "GET",
-      headers: { "x-request-id": requestId },
+      headers: brainsUpstreamHeaders(requestId, user_id),
       cache: "no-store",
     }
   );

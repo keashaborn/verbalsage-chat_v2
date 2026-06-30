@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { requireCapability } from "@/app/api/_auth/requireCapability";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 
 function getRequestId(req: Request): string {
@@ -35,7 +36,7 @@ export async function DELETE(req: Request) {
     `${BRAINS}/user/${encodeURIComponent(user_id)}/recent?minutes=${encodeURIComponent(minutes)}`,
     {
       method: "DELETE",
-      headers: { "x-request-id": requestId },
+      headers: brainsUpstreamHeaders(requestId, user_id),
       cache: "no-store",
     }
   );

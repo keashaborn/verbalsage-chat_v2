@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
 import { requireCapability } from "@/app/api/_auth/requireCapability";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -261,7 +262,7 @@ export async function POST(req: Request) {
     // Call Brains with inspect_only + debug
     const r = await fetch(`${BRAINS_URL}/vantage/query`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-request-id": requestId },
+      headers: brainsUpstreamHeaders(requestId, user_id, { "Content-Type": "application/json" }),
       body: JSON.stringify({
         user_id,
         message: msg,

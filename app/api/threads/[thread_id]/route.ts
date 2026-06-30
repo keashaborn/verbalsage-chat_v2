@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
   forbiddenThread,
   getRequestId,
@@ -35,7 +36,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ thre
 
   const r = await fetch(`${BRAINS}/threads/${encodeURIComponent(tid)}`, {
     method: "DELETE",
-    headers: { "x-request-id": requestId },
+    headers: brainsUpstreamHeaders(requestId, user_id),
     cache: "no-store",
   });
 

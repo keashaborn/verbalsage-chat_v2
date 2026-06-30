@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
   forbiddenThread,
   getRequestId,
@@ -85,10 +86,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ thread
 
   const r = await fetch(`${BRAINS}/threads/${encodeURIComponent(tid)}/rename`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-request-id": requestId,
-    },
+    headers: brainsUpstreamHeaders(requestId, user_id, { "Content-Type": "application/json" }),
     body: JSON.stringify({ title }),
   });
 

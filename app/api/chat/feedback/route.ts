@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
 import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 
 const UUID_RE =
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
 
     const r = await fetch(`${BRAINS_URL}/vantage/feedback`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-request-id": requestId },
+      headers: brainsUpstreamHeaders(requestId, user_id, { "Content-Type": "application/json" }),
       body: JSON.stringify({
         user_id,
         thread_id,

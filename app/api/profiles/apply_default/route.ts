@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
 import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 
 async function getUserIdOrDevFallback(req: Request): Promise<string | null> {
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
 
     const upstream = await fetch(`${BRAINS_URL}/profiles/${encodeURIComponent(user_id)}/default`, {
       method: "GET",
-      headers: { "Content-Type": "application/json", "x-request-id": requestId },
+      headers: brainsUpstreamHeaders(requestId, user_id, { "Content-Type": "application/json" }),
     });
 
     const txt = await upstream.text().catch(() => "");

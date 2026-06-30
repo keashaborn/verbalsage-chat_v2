@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
 import { cookieSecure } from "@/lib/cookieSecure";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 export const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -24,7 +25,7 @@ export async function threadBelongsToUser(thread_id: string, user_id: string, re
 
   const r = await fetch(`${BRAINS}/threads/list/${encodeURIComponent(user_id)}`, {
     method: "GET",
-    headers: { "x-request-id": requestId, Accept: "application/json" },
+    headers: brainsUpstreamHeaders(requestId, user_id, { Accept: "application/json" }),
     cache: "no-store",
   });
 

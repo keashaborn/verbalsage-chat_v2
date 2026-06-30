@@ -5,6 +5,7 @@ import { requireCapability } from "@/app/api/_auth/requireCapability";
 import { cookieSecure } from "@/lib/cookieSecure";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 
 function getRequestId(req: Request): string {
@@ -35,7 +36,7 @@ export async function DELETE(req: Request) {
 
   const r = await fetch(`${BRAINS}/user/${encodeURIComponent(user_id)}/data`, {
     method: "DELETE",
-    headers: { "x-request-id": requestId },
+    headers: brainsUpstreamHeaders(requestId, user_id),
     cache: "no-store",
   });
 

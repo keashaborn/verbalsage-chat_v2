@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { requireCapability } from "@/app/api/_auth/requireCapability";
 import { randomUUID } from "crypto";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +42,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ card
   try {
     const meta = await fetch(`${BRAINS}/cards/${encodeURIComponent(user_id)}/${encodeURIComponent(card_id)}`, {
       method: "GET",
-      headers: { Accept: "application/json", "x-request-id": requestId },
+      headers: brainsUpstreamHeaders(requestId, user_id, { Accept: "application/json" }),
       cache: "no-store",
     });
 
@@ -60,7 +61,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ card
   // 2) Perform delete
   const r = await fetch(`${BRAINS}/cards/${encodeURIComponent(user_id)}/${encodeURIComponent(card_id)}`, {
     method: "DELETE",
-    headers: { "x-request-id": requestId },
+    headers: brainsUpstreamHeaders(requestId, user_id),
     cache: "no-store",
   });
 

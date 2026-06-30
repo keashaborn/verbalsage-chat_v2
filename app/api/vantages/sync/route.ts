@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 
 function getRequestId(req: Request): string {
@@ -45,10 +46,7 @@ export async function POST(req: Request) {
 
   const upstream = await fetch(`${BRAINS_URL}/vantages/sync`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-request-id": requestId,
-    },
+    headers: brainsUpstreamHeaders(requestId, user_id, { "Content-Type": "application/json" }),
     body: JSON.stringify(payload),
   });
 

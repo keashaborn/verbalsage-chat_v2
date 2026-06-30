@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireCapability } from "@/app/api/_auth/requireCapability";
 import { randomUUID } from "crypto";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 
 function getRequestId(req: Request): string {
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
 
   const r = await fetch(`${BRAINS}/cards/${encodeURIComponent(user_id)}?${qs.toString()}`, {
     method: "GET",
-    headers: { "x-request-id": requestId, Accept: "application/json" },
+    headers: brainsUpstreamHeaders(requestId, user_id, { Accept: "application/json" }),
     cache: "no-store",
   });
 
