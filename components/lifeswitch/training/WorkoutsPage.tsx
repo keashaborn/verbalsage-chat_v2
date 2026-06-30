@@ -429,14 +429,15 @@ export default function TrainingWorkoutsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          exercise_id,
+            exercise_id,
+            display_name_snapshot: String(display_name_snapshot || "").trim() || undefined,
             set_type: "straight",
-          planned_sets: 3,
-          default_weight: 0,
-          default_reps: 10,
-          flags: "",
-          sort_order: maxSort + 10,
-        }),
+            planned_sets: 3,
+            default_weight: 0,
+            default_reps: 10,
+            flags: "",
+            sort_order: maxSort + 10,
+          }),
       }
     );
 
