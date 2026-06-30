@@ -47,7 +47,9 @@ function Row({
 
 export function ChatModelPanel() {
   const { applied, draft, applyModelNow } = useSettingsStore();
-  const model = normalizeModel(draft.model || applied.model || "gpt-5.2");
+  const allowed = new Set(["gpt-5.2", "gpt-5.1", "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini"]);
+  const rawModel = normalizeModel(draft.model || applied.model || "gpt-5.2");
+  const model = allowed.has(rawModel) ? rawModel : "gpt-5.2";
 
   return (
     <div className="space-y-4">
@@ -74,19 +76,6 @@ export function ChatModelPanel() {
                 <option value="gpt-4.1-mini">gpt-4.1-mini</option>
                 <option value="gpt-4o">gpt-4o</option>
                 <option value="gpt-4o-mini">gpt-4o-mini</option>
-              </optgroup>
-
-              <optgroup label="xAI (Grok)">
-                <option value="xai:grok-3">xai:grok-3</option>
-                <option value="xai:grok-3-mini">xai:grok-3-mini</option>
-                <option value="xai:grok-4-0709">xai:grok-4-0709</option>
-                <option value="xai:grok-4-1-fast-non-reasoning">xai:grok-4-1-fast-non-reasoning</option>
-                <option value="xai:grok-4-1-fast-reasoning">xai:grok-4-1-fast-reasoning</option>
-                <option value="xai:grok-4-fast-non-reasoning">xai:grok-4-fast-non-reasoning</option>
-                <option value="xai:grok-4-fast-reasoning">xai:grok-4-fast-reasoning</option>
-                <option value="xai:grok-code-fast-1">xai:grok-code-fast-1</option>
-                <option value="xai:grok-2-vision-1212">xai:grok-2-vision-1212</option>
-                <option value="xai:grok-2-image-1212">xai:grok-2-image-1212</option>
               </optgroup>
             </select>
           }

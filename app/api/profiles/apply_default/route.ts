@@ -75,14 +75,10 @@ export async function POST(req: Request) {
     const rawModel = String(payload?.model || "").trim();
     const rawVid = String(payload?.vantage_id || "").trim();
 
-    // allowlist models
-    const modelAllowed = new Set([
-      "gpt-5.2", "gpt-5.1", "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini",
-      "xai:grok-3", "xai:grok-3-mini", "xai:grok-4-0709",
-      "xai:grok-4-1-fast-non-reasoning", "xai:grok-4-1-fast-reasoning",
-      "xai:grok-4-fast-non-reasoning", "xai:grok-4-fast-reasoning",
-      "xai:grok-code-fast-1", "xai:grok-2-vision-1212", "xai:grok-2-image-1212"
-    ]);
+    // allowlist OpenAI models only
+      const modelAllowed = new Set([
+        "gpt-5.2", "gpt-5.1", "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini",
+      ]);
     const model = modelAllowed.has(rawModel) ? rawModel : "";
 
     const vantage_id = rawVid ? rawVid.slice(0, 64) : "";
