@@ -45,12 +45,11 @@ async function proxy(req: NextRequest, method: "POST" | "PATCH" | "DELETE") {
 
   const r = await fetch(upstream.toString(), {
     method,
-    headers: {
-      "x-request-id": rid,
-      ...(method === "POST"
-        ? { "content-type": "application/json; charset=utf-8" }
-        : {}),
-    },
+    headers: lifeSwitchUpstreamHeaders(
+      rid,
+      owner_user_id,
+      method === "POST" ? { "content-type": "application/json; charset=utf-8" } : undefined
+    ),
     body,
     cache: "no-store",
   });
