@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 function getRequestId(req: Request): string {
   const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
@@ -38,11 +39,11 @@ export async function POST(req: Request) {
 
   const actor_user_id = await getSupabaseUserIdFromRequest(req);
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "x-request-id": requestId,
-  };
-  if (actor_user_id) headers["x-vs-actor-user-id"] = actor_user_id;
+  const headers = brainsUpstreamHeaders(
+    requestId,
+    actor_user_id,
+    { "Content-Type": "application/json" }
+  );
 
   const upstream = await fetch(url, {
     method: "POST",

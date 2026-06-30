@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 export async function POST(req: Request) {
   const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
 
     const r = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-request-id": requestId },
+      headers: brainsUpstreamHeaders(requestId, null, { "Content-Type": "application/json" }),
       body: JSON.stringify(body),
       cache: "no-store",
     });

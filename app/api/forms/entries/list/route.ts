@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 export async function GET(req: NextRequest) {
   const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
 
     const r = await fetch(url, {
       cache: "no-store",
-      headers: { "x-request-id": requestId },
+      headers: brainsUpstreamHeaders(requestId, null),
     });
     const text = await r.text();
 

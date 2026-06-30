@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 export async function GET(
   req: NextRequest,
@@ -13,7 +14,7 @@ export async function GET(
     const BRAINS = process.env.BRAINS_URL || "http://172.31.32.171:8088";
     const url = `${BRAINS}/forms/versions/${encodeURIComponent(version_id)}`;
 
-    const r = await fetch(url, { cache: "no-store", headers: { "x-request-id": requestId } });
+    const r = await fetch(url, { cache: "no-store", headers: brainsUpstreamHeaders(requestId, null) });
     const text = await r.text();
 
     const rid = r.headers.get("x-request-id") || requestId;

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 export async function DELETE(
   req: NextRequest,
@@ -24,7 +25,7 @@ export async function DELETE(
     const r = await fetch(url, {
       method: "DELETE",
       cache: "no-store",
-      headers: { "x-request-id": requestId },
+      headers: brainsUpstreamHeaders(requestId, null),
     });
 
     const text = await r.text();

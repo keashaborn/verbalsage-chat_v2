@@ -1,4 +1,4 @@
-import { injectOwnerUserId } from "@/app/api/lifeswitch/_owner";
+import { injectOwnerUserId, lifeSwitchUpstreamHeaders } from "@/app/api/lifeswitch/_owner";
 
 const BRAINS_URL = (process.env.BRAINS_URL || "http://172.31.32.171:8088").replace(/\/+$/, "");
 
@@ -162,7 +162,7 @@ async function fetchJson(path: string, rid: string, owner_user_id: string, param
 
   const r = await fetch(upstream.toString(), {
     method: "GET",
-    headers: { "x-request-id": rid },
+    headers: lifeSwitchUpstreamHeaders(rid, owner_user_id),
     cache: "no-store",
   });
 

@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getActorUserId } from "../../_lib/actor";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 function getRequestId(req: Request): string {
   const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
@@ -18,8 +19,7 @@ export async function GET(req: Request) {
   const url = `${BRAINS_URL}/metrics/timeseries${qs ? `?${qs}` : ""}`;
 
   const actor = await getActorUserId(req);
-  const headers: Record<string, string> = { "x-request-id": requestId };
-  if (actor) headers["x-vs-actor-user-id"] = actor;
+  const headers = brainsUpstreamHeaders(requestId, actor);
 
   const upstream = await fetch(url, { method: "GET", cache: "no-store", headers });
   const text = await upstream.text();
