@@ -79,6 +79,15 @@ export async function POST(req: Request) {
     }
 
     const out = await r.arrayBuffer();
+    const outPrefix = new TextDecoder().decode(out.slice(0, Math.min(out.byteLength, 500)));
+    console.warn("[voice-webrtc-bff] upstream_success", {
+      status: r.status,
+      contentType: outContentType,
+      bytes: out.byteLength,
+      firstLine: (outPrefix.split(/\r?\n/) || [""])[0],
+      prefix: outPrefix.slice(0, 260),
+    });
+
     return new Response(out, {
       status: 200,
       headers: {
