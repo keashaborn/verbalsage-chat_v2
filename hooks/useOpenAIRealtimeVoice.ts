@@ -192,14 +192,24 @@ export function useOpenAIRealtimeVoice() {
         throw new Error(answerText || `Realtime WebRTC offer failed: HTTP ${r.status}`);
       }
 
-      const answerSdp = answerText.trim();
-      if (!answerSdp || !answerSdp.startsWith("v=")) {
-        throw new Error(`Invalid SDP answer from backend: ${answerSdp.slice(0, 180)}`);
+      const answerForValidation = answerText.trimStart();
+      if (!answerForValidation || !answerForValidation.startsWith("v=")) {
+        throw new Error(`Invalid SDP answer from backend: ${answerForValidation.slice(0, 180)}`);
       }
+
+      // Safari/WebKit compatibility shim.
+      // Some Safari builds reject the session-level extmap-allow-mixed SDP attribute.
+      // Preserve CRLF SDP formatting and only remove that known compatibility line.
+      const answerSdp = answerText
+        .split(/\r?\n/)
+        .filter((line) => line.trim() !== "a=extmap-allow-mixed")
+        .join("\r\n");
+
+      const normalizedAnswerSdp = answerSdp.endsWith("\r\n") ? answerSdp : `${answerSdp}\r\n`;
 
       await pc.setRemoteDescription({
         type: "answer",
-        sdp: answerSdp,
+        sdp: normalizedAnswerSdp,
       });
 
       setStatus("active");
