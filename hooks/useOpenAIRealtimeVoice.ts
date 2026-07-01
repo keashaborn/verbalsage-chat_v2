@@ -171,20 +171,19 @@ export function useOpenAIRealtimeVoice() {
         throw new Error("Failed to create local SDP offer.");
       }
 
-      const body: Record<string, unknown> = {
-        sdp: finalOffer.sdp,
-      };
+      const qs = new URLSearchParams();
+      if (opts.model) qs.set("model", opts.model);
+      if (opts.voice) qs.set("voice", opts.voice);
+      if (opts.instructions) qs.set("instructions", opts.instructions);
 
-      if (opts.model) body.model = opts.model;
-      if (opts.voice) body.voice = opts.voice;
-      if (opts.instructions) body.instructions = opts.instructions;
+      const url = `/api/voice/openai/webrtc-offer${qs.toString() ? `?${qs.toString()}` : ""}`;
 
-      const r = await authFetch("/api/voice/openai/webrtc-offer", {
+      const r = await authFetch(url, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/sdp",
         },
-        body: JSON.stringify(body),
+        body: finalOffer.sdp,
       });
 
       const answerText = await r.text();

@@ -43,6 +43,12 @@ export async function POST(req: Request) {
   const contentType = req.headers.get("content-type") || "application/sdp";
   const body = await req.arrayBuffer();
 
+  console.warn("[voice-webrtc-bff] inbound", {
+    contentType,
+    bytes: body.byteLength,
+    upstream: upstream.toString(),
+  });
+
   try {
     const r = await fetch(upstream.toString(), {
       method: "POST",
@@ -58,6 +64,11 @@ export async function POST(req: Request) {
 
     if (!r.ok) {
       const text = await r.text().catch(() => "");
+      console.warn("[voice-webrtc-bff] upstream_error", {
+        status: r.status,
+        contentType: outContentType,
+        bodyPrefix: text.slice(0, 500),
+      });
       return new Response(text || `webrtc_offer_upstream_error:${r.status}`, {
         status: r.status,
         headers: {
