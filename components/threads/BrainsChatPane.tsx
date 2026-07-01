@@ -101,6 +101,25 @@ export function BrainsChatPane() {
   const [isAdmin, setIsAdmin] = React.useState(false);
   const realtimeVoice = useOpenAIRealtimeVoice();
 
+  const voiceStatus = realtimeVoice.status;
+  const voiceIsConnecting = voiceStatus === "connecting";
+  const voiceIsActive = voiceStatus === "active";
+  const voiceHasError = voiceStatus === "error";
+
+  const voiceButtonLabel = voiceIsConnecting
+    ? "Connecting…"
+    : voiceIsActive || listening
+      ? "Stop voice"
+      : "Talk";
+
+  const voiceStatusLabel = voiceIsConnecting
+    ? "Connecting voice…"
+    : voiceIsActive || listening
+      ? "Voice active"
+      : voiceHasError
+        ? "Voice error"
+        : "Voice off";
+
   const micStreamRef = React.useRef<MediaStream | null>(null);
   const micCtxRef = React.useRef<AudioContext | null>(null);
   const micSrcRef = React.useRef<MediaStreamAudioSourceNode | null>(null);

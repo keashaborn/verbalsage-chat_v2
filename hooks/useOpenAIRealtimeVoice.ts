@@ -38,26 +38,43 @@ function waitForIceGatheringComplete(pc: RTCPeerConnection, timeoutMs = 3000): P
   });
 }
 
+function makeCancelledError() {
+  const err = new Error("Realtime voice start cancelled.");
+  (err as any).name = "AbortError";
+  return err;
+}
+
 export function useOpenAIRealtimeVoice() {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
 
+  // Incrementing this invalidates any in-flight async start().
+  const generationRef = useRef(0);
+  const startingRef = useRef(false);
+
   const [status, setStatus] = useState<OpenAIRealtimeVoiceStatus>("idle");
   const [lastError, setLastError] = useState<string>("");
 
   const stop = useCallback(() => {
+    generationRef.current += 1;
+    startingRef.current = false;
+
     setStatus("idle");
     setLastError("");
 
-    try {
-      dataChannelRef.current?.close();
-    } catch {}
+    const dc = dataChannelRef.current;
     dataChannelRef.current = null;
+    try {
+      dc?.close();
+    } catch {}
+
+    const pc = pcRef.current;
+    pcRef.current = null;
 
     try {
-      pcRef.current?.getSenders().forEach((sender) => {
+      pc?.getSenders().forEach((sender) => {
         try {
           sender.track?.stop();
         } catch {}
@@ -65,26 +82,41 @@ export function useOpenAIRealtimeVoice() {
     } catch {}
 
     try {
-      pcRef.current?.close();
+      pc?.close();
     } catch {}
-    pcRef.current = null;
 
-    try {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-    } catch {}
+    const stream = streamRef.current;
     streamRef.current = null;
 
     try {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.srcObject = null;
+      stream?.getTracks().forEach((track) => track.stop());
+    } catch {}
+
+    const audio = audioRef.current;
+    audioRef.current = null;
+
+    try {
+      if (audio) {
+        audio.pause();
+        audio.srcObject = null;
       }
     } catch {}
-    audioRef.current = null;
   }, []);
 
   const start = useCallback(async (opts: StartOptions = {}) => {
+    if (startingRef.current) return;
+
     stop();
+
+    const generation = generationRef.current;
+    startingRef.current = true;
+
+    const assertCurrent = () => {
+      if (generationRef.current !== generation) {
+        throw makeCancelledError();
+      }
+    };
+
     setStatus("connecting");
     setLastError("");
 
@@ -104,11 +136,13 @@ export function useOpenAIRealtimeVoice() {
           autoGainControl: true,
         },
       });
+      assertCurrent();
       streamRef.current = stream;
 
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
       });
+      assertCurrent();
       pcRef.current = pc;
 
       const remoteAudio = new Audio();
@@ -117,16 +151,17 @@ export function useOpenAIRealtimeVoice() {
       audioRef.current = remoteAudio;
 
       pc.ontrack = (event) => {
+        if (generationRef.current !== generation) return;
         const [remoteStream] = event.streams;
         if (remoteStream) {
           remoteAudio.srcObject = remoteStream;
-          remoteAudio.play().catch(() => {
-            // Browser may require a user gesture; start() is triggered by a click.
-          });
+          remoteAudio.play().catch(() => {});
         }
       };
 
       pc.onconnectionstatechange = () => {
+        if (generationRef.current !== generation) return;
+
         if (pc.connectionState === "connected") {
           setStatus("active");
         } else if (
@@ -142,6 +177,8 @@ export function useOpenAIRealtimeVoice() {
       dataChannelRef.current = dc;
 
       dc.onmessage = (event) => {
+        if (generationRef.current !== generation) return;
+
         try {
           const payload = JSON.parse(String(event.data || "{}"));
           const type = String(payload?.type || "");
@@ -150,9 +187,7 @@ export function useOpenAIRealtimeVoice() {
             setLastError(msg);
             console.error("OpenAI realtime voice event error:", payload);
           }
-        } catch {
-          // Non-JSON events are ignored for phase 1.
-        }
+        } catch {}
       };
 
       stream.getAudioTracks().forEach((track) => {
@@ -162,9 +197,13 @@ export function useOpenAIRealtimeVoice() {
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
       });
+      assertCurrent();
 
       await pc.setLocalDescription(offer);
+      assertCurrent();
+
       await waitForIceGatheringComplete(pc);
+      assertCurrent();
 
       const finalOffer = pc.localDescription;
       if (!finalOffer?.sdp) {
@@ -185,8 +224,10 @@ export function useOpenAIRealtimeVoice() {
         },
         body: finalOffer.sdp,
       });
+      assertCurrent();
 
       const answerText = await r.text();
+      assertCurrent();
 
       if (!r.ok) {
         throw new Error(answerText || `Realtime WebRTC offer failed: HTTP ${r.status}`);
@@ -197,9 +238,6 @@ export function useOpenAIRealtimeVoice() {
         throw new Error(`Invalid SDP answer from backend: ${answerForValidation.slice(0, 180)}`);
       }
 
-      // Safari/WebKit compatibility shim.
-      // Some Safari builds reject the session-level extmap-allow-mixed SDP attribute.
-      // Preserve CRLF SDP formatting and only remove that known compatibility line.
       const answerSdp = answerText
         .split(/\r?\n/)
         .filter((line) => line.trim() !== "a=extmap-allow-mixed")
@@ -211,9 +249,18 @@ export function useOpenAIRealtimeVoice() {
         type: "answer",
         sdp: normalizedAnswerSdp,
       });
+      assertCurrent();
 
+      startingRef.current = false;
       setStatus("active");
     } catch (e: any) {
+      startingRef.current = false;
+
+      if (e?.name === "AbortError") {
+        setStatus("idle");
+        return;
+      }
+
       const msg = String(e?.message || e || "Realtime voice failed.");
       setLastError(msg);
       setStatus("error");
@@ -223,7 +270,7 @@ export function useOpenAIRealtimeVoice() {
   }, [stop]);
 
   const toggle = useCallback(async (opts: StartOptions = {}) => {
-    if (status === "active" || status === "connecting") {
+    if (status === "active" || status === "connecting" || startingRef.current) {
       stop();
       return;
     }
