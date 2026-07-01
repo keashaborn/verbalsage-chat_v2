@@ -674,6 +674,8 @@ export default function NutritionLogPage() {
                                             <input
                                               className="w-20 rounded-xl border bg-background px-2 py-1.5 text-xs text-right"
                                               value={gramsDraft}
+                                              onFocus={selectNumberInputValue}
+                                              onClick={selectNumberInputValue}
                                               inputMode="decimal"
                                               onChange={(ev) => {
                                                 const value = ev.currentTarget.value;

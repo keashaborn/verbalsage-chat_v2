@@ -557,6 +557,7 @@ export default function NutritionCapturePage() {
                             inputMode="decimal"
                             aria-label={`${item.display_name} grams`}
                             onFocus={selectNumberInputValue}
+                            onClick={selectNumberInputValue}
                             onChange={(e) =>
                               setGramsByMealItem((p) => ({
                                 ...p,
@@ -640,6 +641,7 @@ export default function NutritionCapturePage() {
                     inputMode="decimal"
                     aria-label={`${overrides[f.my_food_id]?.alias || f.display_name} grams`}
                     onFocus={selectNumberInputValue}
+                    onClick={selectNumberInputValue}
                     onChange={(e) =>
                       setGramsByFood((p) => ({
                         ...p,

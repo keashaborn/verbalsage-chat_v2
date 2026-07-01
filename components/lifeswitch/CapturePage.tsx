@@ -1080,6 +1080,8 @@ export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
                         type="number"
                         min={1}
                         value={wsSetIndex}
+                        onFocus={selectNumberInputValue}
+                        onClick={selectNumberInputValue}
                         onChange={(e) => setWsSetIndex(e.target.value)}
                       />
                     </div>
@@ -1093,6 +1095,8 @@ export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
                         type="number"
                         inputMode="decimal"
                         value={wsWeight}
+                        onFocus={selectNumberInputValue}
+                        onClick={selectNumberInputValue}
                         onChange={(e) => setWsWeight(e.target.value)}
                         placeholder="lb"
                       />
@@ -1105,6 +1109,8 @@ export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
                         type="number"
                         min={0}
                         value={wsReps}
+                        onFocus={selectNumberInputValue}
+                        onClick={selectNumberInputValue}
                         onChange={(e) => setWsReps(e.target.value)}
                         placeholder="reps"
                       />
@@ -1190,6 +1196,8 @@ export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
                       type="number"
                       min={1}
                       value={countStep}
+                      onFocus={selectNumberInputValue}
+                      onClick={selectNumberInputValue}
                       onChange={(e) => setCountStep(Math.max(1, Math.trunc(Number(e.target.value) || 1)))}
                     />
                   </div>

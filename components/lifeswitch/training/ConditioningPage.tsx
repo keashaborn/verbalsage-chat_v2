@@ -578,6 +578,8 @@ function EditNumber({
         type="number"
         step={step}
         value={draft}
+        onFocus={selectNumberInputValue}
+        onClick={selectNumberInputValue}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void onSave(Number(draft || 0))}
       />

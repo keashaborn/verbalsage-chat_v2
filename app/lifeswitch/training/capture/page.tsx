@@ -866,6 +866,7 @@ export default function TrainingCapturePage() {
                                         disabled={row.done}
                                         readOnly={row.done}
                                         onFocus={selectNumberInputValue}
+                                        onClick={selectNumberInputValue}
                                         onChange={(e) =>
                                           updateDraftSegment(row.draft_id, seg.segment_index, { weight: e.currentTarget.value })
                                         }
@@ -881,6 +882,7 @@ export default function TrainingCapturePage() {
                                         disabled={row.done}
                                         readOnly={row.done}
                                         onFocus={selectNumberInputValue}
+                                        onClick={selectNumberInputValue}
                                         onChange={(e) =>
                                           updateDraftSegment(row.draft_id, seg.segment_index, { reps: e.currentTarget.value })
                                         }
@@ -900,6 +902,7 @@ export default function TrainingCapturePage() {
                                     disabled={row.done}
                                     readOnly={row.done}
                                     onFocus={selectNumberInputValue}
+                                    onClick={selectNumberInputValue}
                                     onChange={(e) => {
                                       const value = e.currentTarget.value;
                                       updateDraftRow(row.draft_id, { weight: value });
@@ -916,6 +919,7 @@ export default function TrainingCapturePage() {
                                     disabled={row.done}
                                     readOnly={row.done}
                                     onFocus={selectNumberInputValue}
+                                    onClick={selectNumberInputValue}
                                     onChange={(e) => {
                                       const value = e.currentTarget.value;
                                       updateDraftRow(row.draft_id, { reps: value });
