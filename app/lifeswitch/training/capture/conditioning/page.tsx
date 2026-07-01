@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { authFetch } from "@/lib/authFetch";
+import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
 
 type MyConditioningPrescriptionRow = {
   my_conditioning_prescription_id: string;
@@ -54,11 +55,6 @@ async function fetchJson(url: string, init?: RequestInit) {
 function safeNum(x: any, fallback = 0) {
   const n = Number(x);
   return Number.isFinite(n) ? n : fallback;
-}
-
-function selectNumberInputValue(e: React.FocusEvent<HTMLInputElement>) {
-  const input = e.currentTarget;
-  window.setTimeout(() => input.select(), 0);
 }
 
 export default function ConditioningCapturePage() {
@@ -251,6 +247,8 @@ export default function ConditioningCapturePage() {
                     type="number"
                     step="1"
                     value={durationMin}
+                    onFocus={selectNumberInputValue}
+                    onClick={selectNumberInputValue}
                     onChange={(e) => setDurationMin(e.currentTarget.value)}
                   />
                 </label>
@@ -282,6 +280,8 @@ export default function ConditioningCapturePage() {
                     type="number"
                     step="1"
                     value={heartRateAvg}
+                    onFocus={selectNumberInputValue}
+                    onClick={selectNumberInputValue}
                     onChange={(e) => setHeartRateAvg(e.currentTarget.value)}
                     placeholder="blank if not tracked"
                   />

@@ -2,6 +2,7 @@
 
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
+import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
 
 const DOW = ["S", "M", "T", "W", "T", "F", "S"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];

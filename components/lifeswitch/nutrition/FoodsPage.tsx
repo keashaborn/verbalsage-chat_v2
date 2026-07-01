@@ -3,6 +3,7 @@
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { Search as SearchIcon } from "lucide-react";
+import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
 
 type UsdaHit = {
   fdc_id: number;
@@ -645,6 +646,8 @@ export default function NutritionFoodsPage() {
                       <input
                         className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
                         value={editGrams}
+                        onFocus={selectNumberInputValue}
+                        onClick={selectNumberInputValue}
                         onChange={(e) => setEditGrams(e.target.value)}
                         placeholder="e.g. 150"
                         inputMode="decimal"
@@ -713,10 +716,12 @@ export default function NutritionFoodsPage() {
                         <input
                           className="min-w-0 rounded-xl border bg-background px-3 py-2 text-xs"
                           value={servGrams[f.my_food_id] ?? ""}
+                          onFocus={selectNumberInputValue}
+                          onClick={selectNumberInputValue}
                           onChange={(e) => setServGrams((p) => ({ ...p, [f.my_food_id]: e.target.value }))}
                           placeholder="grams"
                           inputMode="decimal"
-                        />
+                      />
                         <button
                           className="rounded-xl border px-3 py-2 text-xs hover:bg-muted/30 disabled:opacity-50"
                           onClick={() => void createServing(f.my_food_id)}

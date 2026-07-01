@@ -3,6 +3,7 @@
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { ChevronUp, ChevronDown, Plus, Trash2 } from "lucide-react";
+import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
 
 type MyExerciseRow = {
   my_exercise_id: string;
@@ -893,6 +894,8 @@ export default function TrainingWorkoutsPage() {
                                       className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
                                       inputMode="numeric"
                                       value={String(e.planned_sets)}
+                                      onFocus={selectNumberInputValue}
+                                      onClick={selectNumberInputValue}
                                       onChange={(ev) =>
                                         void updateExercise(e.workout_template_exercise_id, { planned_sets: Number(ev.target.value || 0) })
                                       }
@@ -905,6 +908,8 @@ export default function TrainingWorkoutsPage() {
                                       className="w-16 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
                                       inputMode="decimal"
                                       value={String(e.default_weight)}
+                                      onFocus={selectNumberInputValue}
+                                      onClick={selectNumberInputValue}
                                       onChange={(ev) =>
                                         void updateExercise(e.workout_template_exercise_id, { default_weight: Number(ev.target.value || 0) })
                                       }
@@ -917,6 +922,8 @@ export default function TrainingWorkoutsPage() {
                                       className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
                                       inputMode="numeric"
                                       value={String(e.default_reps)}
+                                      onFocus={selectNumberInputValue}
+                                      onClick={selectNumberInputValue}
                                       onChange={(ev) =>
                                         void updateExercise(e.workout_template_exercise_id, { default_reps: Number(ev.target.value || 0) })
                                       }

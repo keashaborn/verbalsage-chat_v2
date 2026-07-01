@@ -4,6 +4,7 @@ import { authFetch } from "@/lib/authFetch";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Plus } from "lucide-react";
+import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
 
 type WorkoutTemplateRow = {
   workout_template_id: string;
@@ -157,11 +158,6 @@ function formatSavedAt(savedAt: string) {
   const d = new Date(savedAt);
   if (!Number.isFinite(d.getTime())) return "";
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
-
-function selectNumberInputValue(e: React.FocusEvent<HTMLInputElement>) {
-  const input = e.currentTarget;
-  window.setTimeout(() => input.select(), 0);
 }
 
 export default function TrainingCapturePage() {

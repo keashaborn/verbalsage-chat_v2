@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { authFetch } from "@/lib/authFetch";
+import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
 
 export const dynamic = "force-dynamic";
 
@@ -99,23 +100,6 @@ function displayKind(k?: string | null) {
   return k || "General";
 }
 
-function selectNumberInputValue(e: React.FocusEvent<HTMLInputElement> | React.MouseEvent<HTMLInputElement>) {
-  const input = e.currentTarget;
-
-  const selectAll = () => {
-    try {
-      input.focus();
-      input.select();
-      input.setSelectionRange(0, input.value.length);
-    } catch {
-      // Some mobile browsers may reject setSelectionRange for certain input states.
-    }
-  };
-
-  window.requestAnimationFrame(selectAll);
-  window.setTimeout(selectAll, 40);
-  window.setTimeout(selectAll, 120);
-}
 
 function entrySummary(entry: MeasurementEntry): string {
   const kind = entry.entry_kind || "general";

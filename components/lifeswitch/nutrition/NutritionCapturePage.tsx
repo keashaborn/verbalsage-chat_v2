@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
+import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
 
 type FoodOverride = {
   alias?: string;
@@ -92,11 +93,6 @@ function scaled(per100: number | null, grams: number | null): number | null {
 
 function resolvedItemGrams(item: MealComboItem): number | null {
   return item.qty_g_resolved ?? item.qty_g;
-}
-
-function selectNumberInputValue(e: React.FocusEvent<HTMLInputElement>) {
-  const input = e.currentTarget;
-  window.setTimeout(() => input.select(), 0);
 }
 
 async function fetchJson(url: string, init?: RequestInit) {

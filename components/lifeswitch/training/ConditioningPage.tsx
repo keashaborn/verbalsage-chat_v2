@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { authFetch } from "@/lib/authFetch";
+import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
 
 type ConditioningLibraryRow = {
   conditioning_library_id: string;
