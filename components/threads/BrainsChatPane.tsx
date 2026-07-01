@@ -1083,17 +1083,26 @@ export function BrainsChatPane() {
               <button
                 type="button"
                 onClick={() => {
-                  if (listening) {
+                  if (voiceIsActive || voiceIsConnecting || listening) {
                     stopListeningAndRespond().catch((e) => alert(String((e as any)?.message ?? e)));
                   } else {
                     startListening().catch((e) => alert(String((e as any)?.message ?? e)));
                   }
                 }}
                 disabled={sending}
-                className="rounded-xl border bg-background px-3 py-2 text-xs disabled:opacity-50"
+                className={[
+                  "rounded-xl border px-3 py-2 text-xs disabled:opacity-50",
+                  voiceIsActive || voiceIsConnecting || listening ? "bg-muted" : "bg-background",
+                ].join(" ")}
+                aria-label={voiceButtonLabel}
+                title={voiceStatusLabel}
               >
-                {listening ? "Stop" : "Talk"}
+                {voiceButtonLabel}
               </button>
+
+              <span className="text-[11px] text-muted-foreground">
+                {voiceStatusLabel}
+              </span>
 
               <button onClick={() => sendMessage()} disabled={sending} className="rounded-xl bg-muted px-3 py-2 text-xs disabled:opacity-50">
                 {sending ? "Sending…" : "Send"}
