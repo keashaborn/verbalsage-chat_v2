@@ -256,17 +256,17 @@ export default function LifeSwitchPeopleMessagesPage() {
   }, [selectedId]);
 
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
       <div>
         <div className="text-lg font-semibold">Messages</div>
-        <div className="mt-1 text-sm text-muted-foreground">
+        <div className="mt-1 break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
           Internal one-to-one LifeSwitch messaging. Start a conversation by choosing a known person or pasting a Supabase user UUID.
         </div>
       </div>
 
-      <div className="rounded-xl border p-4">
-        <div className="text-sm font-semibold">Start conversation</div>
-        <div className="mt-2 grid gap-2 lg:grid-cols-[280px_1fr_auto]">
+      <div className="min-w-0 max-w-full overflow-hidden rounded-xl border p-4">
+        <div className="min-w-0 truncate text-sm font-semibold">Start conversation</div>
+        <div className="mt-2 grid min-w-0 max-w-full gap-2 lg:grid-cols-[280px_minmax(0,1fr)_auto]">
           <select
             value={selectedPersonId}
             onChange={(e) => {
@@ -313,10 +313,10 @@ export default function LifeSwitchPeopleMessagesPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-        <section className="rounded-xl border">
+      <div className="grid min-w-0 max-w-full gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <section className="min-w-0 max-w-full overflow-hidden rounded-xl border">
           <div className="flex items-center justify-between border-b px-4 py-3">
-            <div className="text-sm font-semibold">Conversations</div>
+            <div className="min-w-0 truncate text-sm font-semibold">Conversations</div>
             <button
               type="button"
               onClick={() => void loadConversations(selectedId)}
@@ -327,7 +327,7 @@ export default function LifeSwitchPeopleMessagesPage() {
             </button>
           </div>
 
-          <div className="grid max-h-[520px] overflow-auto">
+          <div className="grid max-h-[520px] min-w-0 overflow-y-auto overflow-x-hidden">
             {conversations.length === 0 ? (
               <div className="p-4 text-sm text-muted-foreground">
                 No conversations yet.
@@ -341,14 +341,14 @@ export default function LifeSwitchPeopleMessagesPage() {
                     type="button"
                     onClick={() => setSelectedId(c.conversation_id)}
                     className={[
-                      "border-b px-4 py-3 text-left hover:bg-muted/30",
+                      "w-full min-w-0 overflow-hidden border-b px-4 py-3 text-left hover:bg-muted/30",
                       active ? "bg-muted/20" : "",
                     ].join(" ")}
                   >
-                    <div className="text-sm font-semibold">
+                    <div className="min-w-0 truncate text-sm font-semibold">
                       {c.title || displayUserName(c.other_display_name, c.other_user_id)}
                     </div>
-                    <div className="mt-1 truncate text-xs text-muted-foreground">
+                    <div className="mt-1 min-w-0 truncate text-xs text-muted-foreground">
                       {c.last_message_body || "No messages yet."}
                     </div>
                     <div className="mt-1 text-[10px] text-muted-foreground">
@@ -361,21 +361,21 @@ export default function LifeSwitchPeopleMessagesPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border">
-          <div className="border-b px-4 py-3">
-            <div className="text-sm font-semibold">
+        <section className="min-w-0 max-w-full overflow-hidden rounded-xl border">
+          <div className="min-w-0 border-b px-4 py-3">
+            <div className="min-w-0 truncate text-sm font-semibold">
               {selectedConversation
                 ? selectedConversation.title || displayUserName(selectedConversation.other_display_name, selectedConversation.other_user_id)
                 : "Select a conversation"}
             </div>
             {selectedConversation ? (
-              <div className="mt-1 text-xs text-muted-foreground">
+              <div className="mt-1 break-all text-xs text-muted-foreground">
                 conversation_id: {selectedConversation.conversation_id}
               </div>
             ) : null}
           </div>
 
-          <div className="grid min-h-[420px] content-start gap-3 p-4">
+          <div className="grid min-h-[420px] min-w-0 max-w-full content-start gap-3 overflow-x-hidden p-4">
             {!selectedConversation ? (
               <div className="text-sm text-muted-foreground">
                 Start or select a conversation.
@@ -392,14 +392,14 @@ export default function LifeSwitchPeopleMessagesPage() {
                   <div
                     key={m.message_id}
                     className={[
-                      "max-w-[85%] rounded-xl border p-3",
+                      "min-w-0 max-w-[85%] overflow-hidden rounded-xl border p-3",
                       mine ? "justify-self-end bg-muted/30" : "justify-self-start",
                     ].join(" ")}
                   >
                     <div className="text-xs text-muted-foreground">
                       {mine ? "You" : displayUserName(m.author_display_name, m.author_user_id)} · {formatTime(m.created_at)}
                     </div>
-                    <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
+                    <div className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
                       {renderMessageBody(m.body)}
                     </div>
                   </div>
@@ -415,7 +415,7 @@ export default function LifeSwitchPeopleMessagesPage() {
               placeholder={selectedConversation ? "Type a message…" : "Select a conversation first."}
               disabled={!selectedConversation || saving}
               rows={3}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
+              className="w-full min-w-0 max-w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
             />
             <div className="mt-2 flex justify-end">
               <button
