@@ -698,9 +698,22 @@ export function BrainsChatPane() {
   }
 
   async function startListening() {
-    setListening(false);
-    alert("OpenAI Realtime voice is staged but not wired into the chat UI yet. Text-to-speech remains available.");
+  setListening((v) => !v);
+
+  try {
+    const mod = await import('@/hooks/useOpenAIRealtimeVoice');
+
+    if (!(window as any).__realtimeVoiceInstance) {
+      const instance = mod.useOpenAIRealtimeVoice();
+      (window as any).__realtimeVoiceInstance = instance;
+    }
+
+    const inst = (window as any).__realtimeVoiceInstance;
+    await inst.toggle();
+  } catch (e: any) {
+    alert(e?.message || String(e));
   }
+}
 
   async function stopListeningAndRespond() {
     setListening(false);
