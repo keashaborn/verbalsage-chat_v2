@@ -1,111 +1,231 @@
-import { useRef, useState } from "react";
+"use client";
+
+import { useCallback, useRef, useState } from "react";
 import { authFetch } from "@/lib/authFetch";
 
-type Status = "idle" | "active" | "error";
+export type OpenAIRealtimeVoiceStatus =
+  | "idle"
+  | "connecting"
+  | "active"
+  | "error";
+
+type StartOptions = {
+  model?: string;
+  voice?: string;
+  instructions?: string;
+};
+
+function waitForIceGatheringComplete(pc: RTCPeerConnection, timeoutMs = 3000): Promise<void> {
+  if (pc.iceGatheringState === "complete") return Promise.resolve();
+
+  return new Promise((resolve) => {
+    let done = false;
+
+    const finish = () => {
+      if (done) return;
+      done = true;
+      pc.removeEventListener("icegatheringstatechange", onChange);
+      clearTimeout(timer);
+      resolve();
+    };
+
+    const onChange = () => {
+      if (pc.iceGatheringState === "complete") finish();
+    };
+
+    const timer = window.setTimeout(finish, timeoutMs);
+    pc.addEventListener("icegatheringstatechange", onChange);
+  });
+}
 
 export function useOpenAIRealtimeVoice() {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const dataChannelRef = useRef<RTCDataChannel | null>(null);
 
-  const [status, setStatus] = useState<Status>("idle");
+  const [status, setStatus] = useState<OpenAIRealtimeVoiceStatus>("idle");
+  const [lastError, setLastError] = useState<string>("");
 
-  async function start() {
+  const stop = useCallback(() => {
+    setStatus("idle");
+    setLastError("");
+
     try {
-      stop();
+      dataChannelRef.current?.close();
+    } catch {}
+    dataChannelRef.current = null;
 
-      setStatus("active");
+    try {
+      pcRef.current?.getSenders().forEach((sender) => {
+        try {
+          sender.track?.stop();
+        } catch {}
+      });
+    } catch {}
+
+    try {
+      pcRef.current?.close();
+    } catch {}
+    pcRef.current = null;
+
+    try {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    } catch {}
+    streamRef.current = null;
+
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.srcObject = null;
+      }
+    } catch {}
+    audioRef.current = null;
+  }, []);
+
+  const start = useCallback(async (opts: StartOptions = {}) => {
+    stop();
+    setStatus("connecting");
+    setLastError("");
+
+    try {
+      if (typeof window === "undefined") {
+        throw new Error("Realtime voice is only available in the browser.");
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Microphone access is not available in this browser.");
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       });
-
       streamRef.current = stream;
 
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
       });
-
       pcRef.current = pc;
 
-      stream.getTracks().forEach((t) => pc.addTrack(t, stream));
-
-      const audio = new Audio();
-      audio.autoplay = true;
-      audioRef.current = audio;
+      const remoteAudio = new Audio();
+      remoteAudio.autoplay = true;
+      remoteAudio.setAttribute("playsinline", "true");
+      audioRef.current = remoteAudio;
 
       pc.ontrack = (event) => {
-        audio.srcObject = event.streams[0];
+        const [remoteStream] = event.streams;
+        if (remoteStream) {
+          remoteAudio.srcObject = remoteStream;
+          remoteAudio.play().catch(() => {
+            // Browser may require a user gesture; start() is triggered by a click.
+          });
+        }
       };
 
-      const offer = await pc.createOffer();
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "connected") {
+          setStatus("active");
+        } else if (
+          pc.connectionState === "failed" ||
+          pc.connectionState === "closed" ||
+          pc.connectionState === "disconnected"
+        ) {
+          setStatus("idle");
+        }
+      };
+
+      const dc = pc.createDataChannel("oai-events");
+      dataChannelRef.current = dc;
+
+      dc.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(String(event.data || "{}"));
+          const type = String(payload?.type || "");
+          if (type === "error") {
+            const msg = String(payload?.error?.message || payload?.message || "Realtime voice error");
+            setLastError(msg);
+            console.error("OpenAI realtime voice event error:", payload);
+          }
+        } catch {
+          // Non-JSON events are ignored for phase 1.
+        }
+      };
+
+      stream.getAudioTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
+
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: true,
+      });
+
       await pc.setLocalDescription(offer);
+      await waitForIceGatheringComplete(pc);
+
+      const finalOffer = pc.localDescription;
+      if (!finalOffer?.sdp) {
+        throw new Error("Failed to create local SDP offer.");
+      }
+
+      const body: Record<string, unknown> = {
+        sdp: finalOffer.sdp,
+      };
+
+      if (opts.model) body.model = opts.model;
+      if (opts.voice) body.voice = opts.voice;
+      if (opts.instructions) body.instructions = opts.instructions;
 
       const r = await authFetch("/api/voice/openai/webrtc-offer", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sdp: offer.sdp,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
       });
 
+      const answerText = await r.text();
+
       if (!r.ok) {
-        throw new Error(await r.text());
+        throw new Error(answerText || `Realtime WebRTC offer failed: HTTP ${r.status}`);
       }
 
-      const data = await r.json();
-      const answer =
-        data?.sdp ||
-        data?.answer ||
-        data?.data?.sdp;
-
-      if (!answer) {
-        throw new Error("Missing SDP answer from backend");
+      const answerSdp = answerText.trim();
+      if (!answerSdp || !answerSdp.startsWith("v=")) {
+        throw new Error(`Invalid SDP answer from backend: ${answerSdp.slice(0, 180)}`);
       }
 
       await pc.setRemoteDescription({
         type: "answer",
-        sdp: answer,
+        sdp: answerSdp,
       });
 
       setStatus("active");
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      const msg = String(e?.message || e || "Realtime voice failed.");
+      setLastError(msg);
       setStatus("error");
+      stop();
+      throw new Error(msg);
     }
-  }
+  }, [stop]);
 
-  function stop() {
-    setStatus("idle");
+  const toggle = useCallback(async (opts: StartOptions = {}) => {
+    if (status === "active" || status === "connecting") {
+      stop();
+      return;
+    }
 
-    try {
-      pcRef.current?.close();
-    } catch {}
-
-    pcRef.current = null;
-
-    try {
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-    } catch {}
-
-    streamRef.current = null;
-
-    try {
-      if (audioRef.current) {
-        audioRef.current.srcObject = null;
-      }
-    } catch {}
-
-    audioRef.current = null;
-  }
-
-  function toggle() {
-    if (status === "active") stop();
-    else start();
-  }
+    await start(opts);
+  }, [start, status, stop]);
 
   return {
     status,
+    lastError,
+    isActive: status === "active" || status === "connecting",
     start,
     stop,
     toggle,

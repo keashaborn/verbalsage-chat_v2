@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { authFetch, authFetchJson } from "@/lib/authFetch";
 import { ChevronDown, Copy, RefreshCw, Volume2, Loader2, Square, Check } from "lucide-react";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
+import { useOpenAIRealtimeVoice } from "@/hooks/useOpenAIRealtimeVoice";
 
 type InspectResult = {
   answer?: string;
@@ -98,6 +99,7 @@ export function BrainsChatPane() {
   const [sending, setSending] = React.useState(false);
   const [listening, setListening] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(false);
+  const realtimeVoice = useOpenAIRealtimeVoice();
 
   const micStreamRef = React.useRef<MediaStream | null>(null);
   const micCtxRef = React.useRef<AudioContext | null>(null);
@@ -698,24 +700,22 @@ export function BrainsChatPane() {
   }
 
   async function startListening() {
-  setListening((v) => !v);
+    stopTTS();
 
-  try {
-    const mod = await import('@/hooks/useOpenAIRealtimeVoice');
-
-    if (!(window as any).__realtimeVoiceInstance) {
-      const instance = mod.useOpenAIRealtimeVoice();
-      (window as any).__realtimeVoiceInstance = instance;
+    try {
+      await realtimeVoice.start({
+        voice: String(getLS<string>("vs_voice", "marin")).trim() || "marin",
+        model: String(getLS<string>("vs_realtime_model", "gpt-realtime-2")).trim() || "gpt-realtime-2",
+      });
+      setListening(true);
+    } catch (e: any) {
+      setListening(false);
+      alert(e?.message || String(e));
     }
-
-    const inst = (window as any).__realtimeVoiceInstance;
-    await inst.toggle();
-  } catch (e: any) {
-    alert(e?.message || String(e));
   }
-}
 
   async function stopListeningAndRespond() {
+    realtimeVoice.stop();
     setListening(false);
     stopVoiceInFlightRef.current = false;
   }
