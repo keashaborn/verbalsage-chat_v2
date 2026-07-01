@@ -725,6 +725,15 @@ export function BrainsChatPane() {
       await realtimeVoice.start({
         voice: String(getLS<string>("vs_voice", "marin")).trim() || "marin",
         model: String(getLS<string>("vs_realtime_model", "gpt-realtime-2")).trim() || "gpt-realtime-2",
+        instructions: [
+          "You are Verbal Sage in live voice mode.",
+          "Use a calm, concise, conversational style.",
+          "Answer the user's spoken question directly.",
+          "Do not drift into math, geometry, tutoring, or unrelated explanations unless the user explicitly asks for that.",
+          "If interrupted, stop the current answer and respond to the user's new direction.",
+          "Do not claim to write into the text chat unless transcript capture is explicitly enabled.",
+          "Keep most spoken answers short unless the user asks for more detail.",
+        ].join(" "),
       });
       setListening(true);
     } catch (e: any) {
