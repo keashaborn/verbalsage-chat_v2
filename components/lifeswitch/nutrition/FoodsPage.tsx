@@ -4,6 +4,7 @@ import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { ChevronDown, ChevronUp, Search as SearchIcon, Trash2 } from "lucide-react";
 import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
+import { LifeSwitchToolPanel } from "@/components/lifeswitch/LifeSwitchToolPanel";
 
 type UsdaHit = {
   fdc_id: number;
@@ -486,87 +487,90 @@ export default function NutritionFoodsPage() {
       </div>
 
       <div className="mt-5 grid gap-6">
-        {/* USDA SEARCH */}
-        <div>
+          {/* LIBRARY ACTIONS */}
+          <LifeSwitchToolPanel
+            title="Library actions"
+            subtitle="Search USDA and import foods when you need to expand your library."
+            storageKey="lifeswitch:nutrition:foods-library-actions"
+            defaultOpen={myFoods.length === 0}
+          >
+            {/* Search USDA */}
+            <div className="grid gap-2 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
+              <input
+                className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                value={usdaQ}
+                onChange={(e) => setUsdaQ(e.target.value)}
+                placeholder="Search USDA (name or UPC)"
+                inputMode="search"
+                autoCapitalize="none"
+                autoCorrect="off"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void searchUsda();
+                  }
+                }}
+              />
 
-          {/* Search (Exercises-style) */}
-          <div className="mt-0.5 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
-            <input
-              className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 text-sm"
-              value={usdaQ}
-              onChange={(e) => setUsdaQ(e.target.value)}
-              placeholder='Search USDA (name or UPC)'
-              inputMode="search"
-              autoCapitalize="none"
-              autoCorrect="off"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  void searchUsda();
-                }
-              }}
-            />
-
-            <button
-              type="button"
-              className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-              onClick={() => void searchUsda()}
-              disabled={usdaLoading || !usdaQ.trim()}
-            >
-              {usdaLoading ? "Searching…" : "Search"}
-            </button>
-          </div>
-
-          {/* Flat list */}
-          {(!usdaLoading && usdaRows.length === 0) ? (
-            <div className="mt-3 text-xs text-muted-foreground">
-              No results yet. Enter a query and click Search.
+              <button
+                type="button"
+                className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                onClick={() => void searchUsda()}
+                disabled={usdaLoading || !usdaQ.trim()}
+              >
+                {usdaLoading ? "Searching…" : "Search"}
+              </button>
             </div>
-          ) : null}
 
-          {usdaRows.length ? (
-            <div className="mt-3 divide-y divide-muted/20">
-              {usdaRows.map((h) => (
-                <div
-                  key={String(h.fdc_id)}
-                  className="py-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between min-w-0"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium break-words whitespace-normal">{h.description || "(no description)"}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
-                      {(h.brand_owner || h.brand_name || "unbranded") + " · " + (h.data_type || "unknown")}{" "}
-                      {h.published_date ? " · " + h.published_date : ""} · fdc_id {h.fdc_id}
+            {(!usdaLoading && usdaRows.length === 0) ? (
+              <div className="mt-3 text-xs text-muted-foreground">
+                No results yet. Enter a query and click Search.
+              </div>
+            ) : null}
+
+            {usdaRows.length ? (
+              <div className="mt-3 divide-y divide-muted/20">
+                {usdaRows.map((h) => (
+                  <div
+                    key={String(h.fdc_id)}
+                    className="py-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between min-w-0"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium break-words whitespace-normal">{h.description || "(no description)"}</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
+                        {(h.brand_owner || h.brand_name || "unbranded") + " · " + (h.data_type || "unknown")}{" "}
+                        {h.published_date ? " · " + h.published_date : ""} · fdc_id {h.fdc_id}
+                      </div>
+
+                      {h.gtin_upc ? (
+                        <div className="mt-0.5 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
+                          upc {h.gtin_upc}
+                        </div>
+                      ) : null}
                     </div>
 
-                    {h.gtin_upc ? (
-                      <div className="mt-0.5 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
-                        upc {h.gtin_upc}
-                      </div>
-                    ) : null}
+                    <div className="flex justify-end lg:ml-3 lg:shrink-0">
+                      <button
+                        className="w-full lg:w-auto rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                        onClick={() => void importFromUsda(h)}
+                        disabled={
+                          importingFdc === h.fdc_id ||
+                          importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)
+                        }
+                        title="Import into My Foods"
+                      >
+                        {importingFdc === h.fdc_id
+                          ? "Importing…"
+                          : importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)
+                            ? "Imported"
+                            : "Import"}
+                      </button>
+                    </div>
                   </div>
-
-                  <div className="flex justify-end lg:ml-3 lg:shrink-0">
-                    <button
-                      className="w-full lg:w-auto rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                      onClick={() => void importFromUsda(h)}
-                      disabled={
-                        importingFdc === h.fdc_id ||
-                        importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)
-                      }
-                      title="Import into My Foods"
-                    >
-                      {importingFdc === h.fdc_id
-                        ? "Importing…"
-                        : importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)
-                          ? "Imported"
-                          : "Import"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
+                ))}
+              </div>
+            ) : null}
+          </LifeSwitchToolPanel>
 
         {/* MY FOODS */}
         <div>
