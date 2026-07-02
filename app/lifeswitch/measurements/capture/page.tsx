@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
 import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
 
@@ -281,6 +282,7 @@ export default function MeasurementsCapturePage() {
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [openEntryActionsId, setOpenEntryActionsId] = React.useState("");
   const [status, setStatus] = React.useState("");
   const [flash, setFlash] = React.useState("");
 
@@ -572,7 +574,9 @@ export default function MeasurementsCapturePage() {
   }
 
   async function deleteEntry(entryId: string) {
-    const ok = window.confirm("Delete this measurement entry?");
+    const entry = entries.find((e) => e.measurement_entry_id === entryId);
+    const label = entry ? `${entry.local_date} · ${displayKind(entry.entry_kind)}` : "this measurement entry";
+    const ok = window.confirm(`Delete measurement entry "${label}"?`);
     if (!ok) return;
 
     setDeletingId(entryId);
@@ -584,6 +588,7 @@ export default function MeasurementsCapturePage() {
         method: "POST",
       });
 
+      setOpenEntryActionsId("");
       setFlash("Measurement entry deleted.");
       await loadEntries();
     } catch (e: any) {
@@ -852,7 +857,7 @@ export default function MeasurementsCapturePage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col items-end gap-2">
                     <button
                       type="button"
                       className="rounded-md border px-2 py-1 text-[11px] hover:bg-muted/30"
@@ -863,12 +868,38 @@ export default function MeasurementsCapturePage() {
 
                     <button
                       type="button"
-                      className="rounded-md border px-2 py-1 text-[11px] hover:bg-muted/30 disabled:opacity-50"
-                      disabled={deletingId === entry.measurement_entry_id}
-                      onClick={() => void deleteEntry(entry.measurement_entry_id)}
+                      className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/30"
+                      onClick={() =>
+                        setOpenEntryActionsId((prev) =>
+                          prev === entry.measurement_entry_id ? "" : entry.measurement_entry_id
+                        )
+                      }
+                      aria-expanded={openEntryActionsId === entry.measurement_entry_id}
                     >
-                      {deletingId === entry.measurement_entry_id ? "Deleting..." : "Delete"}
+                      Actions
+                      {openEntryActionsId === entry.measurement_entry_id ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
                     </button>
+
+                    {openEntryActionsId === entry.measurement_entry_id ? (
+                      <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                          Danger zone
+                        </div>
+                        <button
+                          type="button"
+                          className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-[11px] text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                          disabled={deletingId === entry.measurement_entry_id}
+                          onClick={() => void deleteEntry(entry.measurement_entry_id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          {deletingId === entry.measurement_entry_id ? "Deleting..." : "Delete entry"}
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
