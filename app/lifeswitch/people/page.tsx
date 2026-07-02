@@ -203,21 +203,16 @@ export default function LifeSwitchPeoplePage() {
       setRelationships(relationshipRows);
       setInvitations(Array.isArray(inviteRows) ? inviteRows : []);
 
-      const selectableProfiles = profileRows.filter((p) => !currentUserId || p.user_id !== currentUserId);
-      const next =
-        nextSelectedUserId ||
-        selectedUserId ||
-        relationshipRows[0]?.other_user_id ||
-        selectableProfiles[0]?.user_id ||
-        "";
+      const next = nextSelectedUserId || selectedUserId || "";
 
       setSelectedUserId(next);
 
-      const rel = relationshipRows.find((r) => r.other_user_id === next);
+      const rel = next ? relationshipRows.find((r) => r.other_user_id === next) : null;
       if (rel) {
         setSelectedKind(rel.relationship_kind);
         await loadPermissions(rel.relationship_id);
       } else {
+        setSelectedKind("friend");
         setPermissions([]);
       }
     } catch (e) {
