@@ -2,6 +2,7 @@
 
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
+import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 
 type ExerciseSearchHit = {
   exercise_id: string;
@@ -127,6 +128,8 @@ export default function TrainingExercisesPage() {
     return s;
   }, [myExercises]);
 
+  const [openExerciseActionsId, setOpenExerciseActionsId] = React.useState("");
+
   async function saveExercise(h: ExerciseSearchHit) {
     setSaveErr(null);
 
@@ -156,10 +159,14 @@ export default function TrainingExercisesPage() {
   }
 
   async function removeExercise(row: MyExerciseRow) {
+    const ok = window.confirm(`Remove exercise "${row.display_name}" from your unique exercises?`);
+    if (!ok) return;
+
     await fetchJson(
       `/api/lifeswitch/training/my_exercises/${encodeURIComponent(row.my_exercise_id)}/deactivate`,
       { method: "POST" }
     );
+    setOpenExerciseActionsId("");
     await loadMyExercises();
   }
 
@@ -250,14 +257,41 @@ export default function TrainingExercisesPage() {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  className="shrink-0 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30"
-                  onClick={() => void removeExercise(x)}
+                <div className="grid shrink-0 justify-items-end gap-2">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/30"
+                    onClick={() =>
+                      setOpenExerciseActionsId((prev) =>
+                        prev === x.my_exercise_id ? "" : x.my_exercise_id
+                      )
+                    }
+                    aria-expanded={openExerciseActionsId === x.my_exercise_id}
+                  >
+                    Actions
+                    {openExerciseActionsId === x.my_exercise_id ? (
+                      <ChevronUp className="h-3 w-3" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" />
+                    )}
+                  </button>
 
-                >
-                  Remove
-                </button>
+                  {openExerciseActionsId === x.my_exercise_id ? (
+                    <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                        Danger zone
+                      </div>
+                      <button
+                        type="button"
+                        className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                        onClick={() => void removeExercise(x)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Remove exercise
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ))}
           </div>
