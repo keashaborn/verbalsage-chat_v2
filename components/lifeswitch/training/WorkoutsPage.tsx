@@ -771,7 +771,7 @@ export default function TrainingWorkoutsPage() {
                               <div className="flex items-center gap-2">
                                 {open ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
                                 <div className="min-w-0">
-                                  <div className="truncate text-sm font-medium">{title}</div>
+                                  <div className="truncate text-sm font-semibold text-blue-400">{title}</div>
                                   <div className="mt-1 text-xs text-muted-foreground">
                                     {(e.set_type || "straight") === "drop" ? "drop" : "straight"} · {e.planned_sets} sets · {e.default_weight} × {e.default_reps}
                                     {meta?.modality ? ` · ${meta.modality}` : ""}
@@ -1052,7 +1052,7 @@ export default function TrainingWorkoutsPage() {
                       className="w-full text-left"
                       onClick={() => setSelectedId(t.workout_template_id)}
                     >
-                      <div className="truncate text-sm font-semibold text-primary">{t.name}</div>
+                      <div className="truncate text-sm font-semibold text-blue-400">{t.name}</div>
                       <div className="mt-1 text-xs text-muted-foreground">
                         updated={String(t.updated_at || "").slice(0, 10)}
                       </div>
