@@ -4,6 +4,7 @@ import { authFetch } from "@/lib/authFetch";
 import Link from "next/link";
 import ConditioningLogSection from "@/components/lifeswitch/training/ConditioningLogSection";
 import * as React from "react";
+import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 
 type TrainingSessionRow = {
   training_session_id: string;
@@ -204,6 +205,7 @@ function MonthCalendar(props: { ym: string; workoutDates: Set<string>; condition
 
 export default function TrainingCalendarPage() {
   const [status, setStatus] = React.useState("loading sessions...");
+  const [openSessionActionsId, setOpenSessionActionsId] = React.useState("");
   const [sessions, setSessions] = React.useState<TrainingSessionRow[]>([]);
   const [conditioningSessions, setConditioningSessions] = React.useState<ConditioningSessionRow[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -277,6 +279,7 @@ export default function TrainingCalendarPage() {
       await fetchJson(`/api/lifeswitch/training/sessions/${encodeURIComponent(trainingSessionId)}/deactivate`, {
         method: "POST",
       });
+      setOpenSessionActionsId("");
       await loadSessions();
     } catch (e: any) {
       setStatus(`delete failed: ${String(e?.message || e)}`);
@@ -469,20 +472,50 @@ export default function TrainingCalendarPage() {
                         {s.notes ? <div className="mt-2 text-xs text-muted-foreground">{s.notes}</div> : null}
                       </div>
 
-                      <div className="flex shrink-0 items-center gap-2 text-xs">
+                      <div className="flex shrink-0 flex-col items-end gap-2 text-xs">
                         <span className="text-muted-foreground">View</span>
                         {!readOnly ? (
-                          <button
-                            type="button"
-                            className="rounded-md border px-2 py-1 hover:bg-muted/30"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              void deleteSession(s.training_session_id, s.name);
-                            }}
-                          >
-                            Delete
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/30"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setOpenSessionActionsId((prev) =>
+                                  prev === s.training_session_id ? "" : s.training_session_id
+                                );
+                              }}
+                              aria-expanded={openSessionActionsId === s.training_session_id}
+                            >
+                              Actions
+                              {openSessionActionsId === s.training_session_id ? (
+                                <ChevronUp className="h-3 w-3" />
+                              ) : (
+                                <ChevronDown className="h-3 w-3" />
+                              )}
+                            </button>
+
+                            {openSessionActionsId === s.training_session_id ? (
+                              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                                <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                                  Danger zone
+                                </div>
+                                <button
+                                  type="button"
+                                  className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-[11px] text-red-600 hover:bg-red-500/10"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    void deleteSession(s.training_session_id, s.name);
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  Delete session
+                                </button>
+                              </div>
+                            ) : null}
+                          </>
                         ) : null}
                       </div>
                     </div>

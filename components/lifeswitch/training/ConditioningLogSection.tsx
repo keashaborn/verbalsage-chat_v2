@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
 
 type ConditioningSessionRow = {
@@ -59,6 +60,7 @@ export default function ConditioningLogSection({
   const [rows, setRows] = React.useState<ConditioningSessionRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [status, setStatus] = React.useState("loading conditioning sessions...");
+  const [openConditioningActionsId, setOpenConditioningActionsId] = React.useState("");
 
   async function loadRows() {
     setLoading(true);
@@ -103,6 +105,7 @@ export default function ConditioningLogSection({
       await fetchJson(`/api/lifeswitch/training/conditioning_sessions/${encodeURIComponent(id)}/deactivate`, {
         method: "POST",
       });
+      setOpenConditioningActionsId("");
       await loadRows();
     } catch (e: any) {
       setStatus(`delete failed: ${String(e?.message || e)}`);
@@ -155,13 +158,41 @@ export default function ConditioningLogSection({
                 </div>
 
                 {!readOnly ? (
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
-                    onClick={() => void deleteRow(c.conditioning_session_log_id, c.name)}
-                  >
-                    Delete
-                  </button>
+                  <div className="grid shrink-0 justify-items-end gap-2">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                      onClick={() =>
+                        setOpenConditioningActionsId((prev) =>
+                          prev === c.conditioning_session_log_id ? "" : c.conditioning_session_log_id
+                        )
+                      }
+                      aria-expanded={openConditioningActionsId === c.conditioning_session_log_id}
+                    >
+                      Actions
+                      {openConditioningActionsId === c.conditioning_session_log_id ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
+                    </button>
+
+                    {openConditioningActionsId === c.conditioning_session_log_id ? (
+                      <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                          Danger zone
+                        </div>
+                        <button
+                          type="button"
+                          className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                          onClick={() => void deleteRow(c.conditioning_session_log_id, c.name)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Delete session
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             </div>
