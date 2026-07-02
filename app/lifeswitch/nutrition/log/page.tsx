@@ -664,67 +664,74 @@ export default function NutritionLogPage() {
                                           Read-only
                                         </div>
                                       ) : (
-                                        <details className="group">
-                                          <summary className="list-none cursor-pointer select-none rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 opacity-70 hover:opacity-100 [&::-webkit-details-marker]:hidden">
-                                            ⋯ <span className="opacity-60 group-open:hidden">▾</span><span className="opacity-60 hidden group-open:inline">▴</span>
-                                          </summary>
+                                          <details className="group">
+                                            <summary className="inline-flex list-none cursor-pointer select-none items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 [&::-webkit-details-marker]:hidden">
+                                              Actions
+                                              <span className="opacity-60 group-open:hidden">▾</span>
+                                              <span className="hidden opacity-60 group-open:inline">▴</span>
+                                            </summary>
 
+                                            <div className="mt-2 grid justify-items-end gap-2">
+                                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                                <input
+                                                  className="w-20 rounded-xl border bg-background px-2 py-1.5 text-right text-xs"
+                                                  value={gramsDraft}
+                                                  onFocus={selectNumberInputValue}
+                                                  onClick={selectNumberInputValue}
+                                                  inputMode="decimal"
+                                                  onChange={(ev) => {
+                                                    const value = ev.currentTarget.value;
+                                                    setEditGramsByEntryId((prev) => ({
+                                                      ...prev,
+                                                      [entryId]: value,
+                                                    }));
+                                                  }}
+                                                  onKeyDown={(ev) => {
+                                                    if (ev.key !== "Enter") return;
+                                                    const value = ev.currentTarget.value;
+                                                    void saveEditedGrams(String(d.day), entryId, value);
+                                                  }}
+                                                  title="Edit grams, then Save"
+                                                />
+                                                <div className="text-xs text-muted-foreground">g</div>
 
-                                          <div className="mt-2 flex flex-wrap items-center gap-2 justify-end">
-                                            <input
-                                              className="w-20 rounded-xl border bg-background px-2 py-1.5 text-xs text-right"
-                                              value={gramsDraft}
-                                              onFocus={selectNumberInputValue}
-                                              onClick={selectNumberInputValue}
-                                              inputMode="decimal"
-                                              onChange={(ev) => {
-                                                const value = ev.currentTarget.value;
-                                                setEditGramsByEntryId((prev) => ({
-                                                  ...prev,
-                                                  [entryId]: value,
-                                                }));
-                                              }}
-                                              onKeyDown={(ev) => {
-                                                if (ev.key !== "Enter") return;
-                                                const value = ev.currentTarget.value;
-                                                void saveEditedGrams(String(d.day), entryId, value);
-                                              }}
-                                              title="Edit grams, then Save"
-                                            />
-                                            <div className="text-xs text-muted-foreground">g</div>
+                                                <button
+                                                  className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30 disabled:opacity-50"
+                                                  onClick={() => void saveEditedGrams(String(d.day), entryId, gramsDraft)}
+                                                  disabled={!entryId || !gramsChanged || savingEntryId === entryId}
+                                                  title="Save grams"
+                                                >
+                                                  {savingEntryId === entryId ? "Saving…" : "Save"}
+                                                </button>
 
-                                            <button
-                                              className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30 disabled:opacity-50"
-                                              onClick={() => void saveEditedGrams(String(d.day), entryId, gramsDraft)}
-                                              disabled={!entryId || !gramsChanged || savingEntryId === entryId}
-                                              title="Save grams"
-                                            >
-                                              {savingEntryId === entryId ? "Saving…" : "Save"}
-                                            </button>
+                                                {savedEntryId === entryId ? (
+                                                  <div className="text-xs text-green-600">Saved</div>
+                                                ) : null}
 
-                                            {savedEntryId === entryId ? (
-                                              <div className="text-xs text-green-600">Saved</div>
-                                            ) : null}
+                                                {entrySaveError[entryId] ? (
+                                                  <div className="text-xs text-red-600">{entrySaveError[entryId]}</div>
+                                                ) : null}
+                                              </div>
 
-                                            {entrySaveError[entryId] ? (
-                                              <div className="text-xs text-red-600">{entrySaveError[entryId]}</div>
-                                            ) : null}
-
-                                            <button
-                                              className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
-                                              onClick={() => {
-                                                if (!confirm("Delete this entry?")) return;
-                                                void deleteLogEntry(String(e.nutrition_entry_id))
-                                                  .then(() => refreshOneDay(String(d.day), ""))
-                                                  .catch(() => { });
-                                              }}
-                                              title="Delete entry"
-                                            >
-                                              Delete
-                                            </button>
-                                          </div>
-
-                                        </details>
+                                              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                                                <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                                                  Danger zone
+                                                </div>
+                                                <button
+                                                  className="mt-2 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                                                  onClick={() => {
+                                                    if (!confirm("Delete this nutrition entry?")) return;
+                                                    void deleteLogEntry(String(e.nutrition_entry_id))
+                                                      .then(() => refreshOneDay(String(d.day), ""))
+                                                      .catch(() => { });
+                                                  }}
+                                                  title="Delete entry"
+                                                >
+                                                  Delete entry
+                                                </button>
+                                              </div>
+                                            </div>
+                                          </details>
                                       )}
                                     </div>
                                   </div>
