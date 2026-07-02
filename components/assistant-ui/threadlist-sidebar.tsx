@@ -75,7 +75,7 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
           <div className="flex aspect-square size-10 items-center justify-center rounded-lg overflow-hidden">
             <Image
               src="/brand/vs-icon.svg"
-              alt="Verbal Sage"
+              alt="LifeSwitch"
               width={28}
               height={28}
               priority

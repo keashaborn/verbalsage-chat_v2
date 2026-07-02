@@ -178,20 +178,19 @@ export default function LifeSwitchInvitePage({
     <div className="mx-auto max-w-2xl p-4 pb-24">
       <div className="rounded-2xl border bg-background p-5 shadow-sm">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Verbal Sage / LifeSwitch
+          LifeSwitch
         </div>
 
         <h1 className="mt-2 text-2xl font-semibold">
-          {preview ? `${inviter} invited you to LifeSwitch on Verbal Sage` : "LifeSwitch invitation"}
+          {preview ? `${inviter} invited you to LifeSwitch` : "LifeSwitch invitation"}
         </h1>
 
         <div className="mt-4 grid gap-3 text-sm text-muted-foreground">
           <p>
-            Verbal Sage is a private app for reflection, planning, and personal change work.
+            LifeSwitch is a private app for planning, tracking, reflection, and personal change work.
           </p>
           <p>
-            LifeSwitch is the health and fitness area inside Verbal Sage. It helps organize plans,
-            training, nutrition, measurements, and progress over time.
+            It helps organize plans, training, nutrition, measurements, relationships, and progress over time.
           </p>
           {preview ? (
             <p>

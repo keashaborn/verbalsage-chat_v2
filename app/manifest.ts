@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Verbal Sage",
-    short_name: "Verbal Sage",
+    name: "LifeSwitch",
+    short_name: "LifeSwitch",
     start_url: "/",
     display: "standalone",
     background_color: "#000000",

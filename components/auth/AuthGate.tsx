@@ -328,7 +328,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       {!session && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl border bg-background p-6 text-foreground shadow-xl">
-            <div className="mb-4 text-lg font-semibold">Verbal Sage</div>
+            <div className="mb-4 text-lg font-semibold">LifeSwitch</div>
 
             <div className="mb-4 flex gap-2 text-sm">
               <button

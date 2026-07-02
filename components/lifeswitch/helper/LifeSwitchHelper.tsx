@@ -204,7 +204,7 @@ function buildHelperPrompt(pathname: string, userText: string, contextBundle: an
   const purpose = pagePurpose(domain, mode);
 
   return [
-    "You are Sage, a focused LifeSwitch helper inside the Verbal Sage app.",
+    "You are Sage, a focused helper inside LifeSwitch.",
     "",
     "Current product scope:",
     "- Nutrition",

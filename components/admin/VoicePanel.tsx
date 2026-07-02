@@ -140,7 +140,7 @@ export function VoicePanel() {
   const [voice, setVoice] = React.useState<string>("sage");
   const [speed, setSpeed] = React.useState<number>(1.0);
   const [model, setModel] = React.useState<string>("gpt-4o-mini-tts");
-  const [testText, setTestText] = React.useState<string>("Hello, this is Verbal Sage.");
+  const [testText, setTestText] = React.useState<string>("Hello, this is Sage inside LifeSwitch.");
   const [busy, setBusy] = React.useState<boolean>(false);
   const [status, setStatus] = React.useState<string>("");
   const [isPlaying, setIsPlaying] = React.useState<boolean>(false);

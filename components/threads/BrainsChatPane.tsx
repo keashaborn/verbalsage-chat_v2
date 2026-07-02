@@ -726,7 +726,7 @@ export function BrainsChatPane() {
         voice: String(getLS<string>("vs_voice", "marin")).trim() || "marin",
         model: String(getLS<string>("vs_realtime_model", "gpt-realtime-2")).trim() || "gpt-realtime-2",
         instructions: [
-          "You are Verbal Sage in live voice mode.",
+          "You are Sage in live voice mode inside LifeSwitch.",
           "Use a calm, concise, conversational style.",
           "Answer the user's spoken question directly.",
           "Do not drift into math, geometry, tutoring, or unrelated explanations unless the user explicitly asks for that.",

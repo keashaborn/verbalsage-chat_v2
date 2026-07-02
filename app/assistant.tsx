@@ -45,7 +45,7 @@ export const Assistant = () => {
                 <Separator orientation="vertical" className="mr-2 h-4" />
                 <img
                   src="/brand/svgweb.svg"
-                  alt="Verbal Sage"
+                  alt="LifeSwitch"
                   className="h-5 w-auto opacity-90"
                 />
               </div>
