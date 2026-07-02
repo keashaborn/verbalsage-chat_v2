@@ -113,6 +113,7 @@ export default function TrainingWorkoutsPage() {
   const [shareUrl, setShareUrl] = React.useState("");
   const [shareStatus, setShareStatus] = React.useState("");
   const [openTemplateActionsId, setOpenTemplateActionsId] = React.useState("");
+  const [openSelectedExerciseActionsId, setOpenSelectedExerciseActionsId] = React.useState("");
 
 
   const loadMyExercises = React.useCallback(async () => {
@@ -456,6 +457,13 @@ export default function TrainingWorkoutsPage() {
   async function removeExerciseFromSelected(workout_template_exercise_id: string) {
     if (!selected) return;
 
+    const exercise = templateExercises.find(
+      (x) => x.workout_template_exercise_id === workout_template_exercise_id
+    );
+    const name = exercise?.display_name_snapshot || "this exercise";
+    const ok = window.confirm(`Remove exercise "${name}" from this workout?`);
+    if (!ok) return;
+
     await fetchJson(
       `/api/lifeswitch/training/workout_templates/${encodeURIComponent(
         selected.workout_template_id
@@ -463,6 +471,7 @@ export default function TrainingWorkoutsPage() {
       { method: "POST" }
     );
 
+    setOpenSelectedExerciseActionsId("");
     await loadTemplateExercises(selected.workout_template_id);
   }
 
@@ -877,14 +886,43 @@ export default function TrainingWorkoutsPage() {
                               >
                                 <ChevronDown className="h-4 w-4" />
                               </button>
-                              <button
-                                type="button"
-                                className="rounded-md p-2 hover:bg-muted/20 active:bg-muted/30"
-                                onClick={() => void removeExerciseFromSelected(e.workout_template_exercise_id)}
-                                title="Remove"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/20 active:bg-muted/30"
+                                  onClick={() =>
+                                    setOpenSelectedExerciseActionsId((prev) =>
+                                      prev === e.workout_template_exercise_id ? "" : e.workout_template_exercise_id
+                                    )
+                                  }
+                                  aria-expanded={openSelectedExerciseActionsId === e.workout_template_exercise_id}
+                                  title="Exercise actions"
+                                >
+                                  Actions
+                                  {openSelectedExerciseActionsId === e.workout_template_exercise_id ? (
+                                    <ChevronUp className="h-3 w-3" />
+                                  ) : (
+                                    <ChevronDown className="h-3 w-3" />
+                                  )}
+                                </button>
+
+                                {openSelectedExerciseActionsId === e.workout_template_exercise_id ? (
+                                  <div className="absolute right-0 z-20 mt-2 w-44 rounded-lg border border-red-500/20 bg-background p-2 shadow-lg">
+                                    <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                                      Danger zone
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="mt-2 inline-flex w-full items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                                      onClick={() => void removeExerciseFromSelected(e.workout_template_exercise_id)}
+                                      title="Remove exercise"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                      Remove exercise
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
                             </div>
                           </div>
 
