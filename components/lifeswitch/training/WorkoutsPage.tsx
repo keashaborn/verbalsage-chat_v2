@@ -183,6 +183,21 @@ export default function TrainingWorkoutsPage() {
     return templates.find((t) => t.workout_template_id === selectedId) || null;
   }, [templates, selectedId]);
 
+  const clearSelectedWorkout = React.useCallback(() => {
+    setSelectedId("");
+    setEditingSelected(false);
+    setOpenExerciseIds({});
+    setTemplateExerciseSegments({});
+    setTemplateExercises([]);
+    setShareUrl("");
+    setShareStatus("");
+    setQ("");
+    setCatalogHits([]);
+    setCatalogStatus("");
+    setAddStatus("");
+    setOpenSelectedExerciseActionsId("");
+  }, []);
+
   React.useEffect(() => {
     setEditingSelected(false);
     setOpenExerciseIds({});
@@ -798,13 +813,7 @@ export default function TrainingWorkoutsPage() {
                     <button
                       type="button"
                       className="rounded-xl border px-3 py-1.5 text-sm font-medium text-primary hover:bg-muted/30"
-                      onClick={() => {
-                        setSelectedId("");
-                        setEditingSelected(false);
-                        setOpenExerciseIds({});
-                        setTemplateExerciseSegments({});
-                        setTemplateExercises([]);
-                      }}
+                      onClick={clearSelectedWorkout}
                     >
                       Close
                     </button>
