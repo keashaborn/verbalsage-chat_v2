@@ -43,11 +43,14 @@ export const Assistant = () => {
               <div className="flex items-center gap-2">
                 <SidebarTrigger />
                 <Separator orientation="vertical" className="mr-2 h-4" />
-                <img
-                  src="/brand/svgweb.svg"
-                  alt="LifeSwitch"
-                  className="h-5 w-auto opacity-90"
-                />
+                <div className="flex items-baseline gap-2">
+                  <span className="text-lg font-semibold tracking-tight text-foreground">
+                    LifeSwitch
+                  </span>
+                  <span className="hidden text-xs text-muted-foreground sm:inline">
+                    powered by Verbal Sage
+                  </span>
+                </div>
               </div>
 
               <WorkspaceMenu label="Workspace" />

@@ -123,17 +123,10 @@ function DrawerInner({
           </Dialog.Description>
 
           <div className="flex items-center justify-between gap-3">
-            {/* LEFT: wordmark (always flush-left) */}
-            <div className="min-w-0">
-              <div className="relative flex items-center" style={{ height: 16, width: 140 }}>
-                <Image
-                  src="/brand/admin-wordmark.norm.svg"
-                  alt="Admin"
-                  fill
-                  sizes="140px"
-                  className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[1.15] origin-left`}
-                />
-              </div>
+            {/* LEFT: product brand */}
+            <div className="min-w-0 leading-tight">
+              <div className="text-sm font-semibold text-foreground">LifeSwitch</div>
+              <div className="text-[10px] text-muted-foreground">powered by Verbal Sage</div>
             </div>
 
             {/* RIGHT: controls */}

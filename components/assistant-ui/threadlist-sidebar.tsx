@@ -61,7 +61,7 @@ function ActiveVantageBadge() {
     <div className="min-w-0 flex-1 leading-tight">
       <div className="truncate text-sm font-semibold">{vid}</div>
       <div className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
-        Active Profile
+        Sage Profile
       </div>
     </div>
   );
@@ -98,19 +98,13 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
             <SettingsDrawer
               trigger={
                 <SidebarMenuButton size="default" className="justify-start py-2 pl-2">
-                  <div className="flex items-center">
-                    <div
-                      className="relative translate-y-[1px]"
-                      style={{ height: 16, width: 140 }}
-                    >
-                      <Image
-                        src="/brand/admin-wordmark.norm.svg"
-                        alt="Console"
-                        fill
-                        sizes="140px"
-                        className={`object-contain object-left ${BRAND_FILTER_SILVER} scale-[1.00] origin-left`}
-                      />
-                    </div>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      LifeSwitch
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/70">
+                      powered by Verbal Sage
+                    </span>
                   </div>
                 </SidebarMenuButton>
               }
