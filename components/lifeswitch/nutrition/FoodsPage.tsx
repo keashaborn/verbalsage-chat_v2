@@ -2,7 +2,7 @@
 
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
-import { Search as SearchIcon } from "lucide-react";
+import { ChevronDown, ChevronUp, Search as SearchIcon, Trash2 } from "lucide-react";
 import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
 
 type UsdaHit = {
@@ -158,6 +158,7 @@ export default function NutritionFoodsPage() {
   const [myFilter, setMyFilter] = React.useState("");
   const [myLoading, setMyLoading] = React.useState(false);
   const [myErr, setMyErr] = React.useState<string | null>(null);
+  const [openFoodActionsId, setOpenFoodActionsId] = React.useState("");
 
   // Serving presets per My Food (e.g. "slice"=24g, "egg"=50g, "tbsp"=14g)
   const [servOpen, setServOpen] = React.useState<Record<string, boolean>>({});
@@ -455,11 +456,17 @@ export default function NutritionFoodsPage() {
   }
 
   async function deactivateMyFood(my_food_id: string) {
+    const food = myFoods.find((f) => f.my_food_id === my_food_id);
+    const name = food?.display_name || "this food";
+    const ok = window.confirm(`Delete food "${name}"? This removes it from your food library.`);
+    if (!ok) return;
+
     try {
       await authFetch(`/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/deactivate`, {
         method: "POST",
         cache: "no-store",
       });
+      setOpenFoodActionsId("");
       await loadMyFoods();
     } catch (e: any) {
       setMyErr(String(e?.message || e));
@@ -670,20 +677,42 @@ export default function NutritionFoodsPage() {
                       </button>
                     </div>
 
-                    <details className="mt-2 border-t border-muted/20 pt-3">
-                      <summary className="cursor-pointer text-xs text-muted-foreground">
-                        Danger zone
-                      </summary>
-                      <div className="mt-2">
-                        <button
-                          className="w-full rounded-xl border border-red-500/40 px-3 py-2 text-sm text-red-600 hover:bg-red-500/10"
-                          onClick={() => void deactivateMyFood(f.my_food_id)}
-                          title="Remove from My Foods"
-                        >
-                          Delete food
-                        </button>
-                      </div>
-                    </details>
+                    <div className="mt-2 border-t border-muted/20 pt-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenFoodActionsId((prev) =>
+                            prev === f.my_food_id ? "" : f.my_food_id
+                          )
+                        }
+                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                        aria-expanded={openFoodActionsId === f.my_food_id}
+                      >
+                        Actions
+                        {openFoodActionsId === f.my_food_id ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                      </button>
+
+                      {openFoodActionsId === f.my_food_id ? (
+                        <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                            Danger zone
+                          </div>
+                          <button
+                            type="button"
+                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                            onClick={() => void deactivateMyFood(f.my_food_id)}
+                            title="Remove from My Foods"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Delete food
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                     {/* Servings live here */}
                     <div className="mt-2 border-t border-muted/20 pt-3">
                       <div className="text-sm font-semibold">Servings</div>
