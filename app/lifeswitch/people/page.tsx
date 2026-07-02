@@ -612,11 +612,29 @@ export default function LifeSwitchPeoplePage() {
 
         <section className="grid gap-4">
           <div className="rounded-xl border p-4">
-            <div className="text-sm font-semibold">
-              {selectedPerson ? displayName(selectedPerson) : "Select a person"}
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {selectedPerson ? selectedPerson.user_id : "Choose someone from the list."}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">
+                  {selectedPerson ? displayName(selectedPerson) : "Select a person"}
+                </div>
+                <div className="mt-1 break-all text-xs text-muted-foreground">
+                  {selectedPerson ? selectedPerson.user_id : "Choose someone from the list."}
+                </div>
+              </div>
+
+              {selectedPerson ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedUserId("");
+                    setSelectedKind("friend");
+                    setPermissions([]);
+                  }}
+                  className="shrink-0 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                >
+                  Close
+                </button>
+              ) : null}
             </div>
 
             {selectedPerson ? (
