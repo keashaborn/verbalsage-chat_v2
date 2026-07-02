@@ -4,6 +4,7 @@ import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { ChevronUp, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
+import { LifeSwitchToolPanel } from "@/components/lifeswitch/LifeSwitchToolPanel";
 
 type MyExerciseRow = {
   my_exercise_id: string;
@@ -663,28 +664,33 @@ export default function TrainingWorkoutsPage() {
       <div className="mt-6 grid min-w-0 gap-4 xl:grid-cols-[20rem_minmax(0,1fr)_18rem]">
         {/* Left: create + workout list */}
         <aside className="min-w-0 rounded-xl border p-4">
-          <div className="text-sm font-semibold">Create workout</div>
-
-          <div className="mt-3 grid gap-2">
-            <input
-              className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder='New workout name'
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void createTemplate();
-              }}
-            />
-            <button
-              type="button"
-              className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-              onClick={() => void createTemplate()}
-              disabled={!newName.trim()}
-              title="Create workout"
-            >
-              Save new workout
-            </button>
-          </div>
+          <LifeSwitchToolPanel
+            title="Workout actions"
+            subtitle="Create workout templates when you need to expand your training library."
+            storageKey="lifeswitch:training:workout-actions"
+            defaultOpen={templates.length === 0}
+          >
+            <div className="grid gap-2">
+              <input
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="New workout name"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void createTemplate();
+                }}
+              />
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                onClick={() => void createTemplate()}
+                disabled={!newName.trim()}
+                title="Create workout"
+              >
+                Save new workout
+              </button>
+            </div>
+          </LifeSwitchToolPanel>
 
           <div className="mt-6 flex items-center justify-between">
             <div className="text-sm font-semibold">Workouts</div>
