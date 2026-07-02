@@ -138,13 +138,12 @@ export default function TrainingWorkoutsPage() {
       const active = arr.filter((x) => x.is_active);
       active.sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
       setTemplates(active);
-      if (!selectedId && active.length) setSelectedId(active[0].workout_template_id);
     } catch {
       setTemplates([]);
     } finally {
       setTplLoading(false);
     }
-  }, [selectedId]);
+  }, []);
 
   const loadTemplateExercises = React.useCallback(
     async (workout_template_id: string) => {
@@ -439,15 +438,15 @@ export default function TrainingWorkoutsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            exercise_id,
-            display_name_snapshot: String(display_name_snapshot || "").trim() || undefined,
-            set_type: "straight",
-            planned_sets: 3,
-            default_weight: 0,
-            default_reps: 10,
-            flags: "",
-            sort_order: maxSort + 10,
-          }),
+          exercise_id,
+          display_name_snapshot: String(display_name_snapshot || "").trim() || undefined,
+          set_type: "straight",
+          planned_sets: 3,
+          default_weight: 0,
+          default_reps: 10,
+          flags: "",
+          sort_order: maxSort + 10,
+        }),
       }
     );
 
@@ -489,7 +488,7 @@ export default function TrainingWorkoutsPage() {
           body: JSON.stringify({
             workout_template_exercise_id: row.workout_template_exercise_id,
             exercise_id: row.exercise_id,
-              set_type: row.set_type || "straight",
+            set_type: row.set_type || "straight",
             planned_sets: row.planned_sets,
             default_weight: row.default_weight,
             default_reps: row.default_reps,
@@ -627,7 +626,7 @@ export default function TrainingWorkoutsPage() {
           workout_template_exercise_id,
           exercise_id: row.exercise_id,
           display_name_snapshot: patch.display_name_snapshot ?? row.display_name_snapshot ?? undefined,
-            set_type: patch.set_type ?? row.set_type ?? "straight",
+          set_type: patch.set_type ?? row.set_type ?? "straight",
           planned_sets: patch.planned_sets ?? row.planned_sets,
           default_weight: patch.default_weight ?? row.default_weight,
           default_reps: patch.default_reps ?? row.default_reps,
@@ -712,7 +711,7 @@ export default function TrainingWorkoutsPage() {
                       className="w-full text-left"
                       onClick={() => setSelectedId(t.workout_template_id)}
                     >
-                      <div className="truncate text-sm font-medium">{t.name}</div>
+                      <div className="truncate text-sm font-semibold text-primary">{t.name}</div>
                       <div className="mt-1 text-xs text-muted-foreground">
                         updated={String(t.updated_at || "").slice(0, 10)}
                       </div>
@@ -778,7 +777,7 @@ export default function TrainingWorkoutsPage() {
                     ) : null}
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       className="rounded-xl border px-3 py-1.5 text-sm hover:bg-muted/30 disabled:opacity-50"
@@ -794,6 +793,20 @@ export default function TrainingWorkoutsPage() {
                       onClick={() => setEditingSelected((v) => !v)}
                     >
                       {editingSelected ? "Done" : "Edit"}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="rounded-xl border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted/30"
+                      onClick={() => {
+                        setSelectedId("");
+                        setEditingSelected(false);
+                        setOpenExerciseIds({});
+                        setTemplateExerciseSegments({});
+                        setTemplateExercises([]);
+                      }}
+                    >
+                      Close
                     </button>
                   </div>
                 </div>
@@ -856,18 +869,18 @@ export default function TrainingWorkoutsPage() {
 
                       return (
                         <div key={e.workout_template_exercise_id} className="min-w-0 rounded-xl border p-3">
-                          <div className="flex items-start justify-between gap-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <button
                               type="button"
                               className="min-w-0 flex-1 text-left"
-                                onClick={() => void toggleExerciseOpen(e)}
+                              onClick={() => void toggleExerciseOpen(e)}
                             >
                               <div className="flex items-center gap-2">
                                 {open ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
                                 <div className="min-w-0">
                                   <div className="truncate text-sm font-medium">{title}</div>
                                   <div className="mt-1 text-xs text-muted-foreground">
-                                      {(e.set_type || "straight") === "drop" ? "drop" : "straight"} · {e.planned_sets} sets · {e.default_weight} × {e.default_reps}
+                                    {(e.set_type || "straight") === "drop" ? "drop" : "straight"} · {e.planned_sets} sets · {e.default_weight} × {e.default_reps}
                                     {meta?.modality ? ` · ${meta.modality}` : ""}
                                     {meta?.kind ? ` · ${meta.kind}` : ""}
                                   </div>
@@ -932,134 +945,134 @@ export default function TrainingWorkoutsPage() {
                             </div>
                           </div>
 
-                            {open ? (
-                              <div className="mt-3 grid gap-3 overflow-hidden">
-                                <div className="flex flex-wrap items-end gap-4 text-sm">
-                                  <label className="flex items-baseline gap-2">
-                                    <span className="text-[11px] text-muted-foreground">format</span>
-                                    <select
-                                      className="bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                      value={e.set_type || "straight"}
-                                      onChange={(ev) =>
-                                        void updateExercise(e.workout_template_exercise_id, { set_type: ev.target.value })
-                                      }
-                                    >
-                                      <option value="straight">Straight</option>
-                                      <option value="drop">Drop</option>
-                                    </select>
-                                  </label>
-
-                                  {(e.set_type || "straight") === "drop" ? (
-                                    <label className="flex items-baseline gap-2">
-                                      <span className="text-[11px] text-muted-foreground">drops</span>
-                                      <select
-                                        className="bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                        value={String(Math.max(1, (segments.length || 2) - 1))}
-                                        onChange={(ev) => void resizeDropSegments(e, Number(ev.target.value))}
-                                      >
-                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-                                          <option key={n} value={n}>
-                                            {n}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </label>
-                                  ) : null}
-                                </div>
-
-                                <div className="flex flex-wrap items-end gap-4 text-sm">
-                                  <label className="flex items-baseline gap-2">
-                                    <span className="text-[11px] text-muted-foreground">sets</span>
-                                    <input
-                                      className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                      inputMode="numeric"
-                                      value={String(e.planned_sets)}
-                                      onFocus={selectNumberInputValue}
-                                      onClick={selectNumberInputValue}
-                                      onChange={(ev) =>
-                                        void updateExercise(e.workout_template_exercise_id, { planned_sets: Number(ev.target.value || 0) })
-                                      }
-                                    />
-                                  </label>
-
-                                  <label className="flex items-baseline gap-2">
-                                    <span className="text-[11px] text-muted-foreground">wt</span>
-                                    <input
-                                      className="w-16 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                      inputMode="decimal"
-                                      value={String(e.default_weight)}
-                                      onFocus={selectNumberInputValue}
-                                      onClick={selectNumberInputValue}
-                                      onChange={(ev) =>
-                                        void updateExercise(e.workout_template_exercise_id, { default_weight: Number(ev.target.value || 0) })
-                                      }
-                                    />
-                                  </label>
-
-                                  <label className="flex items-baseline gap-2">
-                                    <span className="text-[11px] text-muted-foreground">reps</span>
-                                    <input
-                                      className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                      inputMode="numeric"
-                                      value={String(e.default_reps)}
-                                      onFocus={selectNumberInputValue}
-                                      onClick={selectNumberInputValue}
-                                      onChange={(ev) =>
-                                        void updateExercise(e.workout_template_exercise_id, { default_reps: Number(ev.target.value || 0) })
-                                      }
-                                    />
-                                  </label>
-                                </div>
-
-                                <input
-                                  className="w-full bg-transparent border-b border-muted/30 px-1 py-2 text-sm focus:outline-none focus:border-ring"
-                                  value={e.flags || ""}
-                                  onChange={(ev) => void updateExercise(e.workout_template_exercise_id, { flags: ev.target.value })}
-                                  placeholder="notes / flags (optional)"
-                                />
+                          {open ? (
+                            <div className="mt-3 grid gap-3 overflow-hidden">
+                              <div className="flex flex-wrap items-end gap-4 text-sm">
+                                <label className="flex items-baseline gap-2">
+                                  <span className="text-[11px] text-muted-foreground">format</span>
+                                  <select
+                                    className="bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
+                                    value={e.set_type || "straight"}
+                                    onChange={(ev) =>
+                                      void updateExercise(e.workout_template_exercise_id, { set_type: ev.target.value })
+                                    }
+                                  >
+                                    <option value="straight">Straight</option>
+                                    <option value="drop">Drop</option>
+                                  </select>
+                                </label>
 
                                 {(e.set_type || "straight") === "drop" ? (
-                                  <div className="max-w-full overflow-hidden rounded-xl border p-3">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div>
-                                        <div className="text-xs font-semibold">Drop set structure</div>
-                                        <div className="mt-1 text-[11px] text-muted-foreground">
-                                          Start weight plus each drop after it.
-                                        </div>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
-                                        onClick={() => void loadTemplateExerciseSegments(e.workout_template_exercise_id)}
-                                      >
-                                        Refresh
-                                      </button>
-                                    </div>
-
-                                    {segmentsLoading ? (
-                                      <div className="mt-2 text-xs text-muted-foreground">Loading drops...</div>
-                                    ) : segments.length ? (
-                                      <div className="mt-3 grid gap-2">
-                                        {segments.map((seg) => (
-                                          <div
-                                            key={seg.workout_template_exercise_segment_id}
-                                            className="grid min-w-0 grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 rounded-lg border px-2 py-2 text-xs"
-                                          >
-                                            <div className="text-muted-foreground">
-                                              {seg.segment_index === 1 ? "Start" : `Drop ${seg.segment_index - 1}`}
-                                            </div>
-                                            <div>wt {seg.default_weight}</div>
-                                            <div>reps {seg.default_reps || ""}</div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <div className="mt-2 text-xs text-muted-foreground">
-                                        Select a drop count to create the drop rows.
-                                      </div>
-                                    )}
-                                  </div>
+                                  <label className="flex items-baseline gap-2">
+                                    <span className="text-[11px] text-muted-foreground">drops</span>
+                                    <select
+                                      className="bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
+                                      value={String(Math.max(1, (segments.length || 2) - 1))}
+                                      onChange={(ev) => void resizeDropSegments(e, Number(ev.target.value))}
+                                    >
+                                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                                        <option key={n} value={n}>
+                                          {n}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
                                 ) : null}
+                              </div>
+
+                              <div className="flex flex-wrap items-end gap-4 text-sm">
+                                <label className="flex items-baseline gap-2">
+                                  <span className="text-[11px] text-muted-foreground">sets</span>
+                                  <input
+                                    className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
+                                    inputMode="numeric"
+                                    value={String(e.planned_sets)}
+                                    onFocus={selectNumberInputValue}
+                                    onClick={selectNumberInputValue}
+                                    onChange={(ev) =>
+                                      void updateExercise(e.workout_template_exercise_id, { planned_sets: Number(ev.target.value || 0) })
+                                    }
+                                  />
+                                </label>
+
+                                <label className="flex items-baseline gap-2">
+                                  <span className="text-[11px] text-muted-foreground">wt</span>
+                                  <input
+                                    className="w-16 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
+                                    inputMode="decimal"
+                                    value={String(e.default_weight)}
+                                    onFocus={selectNumberInputValue}
+                                    onClick={selectNumberInputValue}
+                                    onChange={(ev) =>
+                                      void updateExercise(e.workout_template_exercise_id, { default_weight: Number(ev.target.value || 0) })
+                                    }
+                                  />
+                                </label>
+
+                                <label className="flex items-baseline gap-2">
+                                  <span className="text-[11px] text-muted-foreground">reps</span>
+                                  <input
+                                    className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
+                                    inputMode="numeric"
+                                    value={String(e.default_reps)}
+                                    onFocus={selectNumberInputValue}
+                                    onClick={selectNumberInputValue}
+                                    onChange={(ev) =>
+                                      void updateExercise(e.workout_template_exercise_id, { default_reps: Number(ev.target.value || 0) })
+                                    }
+                                  />
+                                </label>
+                              </div>
+
+                              <input
+                                className="w-full bg-transparent border-b border-muted/30 px-1 py-2 text-sm focus:outline-none focus:border-ring"
+                                value={e.flags || ""}
+                                onChange={(ev) => void updateExercise(e.workout_template_exercise_id, { flags: ev.target.value })}
+                                placeholder="notes / flags (optional)"
+                              />
+
+                              {(e.set_type || "straight") === "drop" ? (
+                                <div className="max-w-full overflow-hidden rounded-xl border p-3">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div>
+                                      <div className="text-xs font-semibold">Drop set structure</div>
+                                      <div className="mt-1 text-[11px] text-muted-foreground">
+                                        Start weight plus each drop after it.
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                                      onClick={() => void loadTemplateExerciseSegments(e.workout_template_exercise_id)}
+                                    >
+                                      Refresh
+                                    </button>
+                                  </div>
+
+                                  {segmentsLoading ? (
+                                    <div className="mt-2 text-xs text-muted-foreground">Loading drops...</div>
+                                  ) : segments.length ? (
+                                    <div className="mt-3 grid gap-2">
+                                      {segments.map((seg) => (
+                                        <div
+                                          key={seg.workout_template_exercise_segment_id}
+                                          className="grid min-w-0 grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 rounded-lg border px-2 py-2 text-xs"
+                                        >
+                                          <div className="text-muted-foreground">
+                                            {seg.segment_index === 1 ? "Start" : `Drop ${seg.segment_index - 1}`}
+                                          </div>
+                                          <div>wt {seg.default_weight}</div>
+                                          <div>reps {seg.default_reps || ""}</div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="mt-2 text-xs text-muted-foreground">
+                                      Select a drop count to create the drop rows.
+                                    </div>
+                                  )}
+                                </div>
+                              ) : null}
                             </div>
                           ) : null}
                         </div>
@@ -1096,115 +1109,115 @@ export default function TrainingWorkoutsPage() {
                 placeholder='Search exercises'
               />
 
-                {q.trim() ? (
-                  <div className="mt-3 space-y-4">
-                    {personalHits.length ? (
-                      <section>
-                        <div className="text-xs font-semibold text-muted-foreground">My / custom exercises</div>
-                        <div className="mt-2 divide-y divide-muted/20">
-                          {personalHits.map((h) => {
-                            const alreadyIn = templateExercises.some((x) => x.exercise_id === h.exercise_id);
-
-                            return (
-                              <div key={h.exercise_id} className="flex items-center justify-between gap-3 py-3">
-                                <div className="min-w-0">
-                                  <div className="truncate text-sm font-medium">{h.display_name}</div>
-                                  <div className="mt-1 text-xs text-muted-foreground">
-                                    {h.modality}
-                                    {h.kind ? ` · ${h.kind}` : ""}
-                                    {h.brand_name ? ` · ${h.brand_name}` : ""}
-                                  </div>
-                                </div>
-
-                                <button
-                                  type="button"
-                                  className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
-                                  onClick={() => void addExerciseToSelected(h.exercise_id, h.display_name)}
-                                  disabled={!selected || alreadyIn}
-                                  title="Add exercise to workout"
-                                >
-                                  {alreadyIn ? "Added" : "Add"}
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </section>
-                    ) : null}
-
+              {q.trim() ? (
+                <div className="mt-3 space-y-4">
+                  {personalHits.length ? (
                     <section>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs font-semibold text-muted-foreground">Catalog</div>
-                        <div className="text-[11px] text-muted-foreground">
-                          {catalogLoading ? "searching..." : catalogStatus}
-                        </div>
-                      </div>
+                      <div className="text-xs font-semibold text-muted-foreground">My / custom exercises</div>
+                      <div className="mt-2 divide-y divide-muted/20">
+                        {personalHits.map((h) => {
+                          const alreadyIn = templateExercises.some((x) => x.exercise_id === h.exercise_id);
 
-                      {catalogHits.length ? (
-                        <div className="mt-2 divide-y divide-muted/20">
-                          {catalogHits.map((h) => {
-                            const alreadyIn = templateExercises.some((x) => x.exercise_id === h.exercise_id);
-                            const alreadySaved = savedExerciseIds.has(String(h.exercise_id));
-
-                            return (
-                              <div key={h.exercise_id} className="flex items-center justify-between gap-3 py-3">
-                                <div className="min-w-0">
-                                  <div className="truncate text-sm font-medium">{h.display_name}</div>
-                                  <div className="mt-1 text-xs text-muted-foreground">
-                                    {h.modality}
-                                    {h.kind ? ` · ${h.kind}` : ""}
-                                    {h.brand_name ? ` · ${h.brand_name}` : ""}
-                                    {alreadySaved ? " · saved" : ""}
-                                  </div>
-                                  {h.matched_text ? (
-                                    <div className="mt-1 max-h-10 overflow-hidden text-xs opacity-80">
-                                      {h.matched_text}
-                                    </div>
-                                  ) : null}
+                          return (
+                            <div key={h.exercise_id} className="flex items-center justify-between gap-3 py-3">
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-medium">{h.display_name}</div>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  {h.modality}
+                                  {h.kind ? ` · ${h.kind}` : ""}
+                                  {h.brand_name ? ` · ${h.brand_name}` : ""}
                                 </div>
-
-                                <button
-                                  type="button"
-                                  className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
-                                  onClick={() => void addCatalogExerciseToSelected(h)}
-                                  disabled={!selected || alreadyIn}
-                                  title="Add catalog exercise to workout"
-                                >
-                                  {alreadyIn ? "Added" : "Add"}
-                                </button>
                               </div>
-                            );
-                          })}
-                        </div>
-                      ) : catalogLoading ? null : (
-                        <div className="mt-2 text-sm text-muted-foreground">No catalog match.</div>
-                      )}
-                    </section>
 
-                    <section className="rounded-xl border p-3">
-                      <div className="text-sm font-medium">Need a custom exercise?</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Create “{q.trim()}” as one of your exercises and add it directly to this workout.
+                              <button
+                                type="button"
+                                className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                                onClick={() => void addExerciseToSelected(h.exercise_id, h.display_name)}
+                                disabled={!selected || alreadyIn}
+                                title="Add exercise to workout"
+                              >
+                                {alreadyIn ? "Added" : "Add"}
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <button
-                        type="button"
-                        className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                        onClick={() => void createCustomAndAddToSelected()}
-                        disabled={!selected || !q.trim()}
-                      >
-                        Create custom + add
-                      </button>
                     </section>
-                  </div>
-                ) : (
-                  <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
-                    Search the catalog or your custom exercises, then add directly to this workout.
-                  </div>
-                )}
+                  ) : null}
 
-                <div className="mt-3 text-xs text-muted-foreground">
-                  {myLoading ? "Loading My Exercises…" : addStatus}
+                  <section>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs font-semibold text-muted-foreground">Catalog</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {catalogLoading ? "searching..." : catalogStatus}
+                      </div>
+                    </div>
+
+                    {catalogHits.length ? (
+                      <div className="mt-2 divide-y divide-muted/20">
+                        {catalogHits.map((h) => {
+                          const alreadyIn = templateExercises.some((x) => x.exercise_id === h.exercise_id);
+                          const alreadySaved = savedExerciseIds.has(String(h.exercise_id));
+
+                          return (
+                            <div key={h.exercise_id} className="flex items-center justify-between gap-3 py-3">
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-medium">{h.display_name}</div>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  {h.modality}
+                                  {h.kind ? ` · ${h.kind}` : ""}
+                                  {h.brand_name ? ` · ${h.brand_name}` : ""}
+                                  {alreadySaved ? " · saved" : ""}
+                                </div>
+                                {h.matched_text ? (
+                                  <div className="mt-1 max-h-10 overflow-hidden text-xs opacity-80">
+                                    {h.matched_text}
+                                  </div>
+                                ) : null}
+                              </div>
+
+                              <button
+                                type="button"
+                                className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                                onClick={() => void addCatalogExerciseToSelected(h)}
+                                disabled={!selected || alreadyIn}
+                                title="Add catalog exercise to workout"
+                              >
+                                {alreadyIn ? "Added" : "Add"}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : catalogLoading ? null : (
+                      <div className="mt-2 text-sm text-muted-foreground">No catalog match.</div>
+                    )}
+                  </section>
+
+                  <section className="rounded-xl border p-3">
+                    <div className="text-sm font-medium">Need a custom exercise?</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Create “{q.trim()}” as one of your exercises and add it directly to this workout.
+                    </div>
+                    <button
+                      type="button"
+                      className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                      onClick={() => void createCustomAndAddToSelected()}
+                      disabled={!selected || !q.trim()}
+                    >
+                      Create custom + add
+                    </button>
+                  </section>
                 </div>
+              ) : (
+                <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
+                  Search the catalog or your custom exercises, then add directly to this workout.
+                </div>
+              )}
+
+              <div className="mt-3 text-xs text-muted-foreground">
+                {myLoading ? "Loading My Exercises…" : addStatus}
+              </div>
             </div>
           ) : (
             <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
