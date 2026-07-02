@@ -34,7 +34,7 @@ export default function LifeSwitchLayout({ children }: { children: ReactNode }) 
           </div>
 
           {/* Workspace / domain menu */}
-          <WorkspaceMenu label="LifeSwitch" />
+          <WorkspaceMenu label="Workspace" />
         </div>
       </header>
 
