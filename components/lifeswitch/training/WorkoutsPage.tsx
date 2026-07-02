@@ -797,7 +797,7 @@ export default function TrainingWorkoutsPage() {
 
                     <button
                       type="button"
-                      className="rounded-xl border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted/30"
+                      className="rounded-xl border px-3 py-1.5 text-sm font-medium text-primary hover:bg-muted/30"
                       onClick={() => {
                         setSelectedId("");
                         setEditingSelected(false);
