@@ -1095,6 +1095,12 @@ export default function TrainingWorkoutsPage() {
                         </div>
                       ) : null}
                     </div>
+
+                    {active ? (
+                      <div className="mt-3">
+                        {renderSelectedWorkoutDetail()}
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -1104,8 +1110,6 @@ export default function TrainingWorkoutsPage() {
           )}
         </aside>
 
-        {/* Center: selected workout + exercises */}
-        {renderSelectedWorkoutDetail()}
 
         {/* Right: add exercises */}
         <aside className="min-w-0 rounded-xl border p-4">
