@@ -112,6 +112,7 @@ export default function TrainingWorkoutsPage() {
   const [segmentLoadingIds, setSegmentLoadingIds] = React.useState<Record<string, boolean>>({});
   const [shareUrl, setShareUrl] = React.useState("");
   const [shareStatus, setShareStatus] = React.useState("");
+  const [openTemplateActionsId, setOpenTemplateActionsId] = React.useState("");
 
 
   const loadMyExercises = React.useCallback(async () => {
@@ -323,11 +324,17 @@ export default function TrainingWorkoutsPage() {
   }
 
   async function deactivateTemplate(workout_template_id: string) {
+    const template = templates.find((t) => t.workout_template_id === workout_template_id);
+    const name = template?.name || "this workout";
+    const ok = window.confirm(`Delete workout "${name}"? This removes the template from your library.`);
+    if (!ok) return;
+
     await fetchJson(
       `/api/lifeswitch/training/workout_templates/${encodeURIComponent(workout_template_id)}/deactivate`,
       { method: "POST" }
     );
     if (selectedId === workout_template_id) setSelectedId("");
+    setOpenTemplateActionsId("");
     await loadTemplates();
   }
 
@@ -696,14 +703,43 @@ export default function TrainingWorkoutsPage() {
                       </div>
                     </button>
 
-                    <button
-                      type="button"
-                      className="mt-2 rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-muted/30"
-                      onClick={() => void deactivateTemplate(t.workout_template_id)}
-                      title="Delete workout"
-                    >
-                      Delete
-                    </button>
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                        onClick={() =>
+                          setOpenTemplateActionsId((prev) =>
+                            prev === t.workout_template_id ? "" : t.workout_template_id
+                          )
+                        }
+                        aria-expanded={openTemplateActionsId === t.workout_template_id}
+                        title="Workout actions"
+                      >
+                        Actions
+                        {openTemplateActionsId === t.workout_template_id ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                      </button>
+
+                      {openTemplateActionsId === t.workout_template_id ? (
+                        <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                            Danger zone
+                          </div>
+                          <button
+                            type="button"
+                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                            onClick={() => void deactivateTemplate(t.workout_template_id)}
+                            title="Delete workout"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Delete workout
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 );
               })}
