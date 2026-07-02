@@ -424,7 +424,7 @@ export default function LifeSwitchPeoplePage() {
             className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
           >
             <UserRoundCheck className="h-4 w-4" />
-            People I Help
+            Connections
           </Link>
           <button
             type="button"
