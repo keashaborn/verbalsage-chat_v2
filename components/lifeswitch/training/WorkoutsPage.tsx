@@ -660,126 +660,10 @@ export default function TrainingWorkoutsPage() {
 
 
 
-  return (
-    <div className="mx-auto w-full max-w-6xl overflow-x-hidden p-4">
-      <div>
-        <div className="text-xl font-semibold">Training · Workouts</div>
-        <div className="mt-1 text-sm text-muted-foreground">
-          Build reusable workout templates from the catalog or from your unique exercises. Logging happens in Capture.
-        </div>
-        <a
-          href="/lifeswitch/training/design/exercises"
-          className="mt-2 inline-flex text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
-        >
-          Manage Unique Exercises
-        </a>
-      </div>
 
-      <div className="mt-6 grid min-w-0 gap-4 xl:grid-cols-[20rem_minmax(0,1fr)_18rem]">
-        {/* Left: create + workout list */}
-        <aside className="min-w-0 rounded-xl border p-4">
-          <LifeSwitchToolPanel
-            title="Workout actions"
-            subtitle="Create workout templates when you need to expand your training library."
-            storageKey="lifeswitch:training:workout-actions"
-            defaultOpen={templates.length === 0}
-          >
-            <div className="grid gap-2">
-              <input
-                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="New workout name"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void createTemplate();
-                }}
-              />
-              <button
-                type="button"
-                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                onClick={() => void createTemplate()}
-                disabled={!newName.trim()}
-                title="Create workout"
-              >
-                Save new workout
-              </button>
-            </div>
-          </LifeSwitchToolPanel>
-
-          <div className="mt-6 flex items-center justify-between">
-            <div className="text-sm font-semibold">Workouts</div>
-            <div className="text-xs text-muted-foreground">{tplLoading ? "…" : `count=${templates.length}`}</div>
-          </div>
-
-          {templates.length ? (
-            <div className="mt-2 space-y-2">
-              {templates.map((t) => {
-                const active = t.workout_template_id === selectedId;
-
-                return (
-                  <div
-                    key={t.workout_template_id}
-                    className={`rounded-xl border px-3 py-2 ${active ? "bg-muted/30" : "hover:bg-muted/10"}`}
-                  >
-                    <button
-                      type="button"
-                      className="w-full text-left"
-                      onClick={() => setSelectedId(t.workout_template_id)}
-                    >
-                      <div className="truncate text-sm font-semibold text-primary">{t.name}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        updated={String(t.updated_at || "").slice(0, 10)}
-                      </div>
-                    </button>
-
-                    <div className="mt-2">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
-                        onClick={() =>
-                          setOpenTemplateActionsId((prev) =>
-                            prev === t.workout_template_id ? "" : t.workout_template_id
-                          )
-                        }
-                        aria-expanded={openTemplateActionsId === t.workout_template_id}
-                        title="Workout actions"
-                      >
-                        Actions
-                        {openTemplateActionsId === t.workout_template_id ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3" />
-                        )}
-                      </button>
-
-                      {openTemplateActionsId === t.workout_template_id ? (
-                        <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
-                            Danger zone
-                          </div>
-                          <button
-                            type="button"
-                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
-                            onClick={() => void deactivateTemplate(t.workout_template_id)}
-                            title="Delete workout"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                            Delete workout
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="mt-2 text-sm text-muted-foreground">No workouts yet. Create one above.</div>
-          )}
-        </aside>
-
-        {/* Center: selected workout + exercises */}
-        <main className="grid min-w-0 gap-4">
+  function renderSelectedWorkoutDetail() {
+    return (
+      <main className="grid min-w-0 gap-4">
           {selected ? (
             <>
               <section className="min-w-0 rounded-xl border p-4">
@@ -1098,7 +982,130 @@ export default function TrainingWorkoutsPage() {
               <div className="text-sm text-muted-foreground">Create or select a workout.</div>
             </section>
           )}
-        </main>
+      </main>
+    );
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-6xl overflow-x-hidden p-4">
+      <div>
+        <div className="text-xl font-semibold">Training · Workouts</div>
+        <div className="mt-1 text-sm text-muted-foreground">
+          Build reusable workout templates from the catalog or from your unique exercises. Logging happens in Capture.
+        </div>
+        <a
+          href="/lifeswitch/training/design/exercises"
+          className="mt-2 inline-flex text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        >
+          Manage Unique Exercises
+        </a>
+      </div>
+
+      <div className="mt-6 grid min-w-0 gap-4 xl:grid-cols-[20rem_minmax(0,1fr)_18rem]">
+        {/* Left: create + workout list */}
+        <aside className="min-w-0 rounded-xl border p-4">
+          <LifeSwitchToolPanel
+            title="Workout actions"
+            subtitle="Create workout templates when you need to expand your training library."
+            storageKey="lifeswitch:training:workout-actions"
+            defaultOpen={templates.length === 0}
+          >
+            <div className="grid gap-2">
+              <input
+                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="New workout name"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void createTemplate();
+                }}
+              />
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                onClick={() => void createTemplate()}
+                disabled={!newName.trim()}
+                title="Create workout"
+              >
+                Save new workout
+              </button>
+            </div>
+          </LifeSwitchToolPanel>
+
+          <div className="mt-6 flex items-center justify-between">
+            <div className="text-sm font-semibold">Workouts</div>
+            <div className="text-xs text-muted-foreground">{tplLoading ? "…" : `count=${templates.length}`}</div>
+          </div>
+
+          {templates.length ? (
+            <div className="mt-2 space-y-2">
+              {templates.map((t) => {
+                const active = t.workout_template_id === selectedId;
+
+                return (
+                  <div
+                    key={t.workout_template_id}
+                    className={`rounded-xl border px-3 py-2 ${active ? "bg-muted/30" : "hover:bg-muted/10"}`}
+                  >
+                    <button
+                      type="button"
+                      className="w-full text-left"
+                      onClick={() => setSelectedId(t.workout_template_id)}
+                    >
+                      <div className="truncate text-sm font-semibold text-primary">{t.name}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        updated={String(t.updated_at || "").slice(0, 10)}
+                      </div>
+                    </button>
+
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                        onClick={() =>
+                          setOpenTemplateActionsId((prev) =>
+                            prev === t.workout_template_id ? "" : t.workout_template_id
+                          )
+                        }
+                        aria-expanded={openTemplateActionsId === t.workout_template_id}
+                        title="Workout actions"
+                      >
+                        Actions
+                        {openTemplateActionsId === t.workout_template_id ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                      </button>
+
+                      {openTemplateActionsId === t.workout_template_id ? (
+                        <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                            Danger zone
+                          </div>
+                          <button
+                            type="button"
+                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                            onClick={() => void deactivateTemplate(t.workout_template_id)}
+                            title="Delete workout"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Delete workout
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-2 text-sm text-muted-foreground">No workouts yet. Create one above.</div>
+          )}
+        </aside>
+
+        {/* Center: selected workout + exercises */}
+        {renderSelectedWorkoutDetail()}
 
         {/* Right: add exercises */}
         <aside className="min-w-0 rounded-xl border p-4">
