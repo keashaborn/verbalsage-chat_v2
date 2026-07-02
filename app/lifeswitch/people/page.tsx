@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { MessageSquare, RefreshCw, ShieldCheck, UserRoundCheck, Users } from "lucide-react";
+import { ChevronDown, ChevronUp, MessageSquare, RefreshCw, ShieldCheck, Trash2, UserRoundCheck, Users } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -165,6 +165,7 @@ export default function LifeSwitchPeoplePage() {
   const [copyMessage, setCopyMessage] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const [openInviteActionsId, setOpenInviteActionsId] = React.useState("");
   const [error, setError] = React.useState("");
 
   const visiblePeople = React.useMemo(
@@ -300,12 +301,18 @@ export default function LifeSwitchPeoplePage() {
   }
 
   async function revokeInvite(invitationId: string) {
+    const invite = invitations.find((inv) => inv.invitation_id === invitationId);
+    const label = invite?.label || kindLabel(invite?.relationship_kind || "friend");
+    const ok = window.confirm(`Revoke invite "${label}"? The link will stop working immediately.`);
+    if (!ok) return;
+
     setSaving(true);
     setError("");
     try {
       await fetchJson(`/api/lifeswitch/people/invitations/${encodeURIComponent(invitationId)}/revoke`, {
         method: "POST",
       });
+      setOpenInviteActionsId("");
       await loadAll(selectedUserId);
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
@@ -495,17 +502,15 @@ export default function LifeSwitchPeoplePage() {
             <div className="text-xs text-muted-foreground">{copyMessage}</div>
           ) : null}
 
-          <div className="rounded-xl border">
-            <div className="border-b px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Pending invites
-            </div>
-            <div className="grid">
-              {invitations.length === 0 ? (
-                <div className="p-3 text-sm text-muted-foreground">No pending invites.</div>
-              ) : (
-                invitations.map((inv) => {
-                  const inviteUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/invite/lifeswitch/${inv.invitation_id}`;
-                  return (
+            <div className="rounded-xl border">
+              <div className="border-b px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Pending invites
+              </div>
+              <div className="grid">
+                {invitations.length === 0 ? (
+                  <div className="p-3 text-sm text-muted-foreground">No pending invites.</div>
+                ) : (
+                  invitations.map((inv) => (
                     <div key={inv.invitation_id} className="grid gap-2 border-b p-3 last:border-0">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
@@ -514,24 +519,51 @@ export default function LifeSwitchPeoplePage() {
                             Created {inv.created_at ? new Date(inv.created_at).toLocaleString() : ""}
                           </div>
                         </div>
+
                         <button
                           type="button"
-                          onClick={() => void revokeInvite(inv.invitation_id)}
-                          disabled={saving}
-                          className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30 disabled:opacity-50"
+                          onClick={() =>
+                            setOpenInviteActionsId((prev) =>
+                              prev === inv.invitation_id ? "" : inv.invitation_id
+                            )
+                          }
+                          className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                          aria-expanded={openInviteActionsId === inv.invitation_id}
                         >
-                          Revoke
+                          Actions
+                          {openInviteActionsId === inv.invitation_id ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          )}
                         </button>
                       </div>
+
                       <div className="text-xs text-muted-foreground">
                         Expires {inv.expires_at ? new Date(inv.expires_at).toLocaleDateString() : "later"}
                       </div>
+
+                      {openInviteActionsId === inv.invitation_id ? (
+                        <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                            Danger zone
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void revokeInvite(inv.invitation_id)}
+                            disabled={saving}
+                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Revoke invite
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
-                  );
-                })
-              )}
+                  ))
+                )}
+              </div>
             </div>
-          </div>
         </div>
       </section>
 
