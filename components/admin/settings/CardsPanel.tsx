@@ -1,78 +1,90 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
-import { supabase } from "@/lib/supabaseClient";
 import * as React from "react";
 
-type CardSource = "vantage" | "legacy";
+type ScopeFilter = "all" | "CONTENT_OK" | "STYLE_ONLY" | "NEVER_SURFACE";
+type StatusFilter = "all" | "active" | "retired";
 
-type CardKindOption = {
-  key: string;
-  label: string;
-  kinds?: string;
-  topicIncludes?: string;
-};
+const LS_MEMORY_INSPECTOR_VANTAGE = "vs_memory_inspector_vantage_id";
+const LS_MEMORY_INSPECTOR_RAW = "vs_memory_inspector_show_raw";
 
-const CLOUD_PRESETS_KEY = "vs_vantage_profiles_v1";
-const LS_PROFILES = "vs_vantage_profiles";
-const LS_CARDS_VANTAGE_ID = "vs_cards_vantage_id";
+const KIND_OPTIONS = [
+  { key: "all", label: "All kinds", kinds: "" },
+  { key: "identity", label: "Identity", kinds: "identity" },
+  { key: "background", label: "Background", kinds: "background" },
+  { key: "project", label: "Project", kinds: "project" },
+  { key: "pref", label: "Preferences / Style", kinds: "pref,style" },
+  { key: "system", label: "System", kinds: "system,audit" },
+];
 
-const BUILTIN_CARD_VANTAGES = ["RESSE", "MORGAN", "RILEY", "EVA", "default"];
-
-function normalizeCardVantageId(raw: any): string {
-  const v = String(raw || "").trim().slice(0, 64);
-  return v || "";
+function asText(v: any, fallback = ""): string {
+  const s = String(v ?? "").trim();
+  return s || fallback;
 }
 
-function addProfileIdsFromArray(out: Set<string>, arr: any[]) {
-  if (!Array.isArray(arr)) return;
+function asArray(v: any): string[] {
+  if (Array.isArray(v)) return v.map((x) => String(x)).filter(Boolean);
+  if (typeof v === "string" && v.trim()) return [v.trim()];
+  return [];
+}
 
-  for (const p of arr) {
-    if (!p || typeof p !== "object") continue;
+function shortTopic(topicKey: any): string {
+  const topic = String(topicKey || "").trim();
+  if (!topic) return "untitled";
+  const parts = topic.split("/").filter(Boolean);
+  return parts.slice(-2).join("/") || topic;
+}
 
-    const direct =
-      normalizeCardVantageId((p as any)?.state?.vantageId) ||
-      normalizeCardVantageId((p as any)?.vantageId) ||
-      normalizeCardVantageId((p as any)?.name);
+function policyClass(useScope: string) {
+  if (useScope === "CONTENT_OK") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
+  if (useScope === "STYLE_ONLY") return "border-sky-500/30 bg-sky-500/10 text-sky-300";
+  if (useScope === "NEVER_SURFACE") return "border-red-500/30 bg-red-500/10 text-red-300";
+  return "border-muted bg-muted/40 text-muted-foreground";
+}
 
-    if (direct) out.add(direct);
+function statusClass(status: string) {
+  if (status === "active") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
+  if (status === "retired") return "border-zinc-500/30 bg-zinc-500/10 text-zinc-300";
+  return "border-muted bg-muted/40 text-muted-foreground";
+}
+
+function countWhere(items: any[], fn: (it: any) => boolean): number {
+  return items.reduce((n, it) => n + (fn(it) ? 1 : 0), 0);
+}
+
+function groupLabel(it: any): string {
+  const status = asText(it.status, "unknown");
+  const scope = asText(it.use_scope, "unscoped");
+  if (status !== "active") return "Retired / Suppressed";
+  if (scope === "CONTENT_OK") return "Content Cards";
+  if (scope === "STYLE_ONLY") return "Style / Preference Cards";
+  if (scope === "NEVER_SURFACE") return "Never-Surface Cards";
+  return "Other Cards";
+}
+
+function groupOrder(label: string): number {
+  const order: Record<string, number> = {
+    "Content Cards": 10,
+    "Style / Preference Cards": 20,
+    "Never-Surface Cards": 30,
+    "Retired / Suppressed": 40,
+    "Other Cards": 90,
+  };
+  return order[label] ?? 999;
+}
+
+function grouped(items: any[]) {
+  const m = new Map<string, any[]>();
+  for (const it of items) {
+    const label = groupLabel(it);
+    const arr = m.get(label) || [];
+    arr.push(it);
+    m.set(label, arr);
   }
-}
-
-async function readProfileRegistryVantageIds(): Promise<string[]> {
-  const out = new Set<string>(BUILTIN_CARD_VANTAGES);
-
-  try {
-    const stored = localStorage.getItem(LS_CARDS_VANTAGE_ID);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      const v = normalizeCardVantageId(parsed);
-      if (v) out.add(v);
-    }
-  } catch { }
-
-  try {
-    const raw = localStorage.getItem(LS_PROFILES);
-    if (raw) addProfileIdsFromArray(out, JSON.parse(raw));
-  } catch { }
-
-  try {
-    const { data } = await supabase.auth.getUser();
-    const um: any = data?.user?.user_metadata || {};
-    const blob = um[CLOUD_PRESETS_KEY];
-
-    if (blob && typeof blob === "object") {
-      addProfileIdsFromArray(out, Array.isArray(blob.profiles) ? blob.profiles : []);
-    }
-  } catch { }
-
-  return Array.from(out).filter(Boolean).sort((a, b) => {
-    const rank = (v: string) => {
-      const idx = BUILTIN_CARD_VANTAGES.indexOf(v);
-      return idx >= 0 ? idx : 100;
-    };
-    return rank(a) - rank(b) || a.localeCompare(b);
-  });
+  return Array.from(m.entries())
+    .sort(([a], [b]) => groupOrder(a) - groupOrder(b))
+    .map(([label, groupItems]) => ({ label, items: groupItems }));
 }
 
 export function CardsPanel() {
@@ -80,275 +92,54 @@ export function CardsPanel() {
   const [loading, setLoading] = React.useState(false);
   const [items, setItems] = React.useState<any[]>([]);
   const [err, setErr] = React.useState<string | null>(null);
-  const [expandedCardId, setExpandedCardId] = React.useState<string | null>(null);
+  const [expandedId, setExpandedId] = React.useState<string | null>(null);
 
-  const [sourceKey, setSourceKey] = React.useState<CardSource>("vantage");
-  const [vantageId, setVantageId] = React.useState<string>("RESSE");
-  const [kindKey, setKindKey] = React.useState<string>("all");
-  const [showAllVersions, setShowAllVersions] = React.useState<boolean>(false);
-  const [showRaw, setShowRaw] = React.useState<boolean>(false);
-
-  const PROTECTED_KINDS = new Set([
-    "gravity_profile",
-    "vb_desire_profile",
-    "user_identity",
-    "assistant_identity",
-    "style_mode",
-    "style",
-    "pref",
-    "system",
-  ]);
-
-  const LEGACY_KIND_OPTIONS: CardKindOption[] = [
-    { key: "all", label: "All legacy cards" },
-    { key: "gravity", label: "Gravity", kinds: "gravity_profile" },
-    { key: "desire", label: "Desire", kinds: "vb_desire_profile" },
-    { key: "identity", label: "Identity", kinds: "user_identity" },
-    { key: "style", label: "Style", kinds: "assistant_identity,style,style_mode,preference" },
-  ];
-
-  const VANTAGE_KIND_OPTIONS: CardKindOption[] = [
-    { key: "all", label: "All live cards" },
-    { key: "pref", label: "Preferences", kinds: "pref" },
-    { key: "style", label: "Style", kinds: "pref", topicIncludes: "/pref/style" },
-    { key: "identity", label: "Identity", kinds: "identity" },
-    { key: "background", label: "Background", kinds: "background" },
-    { key: "project", label: "Project", kinds: "project" },
-    { key: "system", label: "System", kinds: "system" },
-    { key: "gravity", label: "Gravity", kinds: "gravity" },
-    { key: "desire", label: "Desire", kinds: "desire" },
-  ];
-
-  const [vantageOptions, setVantageOptions] = React.useState<string[]>(BUILTIN_CARD_VANTAGES);
-
-  function kindOptions(src: CardSource) {
-    return src === "vantage" ? VANTAGE_KIND_OPTIONS : LEGACY_KIND_OPTIONS;
-  }
+  const [vantageId, setVantageId] = React.useState("user_global");
+  const [kindKey, setKindKey] = React.useState("all");
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all");
+  const [scopeFilter, setScopeFilter] = React.useState<ScopeFilter>("all");
+  const [showRaw, setShowRaw] = React.useState(false);
 
   React.useEffect(() => {
-    let cancelled = false;
+    let nextVantageId = "user_global";
 
-    (async () => {
-      let nextSource: CardSource = "vantage";
-      let nextVantage = "RESSE";
-      let nextKindKey = "all";
+    try {
+      const v = localStorage.getItem(LS_MEMORY_INSPECTOR_VANTAGE);
+      if (v) nextVantageId = JSON.parse(v) || "user_global";
 
-      try {
-        const src = localStorage.getItem("vs_cards_source");
-        if (src === "legacy" || src === "vantage") nextSource = src;
+      const raw = localStorage.getItem(LS_MEMORY_INSPECTOR_RAW);
+      if (raw != null) setShowRaw(Boolean(JSON.parse(raw)));
+    } catch {}
 
-        const vid = localStorage.getItem(LS_CARDS_VANTAGE_ID);
-        if (vid) nextVantage = JSON.parse(vid);
-
-        const k = localStorage.getItem("vs_cards_kind");
-        if (k) nextKindKey = JSON.parse(k);
-
-        const sa = localStorage.getItem("vs_cards_show_all");
-        if (sa != null) setShowAllVersions(JSON.parse(sa));
-
-        const sr = localStorage.getItem("vs_cards_show_raw");
-        if (sr != null) setShowRaw(JSON.parse(sr));
-      } catch { }
-
-      const options = await readProfileRegistryVantageIds();
-      if (cancelled) return;
-
-      setVantageOptions(options);
-
-      if (nextSource === "vantage" && !options.includes(nextVantage)) {
-        nextVantage = options.includes("RESSE") ? "RESSE" : options[0] || "RESSE";
-        try { localStorage.setItem(LS_CARDS_VANTAGE_ID, JSON.stringify(nextVantage)); } catch { }
-      }
-
-      setSourceKey(nextSource);
-      setVantageId(nextVantage);
-      setKindKey(nextKindKey);
-
-      load(nextKindKey, nextSource, nextVantage);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-
+    setVantageId(nextVantageId);
+    load("all", nextVantageId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function dedupeLatest(arr: any[], src: CardSource) {
-    const seen = new Set<string>();
-    const out: any[] = [];
-
-    for (const it of arr) {
-      const key =
-        src === "vantage"
-          ? String(it.topic_key || it.kind || it.id || "")
-          : String(it.kind || it.id || "");
-
-      if (!key) continue;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(it);
-    }
-
-    return out;
-  }
-
-  function summarizeGravity(it: any) {
-    const weights = it?.payload?.weights;
-    if (!weights || typeof weights !== "object") return "No weights found.";
-
-    const pairs = Object.entries(weights as Record<string, number>)
-      .filter(([_, v]) => typeof v === "number" && Math.abs(v) >= 0.01)
-      .sort((a, b) => Math.abs(b[1] as number) - Math.abs(a[1] as number))
-      .slice(0, 12);
-
-    if (!pairs.length) return "No significant weights (>= 0.01).";
-
-    return pairs
-      .map(([k, v]) => `${k} ${v >= 0 ? "+" : ""}${(v as number).toFixed(3)}`)
-      .join("\n");
-  }
-
-  function summarizeDesire(it: any) {
-    const rp = it?.payload?.request_patterns;
-    const pref = it?.payload?.inferred_preferences;
-
-    const lines: string[] = [];
-
-    const top = (arr: any[], n = 6) =>
-      Array.isArray(arr)
-        ? arr
-          .slice(0, n)
-          .map((x) => `${x.key} (count=${x.count}, score=${x.score})`)
-          .join("\n")
-        : "None";
-
-    if (rp) {
-      lines.push("Top intents:\n" + top(rp.by_intent));
-      lines.push("Top formats:\n" + top(rp.by_format));
-      lines.push("Top topics:\n" + top(rp.by_topic));
-    } else {
-      lines.push("No request_patterns found.");
-    }
-
-    if (pref) {
-      lines.push(
-        "Inferred preferences:\n" +
-        [
-          `preferred_answer_length: ${pref.preferred_answer_length ?? "?"}`,
-          `preferred_density: ${pref.preferred_density ?? "?"}`,
-          `preferred_format_default: ${pref.preferred_format_default ?? "?"}`,
-        ].join("\n")
-      );
-    }
-
-    return lines.join("\n\n");
-  }
-
-  function prettySummary(it: any) {
-    const kind = String(it.kind || "");
-    if (kind === "gravity_profile") return summarizeGravity(it);
-    if (kind === "vb_desire_profile") return summarizeDesire(it);
-    return String(it.text || it.summary || "").trim() || "No text.";
-  }
-
-  function cardTitle(it: any) {
-    if (sourceKey === "vantage") {
-      const topic = String(it.topic_key || "");
-      const last = topic.split("/").slice(-2).join("/");
-      return last || String(it.kind || "vantage_card");
-    }
-    return String(it.kind || "memory");
-  }
-
-
-  function groupLabel(kind: string) {
-    const k = String(kind || "").toLowerCase();
-    if (k === "identity" || k === "user_identity" || k === "assistant_identity") return "Identity";
-    if (k === "background") return "Background";
-    if (k === "project") return "Project";
-    if (k === "pref" || k === "preference") return "Preferences";
-    if (k === "style" || k === "style_mode") return "Style";
-    if (k === "policy" || k === "shaping") return "Policy / Shaping";
-    if (k === "gravity" || k === "gravity_profile") return "Gravity";
-    if (k === "desire" || k === "vb_desire_profile") return "Desire";
-    if (k === "system") return "System";
-    return "Other";
-  }
-
-  function groupOrder(label: string) {
-    const order: Record<string, number> = {
-      "Identity": 10,
-      "Background": 20,
-      "Project": 30,
-      "Preferences": 40,
-      "Style": 50,
-      "Policy / Shaping": 60,
-      "Gravity": 70,
-      "Desire": 80,
-      "System": 90,
-      "Other": 100,
-    };
-    return order[label] ?? 999;
-  }
-
-  function groupedItems(arr: any[]) {
-    const groups = new Map<string, any[]>();
-    for (const it of arr) {
-      const label = groupLabel(String(it.kind || ""));
-      const list = groups.get(label) || [];
-      list.push(it);
-      groups.set(label, list);
-    }
-    return Array.from(groups.entries())
-      .sort(([a], [b]) => groupOrder(a) - groupOrder(b) || a.localeCompare(b))
-      .map(([label, groupItems]) => ({ label, items: groupItems }));
-  }
-
-  async function load(
-    nextKindKey: string = kindKey,
-    nextSource: CardSource = sourceKey,
-    nextVantageId: string = vantageId
-  ) {
+  async function load(nextKindKey = kindKey, nextVantageId = vantageId) {
     setLoading(true);
     setErr(null);
 
     try {
-      const options = kindOptions(nextSource);
-      const opt = options.find((o) => o.key === nextKindKey) || options[0];
+      const opt = KIND_OPTIONS.find((o) => o.key === nextKindKey) || KIND_OPTIONS[0];
 
       const qs = new URLSearchParams();
-      qs.set("limit", "100");
+      qs.set("limit", "500");
+      qs.set("vantage_id", nextVantageId || "user_global");
+      if (opt.kinds) qs.set("kinds", opt.kinds);
 
-      if (nextSource === "vantage") {
-        qs.set("vantage_id", nextVantageId || "RESSE");
-        if (opt?.kinds) qs.set("kinds", opt.kinds);
-      } else {
-        if (opt?.kinds) qs.set("kinds", opt.kinds);
-      }
-
-      const endpoint =
-        nextSource === "vantage"
-          ? `/api/admin/vantage-cards?${qs.toString()}`
-          : `/api/admin/cards?${qs.toString()}`;
-
-      const r = await authFetch(endpoint);
+      const r = await authFetch(`/api/admin/vantage-cards?${qs.toString()}`);
       if (!r.ok) throw new Error(await r.text());
 
       const data = await r.json();
-      let arr = Array.isArray(data?.items) ? data.items : [];
-
-      const topicIncludes = opt?.topicIncludes;
-      if (nextSource === "vantage" && topicIncludes) {
-        arr = arr.filter((it: any) => String(it.topic_key || "").includes(topicIncludes));
-      }
+      const arr = Array.isArray(data?.items) ? data.items : [];
 
       arr.sort((a: any, b: any) =>
         String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || ""))
       );
 
       setItems(arr);
-      setExpandedCardId(null);
+      setExpandedId(null);
     } catch (e: any) {
       setErr(e?.message || String(e));
       setItems([]);
@@ -357,77 +148,87 @@ export function CardsPanel() {
     }
   }
 
-  async function del(id: string) {
-    if (sourceKey === "vantage") {
-      alert("Delete is disabled for live Vantage cards for now.");
-      return;
-    }
+  const filteredItems = items.filter((it) => {
+    const status = asText(it.status, "active") as StatusFilter;
+    const scope = asText(it.use_scope, "") as ScopeFilter;
 
-    const ok = window.confirm("Delete this card?");
-    if (!ok) return;
+    if (statusFilter !== "all" && status !== statusFilter) return false;
+    if (scopeFilter !== "all" && scope !== scopeFilter) return false;
 
-    const r = await authFetch(`/api/admin/cards/${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (r.ok) load();
-    else alert(await r.text().catch(() => "delete failed"));
-  }
+    return true;
+  });
 
-  const displayItems = showAllVersions ? items : dedupeLatest(items, sourceKey);
+  const stats = {
+    total: items.length,
+    active: countWhere(items, (it) => asText(it.status, "active") === "active"),
+    retired: countWhere(items, (it) => asText(it.status) === "retired"),
+    content: countWhere(items, (it) => asText(it.use_scope) === "CONTENT_OK"),
+    style: countWhere(items, (it) => asText(it.use_scope) === "STYLE_ONLY"),
+    never: countWhere(items, (it) => asText(it.use_scope) === "NEVER_SURFACE"),
+  };
 
   return (
     <details
       className="mb-4 rounded-xl border p-3"
       open={open}
       onToggle={(e) => {
-        // Ignore nested card-group <details> toggles.
         if (e.currentTarget !== e.target) return;
-
         const isOpen = (e.currentTarget as HTMLDetailsElement).open;
         setOpen(isOpen);
         if (isOpen && items.length === 0 && !loading) load();
       }}
     >
       <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Memory Cards
+        Memory Inspector
       </summary>
 
       <div className="mt-3 space-y-3">
-        <div className="grid gap-2 md:grid-cols-3">
-          <select
-            className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-            value={sourceKey}
-            onChange={(e) => {
-              const v = e.target.value as CardSource;
-              setSourceKey(v);
-              const nextKind = "all";
-              setKindKey(nextKind);
-              try {
-                localStorage.setItem("vs_cards_source", v);
-                localStorage.setItem("vs_cards_kind", JSON.stringify(nextKind));
-              } catch { }
-              load(nextKind, v, vantageId);
-            }}
-          >
-            <option value="vantage">Live Vantage Cards</option>
-            <option value="legacy">Legacy Qdrant Cards</option>
-          </select>
+        <div className="rounded-xl border bg-muted/20 p-3">
+          <div className="text-sm font-semibold">Memory Inspector</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Reads Postgres Vantage cards. Default scope is <code>user_global</code>. Policy fields show whether a card may be used as content, style only, or never surfaced.
+          </div>
+        </div>
 
-          <select
+        <div className="grid gap-2 md:grid-cols-6">
+          <div className="rounded-xl border p-3">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Total</div>
+            <div className="mt-1 text-lg font-semibold">{stats.total}</div>
+          </div>
+          <div className="rounded-xl border p-3">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Active</div>
+            <div className="mt-1 text-lg font-semibold">{stats.active}</div>
+          </div>
+          <div className="rounded-xl border p-3">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Retired</div>
+            <div className="mt-1 text-lg font-semibold">{stats.retired}</div>
+          </div>
+          <div className="rounded-xl border p-3">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Content</div>
+            <div className="mt-1 text-lg font-semibold">{stats.content}</div>
+          </div>
+          <div className="rounded-xl border p-3">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Style</div>
+            <div className="mt-1 text-lg font-semibold">{stats.style}</div>
+          </div>
+          <div className="rounded-xl border p-3">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Never</div>
+            <div className="mt-1 text-lg font-semibold">{stats.never}</div>
+          </div>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-4">
+          <input
             className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
             value={vantageId}
-            disabled={sourceKey !== "vantage"}
             onChange={(e) => {
-              const v = e.target.value;
+              const v = e.target.value.trim() || "user_global";
               setVantageId(v);
-              try { localStorage.setItem("vs_cards_vantage_id", JSON.stringify(v)); } catch { }
-              load(kindKey, sourceKey, v);
+              try { localStorage.setItem(LS_MEMORY_INSPECTOR_VANTAGE, JSON.stringify(v)); } catch {}
             }}
-          >
-            {vantageOptions.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
+            onBlur={() => load(kindKey, vantageId)}
+            placeholder="user_global"
+          />
 
           <select
             className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
@@ -435,38 +236,49 @@ export function CardsPanel() {
             onChange={(e) => {
               const v = e.target.value;
               setKindKey(v);
-              try { localStorage.setItem("vs_cards_kind", JSON.stringify(v)); } catch { }
-              load(v, sourceKey, vantageId);
+              load(v, vantageId);
             }}
           >
-            {kindOptions(sourceKey).map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
+            {KIND_OPTIONS.map((o) => (
+              <option key={o.key} value={o.key}>{o.label}</option>
             ))}
+          </select>
+
+          <select
+            className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          >
+            <option value="all">All statuses</option>
+            <option value="active">Active only</option>
+            <option value="retired">Retired only</option>
+          </select>
+
+          <select
+            className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+            value={scopeFilter}
+            onChange={(e) => setScopeFilter(e.target.value as ScopeFilter)}
+          >
+            <option value="all">All policies</option>
+            <option value="CONTENT_OK">CONTENT_OK</option>
+            <option value="STYLE_ONLY">STYLE_ONLY</option>
+            <option value="NEVER_SURFACE">NEVER_SURFACE</option>
           </select>
         </div>
 
         <div className="flex items-center justify-between gap-2">
           <div className="text-xs text-muted-foreground">
-            {sourceKey === "vantage"
-              ? `Showing new Postgres Vantage cards for ${vantageId}.`
-              : "Showing legacy Qdrant memory_raw cards."}
+            Showing {filteredItems.length} of {items.length} cards for <code>{vantageId}</code>.
           </div>
 
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={showAllVersions}
-                onChange={(e) => {
-                  const v = e.target.checked;
-                  setShowAllVersions(v);
-                  try { localStorage.setItem("vs_cards_show_all", JSON.stringify(v)); } catch { }
-                }}
-              />
-              Show all
-            </label>
+          <div className="flex items-center gap-3">
+            <button
+              className="rounded-lg border px-3 py-1.5 text-xs hover:bg-muted/50"
+              onClick={() => load(kindKey, vantageId)}
+              disabled={loading}
+            >
+              {loading ? "Loading…" : "Refresh"}
+            </button>
 
             <label className="flex items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
               <input
@@ -475,118 +287,95 @@ export function CardsPanel() {
                 onChange={(e) => {
                   const v = e.target.checked;
                   setShowRaw(v);
-                  try { localStorage.setItem("vs_cards_show_raw", JSON.stringify(v)); } catch { }
+                  try { localStorage.setItem(LS_MEMORY_INSPECTOR_RAW, JSON.stringify(v)); } catch {}
                 }}
               />
-              Raw
+              Raw JSON
             </label>
           </div>
         </div>
 
-        {loading && <div className="text-xs text-muted-foreground">Loading…</div>}
-        {err && <div className="text-xs text-red-400">{err}</div>}
+        {err ? <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{err}</div> : null}
 
-        {sourceKey === "vantage" ? (
-          <div className="space-y-3">
-            {groupedItems(displayItems).map((group) => (
-              <details key={group.label} className="overflow-hidden rounded-xl border">
-                <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-muted/40">
-                  {group.label} ({group.items.length})
-                </summary>
+        <div className="space-y-3">
+          {grouped(filteredItems).map((group) => (
+            <details key={group.label} className="overflow-hidden rounded-xl border" open>
+              <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-muted/40">
+                {group.label} ({group.items.length})
+              </summary>
 
-                <div className="space-y-2 border-t p-3">
-                  {group.items.map((it) => {
-                    const isOpen = expandedCardId === it.id;
-                    const isProtected = true;
+              <div className="space-y-2 border-t p-3">
+                {group.items.map((it) => {
+                  const id = String(it.id || it.card_id || it.topic_key || Math.random());
+                  const isOpen = expandedId === id;
+                  const domains = asArray(it.domains);
+                  const title = shortTopic(it.topic_key);
+                  const summary = asText(it.text || it.summary, "No summary.");
+                  const useScope = asText(it.use_scope, "unknown");
+                  const status = asText(it.status, "unknown");
+                  const surfacePolicy = asText(it.surface_policy, "unknown");
 
-                    return (
-                      <div key={it.id} className="rounded-lg border px-3 py-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <button
-                            className="flex-1 text-left text-xs text-muted-foreground"
-                            onClick={() => setExpandedCardId(isOpen ? null : it.id)}
-                          >
-                            <span className="font-semibold">{cardTitle(it)}</span>
-                            <span className="ml-2 opacity-80">{it.kind || "memory"}</span>
-                            {it.updated_at ? ` • ${it.updated_at}` : it.created_at ? ` • ${it.created_at}` : ""}
-                          </button>
+                  return (
+                    <div key={id} className="rounded-lg border px-3 py-2">
+                      <button
+                        className="w-full text-left"
+                        onClick={() => setExpandedId(isOpen ? null : id)}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold">{title}</div>
+                            <div className="mt-0.5 text-[11px] text-muted-foreground">
+                              {it.kind || "unknown"} · {it.updated_at || it.created_at || "no timestamp"}
+                            </div>
+                          </div>
 
-                          <span className="text-xs text-muted-foreground" title="Protected live Vantage card">
-                            🔒
-                          </span>
+                          <div className="flex shrink-0 flex-wrap justify-end gap-1 text-[10px] uppercase tracking-wide">
+                            <span className={`rounded-full border px-2 py-0.5 ${statusClass(status)}`}>{status}</span>
+                            <span className={`rounded-full border px-2 py-0.5 ${policyClass(useScope)}`}>{useScope}</span>
+                            <span className="rounded-full border bg-muted/40 px-2 py-0.5 text-muted-foreground">{surfacePolicy}</span>
+                          </div>
                         </div>
 
-                        {isOpen ? (
-                          <div className="mt-2 space-y-2">
-                            <pre className="whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-xs">
-                              {prettySummary(it)}
-                            </pre>
-                            {showRaw ? (
-                              <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-[11px]">
-                                {JSON.stringify(it, null, 2)}
-                              </pre>
-                            ) : null}
+                        <div className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">{summary}</div>
+
+                        {domains.length ? (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {domains.map((d) => (
+                              <span key={d} className="rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
+                                {d}
+                              </span>
+                            ))}
                           </div>
                         ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              </details>
-            ))}
-          </div>
-        ) : (
-          displayItems.map((it) => {
-            const isOpen = expandedCardId === it.id;
-            const isProtected = PROTECTED_KINDS.has(String(it.kind || ""));
+                      </button>
 
-            return (
-              <div key={it.id} className="rounded-lg border px-3 py-2">
-                <div className="flex items-center justify-between gap-2">
-                  <button
-                    className="flex-1 text-left text-xs text-muted-foreground"
-                    onClick={() => setExpandedCardId(isOpen ? null : it.id)}
-                  >
-                    <span className="font-semibold">{cardTitle(it)}</span>
-                    <span className="ml-2 opacity-80">{it.kind || "memory"}</span>
-                    {it.updated_at ? ` • ${it.updated_at}` : it.created_at ? ` • ${it.created_at}` : ""}
-                  </button>
+                      {isOpen ? (
+                        <div className="mt-2 space-y-2 border-t pt-2">
+                          <div className="grid gap-2 text-[11px] text-muted-foreground md:grid-cols-2">
+                            <div><span className="font-semibold">card_id:</span> {it.card_id || it.id || "?"}</div>
+                            <div><span className="font-semibold">vantage_id:</span> {it.vantage_id || "?"}</div>
+                            <div><span className="font-semibold">strength:</span> {it.strength ?? "?"}</div>
+                            <div><span className="font-semibold">confidence:</span> {it.confidence ?? "?"}</div>
+                          </div>
 
-                  {isProtected ? (
-                    <span className="text-xs text-muted-foreground" title="Protected/system card">
-                      🔒
-                    </span>
-                  ) : (
-                    <button
-                      className="text-xs text-red-400 hover:underline"
-                      onClick={() => del(String(it.id))}
-                    >
-                      delete
-                    </button>
-                  )}
-                </div>
-
-                {isOpen ? (
-                  <div className="mt-2 space-y-2">
-                    <pre className="whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-xs">
-                      {prettySummary(it)}
-                    </pre>
-                    {showRaw ? (
-                      <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-[11px]">
-                        {JSON.stringify(it, null, 2)}
-                      </pre>
-                    ) : null}
-                  </div>
-                ) : null}
+                          {showRaw ? (
+                            <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-[11px]">
+                              {JSON.stringify(it, null, 2)}
+                            </pre>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })
-        )}
+            </details>
+          ))}
+        </div>
 
-
-        {!loading && displayItems.length === 0 && (
-          <div className="text-xs text-muted-foreground">No cards found for this category.</div>
-        )}
+        {!loading && filteredItems.length === 0 ? (
+          <div className="text-xs text-muted-foreground">No cards found for the selected filters.</div>
+        ) : null}
       </div>
     </details>
   );
