@@ -372,17 +372,17 @@ export function AdminConsolePage() {
         <div className="rounded-xl border p-3">
           <div className="text-sm font-semibold">Memory System Status</div>
           <div className="mt-1 text-xs text-muted-foreground">
-            Placeholder for the memory architecture audit: Qdrant memory_raw, Postgres Vantage cards, derived profiles, retrieval, feedback, and prompt injection.
+            Backend route audit now checks card policy metadata, retrieval plans, profile-card gating, specific recall, and user isolation.
           </div>
           <div className="mt-3 text-xs text-muted-foreground">
-            Goal: keep valuable memory layers, harden active systems, and retire or gate redundant/noisy legacy paths.
+            Goal: inspect what is active, style-only, content-eligible, retired, or never allowed to surface.
           </div>
         </div>
       </div>
 
       <div className="space-y-2">
         <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Memory Cards
+          Memory Inspector
         </div>
 
         <CardsPanel />
