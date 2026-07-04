@@ -3,7 +3,17 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, BookOpen, PlusSquare, ClipboardList, LineChart, Dumbbell } from "lucide-react";
+import {
+  Apple,
+  BookOpen,
+  CalendarDays,
+  ClipboardList,
+  Dumbbell,
+  LineChart,
+  PlusSquare,
+  Ruler,
+  Users,
+} from "lucide-react";
 
 const MODES = ["log", "design", "capture", "plan", "analyze"] as const;
 const ACTIVE_DOMAINS = new Set(["nutrition", "training", "measurements"]);
@@ -15,22 +25,10 @@ function normalizeDomainFromPath(pathname: string): string {
   const d = (m?.[1] || "").toLowerCase();
 
   if (!d) return "";
-  if (d === "plan") return "";
+  if (d === "plan") return "plan";
   if (!ACTIVE_DOMAINS.has(d)) return "";
 
   return d;
-}
-
-function domainFromPlanHash(hash: string): string {
-  const h = String(hash || "").toLowerCase();
-
-  if (h.includes("nutrition")) return "nutrition";
-  if (h.includes("body-state") || h.includes("measurement")) return "measurements";
-  if (h.includes("training") || h.includes("conditioning") || h.includes("activity") || h.includes("recovery")) {
-    return "training";
-  }
-
-  return "";
 }
 
 function normalizeModeFromPath(pathname: string): Mode {
@@ -38,25 +36,8 @@ function normalizeModeFromPath(pathname: string): Mode {
 
   const m = String(pathname || "").match(/^\/lifeswitch\/[^\/?#]+\/([^\/?#]+)/);
   const mode = (m?.[1] || "").toLowerCase() as Mode;
+
   return (MODES as readonly string[]).includes(mode) ? mode : "log";
-}
-
-function safeStoredDomain(): string {
-  if (typeof window === "undefined") return "training";
-
-  const stored = window.localStorage.getItem("lifeswitch:lastDomain") || "";
-  return ACTIVE_DOMAINS.has(stored) ? stored : "training";
-}
-
-function domainForPath(pathname: string, hash: string): string {
-  const pathDomain = normalizeDomainFromPath(pathname);
-  if (pathDomain) return pathDomain;
-
-  if (String(pathname || "").match(/^\/lifeswitch\/plan(?:[\/?#]|$)/)) {
-    return domainFromPlanHash(hash) || safeStoredDomain();
-  }
-
-  return "";
 }
 
 function Tab({
@@ -108,32 +89,31 @@ function designLabelForDomain(domain: string) {
 
 export function LifeSwitchModeNav() {
   const pathname = usePathname() || "";
-  const [hash, setHash] = React.useState("");
-
-  React.useEffect(() => {
-    const sync = () => setHash(window.location.hash || "");
-    sync();
-
-    window.addEventListener("hashchange", sync);
-    window.addEventListener("popstate", sync);
-
-    return () => {
-      window.removeEventListener("hashchange", sync);
-      window.removeEventListener("popstate", sync);
-    };
-  }, []);
-
-  const domain = domainForPath(pathname, hash);
+  const domain = normalizeDomainFromPath(pathname);
   const mode = normalizeModeFromPath(pathname);
 
   React.useEffect(() => {
-    const pathDomain = normalizeDomainFromPath(pathname);
-    if (pathDomain && typeof window !== "undefined") {
-      window.localStorage.setItem("lifeswitch:lastDomain", pathDomain);
+    if (domain && domain !== "plan" && typeof window !== "undefined") {
+      window.localStorage.setItem("lifeswitch:lastDomain", domain);
     }
-  }, [pathname]);
+  }, [domain]);
 
   if (!domain) return null;
+
+  if (domain === "plan") {
+    return (
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto grid max-w-5xl grid-cols-5 px-2 pt-2">
+          <Tab href="/lifeswitch/plan" label="Plan" Icon={ClipboardList} active />
+          <Tab href="/lifeswitch/nutrition/log" label="Nutrition" Icon={Apple} active={false} />
+          <Tab href="/lifeswitch/training/calendar" label="Training" Icon={Dumbbell} active={false} />
+          <Tab href="/lifeswitch/measurements/log" label="Measurements" Icon={Ruler} active={false} />
+          <Tab href="/lifeswitch/people" label="People" Icon={Users} active={false} />
+        </div>
+        <div className="mx-auto max-w-5xl border-t border-muted/20" />
+      </nav>
+    );
+  }
 
   const logHref = domain === "training" ? "/lifeswitch/training/calendar" : `/lifeswitch/${domain}/log`;
   const captureHref = `/lifeswitch/${domain}/capture`;
