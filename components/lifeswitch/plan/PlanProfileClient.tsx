@@ -326,19 +326,17 @@ function SectionCard({
   title,
   eyebrow,
   summary,
-  defaultOpen = false,
   children,
 }: {
   id: string;
   title: string;
   eyebrow: string;
   summary?: React.ReactNode;
-  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <section id={id} className="rounded-2xl border bg-background shadow-sm">
-      <details open={defaultOpen} className="group">
+      <details className="group">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
           <div className="min-w-0">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1384,12 +1382,13 @@ export function PlanProfileClient() {
 
   return (
     <div className="mx-auto grid max-w-6xl gap-4 p-4 pb-24 md:p-6">
-      <div className="rounded-2xl border bg-background p-5 shadow-sm">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          LifeSwitch
-        </div>
-        <h1 className="mt-1 text-2xl font-semibold">Physique Plan</h1>
-        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+      <SectionCard
+        id="plan-overview"
+        eyebrow="LifeSwitch"
+        title="Physique Plan"
+        summary={status === "ready" && plan ? `Updated ${updatedLabel(plan)}` : "Integrated physique plan"}
+      >
+        <p className="max-w-3xl text-sm text-muted-foreground">
           One integrated plan for body composition, nutrition, strength training,
           conditioning, daily activity, recovery, monitoring, and weekly adjustment.
         </p>
@@ -1420,14 +1419,13 @@ export function PlanProfileClient() {
           <a href="#monitoring-rules" className="rounded-full border px-3 py-1 hover:bg-muted/40">Adjustments</a>
           <a href="#coach-notes" className="rounded-full border px-3 py-1 hover:bg-muted/40">Notes</a>
         </div>
-      </div>
+      </SectionCard>
 
       <SectionCard
           id="plan-comments"
           eyebrow="Delegated collaboration"
           title="Plan Comments"
           summary={comments.length ? `${comments.length} comment${comments.length === 1 ? "" : "s"}` : "No comments"}
-          defaultOpen={delegatedView && comments.length > 0}
         >
         <div className="grid gap-3">
           {canCommentPlan ? (
@@ -1473,14 +1471,13 @@ export function PlanProfileClient() {
         </div>
       </SectionCard>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="grid gap-4 lg:col-span-2">
+      <div className="grid gap-4">
+        <div className="grid gap-4">
           <SectionCard
               id="current-phase"
               eyebrow="Current intervention"
               title="Current Phase"
               summary={phaseLabel ? `${phase} · ${phaseLabel}` : phase}
-              defaultOpen
             >
             {editingPhase ? (
               <div className="grid gap-3">
