@@ -7,6 +7,7 @@ import { TextStreamChatTransport } from "ai";
 import { ThreadViewer } from "@/components/threads/ThreadViewer";
 import { BrainsChatPane } from "@/components/threads/BrainsChatPane";
 import { WorkspaceMenu } from "@/components/nav/WorkspaceMenu";
+import { AccountMenu } from "@/components/nav/AccountMenu";
 
 import { Thread } from "@/components/assistant-ui/thread";
 import {
@@ -38,11 +39,12 @@ export const Assistant = () => {
         <div className="flex h-svh w-full pr-0.5">
           <ThreadListSidebar />
           <SidebarInset>
-              <header className="flex h-16 shrink-0 items-center border-b px-4">
+              <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
                 <div className="flex items-center gap-3">
                   <SidebarTrigger />
                   <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />
                 </div>
+                <AccountMenu />
               </header>
             <div className="flex-1 overflow-hidden">
               <BrainsChatPane />
