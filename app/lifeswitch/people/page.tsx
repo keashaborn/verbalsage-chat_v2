@@ -580,7 +580,7 @@ export default function LifeSwitchPeoplePage() {
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
+      <div className={selectedPerson ? "grid gap-4 lg:grid-cols-[340px_1fr]" : "grid gap-4"}>
         <section className="rounded-xl border">
           <div className="flex items-center gap-2 border-b px-4 py-3">
             <Users className="h-4 w-4" />
@@ -750,7 +750,7 @@ export default function LifeSwitchPeoplePage() {
                           enabled ? "bg-muted/30" : "hover:bg-muted/30",
                         ].join(" ")}
                       >
-                        {enabled ? "Enabled" : "Enable"}
+                        {enabled ? "Turn off" : "Turn on"}
                       </button>
                     </div>
                   );
