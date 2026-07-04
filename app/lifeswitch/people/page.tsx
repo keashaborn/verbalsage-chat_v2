@@ -400,9 +400,9 @@ export default function LifeSwitchPeoplePage() {
     <div className="grid gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="text-lg font-semibold">People</div>
+          <div className="text-lg font-semibold">Network</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Private LifeSwitch connections for messages, workout friends, and permissioned plan help.
+            Build your LifeSwitch support network for messages, workout sharing, and permissioned plan help.
           </div>
         </div>
 
