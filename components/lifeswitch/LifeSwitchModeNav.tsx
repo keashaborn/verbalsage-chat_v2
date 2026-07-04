@@ -4,15 +4,12 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Apple,
   BookOpen,
   CalendarDays,
   ClipboardList,
   Dumbbell,
   LineChart,
   PlusSquare,
-  Ruler,
-  Users,
 } from "lucide-react";
 
 const MODES = ["log", "design", "capture", "plan", "analyze"] as const;
@@ -100,20 +97,7 @@ export function LifeSwitchModeNav() {
 
   if (!domain) return null;
 
-  if (domain === "plan") {
-    return (
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto grid max-w-5xl grid-cols-5 px-2 pt-2">
-          <Tab href="/lifeswitch/plan" label="Plan" Icon={ClipboardList} active />
-          <Tab href="/lifeswitch/nutrition/log" label="Nutrition" Icon={Apple} active={false} />
-          <Tab href="/lifeswitch/training/calendar" label="Training" Icon={Dumbbell} active={false} />
-          <Tab href="/lifeswitch/measurements/log" label="Measurements" Icon={Ruler} active={false} />
-          <Tab href="/lifeswitch/people" label="People" Icon={Users} active={false} />
-        </div>
-        <div className="mx-auto max-w-5xl border-t border-muted/20" />
-      </nav>
-    );
-  }
+  if (domain === "plan") return null;
 
   const logHref = domain === "training" ? "/lifeswitch/training/calendar" : `/lifeswitch/${domain}/log`;
   const captureHref = `/lifeswitch/${domain}/capture`;
