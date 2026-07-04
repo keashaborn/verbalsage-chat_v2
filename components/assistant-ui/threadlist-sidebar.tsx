@@ -6,12 +6,8 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { SettingsDrawer } from "@/components/admin/SettingsDrawer";
 import { BrainsThreadList } from "@/components/threads/BrainsThreadList";
 import Image from "next/image";
 
@@ -93,24 +89,14 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
       <SidebarRail />
 
       <SidebarFooter className="aui-sidebar-footer border-t px-3 pb-3">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SettingsDrawer
-              trigger={
-                <SidebarMenuButton size="default" className="justify-start py-2 pl-2">
-                  <div className="flex flex-col items-start leading-tight">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      LifeSwitch
-                    </span>
-                    <span className="text-[10px] text-muted-foreground/70">
-                      powered by Verbal Sage
-                    </span>
-                  </div>
-                </SidebarMenuButton>
-              }
-            />
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <div className="py-2 pl-2 leading-tight">
+          <div className="text-xs font-medium text-muted-foreground">
+            LifeSwitch
+          </div>
+          <div className="text-[10px] text-muted-foreground/70">
+            powered by Verbal Sage
+          </div>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
