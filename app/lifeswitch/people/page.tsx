@@ -448,6 +448,12 @@ export default function LifeSwitchPeoplePage() {
           >
             Sharing
           </button>
+            <Link
+              href="/lifeswitch/people/helping"
+              className="rounded-full border px-3 py-1.5 text-sm hover:bg-muted/30"
+            >
+              Viewing
+            </Link>
         </div>
       </div>
 
@@ -628,7 +634,7 @@ export default function LifeSwitchPeoplePage() {
           </div>
         </section>
 
-        <section className="grid gap-4">
+        <section className={selectedPerson ? "grid gap-4" : "hidden"}>
           <div className="rounded-xl border p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
