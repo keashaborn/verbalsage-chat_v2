@@ -457,7 +457,7 @@ export default function LifeSwitchPeoplePage() {
         </div>
       ) : null}
 
-      <section className="rounded-xl border">
+      <section className={activeTab === "invites" ? "rounded-xl border" : "hidden"}>
         <div className="border-b px-4 py-3">
           <div className="text-sm font-semibold">Invite link</div>
           <div className="mt-1 text-xs text-muted-foreground">
