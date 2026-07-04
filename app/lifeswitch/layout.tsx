@@ -1,40 +1,16 @@
 // app/lifeswitch/layout.tsx
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
 import { WorkspaceMenu } from "@/components/nav/WorkspaceMenu";
 import { LifeSwitchModeNav } from "@/components/lifeswitch/LifeSwitchModeNav";
 import { LifeSwitchHelper } from "@/components/lifeswitch/helper/LifeSwitchHelper";
 
-const DEFAULT_LIFESWITCH = "/lifeswitch/training/calendar";
-
 export default function LifeSwitchLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-svh overflow-x-clip">
-      {/* Top bar (sticky) */}
+      {/* Top bar */}
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            {/* Predictable "up" to LifeSwitch default (not history-based) */}
-            <Link
-              href={DEFAULT_LIFESWITCH}
-              aria-label="Back to LifeSwitch"
-              className="rounded-md border px-2 py-1.5 text-xs hover:bg-muted/30 active:bg-muted/40"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Link>
-
-            {/* Brand also navigates to default */}
-            <Link
-              href={DEFAULT_LIFESWITCH}
-              className="text-sm font-semibold tracking-wide hover:opacity-80"
-            >
-              LifeSwitch
-            </Link>
-          </div>
-
-          {/* Workspace / domain menu */}
-          <WorkspaceMenu label="Workspace" />
+        <div className="mx-auto flex max-w-5xl items-center px-4 py-3">
+          <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />
         </div>
       </header>
 

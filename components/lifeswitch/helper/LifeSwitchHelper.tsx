@@ -96,65 +96,65 @@ function compactContextForPrompt(raw: any) {
     window: raw.window || null,
     currentPlan: plan
       ? {
-          phase: plan.phase ?? null,
-          phase_label: plan.phase_label ?? null,
-          primary_goal: plan.primary_goal ?? null,
-          review_cadence: plan.review_cadence ?? null,
-          nutrition_targets: plan.nutrition_targets ?? null,
-          training_targets: plan.training_targets ?? null,
-          conditioning_targets: plan.conditioning_targets ?? null,
-          activity_targets: plan.activity_targets ?? null,
-          recovery_targets: plan.recovery_targets ?? null,
-          body_state: plan.body_state ?? null,
-          monitoring_rules: plan.monitoring_rules ?? null,
-          coach_notes: plan.coach_notes ?? null,
-        }
+        phase: plan.phase ?? null,
+        phase_label: plan.phase_label ?? null,
+        primary_goal: plan.primary_goal ?? null,
+        review_cadence: plan.review_cadence ?? null,
+        nutrition_targets: plan.nutrition_targets ?? null,
+        training_targets: plan.training_targets ?? null,
+        conditioning_targets: plan.conditioning_targets ?? null,
+        activity_targets: plan.activity_targets ?? null,
+        recovery_targets: plan.recovery_targets ?? null,
+        body_state: plan.body_state ?? null,
+        monitoring_rules: plan.monitoring_rules ?? null,
+        coach_notes: plan.coach_notes ?? null,
+      }
       : null,
     recent: {
       nutrition: recent.nutrition
         ? {
-            windowDays: recent.nutrition.windowDays,
-            loggedDays: recent.nutrition.loggedDays,
-            averageCalories: recent.nutrition.averageCalories,
-            averageProteinG: recent.nutrition.averageProteinG,
-            daysHitCalories: recent.nutrition.daysHitCalories,
-            daysHitProtein: recent.nutrition.daysHitProtein,
-            daysFullHit: recent.nutrition.daysFullHit,
-            targets: recent.nutrition.targets,
-            days: Array.isArray(recent.nutrition.days)
-              ? recent.nutrition.days.slice(0, 14)
-              : [],
-          }
+          windowDays: recent.nutrition.windowDays,
+          loggedDays: recent.nutrition.loggedDays,
+          averageCalories: recent.nutrition.averageCalories,
+          averageProteinG: recent.nutrition.averageProteinG,
+          daysHitCalories: recent.nutrition.daysHitCalories,
+          daysHitProtein: recent.nutrition.daysHitProtein,
+          daysFullHit: recent.nutrition.daysFullHit,
+          targets: recent.nutrition.targets,
+          days: Array.isArray(recent.nutrition.days)
+            ? recent.nutrition.days.slice(0, 14)
+            : [],
+        }
         : null,
       training: recent.training
         ? {
-            windowDays: recent.training.windowDays,
-            strengthSessions: recent.training.strengthSessions,
-            conditioningSessions: recent.training.conditioningSessions,
-            strengthDays: recent.training.strengthDays,
-            conditioningDays: recent.training.conditioningDays,
-            trainingDays: recent.training.trainingDays,
-            sets: recent.training.sets,
-            volume: recent.training.volume,
-            exercises: recent.training.exercises,
-            conditioningMinutes: recent.training.conditioningMinutes,
-            recentStrength: Array.isArray(recent.training.recentStrength)
-              ? recent.training.recentStrength.slice(0, 8)
-              : [],
-            recentConditioning: Array.isArray(recent.training.recentConditioning)
-              ? recent.training.recentConditioning.slice(0, 8)
-              : [],
-          }
+          windowDays: recent.training.windowDays,
+          strengthSessions: recent.training.strengthSessions,
+          conditioningSessions: recent.training.conditioningSessions,
+          strengthDays: recent.training.strengthDays,
+          conditioningDays: recent.training.conditioningDays,
+          trainingDays: recent.training.trainingDays,
+          sets: recent.training.sets,
+          volume: recent.training.volume,
+          exercises: recent.training.exercises,
+          conditioningMinutes: recent.training.conditioningMinutes,
+          recentStrength: Array.isArray(recent.training.recentStrength)
+            ? recent.training.recentStrength.slice(0, 8)
+            : [],
+          recentConditioning: Array.isArray(recent.training.recentConditioning)
+            ? recent.training.recentConditioning.slice(0, 8)
+            : [],
+        }
         : null,
       measurements: recent.measurements
         ? {
-            entryCount: recent.measurements.entryCount,
-            current: recent.measurements.current,
-            latestWeight: recent.measurements.latestWeight,
-            latestTape: recent.measurements.latestTape,
-            latestSkinfolds: recent.measurements.latestSkinfolds,
-            latestScan: recent.measurements.latestScan,
-          }
+          entryCount: recent.measurements.entryCount,
+          current: recent.measurements.current,
+          latestWeight: recent.measurements.latestWeight,
+          latestTape: recent.measurements.latestTape,
+          latestSkinfolds: recent.measurements.latestSkinfolds,
+          latestScan: recent.measurements.latestScan,
+        }
         : null,
     },
     missing: Array.isArray(raw.missing) ? raw.missing : [],
@@ -613,7 +613,7 @@ export function LifeSwitchHelper() {
           aria-label="Open LifeSwitch helper"
           onClick={() => setOpen(true)}
         >
-          <FractalMark className="h-12 w-12 text-neutral-700 dark:text-neutral-100" />
+          <FractalMark className="h-22 w-22 text-neutral-700 dark:text-neutral-100" />
         </Button>
       )}
     </div>
