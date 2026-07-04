@@ -51,7 +51,7 @@ function groupByGrantor(rows: GrantedPermission[]) {
   }));
 }
 
-export default function LifeSwitchPeopleHelpingPage() {
+export default function LifeSwitchNetworkHelpingPage() {
   const [rows, setRows] = React.useState<GrantedPermission[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -79,9 +79,9 @@ export default function LifeSwitchPeopleHelpingPage() {
     <div className="grid gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="text-lg font-semibold">People I Help</div>
+          <div className="text-lg font-semibold">Viewing</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            People who have granted this account access. This verifies permissions before delegated plan/training views are connected.
+            Network who have granted you access to view or help with their LifeSwitch data.
           </div>
         </div>
 
@@ -91,7 +91,7 @@ export default function LifeSwitchPeopleHelpingPage() {
             className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
           >
             <ArrowLeft className="h-4 w-4" />
-            People
+            Network
           </Link>
           <button
             type="button"
@@ -114,19 +114,19 @@ export default function LifeSwitchPeopleHelpingPage() {
         <div className="flex items-center gap-2 border-b px-4 py-3">
           <ShieldCheck className="h-4 w-4" />
           <div>
-            <div className="text-sm font-semibold">Access granted to me</div>
+            <div className="text-sm font-semibold">Shared with me</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              These permissions let this account help or view another person’s LifeSwitch data.
+              These people have granted you access to view or help with selected LifeSwitch data.
             </div>
           </div>
         </div>
 
         <div className="grid gap-3 p-4">
           {loading ? (
-            <div className="text-sm text-muted-foreground">Loading granted access…</div>
+            <div className="text-sm text-muted-foreground">Loading shared access…</div>
           ) : groups.length === 0 ? (
             <div className="text-sm text-muted-foreground">
-              No one has granted this account access yet.
+              No one has shared LifeSwitch access with you yet.
             </div>
           ) : (
             groups.map((group) => {
