@@ -15,7 +15,6 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { ThreadListSidebar } from "@/components/assistant-ui/threadlist-sidebar";
-import { Separator } from "@/components/ui/separator";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -39,22 +38,12 @@ export const Assistant = () => {
         <div className="flex h-svh w-full pr-0.5">
           <ThreadListSidebar />
           <SidebarInset>
-            <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
-              <div className="flex items-center gap-2">
-                <SidebarTrigger />
-                <Separator orientation="vertical" className="mr-2 h-4" />
-                <div className="flex items-baseline gap-2">
-                  <span className="text-lg font-semibold tracking-tight text-foreground">
-                    LifeSwitch
-                  </span>
-                  <span className="hidden text-xs text-muted-foreground sm:inline">
-                    powered by Verbal Sage
-                  </span>
+              <header className="flex h-16 shrink-0 items-center border-b px-4">
+                <div className="flex items-center gap-3">
+                  <SidebarTrigger />
+                  <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />
                 </div>
-              </div>
-
-              <WorkspaceMenu label="Workspace" />
-            </header>
+              </header>
             <div className="flex-1 overflow-hidden">
               <BrainsChatPane />
             </div>
