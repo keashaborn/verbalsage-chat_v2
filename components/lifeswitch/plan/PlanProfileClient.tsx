@@ -325,20 +325,44 @@ function SectionCard({
   id,
   title,
   eyebrow,
+  summary,
+  defaultOpen = false,
   children,
 }: {
   id: string;
   title: string;
   eyebrow: string;
+  summary?: React.ReactNode;
+  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} className="rounded-2xl border bg-background p-4 shadow-sm">
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {eyebrow}
-      </div>
-      <div className="mt-1 text-lg font-semibold">{title}</div>
-      <div className="mt-3 text-sm text-muted-foreground">{children}</div>
+    <section id={id} className="rounded-2xl border bg-background shadow-sm">
+      <details open={defaultOpen} className="group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {eyebrow}
+            </div>
+            <div className="mt-0.5 text-base font-semibold">{title}</div>
+          </div>
+
+          <div className="flex min-w-0 shrink items-center gap-3 text-right">
+            {summary ? (
+              <div className="hidden max-w-[42vw] truncate text-xs text-muted-foreground sm:block">
+                {summary}
+              </div>
+            ) : null}
+            <div className="text-sm text-muted-foreground transition-transform group-open:rotate-90">
+              ›
+            </div>
+          </div>
+        </summary>
+
+        <div className="border-t px-4 py-4 text-sm text-muted-foreground">
+          {children}
+        </div>
+      </details>
     </section>
   );
 }
@@ -1398,7 +1422,13 @@ export function PlanProfileClient() {
         </div>
       </div>
 
-      <SectionCard id="plan-comments" eyebrow="Delegated collaboration" title="Plan Comments">
+      <SectionCard
+          id="plan-comments"
+          eyebrow="Delegated collaboration"
+          title="Plan Comments"
+          summary={comments.length ? `${comments.length} comment${comments.length === 1 ? "" : "s"}` : "No comments"}
+          defaultOpen={delegatedView && comments.length > 0}
+        >
         <div className="grid gap-3">
           {canCommentPlan ? (
             <div className="grid gap-2">
@@ -1445,7 +1475,13 @@ export function PlanProfileClient() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="grid gap-4 lg:col-span-2">
-          <SectionCard id="current-phase" eyebrow="Current intervention" title="Current Phase">
+          <SectionCard
+              id="current-phase"
+              eyebrow="Current intervention"
+              title="Current Phase"
+              summary={phaseLabel ? `${phase} · ${phaseLabel}` : phase}
+              defaultOpen
+            >
             {editingPhase ? (
               <div className="grid gap-3">
                 <div className="grid gap-3 md:grid-cols-2">
@@ -1552,7 +1588,12 @@ export function PlanProfileClient() {
             )}
           </SectionCard>
 
-          <SectionCard id="nutrition-targets" eyebrow="Nutrition prescription" title="Nutrition Targets">
+          <SectionCard
+              id="nutrition-targets"
+              eyebrow="Nutrition prescription"
+              title="Nutrition Targets"
+              summary={`${readValue(nutritionTargets, ["calories", "target_kcal", "kcal"], "Calories not set")} · ${readValue(nutritionTargets, ["protein_g", "target_protein_g", "protein"], "Protein not set")}`}
+            >
             {editingNutrition ? (
               <div className="grid gap-3">
                 <div className="grid gap-3 md:grid-cols-2">
@@ -1649,7 +1690,12 @@ export function PlanProfileClient() {
             )}
           </SectionCard>
 
-          <SectionCard id="training-targets" eyebrow="Strength prescription" title="Strength Training Targets">
+          <SectionCard
+              id="training-targets"
+              eyebrow="Strength prescription"
+              title="Strength Training Targets"
+              summary={`${readValue(trainingTargets, ["workouts_per_week", "frequency"], "Frequency not set")} · ${readValue(trainingTargets, ["split", "weekly_split"], "Split not set")}`}
+            >
             {editingTraining ? (
               <div className="grid gap-3">
                 <div className="grid gap-3 md:grid-cols-2">
@@ -1746,7 +1792,12 @@ export function PlanProfileClient() {
             )}
           </SectionCard>
 
-          <SectionCard id="conditioning-targets" eyebrow="Cardio / conditioning" title="Conditioning and Daily Activity Targets">
+          <SectionCard
+              id="conditioning-targets"
+              eyebrow="Cardio / conditioning"
+              title="Conditioning and Daily Activity Targets"
+              summary={`${readValue(conditioningTargets, ["cardio_target", "cardio_sessions_per_week", "minutes_per_week"], "Cardio not set")} · ${readValue(activityTargets, ["steps_per_day", "step_target", "neat"], "Steps not set")}`}
+            >
             {editingConditioningActivity ? (
               <div className="grid gap-3">
                 <div className="grid gap-3 md:grid-cols-2">
@@ -1837,7 +1888,12 @@ export function PlanProfileClient() {
         </div>
 
         <div className="grid gap-4">
-          <SectionCard id="body-state" eyebrow="Dependent variables" title="Current Body State">
+          <SectionCard
+              id="body-state"
+              eyebrow="Dependent variables"
+              title="Current Body State"
+              summary={`${readValue(bodyState, ["weight_lb", "weight", "body_weight"], "Weight not set")} · ${readValue(bodyState, ["body_fat_percent", "body_composition"], "Body fat not set")}`}
+            >
             {editingBodyState ? (
               <div className="grid gap-3">
                 <div className="grid gap-3 md:grid-cols-2">
@@ -1940,7 +1996,12 @@ export function PlanProfileClient() {
             )}
           </SectionCard>
 
-          <SectionCard id="biomarkers-labs" eyebrow="Biomarkers / labs" title="Blood Work and Health Markers">
+          <SectionCard
+              id="biomarkers-labs"
+              eyebrow="Biomarkers / labs"
+              title="Blood Work and Health Markers"
+              summary={readValue(asObject(asObject(monitoringRules).biomarkers), ["next_lab_date"], "No next lab date")}
+            >
             {editingBiomarkers ? (
               <div className="grid gap-3">
                 <div className="grid gap-3 md:grid-cols-2">
@@ -2061,7 +2122,12 @@ export function PlanProfileClient() {
             )}
           </SectionCard>
 
-          <SectionCard id="recovery-targets" eyebrow="Recovery prescription" title="Sleep and Recovery">
+          <SectionCard
+              id="recovery-targets"
+              eyebrow="Recovery prescription"
+              title="Sleep and Recovery"
+              summary={`${readValue(recoveryTargets, ["sleep_hours", "sleep_target"], "Sleep not set")} · ${readValue(recoveryTargets, ["rest_days", "rest"], "Rest not set")}`}
+            >
             {editingRecovery ? (
               <div className="grid gap-3">
                 <FieldInput
@@ -2140,7 +2206,12 @@ export function PlanProfileClient() {
             )}
           </SectionCard>
 
-          <SectionCard id="monitoring-rules" eyebrow="Adjustment logic" title="Monitoring and Adjustment Rules">
+          <SectionCard
+              id="monitoring-rules"
+              eyebrow="Adjustment logic"
+              title="Monitoring and Adjustment Rules"
+              summary={readValue(monitoringRules, ["weekly_review", "review_rule", "adjustment_rule"], "Weekly adjustment rules")}
+            >
             {editingMonitoring ? (
               <div className="grid gap-3">
                 <FieldTextArea
@@ -2244,7 +2315,12 @@ export function PlanProfileClient() {
             )}
           </SectionCard>
 
-          <SectionCard id="coach-notes" eyebrow="Weekly frame" title="Coach Notes">
+          <SectionCard
+              id="coach-notes"
+              eyebrow="Weekly frame"
+              title="Coach Notes"
+              summary={plan?.coach_notes?.trim() ? "Notes saved" : "No coach notes"}
+            >
             {editingCoachNotes ? (
               <div className="grid gap-3">
                 <FieldTextArea
