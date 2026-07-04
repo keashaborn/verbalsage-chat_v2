@@ -10,7 +10,7 @@ const DEFAULT_LIFESWITCH = "/lifeswitch/training/calendar";
 
 export default function LifeSwitchLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-svh overflow-x-hidden">
+    <div className="min-h-svh overflow-x-clip">
       {/* Top bar (sticky) */}
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
@@ -39,7 +39,7 @@ export default function LifeSwitchLayout({ children }: { children: ReactNode }) 
       </header>
 
       {/* Content (pad bottom so fixed nav doesn't cover it) */}
-      <main className="mx-auto max-w-5xl px-4 pt-4 overflow-x-hidden pb-[calc(5.0rem+env(safe-area-inset-bottom))]">
+      <main className="mx-auto max-w-5xl px-4 pt-4 overflow-x-clip pb-[calc(5.0rem+env(safe-area-inset-bottom))]">
         {children}
       </main>
 
