@@ -70,6 +70,7 @@ type PermissionScope =
   | "plan:edit";
 
 type PermissionLevel = "none" | "view" | "comment" | "edit" | "admin";
+type NetworkTab = "connections" | "invites" | "sharing";
 
 const PERMISSIONS: Array<{
   scope: PermissionScope;
@@ -153,6 +154,7 @@ function kindLabel(kind?: string): string {
 
 export default function LifeSwitchPeoplePage() {
   const [currentUserId, setCurrentUserId] = React.useState("");
+  const [activeTab, setActiveTab] = React.useState<NetworkTab>("connections");
   const [people, setPeople] = React.useState<PersonProfile[]>([]);
   const [relationships, setRelationships] = React.useState<Relationship[]>([]);
   const [selectedUserId, setSelectedUserId] = React.useState("");
@@ -406,29 +408,45 @@ export default function LifeSwitchPeoplePage() {
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <Link
-            href="/lifeswitch/people/messages"
-            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
-          >
-            <MessageSquare className="h-4 w-4" />
-            Messages
-          </Link>
-          <Link
-            href="/lifeswitch/people/helping"
-            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
-          >
-            <UserRoundCheck className="h-4 w-4" />
-            Connections
-          </Link>
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => void loadAll(selectedUserId)}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+            onClick={() => setActiveTab("connections")}
+            className={[
+              "rounded-full border px-3 py-1.5 text-sm",
+              activeTab === "connections" ? "bg-muted/40" : "hover:bg-muted/30",
+            ].join(" ")}
           >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
+            Connections
+          </button>
+
+          <Link
+            href="/lifeswitch/people/messages"
+            className="rounded-full border px-3 py-1.5 text-sm hover:bg-muted/30"
+          >
+            Messages
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("invites")}
+            className={[
+              "rounded-full border px-3 py-1.5 text-sm",
+              activeTab === "invites" ? "bg-muted/40" : "hover:bg-muted/30",
+            ].join(" ")}
+          >
+            Invites
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("sharing")}
+            className={[
+              "rounded-full border px-3 py-1.5 text-sm",
+              activeTab === "sharing" ? "bg-muted/40" : "hover:bg-muted/30",
+            ].join(" ")}
+          >
+            Sharing
           </button>
         </div>
       </div>
