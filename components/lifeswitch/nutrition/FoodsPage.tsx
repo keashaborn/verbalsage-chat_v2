@@ -14,7 +14,34 @@ type UsdaHit = {
   gtin_upc: string | null;
   data_type: string | null;
   published_date: string | null;
-  score: number | null;
+  score?: number | null;
+  search_score?: number | null;
+  guide_score?: number | null;
+  confidence?: number | null;
+  basis?: string | null;
+  serving?: {
+    serving_size?: number | null;
+    serving_size_unit?: string | null;
+    household_serving?: string | null;
+  } | null;
+  nutrients?: {
+    kcal?: number | null;
+    protein_g?: number | null;
+    carbs_g?: number | null;
+    fat_g?: number | null;
+    fiber_g?: number | null;
+    sugar_g?: number | null;
+    sodium_mg?: number | null;
+  } | null;
+  macro_check?: {
+    macro_kcal_estimate?: number | null;
+    kcal_difference?: number | null;
+    kcal_difference_pct?: number | null;
+    status?: string | null;
+  } | null;
+  reasons?: string[];
+  warnings?: string[];
+  matched_queries?: string[];
 };
 
 type MyFood = {
@@ -355,7 +382,7 @@ export default function NutritionFoodsPage() {
   const searchUsda = React.useCallback(async () => {
     const qq = usdaQ.trim();
     if (!qq) {
-      setUsdaErr("enter a search term");
+      setUsdaErr("describe a food, brand, UPC, package, cooked/raw state, or grams");
       setUsdaRows([]);
       return;
     }
@@ -364,15 +391,19 @@ export default function NutritionFoodsPage() {
     setUsdaErr(null);
 
     try {
-      const limit = 10; // fixed default
-      const url = `/api/catalog/foods/usda/search?q=${encodeURIComponent(qq)}&limit=${limit}`;
+      const limit = 6;
+      const url = `/api/catalog/foods/usda/guide?q=${encodeURIComponent(qq)}&limit=${limit}`;
       const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) {
         const t = await r.text();
-        throw new Error(`usda search HTTP ${r.status}: ${t.slice(0, 200)}`);
+        throw new Error(`guided USDA search HTTP ${r.status}: ${t.slice(0, 200)}`);
       }
       const j = await r.json();
-      setUsdaRows(Array.isArray(j) ? (j as UsdaHit[]) : []);
+      const candidates = Array.isArray(j?.candidates) ? (j.candidates as UsdaHit[]) : [];
+      setUsdaRows(candidates);
+      if (!candidates.length) {
+        setUsdaErr("No guided USDA matches. Try adding brand, cooked/raw state, package size, or UPC.");
+      }
     } catch (e: any) {
       setUsdaErr(String(e?.message || e));
       setUsdaRows([]);
@@ -490,7 +521,7 @@ export default function NutritionFoodsPage() {
           {/* LIBRARY ACTIONS */}
           <LifeSwitchToolPanel
             title="Library actions"
-            subtitle="Search USDA and import foods when you need to expand your library."
+            subtitle="Describe a food once, then import the best USDA match."
             storageKey="lifeswitch:nutrition:foods-library-actions"
             defaultOpen={myFoods.length === 0}
           >
@@ -500,7 +531,7 @@ export default function NutritionFoodsPage() {
                 className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 text-sm"
                 value={usdaQ}
                 onChange={(e) => setUsdaQ(e.target.value)}
-                placeholder="Search USDA (name or UPC)"
+                placeholder="Describe food, brand, UPC, package, cooked/raw, or grams"
                 inputMode="search"
                 autoCapitalize="none"
                 autoCorrect="off"
@@ -518,56 +549,112 @@ export default function NutritionFoodsPage() {
                 onClick={() => void searchUsda()}
                 disabled={usdaLoading || !usdaQ.trim()}
               >
-                {usdaLoading ? "Searching…" : "Search"}
+                {usdaLoading ? "Finding matches…" : "Find food"}
               </button>
             </div>
 
             {(!usdaLoading && usdaRows.length === 0) ? (
               <div className="mt-3 text-xs text-muted-foreground">
-                No results yet. Enter a query and click Search.
+                No results yet. Describe a food and click Find food.
               </div>
             ) : null}
 
             {usdaRows.length ? (
-              <div className="mt-3 divide-y divide-muted/20">
-                {usdaRows.map((h) => (
-                  <div
-                    key={String(h.fdc_id)}
-                    className="py-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between min-w-0"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium break-words whitespace-normal">{h.description || "(no description)"}</div>
-                      <div className="mt-0.5 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
-                        {(h.brand_owner || h.brand_name || "unbranded") + " · " + (h.data_type || "unknown")}{" "}
-                        {h.published_date ? " · " + h.published_date : ""} · fdc_id {h.fdc_id}
-                      </div>
+              <div className="mt-3 grid gap-3">
+                {usdaRows.map((h, idx) => {
+                  const n = h.nutrients || {};
+                  const serving = h.serving || {};
+                  const servingText = [
+                    serving.household_serving || null,
+                    serving.serving_size != null
+                      ? `${fmt(Number(serving.serving_size), 0)}${serving.serving_size_unit ? ` ${serving.serving_size_unit}` : ""}`
+                      : null,
+                  ].filter(Boolean).join(" · ");
 
-                      {h.gtin_upc ? (
-                        <div className="mt-0.5 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
-                          upc {h.gtin_upc}
+                  return (
+                    <div key={String(h.fdc_id)} className="rounded-xl border p-3 min-w-0">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="text-xs font-semibold text-blue-400">
+                              {idx === 0 ? "Best match" : `Option ${idx + 1}`}
+                            </div>
+                            {h.confidence != null ? (
+                              <div className="text-[11px] text-muted-foreground">
+                                confidence {Math.round(Number(h.confidence) * 100)}%
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div className="mt-1 text-sm font-semibold break-words whitespace-normal">
+                            {h.description || "(no description)"}
+                          </div>
+
+                          <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
+                            {(h.brand_owner || h.brand_name || "unbranded") + " · " + (h.data_type || "unknown")}{" "}
+                            {h.published_date ? " · " + h.published_date : ""} · fdc_id {h.fdc_id}
+                          </div>
+
+                          {h.gtin_upc ? (
+                            <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
+                              upc {h.gtin_upc}
+                            </div>
+                          ) : null}
+
+                          <div className="mt-2 rounded-lg border bg-muted/10 p-2 text-xs">
+                            <div className="font-medium">Per 100g</div>
+                            <div className="mt-1 text-muted-foreground">
+                              kcal {fmt(n.kcal ?? null, 0)} · P {fmt(n.protein_g ?? null, 1)}g · C {fmt(n.carbs_g ?? null, 1)}g · F {fmt(n.fat_g ?? null, 1)}g
+                            </div>
+                            {servingText ? (
+                              <div className="mt-1 text-muted-foreground">
+                                serving hint: {servingText}
+                              </div>
+                            ) : null}
+                            {h.macro_check?.status ? (
+                              <div className="mt-1 text-muted-foreground">
+                                macro check: {h.macro_check.status}
+                                {h.macro_check.macro_kcal_estimate != null
+                                  ? ` · macro kcal ≈ ${fmt(Number(h.macro_check.macro_kcal_estimate), 0)}`
+                                  : ""}
+                              </div>
+                            ) : null}
+                          </div>
+
+                          {h.reasons?.length ? (
+                            <div className="mt-2 text-xs text-muted-foreground">
+                              Why: {h.reasons.join("; ")}
+                            </div>
+                          ) : null}
+
+                          {h.warnings?.length ? (
+                            <div className="mt-2 text-xs text-yellow-500">
+                              Check: {h.warnings.join("; ")}
+                            </div>
+                          ) : null}
                         </div>
-                      ) : null}
-                    </div>
 
-                    <div className="flex justify-end lg:ml-3 lg:shrink-0">
-                      <button
-                        className="w-full lg:w-auto rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                        onClick={() => void importFromUsda(h)}
-                        disabled={
-                          importingFdc === h.fdc_id ||
-                          importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)
-                        }
-                        title="Import into My Foods"
-                      >
-                        {importingFdc === h.fdc_id
-                          ? "Importing…"
-                          : importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)
-                            ? "Imported"
-                            : "Import"}
-                      </button>
+                        <div className="flex justify-end lg:ml-3 lg:shrink-0">
+                          <button
+                            className="w-full lg:w-auto rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                            onClick={() => void importFromUsda(h)}
+                            disabled={
+                              importingFdc === h.fdc_id ||
+                              importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)
+                            }
+                            title="Import into My Foods"
+                          >
+                            {importingFdc === h.fdc_id
+                              ? "Importing…"
+                              : importedUsdaKeys.has(`${String(h.fdc_id)}::${variant.trim()}`)
+                                ? "Imported"
+                                : "Import"}
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : null}
           </LifeSwitchToolPanel>
