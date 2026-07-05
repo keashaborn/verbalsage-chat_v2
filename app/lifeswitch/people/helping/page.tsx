@@ -90,7 +90,7 @@ export default function LifeSwitchNetworkHelpingPage() {
         <div>
           <div className="text-lg font-semibold">Viewing</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Network who have granted you access to view or help with their LifeSwitch data.
+            People who have granted you access to view or help with their LifeSwitch data.
           </div>
         </div>
 
