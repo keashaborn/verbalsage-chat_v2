@@ -706,8 +706,26 @@ export default function TrainingCapturePage() {
       {flash ? <div className="mt-3 text-sm text-green-600">{flash}</div> : null}
       {status ? <div className="mt-3 text-sm text-red-600">{status}</div> : null}
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-[20rem_1fr]">
-        <aside className="rounded-xl border p-4">
+      {draftRows.length && selected && !setupOpen ? (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+          <div>
+            <div className="text-sm font-semibold">{selected.name}</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {day} · {summary.exerciseCount} exercises · {summary.setCount} completed sets · volume {Math.round(summary.volume)}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
+            onClick={() => setShowWorkoutSetup(true)}
+          >
+            Change workout
+          </button>
+        </div>
+      ) : null}
+
+      <div className={setupOpen ? "mt-6 grid gap-4 lg:grid-cols-[20rem_1fr]" : "mt-6 grid gap-4"}>
+        <aside className={setupOpen ? "rounded-xl border p-4" : "hidden"}>
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-semibold">Workout template</div>
             <button
