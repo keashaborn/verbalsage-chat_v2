@@ -110,6 +110,7 @@ function renderMessageBody(body: string) {
 export default function LifeSwitchPeopleMessagesPage() {
   const [otherUserId, setOtherUserId] = React.useState("");
   const [selectedPersonId, setSelectedPersonId] = React.useState("");
+  const [showNewMessage, setShowNewMessage] = React.useState(false);
   const [people, setPeople] = React.useState<PersonProfile[]>([]);
   const [loadingPeople, setLoadingPeople] = React.useState(false);
   const [conversations, setConversations] = React.useState<Conversation[]>([]);
@@ -192,6 +193,7 @@ export default function LifeSwitchPeopleMessagesPage() {
       });
       setOtherUserId("");
       setSelectedPersonId("");
+      setShowNewMessage(false);
       await loadConversations(c.conversation_id);
       await loadMessages(c.conversation_id);
     } catch (e) {
@@ -257,55 +259,67 @@ export default function LifeSwitchPeopleMessagesPage() {
 
   return (
     <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
-      <div>
-        <div className="text-lg font-semibold">Messages</div>
-        <div className="mt-1 break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
-          Internal one-to-one LifeSwitch messaging. Start a conversation by choosing a known person or pasting a Supabase user UUID.
-        </div>
-      </div>
-
-      <div className="min-w-0 max-w-full overflow-hidden rounded-xl border p-4">
-        <div className="min-w-0 truncate text-sm font-semibold">Start conversation</div>
-        <div className="mt-2 grid min-w-0 max-w-full gap-2 lg:grid-cols-[280px_minmax(0,1fr)_auto]">
-          <select
-            value={selectedPersonId}
-            onChange={(e) => {
-              setSelectedPersonId(e.target.value);
-              if (e.target.value) setOtherUserId("");
-            }}
-            disabled={loadingPeople}
-            className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
-          >
-            <option value="">{loadingPeople ? "Loading people…" : "Choose a person…"}</option>
-            {people
-              .filter((p) => p.user_id !== currentUserId)
-              .map((p) => (
-                <option key={p.user_id} value={p.user_id}>
-                  {displayUserName(p.display_name, p.user_id)}
-                </option>
-              ))}
-          </select>
-
-          <input
-            value={otherUserId}
-            onChange={(e) => {
-              setOtherUserId(e.target.value);
-              if (e.target.value.trim()) setSelectedPersonId("");
-            }}
-            placeholder="Or paste other_user_id UUID"
-            className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm"
-          />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="text-lg font-semibold">Messages</div>
+            <div className="mt-1 break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
+              One-to-one LifeSwitch conversations with your Network.
+            </div>
+          </div>
 
           <button
             type="button"
-            onClick={() => void startConversation()}
-            disabled={saving || (!selectedPersonId && !otherUserId.trim())}
-            className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+            onClick={() => setShowNewMessage((v) => !v)}
+            className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
           >
-            Start
+            {showNewMessage ? "Close" : "New message"}
           </button>
         </div>
-      </div>
+
+        {showNewMessage ? (
+          <div className="min-w-0 max-w-full overflow-hidden rounded-xl border p-4">
+            <div className="min-w-0 truncate text-sm font-semibold">New message</div>
+            <div className="mt-2 grid min-w-0 max-w-full gap-2 lg:grid-cols-[280px_minmax(0,1fr)_auto]">
+              <select
+                value={selectedPersonId}
+                onChange={(e) => {
+                  setSelectedPersonId(e.target.value);
+                  if (e.target.value) setOtherUserId("");
+                }}
+                disabled={loadingPeople}
+                className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
+              >
+                <option value="">{loadingPeople ? "Loading people…" : "Choose a person…"}</option>
+                {people
+                  .filter((p) => p.user_id !== currentUserId)
+                  .map((p) => (
+                    <option key={p.user_id} value={p.user_id}>
+                      {displayUserName(p.display_name, p.user_id)}
+                    </option>
+                  ))}
+              </select>
+
+              <input
+                value={otherUserId}
+                onChange={(e) => {
+                  setOtherUserId(e.target.value);
+                  if (e.target.value.trim()) setSelectedPersonId("");
+                }}
+                placeholder="Or paste other_user_id UUID"
+                className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm"
+              />
+
+              <button
+                type="button"
+                onClick={() => void startConversation()}
+                disabled={saving || (!selectedPersonId && !otherUserId.trim())}
+                className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+              >
+                Start
+              </button>
+            </div>
+          </div>
+        ) : null}
 
       {error ? (
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
