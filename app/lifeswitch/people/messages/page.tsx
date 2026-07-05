@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import BackButton from "@/components/nav/BackButton";
 import { authFetch } from "@/lib/authFetch";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -263,10 +264,12 @@ export default function LifeSwitchPeopleMessagesPage() {
           <div>
             <div className="text-lg font-semibold">Messages</div>
             <div className="mt-1 break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
-              One-to-one LifeSwitch conversations with your Network.
+              One-to-one LifeSwitch conversations with your connections.
             </div>
           </div>
 
+          <div className="flex flex-wrap gap-2">
+            <BackButton fallbackHref="/lifeswitch/people" label="Connections" className="rounded-md px-3 py-2 text-sm" />
           <button
             type="button"
             onClick={() => setShowNewMessage((v) => !v)}
@@ -274,6 +277,7 @@ export default function LifeSwitchPeopleMessagesPage() {
           >
             {showNewMessage ? "Close" : "New message"}
           </button>
+          </div>
         </div>
 
         {showNewMessage ? (

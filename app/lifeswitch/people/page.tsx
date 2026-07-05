@@ -402,9 +402,9 @@ export default function LifeSwitchPeoplePage() {
     <div className="grid gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="text-lg font-semibold">Network</div>
+          <div className="text-lg font-semibold">Contacts</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Build your LifeSwitch support network for messages, workout sharing, and permissioned plan help.
+            Manage your LifeSwitch connections for messages, workout sharing, and permissioned plan help.
           </div>
         </div>
 
@@ -590,13 +590,13 @@ export default function LifeSwitchPeoplePage() {
         <section className="rounded-xl border">
           <div className="flex items-center gap-2 border-b px-4 py-3">
             <Users className="h-4 w-4" />
-            <div className="text-sm font-semibold">Known people</div>
+            <div className="text-sm font-semibold">Contacts</div>
           </div>
 
           <div className="grid max-h-[620px] overflow-auto">
             {visiblePeople.length === 0 ? (
               <div className="p-4 text-sm text-muted-foreground">
-                {loading ? "Loading people…" : "No people found."}
+                {loading ? "Loading contacts…" : "No contacts found."}
               </div>
             ) : (
               visiblePeople.map((person) => {

@@ -18,7 +18,7 @@ const LIFESWITCH_LINKS = [
   { href: "/lifeswitch/nutrition", label: "Nutrition" },
   { href: "/lifeswitch/training", label: "Training" },
   { href: "/lifeswitch/measurements", label: "Measurements" },
-  { href: "/lifeswitch/people", label: "Network" },
+  { href: "/lifeswitch/people", label: "Connections" },
 ];
 
 export function WorkspaceMenu({

@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import BackButton from "@/components/nav/BackButton";
+import { ShieldCheck } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
 
 type GrantedPermission = {
@@ -95,13 +96,7 @@ export default function LifeSwitchNetworkHelpingPage() {
         </div>
 
         <div className="flex gap-2">
-          <Link
-            href="/lifeswitch/people"
-            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Network
-          </Link>
+            <BackButton fallbackHref="/lifeswitch/people" label="Connections" className="rounded-md px-3 py-2 text-sm" />
           <button
             type="button"
             onClick={() => void loadGranted()}
