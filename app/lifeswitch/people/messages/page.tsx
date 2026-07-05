@@ -335,7 +335,7 @@ export default function LifeSwitchPeopleMessagesPage() {
         <section
           className={[
             "min-w-0 max-w-full overflow-hidden rounded-xl border",
-            selectedConversation ? "order-2 lg:order-1" : "order-1",
+            selectedConversation ? "hidden lg:block lg:order-1" : "order-1",
           ].join(" ")}
         >
           <div className="flex items-center justify-between border-b px-4 py-3">
@@ -362,7 +362,10 @@ export default function LifeSwitchPeopleMessagesPage() {
                   <button
                     key={c.conversation_id}
                     type="button"
-                    onClick={() => setSelectedId(c.conversation_id)}
+                    onClick={() => {
+                      setSelectedId(c.conversation_id);
+                      setShowNewMessage(false);
+                    }}
                     className={[
                       "w-full min-w-0 overflow-hidden border-b px-4 py-3 text-left hover:bg-muted/30",
                       active ? "bg-muted/20" : "",
@@ -387,20 +390,29 @@ export default function LifeSwitchPeopleMessagesPage() {
         <section
           className={[
             "min-w-0 max-w-full overflow-hidden rounded-xl border",
-            selectedConversation ? "order-1 lg:order-2" : "order-2",
+            selectedConversation ? "order-1 lg:order-2" : "hidden lg:block lg:order-2",
           ].join(" ")}
         >
           <div className="min-w-0 border-b px-4 py-3">
+            {selectedConversation ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedId("");
+                  setMessages([]);
+                  setDraft("");
+                }}
+                className="mb-2 rounded-md border px-2 py-1 text-xs hover:bg-muted/30 lg:hidden"
+              >
+                ← Messages
+              </button>
+            ) : null}
+
             <div className="min-w-0 truncate text-sm font-semibold">
               {selectedConversation
                 ? selectedConversation.title || displayUserName(selectedConversation.other_display_name, selectedConversation.other_user_id)
                 : "Select a conversation"}
             </div>
-            {selectedConversation ? (
-              <div className="mt-1 break-all text-xs text-muted-foreground">
-                conversation_id: {selectedConversation.conversation_id}
-              </div>
-            ) : null}
           </div>
 
           <div className="grid min-h-[420px] min-w-0 max-w-full content-start gap-3 overflow-x-hidden p-4">
