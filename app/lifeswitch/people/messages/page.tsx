@@ -268,8 +268,13 @@ export default function LifeSwitchPeopleMessagesPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <BackButton fallbackHref="/lifeswitch/people" label="Connections" className="rounded-md px-3 py-2 text-sm" />
+        <div
+          className={[
+            "flex flex-wrap gap-2",
+            selectedConversation ? "hidden lg:flex" : "",
+          ].filter(Boolean).join(" ")}
+        >
+          <BackButton fallbackHref="/lifeswitch/people" label="Connections" className="rounded-md px-3 py-2 text-sm" />
           <button
             type="button"
             onClick={() => setShowNewMessage((v) => !v)}
@@ -277,7 +282,7 @@ export default function LifeSwitchPeopleMessagesPage() {
           >
             {showNewMessage ? "Close" : "New message"}
           </button>
-          </div>
+        </div>
         </div>
 
         {showNewMessage ? (
