@@ -32,7 +32,16 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 function labelScope(scope: string): string {
-  return scope.replaceAll("_", " ").replaceAll(":", " / ");
+  const labels: Record<string, string> = {
+    "messages:send": "Messages",
+    "training:view": "Training view",
+    "nutrition:view": "Nutrition view",
+    "measurements:view": "Measurements view",
+    "plan:view": "Plan view",
+    "plan:comment": "Plan comment",
+    "plan:edit": "Plan edit",
+  };
+  return labels[scope] || scope.replaceAll("_", " ").replaceAll(":", " / ");
 }
 
 function groupByGrantor(rows: GrantedPermission[]) {
@@ -130,6 +139,7 @@ export default function LifeSwitchNetworkHelpingPage() {
             </div>
           ) : (
             groups.map((group) => {
+              const canMessage = group.permissions.some((p) => p.permission_scope === "messages:send");
               const canViewPlan = group.permissions.some((p) => p.permission_scope === "plan:view");
               const canViewTraining = group.permissions.some((p) => p.permission_scope === "training:view");
               const canViewNutrition = group.permissions.some((p) => p.permission_scope === "nutrition:view");
@@ -145,6 +155,14 @@ export default function LifeSwitchNetworkHelpingPage() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                      {canMessage ? (
+                        <Link
+                          href="/lifeswitch/people/messages"
+                          className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                        >
+                          Message
+                        </Link>
+                      ) : null}
                     {canViewPlan ? (
                       <Link
                         href={`/lifeswitch/plan?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
@@ -177,25 +195,24 @@ export default function LifeSwitchNetworkHelpingPage() {
                         View measurements
                       </Link>
                     ) : null}
-                    <div className="rounded-md border px-3 py-2 text-xs text-muted-foreground">
-                      {group.permissions.length} permission{group.permissions.length === 1 ? "" : "s"}
-                    </div>
                   </div>
                 </div>
 
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {group.permissions.map((p) => (
-                    <div key={p.relationship_permission_id} className="rounded-lg border p-3">
-                      <div className="text-sm font-medium">{labelScope(p.permission_scope)}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Level: {p.permission_level}
-                      </div>
-                      {p.notes ? (
-                        <div className="mt-1 text-xs text-muted-foreground">{p.notes}</div>
-                      ) : null}
+                  <details className="mt-3 rounded-lg border">
+                    <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/20 [&::-webkit-details-marker]:hidden">
+                      Permission details
+                    </summary>
+                    <div className="grid gap-2 border-t p-3 sm:grid-cols-2">
+                      {group.permissions.map((p) => (
+                        <div key={p.relationship_permission_id} className="rounded-lg border p-3">
+                          <div className="text-sm font-medium">{labelScope(p.permission_scope)}</div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Level: {p.permission_level}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </details>
               </div>
               );
             })
