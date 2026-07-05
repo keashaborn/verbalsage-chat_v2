@@ -816,7 +816,7 @@ export default function TrainingCapturePage() {
                 const first = block.rows[0];
 
                 return (
-                  <section key={block.key} className="rounded-xl border p-3">
+                  <section key={block.key} className="rounded-xl border p-2">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="text-sm font-semibold">{first.exercise_name}</div>
@@ -839,13 +839,13 @@ export default function TrainingCapturePage() {
                         <div
                           key={row.draft_id}
                             className={[
-                              "grid gap-2 rounded-xl border p-2 sm:grid-cols-[3rem_1fr_1fr_1fr_5.5rem] sm:items-center",
+                              "grid grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)_4.75rem] items-end gap-2 rounded-xl border p-2",
                               row.done
                                 ? "border-muted bg-muted/10 opacity-60"
                                 : "border-blue-500/40 bg-blue-500/10",
                             ].join(" ")}
                         >
-                          <div className="text-xs text-muted-foreground">Set {row.set_index}</div>
+                          <div className="order-1 pb-2 text-xs text-muted-foreground">Set {row.set_index}</div>
 
                             {row.set_type === "drop" ? (
                               <div className="grid gap-2 sm:col-span-3">
@@ -892,7 +892,7 @@ export default function TrainingCapturePage() {
                               </div>
                             ) : (
                               <>
-                                <label className="text-xs">
+                                <label className="order-2 text-xs">
                                   <div className="text-muted-foreground">Weight</div>
                                   <input
                                     className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
@@ -909,7 +909,7 @@ export default function TrainingCapturePage() {
                                   />
                                 </label>
 
-                                <label className="text-xs">
+                                <label className="order-3 text-xs">
                                   <div className="text-muted-foreground">Reps</div>
                                   <input
                                     className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
@@ -926,7 +926,7 @@ export default function TrainingCapturePage() {
                                   />
                                 </label>
 
-                                <label className="text-xs">
+                                <label className="order-5 col-span-4 text-xs">
                                   <div className="text-muted-foreground">Notes</div>
                                   <input
                                     className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
@@ -945,7 +945,7 @@ export default function TrainingCapturePage() {
                             <button
                               type="button"
                               className={[
-                                "rounded-xl border px-3 py-2 text-sm hover:bg-muted/30",
+                                "order-4 self-end rounded-xl border px-3 py-2 text-sm hover:bg-muted/30",
                                 row.done ? "bg-muted/30" : "",
                               ].filter(Boolean).join(" ")}
                               onClick={() => updateDraftRow(row.draft_id, { done: !row.done })}
