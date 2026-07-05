@@ -328,7 +328,12 @@ export default function LifeSwitchPeopleMessagesPage() {
       ) : null}
 
       <div className="grid min-w-0 max-w-full gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <section className="min-w-0 max-w-full overflow-hidden rounded-xl border">
+        <section
+          className={[
+            "min-w-0 max-w-full overflow-hidden rounded-xl border",
+            selectedConversation ? "order-2 lg:order-1" : "order-1",
+          ].join(" ")}
+        >
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div className="min-w-0 truncate text-sm font-semibold">Conversations</div>
             <button
@@ -375,7 +380,12 @@ export default function LifeSwitchPeopleMessagesPage() {
           </div>
         </section>
 
-        <section className="min-w-0 max-w-full overflow-hidden rounded-xl border">
+        <section
+          className={[
+            "min-w-0 max-w-full overflow-hidden rounded-xl border",
+            selectedConversation ? "order-1 lg:order-2" : "order-2",
+          ].join(" ")}
+        >
           <div className="min-w-0 border-b px-4 py-3">
             <div className="min-w-0 truncate text-sm font-semibold">
               {selectedConversation
