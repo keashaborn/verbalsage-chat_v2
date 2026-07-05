@@ -166,6 +166,7 @@ export default function TrainingCapturePage() {
   const [day, setDay] = React.useState(todayLocalYYYYMMDD());
   const [templates, setTemplates] = React.useState<WorkoutTemplateRow[]>([]);
   const [selectedId, setSelectedId] = React.useState("");
+  const [showWorkoutSetup, setShowWorkoutSetup] = React.useState(false);
   const [templateExercises, setTemplateExercises] = React.useState<WorkoutTemplateExerciseRow[]>([]);
   const [myExercises, setMyExercises] = React.useState<MyExerciseRow[]>([]);
 
@@ -679,6 +680,8 @@ export default function TrainingCapturePage() {
 
 
 
+  const setupOpen = !draftRows.length || showWorkoutSetup;
+
   return (
     <div className="mx-auto max-w-6xl p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -724,7 +727,7 @@ export default function TrainingCapturePage() {
         </div>
       ) : null}
 
-      <div className={setupOpen ? "mt-6 grid gap-4 lg:grid-cols-[20rem_1fr]" : "mt-6 grid gap-4"}>
+      <div className={setupOpen && draftRows.length ? "mt-6 grid gap-4 lg:grid-cols-[20rem_1fr]" : "mt-6 grid gap-4"}>
         <aside className={setupOpen ? "rounded-xl border p-4" : "hidden"}>
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-semibold">Workout template</div>
@@ -756,37 +759,15 @@ export default function TrainingCapturePage() {
             ))}
           </select>
 
-          {selected ? (
-            <div className="mt-4 rounded-xl border p-3 text-sm">
-              <div className="font-medium">{selected.name}</div>
-              {selected.notes ? <div className="mt-1 text-muted-foreground">{selected.notes}</div> : null}
-              <div className="mt-3 text-xs text-muted-foreground">
-                template exercises={templateExercises.length}
-              </div>
-              <button
-                type="button"
-                className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
-                onClick={() => {
-                  setRestoredLocalDraft(false);
-                  void buildDraftRows(templateExercises);
-                }}
-                disabled={!templateExercises.length}
-              >
-                Reset draft from template
-              </button>
+          {selected ? null : templates.length === 0 ? (
+            <div className="mt-4 text-sm text-muted-foreground">
+              No workout templates yet. Create one in Workouts.
             </div>
-          ) : (
-            <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
-              Create workout templates in Workouts first.
-            </div>
-          )}
+          ) : null}
 
-          <div className="mt-4 rounded-xl border p-3 text-xs text-muted-foreground">
-            Capture changes are for this session only. Template updates will be added as an explicit option.
-          </div>
         </aside>
 
-        <main className="rounded-xl border p-4">
+        <main className={draftRows.length || loadingTemplateExercises ? "rounded-xl border p-4" : "hidden"}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">Active session draft</div>
