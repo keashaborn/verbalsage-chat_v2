@@ -400,7 +400,7 @@ export default function LifeSwitchPeoplePage() {
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className={selectedPerson ? "hidden flex-col gap-3 sm:flex sm:flex-row sm:items-start sm:justify-between" : "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"}>
         <div>
           <div className="text-lg font-semibold">Contacts</div>
           <div className="mt-1 text-sm text-muted-foreground">
@@ -599,7 +599,7 @@ export default function LifeSwitchPeoplePage() {
       </section>
 
       <div className={activeTab === "connections" ? (selectedPerson ? "grid gap-4 lg:grid-cols-[340px_1fr]" : "grid gap-4") : "hidden"}>
-        <section className="rounded-xl border">
+        <section className={selectedPerson ? "hidden rounded-xl border lg:block" : "rounded-xl border"}>
           <div className="flex items-center gap-2 border-b px-4 py-3">
             <Users className="h-4 w-4" />
             <div className="text-sm font-semibold">Contacts</div>
@@ -668,13 +668,19 @@ export default function LifeSwitchPeoplePage() {
                   }}
                   className="shrink-0 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
                 >
-                  Close
+                  <span className="lg:hidden">← Contacts</span>
+                  <span className="hidden lg:inline">Close</span>
                 </button>
               ) : null}
             </div>
 
             {selectedPerson ? (
-              <div className="mt-4 grid gap-3">
+
+              <details className="mt-4 rounded-lg border p-3">
+
+                <summary className="cursor-pointer text-sm font-semibold">Relationship details</summary>
+
+                <div className="mt-3 grid gap-3">
                 <div className="grid gap-2 sm:grid-cols-[220px_1fr_auto]">
                   <select
                     value={selectedKind}
@@ -712,7 +718,8 @@ export default function LifeSwitchPeoplePage() {
                     Create a relationship before assigning permissions.
                   </div>
                 )}
-              </div>
+                </div>
+              </details>
             ) : null}
           </div>
 
