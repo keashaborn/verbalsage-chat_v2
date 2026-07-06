@@ -425,8 +425,8 @@ export default function NutritionFoodsPage() {
     }
   }, [usdaQ]);
 
-  const searchBarcode = React.useCallback(async () => {
-    const upc = barcodeQ.replace(/\D+/g, "").trim();
+  const searchBarcode = React.useCallback(async (code?: string) => {
+    const upc = String(code ?? barcodeQ).replace(/\D+/g, "").trim();
     if (!upc) {
       setUsdaErr("enter a UPC/barcode number");
       setUsdaRows([]);
@@ -948,7 +948,15 @@ export default function NutritionFoodsPage() {
               </div>
             );
           })() : null}
-          
+          <BarcodeScanner
+            open={scannerOpen}
+            onClose={() => setScannerOpen(false)}
+            onDetected={(code) => {
+              setBarcodeQ(code);
+              setScannerOpen(false);
+              void searchBarcode(code);
+            }}
+          />
         </div>
       </div>
     </div>
