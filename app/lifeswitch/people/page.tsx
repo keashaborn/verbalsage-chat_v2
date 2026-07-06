@@ -60,6 +60,20 @@ type CreatedInvitation = Invitation & {
   token: string;
 };
 
+type WorkoutTemplateShare = {
+  workout_template_share_id: string;
+  created_by_user_id: string;
+  workout_template_id: string;
+  workout_name?: string | null;
+  status: "active" | "revoked" | "expired";
+  label?: string | null;
+  notes?: string | null;
+  expires_at?: string | null;
+  revoked_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type PermissionScope =
   | "messages:send"
   | "training:view"
@@ -161,6 +175,7 @@ export default function LifeSwitchPeoplePage() {
   const [selectedKind, setSelectedKind] = React.useState<Relationship["relationship_kind"]>("friend");
   const [permissions, setPermissions] = React.useState<RelationshipPermission[]>([]);
   const [invitations, setInvitations] = React.useState<Invitation[]>([]);
+  const [workoutShares, setWorkoutShares] = React.useState<WorkoutTemplateShare[]>([]);
   const [inviteKind, setInviteKind] = React.useState<Relationship["relationship_kind"]>("friend");
   const [inviteLabel, setInviteLabel] = React.useState("");
   const [lastInviteLink, setLastInviteLink] = React.useState("");
@@ -195,15 +210,17 @@ export default function LifeSwitchPeoplePage() {
     setLoading(true);
     setError("");
     try {
-      const [profileRows, relationshipRows, inviteRows] = await Promise.all([
+      const [profileRows, relationshipRows, inviteRows, shareRows] = await Promise.all([
         fetchJson<PersonProfile[]>("/api/lifeswitch/people/profiles"),
         fetchJson<Relationship[]>("/api/lifeswitch/people/relationships"),
         fetchJson<Invitation[]>("/api/lifeswitch/people/invitations"),
+        fetchJson<WorkoutTemplateShare[]>("/api/lifeswitch/training/workout_template_shares?include_inactive=1"),
       ]);
 
       setPeople(profileRows);
       setRelationships(relationshipRows);
       setInvitations(Array.isArray(inviteRows) ? inviteRows : []);
+      setWorkoutShares(Array.isArray(shareRows) ? shareRows : []);
 
       const next = nextSelectedUserId || selectedUserId || "";
 
@@ -591,13 +608,49 @@ export default function LifeSwitchPeoplePage() {
 
       <section className={activeTab === "sharing" ? "rounded-xl border" : "hidden"}>
         <div className="border-b px-4 py-3">
-          <div className="text-sm font-semibold">Shared items</div>
+          <div className="text-sm font-semibold">Shared workout templates</div>
           <div className="mt-1 text-xs text-muted-foreground">
-            Workout templates, meal plans, progress summaries, and other items you share outward will appear here.
+            Share links you created from Training Workouts. Links are copied when created; this list lets you review them.
           </div>
         </div>
-        <div className="p-4 text-sm text-muted-foreground">
-          No shared items are shown here yet. Workout sharing exists, but this page does not yet have the backend list wired in.
+
+        <div className="grid">
+          {workoutShares.length === 0 ? (
+            <div className="p-4 text-sm text-muted-foreground">
+              No workout template shares yet. Create one from Training Workouts.
+            </div>
+          ) : (
+            workoutShares.map((share) => {
+              const title = share.label?.trim() || share.workout_name || "Shared workout";
+
+              return (
+                <div key={share.workout_template_share_id} className="grid gap-2 border-b p-3 last:border-0">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold">{title}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {share.workout_name && share.workout_name !== title ? `${share.workout_name} · ` : ""}
+                        {share.status}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Created {share.created_at ? new Date(share.created_at).toLocaleString() : ""}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Expires {share.expires_at ? new Date(share.expires_at).toLocaleDateString() : "later"}
+                      </div>
+                    </div>
+
+                    <Link
+                      href="/lifeswitch/training/design/workouts"
+                      className="rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                    >
+                      Workouts
+                    </Link>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </section>
 
