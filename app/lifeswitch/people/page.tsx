@@ -586,7 +586,19 @@ export default function LifeSwitchPeoplePage() {
         </div>
       </section>
 
-      <div className={selectedPerson ? "grid gap-4 lg:grid-cols-[340px_1fr]" : "grid gap-4"}>
+      <section className={activeTab === "sharing" ? "rounded-xl border" : "hidden"}>
+        <div className="border-b px-4 py-3">
+          <div className="text-sm font-semibold">Shared items</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Workout templates, meal plans, progress summaries, and other items you share outward will appear here.
+          </div>
+        </div>
+        <div className="p-4 text-sm text-muted-foreground">
+          No shared items are shown here yet. Workout sharing exists, but this page does not yet have the backend list wired in.
+        </div>
+      </section>
+
+      <div className={activeTab === "connections" ? (selectedPerson ? "grid gap-4 lg:grid-cols-[340px_1fr]" : "grid gap-4") : "hidden"}>
         <section className="rounded-xl border">
           <div className="flex items-center gap-2 border-b px-4 py-3">
             <Users className="h-4 w-4" />
