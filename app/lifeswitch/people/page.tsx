@@ -472,7 +472,13 @@ export default function LifeSwitchPeoplePage() {
         </div>
 
         <div className="grid gap-3 p-4">
-          <div className="grid gap-2 sm:grid-cols-[220px_1fr_auto]">
+          <div className="grid gap-2 sm:grid-cols-[1fr_220px_auto]">
+            <input
+              value={inviteLabel}
+              onChange={(e) => setInviteLabel(e.target.value)}
+              placeholder="Person name or label"
+              className="rounded-md border bg-background px-3 py-2 text-sm"
+            />
             <select
               value={inviteKind}
               onChange={(e) => setInviteKind(e.target.value as Relationship["relationship_kind"])}
@@ -483,14 +489,6 @@ export default function LifeSwitchPeoplePage() {
               <option value="plan_helper">Plan helper</option>
               <option value="coach">Coach</option>
             </select>
-
-            <input
-              value={inviteLabel}
-              onChange={(e) => setInviteLabel(e.target.value)}
-              placeholder="Optional label"
-              className="rounded-md border bg-background px-3 py-2 text-sm"
-            />
-
             <button
               type="button"
               onClick={() => void createInviteLink()}
@@ -533,7 +531,12 @@ export default function LifeSwitchPeoplePage() {
                     <div key={inv.invitation_id} className="grid gap-2 border-b p-3 last:border-0">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <div className="text-sm font-medium">{kindLabel(inv.relationship_kind)}</div>
+                          <div className="text-sm font-medium">
+                            {inv.label?.trim() || "Unnamed invite"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {kindLabel(inv.relationship_kind)} · {inv.status}
+                          </div>
                           <div className="text-xs text-muted-foreground">
                             Created {inv.created_at ? new Date(inv.created_at).toLocaleString() : ""}
                           </div>
