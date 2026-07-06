@@ -458,6 +458,13 @@ export default function NutritionFoodsPage() {
       setUsdaLoading(false);
     }
   }, [barcodeQ]);
+  function clearLookup() {
+    setUsdaQ("");
+    setBarcodeQ("");
+    setUsdaRows([]);
+    setUsdaErr(null);
+    setImportingFdc(null);
+  }
 
   const loadMyFoods = React.useCallback(async () => {
     setMyLoading(true);
@@ -632,6 +639,15 @@ export default function NutritionFoodsPage() {
                 onClick={() => setScannerOpen(true)}
               >
                 Scan barcode
+              </button>
+
+              <button
+                type="button"
+                className="mt-2 w-full rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                onClick={clearLookup}
+                disabled={!usdaQ.trim() && !barcodeQ.trim() && usdaRows.length === 0 && !usdaErr}
+              >
+                Clear lookup
               </button>
             </div>
             </div>
