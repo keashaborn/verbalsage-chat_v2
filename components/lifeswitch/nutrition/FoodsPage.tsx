@@ -252,11 +252,18 @@ export default function NutritionFoodsPage() {
     setEditGrams("");
   }
 
-  function openFoodEditor(f: MyFood) {
+  async function openFoodEditor(f: MyFood) {
     const ov = foodOverrides[f.my_food_id] || {};
     setEditFoodId(f.my_food_id);
     setEditAlias(String(ov.alias ?? ""));
     setEditGrams(ov.default_grams != null ? String(ov.default_grams) : "");
+
+    const servings = await loadServings(f.my_food_id);
+    const defaultServing = servings.find((s) => s.is_default) || servings[0] || null;
+
+    if (ov.default_grams == null && defaultServing?.grams != null) {
+      setEditGrams(String(Number(defaultServing.grams)));
+    }
   }
 
   async function saveFoodEditor() {
@@ -323,10 +330,13 @@ export default function NutritionFoodsPage() {
       let j: any = null;
       try { j = t ? JSON.parse(t) : null; } catch { }
       if (!r.ok) throw new Error(j?.detail || j?.error || t?.slice(0, 200) || `HTTP ${r.status}`);
-      setServMap((p) => ({ ...p, [my_food_id]: Array.isArray(j) ? j : [] }));
+      const rows = Array.isArray(j) ? (j as MyFoodServing[]) : [];
+      setServMap((p) => ({ ...p, [my_food_id]: rows }));
+      return rows;
     } catch (e: any) {
       setServMap((p) => ({ ...p, [my_food_id]: [] }));
       setServErr((p) => ({ ...p, [my_food_id]: String(e?.message || e) }));
+      return [];
     } finally {
       setServLoading((p) => ({ ...p, [my_food_id]: false }));
     }
@@ -686,7 +696,7 @@ export default function NutritionFoodsPage() {
                   key={f.my_food_id}
                   type="button"
                   className="w-full py-3 text-left active:bg-muted/20"
-                  onClick={() => openFoodEditor(f)}
+                  onClick={() => void openFoodEditor(f)}
                 >
                   <div className="min-w-0">
                     <div className="text-sm font-medium break-words whitespace-normal">{display}</div>
