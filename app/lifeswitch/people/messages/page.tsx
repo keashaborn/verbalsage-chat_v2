@@ -148,8 +148,6 @@ export default function LifeSwitchPeopleMessagesPage() {
       setConversations(rows);
       if (selectId) {
         setSelectedId(selectId);
-      } else if (!selectedId && rows[0]?.conversation_id) {
-        setSelectedId(rows[0].conversation_id);
       }
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
