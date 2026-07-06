@@ -173,6 +173,7 @@ export default function NutritionFoodsPage() {
 
   // USDA search
   const [usdaQ, setUsdaQ] = React.useState("");
+  const [barcodeQ, setBarcodeQ] = React.useState("");
   const [usdaRows, setUsdaRows] = React.useState<UsdaHit[]>([]);
   const [usdaLoading, setUsdaLoading] = React.useState(false);
   const [usdaErr, setUsdaErr] = React.useState<string | null>(null);
@@ -422,6 +423,40 @@ export default function NutritionFoodsPage() {
     }
   }, [usdaQ]);
 
+  const searchBarcode = React.useCallback(async () => {
+    const upc = barcodeQ.replace(/\D+/g, "").trim();
+    if (!upc) {
+      setUsdaErr("enter a UPC/barcode number");
+      setUsdaRows([]);
+      return;
+    }
+
+    setUsdaLoading(true);
+    setUsdaErr(null);
+
+    try {
+      const url = `/api/catalog/foods/usda/barcode?upc=${encodeURIComponent(upc)}&limit=5`;
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) {
+        const t = await r.text();
+        throw new Error(`barcode lookup HTTP ${r.status}: ${t.slice(0, 200)}`);
+      }
+
+      const j = await r.json();
+      const candidates = Array.isArray(j?.candidates) ? (j.candidates as UsdaHit[]) : [];
+      setUsdaRows(candidates);
+
+      if (!candidates.length) {
+        setUsdaErr("No USDA barcode match found. Try the description search instead.");
+      }
+    } catch (e: any) {
+      setUsdaErr(String(e?.message || e));
+      setUsdaRows([]);
+    } finally {
+      setUsdaLoading(false);
+    }
+  }, [barcodeQ]);
+
   const loadMyFoods = React.useCallback(async () => {
     setMyLoading(true);
     setMyErr(null);
@@ -561,6 +596,34 @@ export default function NutritionFoodsPage() {
               >
                 {usdaLoading ? "Finding matches…" : "Find food"}
               </button>
+            <div className="mt-3 border-t border-muted/20 pt-3">
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Barcode lookup
+              </div>
+              <input
+                className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                value={barcodeQ}
+                onChange={(e) => setBarcodeQ(e.target.value)}
+                placeholder="Enter UPC/barcode"
+                inputMode="numeric"
+                autoCapitalize="none"
+                autoCorrect="off"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void searchBarcode();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="mt-2 w-full rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                onClick={() => void searchBarcode()}
+                disabled={usdaLoading || !barcodeQ.trim()}
+              >
+                {usdaLoading ? "Looking up barcode…" : "Find barcode"}
+              </button>
+            </div>
             </div>
 
             {(!usdaLoading && usdaRows.length === 0) ? (
