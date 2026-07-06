@@ -33,6 +33,7 @@
     "@rjsf/core": "^6.1.2",
     "@rjsf/validator-ajv8": "^6.1.2",
     "@supabase/supabase-js": "^2.87.1",
+    "@zxing/browser": "^0.2.1",
     "ai": "^5.0.105",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
