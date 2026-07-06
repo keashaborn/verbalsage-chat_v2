@@ -58,6 +58,7 @@ export default function BarcodeScanner({ open, onDetected, onClose }: BarcodeSca
           BarcodeFormat.EAN_13,
           BarcodeFormat.EAN_8,
         ]);
+        hints.set(DecodeHintType.TRY_HARDER, true);
 
         const reader = new BrowserMultiFormatReader(hints);
 
@@ -65,6 +66,8 @@ export default function BarcodeScanner({ open, onDetected, onClose }: BarcodeSca
           {
             video: {
               facingMode: { ideal: "environment" },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
             },
             audio: false,
           },
@@ -95,7 +98,7 @@ export default function BarcodeScanner({ open, onDetected, onClose }: BarcodeSca
         }
 
         controlsRef.current = controls;
-        setStatus("Point the camera at a barcode.");
+        setStatus("Camera ready — scanning product barcode.");
       } catch (e) {
         setStatus("");
         setError(String(e instanceof Error ? e.message : e));
@@ -124,7 +127,7 @@ export default function BarcodeScanner({ open, onDetected, onClose }: BarcodeSca
           <div>
             <div className="text-sm font-semibold">Scan barcode</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Keep the barcode centered and well lit. The code stays on this device; only the detected UPC is used.
+              Keep the product barcode centered, well lit, and fill about half the box. Move slowly closer or farther away if it does not scan. The code stays on this device; only the detected UPC is used.
             </div>
           </div>
 
