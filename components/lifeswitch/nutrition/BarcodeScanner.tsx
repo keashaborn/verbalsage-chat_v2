@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser";
+import { BarcodeFormat, DecodeHintType } from "@zxing/library";
 
 type BarcodeScannerProps = {
   open: boolean;
@@ -50,7 +51,15 @@ export default function BarcodeScanner({ open, onDetected, onClose }: BarcodeSca
       }
 
       try {
-        const reader = new BrowserMultiFormatReader();
+        const hints = new Map();
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+          BarcodeFormat.UPC_A,
+          BarcodeFormat.UPC_E,
+          BarcodeFormat.EAN_13,
+          BarcodeFormat.EAN_8,
+        ]);
+
+        const reader = new BrowserMultiFormatReader(hints);
 
         const controls = await reader.decodeFromConstraints(
           {
@@ -63,8 +72,8 @@ export default function BarcodeScanner({ open, onDetected, onClose }: BarcodeSca
           (result) => {
             if (!result || detectedRef.current || cancelled) return;
 
-            const code = result.getText()?.trim();
-            if (!code) return;
+            const code = result.getText()?.replace(/\D+/g, "").trim();
+            if (!code || code.length < 8 || code.length > 14) return;
 
             detectedRef.current = true;
             setStatus(`Detected ${code}`);
