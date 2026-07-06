@@ -5,6 +5,7 @@ import * as React from "react";
 import { ChevronDown, ChevronUp, Search as SearchIcon, Trash2 } from "lucide-react";
 import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
 import { LifeSwitchToolPanel } from "@/components/lifeswitch/LifeSwitchToolPanel";
+import BarcodeScanner from "./BarcodeScanner";
 
 type UsdaHit = {
   fdc_id: number;
@@ -174,6 +175,7 @@ export default function NutritionFoodsPage() {
   // USDA search
   const [usdaQ, setUsdaQ] = React.useState("");
   const [barcodeQ, setBarcodeQ] = React.useState("");
+  const [scannerOpen, setScannerOpen] = React.useState(false);
   const [usdaRows, setUsdaRows] = React.useState<UsdaHit[]>([]);
   const [usdaLoading, setUsdaLoading] = React.useState(false);
   const [usdaErr, setUsdaErr] = React.useState<string | null>(null);
@@ -623,6 +625,14 @@ export default function NutritionFoodsPage() {
               >
                 {usdaLoading ? "Looking up barcode…" : "Find barcode"}
               </button>
+
+              <button
+                type="button"
+                className="mt-2 w-full rounded-xl border px-4 py-2 text-sm hover:bg-muted/30"
+                onClick={() => setScannerOpen(true)}
+              >
+                Scan barcode
+              </button>
             </div>
             </div>
 
@@ -938,6 +948,7 @@ export default function NutritionFoodsPage() {
               </div>
             );
           })() : null}
+          
         </div>
       </div>
     </div>
