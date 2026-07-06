@@ -727,9 +727,11 @@ export default function LifeSwitchPeoplePage() {
             <div className="flex items-center gap-2 border-b px-4 py-3">
               <ShieldCheck className="h-4 w-4" />
               <div>
-                <div className="text-sm font-semibold">Access I give this person</div>
+                <div className="text-sm font-semibold">
+                  Access you give {displayName(selectedPerson, selectedUserId)}
+                </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  These controls grant the selected person access to your LifeSwitch data. They do not give you access to their data.
+                  Control what this person can see or do in {displayName(currentPerson, currentUserId)}’s LifeSwitch.
                 </div>
               </div>
             </div>
@@ -741,13 +743,6 @@ export default function LifeSwitchPeoplePage() {
                 </div>
               ) : (
                 <>
-                  <div className="rounded-lg border bg-muted/20 p-3 text-sm">
-                    You are granting{" "}
-                    <span className="font-semibold">{displayName(selectedPerson, selectedUserId)}</span>{" "}
-                    access to{" "}
-                    <span className="font-semibold">{displayName(currentPerson, currentUserId)}</span>
-                    ’s LifeSwitch data. Only permissions granted by the current logged-in account are shown here.
-                  </div>
 
                   {PERMISSIONS.map((p) => {
                   const existing = permissionByScope.get(p.scope);
