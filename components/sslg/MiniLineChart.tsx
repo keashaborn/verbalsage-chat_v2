@@ -76,7 +76,7 @@ export function MiniLineChart({
   const PAD_TOP = 12;
   const PAD_RIGHT = 12;
   const PAD_BOTTOM = 78; // room for x ticks + x label + legend
-  const PAD_LEFT = 52; // room for y tick labels + y label
+  const PAD_LEFT = 68; // room for y tick labels + y label
 
   // Axes (SVG coords)
   const Y_AXIS_X = PAD_LEFT;
@@ -452,13 +452,13 @@ export function MiniLineChart({
           {/* Axis labels (inside SVG) */}
           {yLabel ? (
             <text
-              x={PAD_LEFT - 32}
+              x={PAD_LEFT - 46}
               y={(PLOT_Y0 + PLOT_Y1) / 2}
               fontSize="10"
               fill="currentColor"
               opacity="0.7"
               textAnchor="middle"
-              transform={`rotate(-90 ${PAD_LEFT - 32} ${(PLOT_Y0 + PLOT_Y1) / 2})`}
+              transform={`rotate(-90 ${PAD_LEFT - 46} ${(PLOT_Y0 + PLOT_Y1) / 2})`}
             >
               {yLabel}
             </text>
