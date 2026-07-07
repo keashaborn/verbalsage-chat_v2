@@ -29,6 +29,16 @@ type MyFood = {
   is_active: boolean;
 };
 
+type MyFoodServing = {
+  my_food_serving_id: string;
+  my_food_id: string;
+  name: string;
+  grams: number;
+  is_default: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
 type MealCombo = {
   meal_id: string;
   owner_user_id: string;
@@ -91,6 +101,11 @@ function scaled(per100: number | null, grams: number | null): number | null {
   return (per100 * grams) / 100;
 }
 
+function defaultServingFor(servings: MyFoodServing[] | undefined): MyFoodServing | null {
+  const rows = Array.isArray(servings) ? servings : [];
+  return rows.find((s) => s.is_default) || rows[0] || null;
+}
+
 function resolvedItemGrams(item: MealComboItem): number | null {
   return item.qty_g_resolved ?? item.qty_g;
 }
@@ -150,6 +165,7 @@ export default function NutritionCapturePage() {
   const [foodsLoading, setFoodsLoading] = React.useState(false);
   const [q, setQ] = React.useState("");
   const [gramsByFood, setGramsByFood] = React.useState<Record<string, string>>({});
+  const [servingsByFood, setServingsByFood] = React.useState<Record<string, MyFoodServing[]>>({});
 
   const [meals, setMeals] = React.useState<MealCombo[]>([]);
   const [mealsLoading, setMealsLoading] = React.useState(false);
@@ -202,6 +218,30 @@ export default function NutritionCapturePage() {
   // ----------------------------
   // LOAD FOODS
   // ----------------------------
+  async function loadServingsForFoods(rows: MyFood[]) {
+    const active = Array.isArray(rows) ? rows.filter((x) => x?.is_active) : [];
+    const next: Record<string, MyFoodServing[]> = {};
+
+    await Promise.all(
+      active.map(async (f) => {
+        const id = String(f?.my_food_id || "").trim();
+        if (!id) return;
+
+        try {
+          const servings = (await fetchJson(
+            `/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(id)}/servings`
+          )) as MyFoodServing[];
+
+          next[id] = Array.isArray(servings) ? servings : [];
+        } catch {
+          next[id] = [];
+        }
+      })
+    );
+
+    setServingsByFood(next);
+  }
+
   async function loadFoods() {
     setFoodsLoading(true);
     setStatus("");
@@ -215,6 +255,7 @@ export default function NutritionCapturePage() {
       const active = Array.isArray(list) ? list.filter((x) => x?.is_active) : [];
 
       setFoods(active);
+      void loadServingsForFoods(active);
     } catch (e: any) {
       setFoods([]);
       setStatus(String(e?.message || e));
@@ -315,7 +356,9 @@ export default function NutritionCapturePage() {
         if (!id) continue;
         if (String(next[id] || "").trim()) continue;
 
-        const g = overrides[id]?.default_grams;
+        const defaultServing = defaultServingFor(servingsByFood[id]);
+        const g = overrides[id]?.default_grams ?? defaultServing?.grams;
+
         if (g != null && Number.isFinite(Number(g)) && Number(g) > 0) {
           next[id] = String(g);
         }
@@ -323,7 +366,7 @@ export default function NutritionCapturePage() {
 
       return next;
     });
-  }, [foods, overrides]);
+  }, [foods, overrides, servingsByFood]);
 
   // ----------------------------
   // LOG (ATOMIC)
@@ -623,43 +666,53 @@ export default function NutritionCapturePage() {
           </button>
 
           <div className="mt-3 space-y-2">
-            {foods.map((f) => (
-              <div key={f.my_food_id} className="border rounded p-2 flex justify-between gap-3">
-                <div>
-                  <div className="text-sm font-medium">
-                    {overrides[f.my_food_id]?.alias || f.display_name}
+            {foods.map((f) => {
+              const defaultServing = defaultServingFor(servingsByFood[f.my_food_id]);
+              const displayName = overrides[f.my_food_id]?.alias || f.display_name;
+
+              return (
+                <div key={f.my_food_id} className="border rounded p-2 flex justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium">
+                      {displayName}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      kcal {safeNum(f.kcal)} · P {safeNum(f.protein_g)}g · C {safeNum(f.carbs_g)}g · F {safeNum(f.fat_g)}g
+                    </div>
+                    {defaultServing ? (
+                      <div className="mt-0.5 text-xs text-muted-foreground">
+                        default serving: {defaultServing.name} · {fmt(defaultServing.grams, 0)}g
+                      </div>
+                    ) : null}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    kcal {safeNum(f.kcal)} · P {safeNum(f.protein_g)}g · C {safeNum(f.carbs_g)}g · F {safeNum(f.fat_g)}g
+
+                  <div className="flex gap-2 items-center">
+                    <input
+                      className="w-20 border rounded px-2 py-1 text-sm text-right"
+                      value={gramsByFood[f.my_food_id] || ""}
+                      inputMode="decimal"
+                      aria-label={`${displayName} grams`}
+                      onFocus={selectNumberInputValue}
+                      onClick={selectNumberInputValue}
+                      onChange={(e) =>
+                        setGramsByFood((p) => ({
+                          ...p,
+                          [f.my_food_id]: e.target.value,
+                        }))
+                      }
+                    />
+                    <div className="text-xs text-muted-foreground">g</div>
+
+                    <button
+                      className="border rounded px-2 py-1 text-sm"
+                      onClick={() => void logSingleFood(f)}
+                    >
+                      Log
+                    </button>
                   </div>
                 </div>
-
-                <div className="flex gap-2 items-center">
-                  <input
-                    className="w-20 border rounded px-2 py-1 text-sm text-right"
-                    value={gramsByFood[f.my_food_id] || ""}
-                    inputMode="decimal"
-                    aria-label={`${overrides[f.my_food_id]?.alias || f.display_name} grams`}
-                    onFocus={selectNumberInputValue}
-                    onClick={selectNumberInputValue}
-                    onChange={(e) =>
-                      setGramsByFood((p) => ({
-                        ...p,
-                        [f.my_food_id]: e.target.value,
-                      }))
-                    }
-                  />
-                  <div className="text-xs text-muted-foreground">g</div>
-
-                  <button
-                    className="border rounded px-2 py-1 text-sm"
-                    onClick={() => void logSingleFood(f)}
-                  >
-                    Log
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
 
             {!foodsLoading && foods.length === 0 && (
               <div className="rounded-xl border bg-muted/20 p-3 text-xs text-muted-foreground">
@@ -673,7 +726,6 @@ export default function NutritionCapturePage() {
           </div>
         </div>
       )}
-
       {status && <div className="mt-3 text-xs text-muted-foreground">{status}</div>}
     </div>
   );
