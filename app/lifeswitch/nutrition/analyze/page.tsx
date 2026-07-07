@@ -1,6 +1,7 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
+import { MiniLineChart, type XYPoint } from "@/components/sslg/MiniLineChart";
 import * as React from "react";
 
 type RangeDays = 7 | 14 | 30 | 90;
@@ -178,6 +179,28 @@ function extractTotals(raw: any) {
   };
 }
 
+function dayMetricSeries(days: DaySummary[], key: keyof DaySummary): XYPoint[] {
+  const points: XYPoint[] = [];
+
+  for (const d of days) {
+    if (!d.any) continue;
+
+    const y = safeNum(d[key], Number.NaN);
+    if (!Number.isFinite(y)) continue;
+
+    points.push({
+      x: d.day,
+      y,
+      id: d.day,
+      occurred_at: d.day,
+      sort_ts: d.day,
+      data: d,
+    });
+  }
+
+  return points.sort((a, b) => String(a.sort_ts || a.x).localeCompare(String(b.sort_ts || b.x)));
+}
+
 export default function NutritionAnalyzePage() {
   const [rangeDays, setRangeDays] = React.useState<RangeDays>(30);
   const [status, setStatus] = React.useState("loading…");
@@ -310,6 +333,9 @@ export default function NutritionAnalyzePage() {
 
   const nutritionTargets = plan?.nutrition_targets || {};
 
+  const calorieSeries = React.useMemo(() => dayMetricSeries(filteredDays, "kcal"), [filteredDays]);
+  const proteinSeries = React.useMemo(() => dayMetricSeries(filteredDays, "protein_g"), [filteredDays]);
+
   return (
     <div className="mx-auto max-w-6xl p-4 overflow-x-hidden">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -437,11 +463,33 @@ export default function NutritionAnalyzePage() {
         )}
       </section>
 
-      <section className="mt-6 rounded-xl border p-4">
-        <div className="text-sm font-semibold">Graph explorer</div>
-        <div className="mt-2 text-sm text-muted-foreground">
-          Trend graphs will appear here once graph controls are enabled.
+      <section className="mt-6 grid gap-4">
+        <div>
+          <div className="text-sm font-semibold">Nutrition trends</div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Single-subject line graphs from logged nutrition days. Target lines and phase markers will be added later.
+          </p>
         </div>
+
+        <MiniLineChart
+          title="Calories per logged day"
+          series={calorieSeries}
+          xMode="date"
+          yLabel="Calories"
+          ySuffix=" kcal"
+          includeZero={false}
+          heightPx={260}
+        />
+
+        <MiniLineChart
+          title="Protein per logged day"
+          series={proteinSeries}
+          xMode="date"
+          yLabel="Protein"
+          ySuffix="g"
+          includeZero={false}
+          heightPx={260}
+        />
       </section>
     </div>
   );
