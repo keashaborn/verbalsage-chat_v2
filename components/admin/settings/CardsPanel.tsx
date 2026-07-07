@@ -87,12 +87,77 @@ function grouped(items: any[]) {
     .map(([label, groupItems]) => ({ label, items: groupItems }));
 }
 
+function compactSummary(text: any, limit = 260): string {
+  const s = String(text ?? "").replace(/\s+/g, " ").trim();
+  if (s.length <= limit) return s;
+  return s.slice(0, Math.max(0, limit - 1)).trimEnd() + "…";
+}
+
+function buildCardDigest(it: any): string {
+  const domains = asArray(it.domains);
+  const payload = it.payload && typeof it.payload === "object" ? it.payload : {};
+  const reviewStatus = asText(it.review_status ?? payload.review_status, "—");
+  const approvedBy = asText(it.approved_by ?? payload.approved_by, "—");
+  const writeIntent = asText(it.write_intent ?? payload.write_intent, "—");
+
+  return [
+    "Memory Card Digest",
+    `card_id: ${it.card_id ?? it.id ?? "—"}`,
+    `vantage_id: ${asText(it.vantage_id, "—")}`,
+    `kind: ${asText(it.kind, "—")}`,
+    `status: ${asText(it.status, "—")}`,
+    `topic_key: ${asText(it.topic_key, "—")}`,
+    `use_scope: ${asText(it.use_scope, "—")}`,
+    `surface_policy: ${asText(it.surface_policy, "—")}`,
+    `review_status: ${reviewStatus}`,
+    `approved_by: ${approvedBy}`,
+    `write_intent: ${writeIntent}`,
+    `strength: ${it.strength ?? "—"}`,
+    `confidence: ${it.confidence ?? "—"}`,
+    domains.length ? `domains: ${domains.join(", ")}` : "domains: —",
+    `summary: ${compactSummary(it.text || it.summary, 420) || "—"}`,
+  ].join("\n");
+}
+
+function buildVisibleCardsDigest(
+  items: any[],
+  meta: { vantageId: string; kindKey: string; statusFilter: string; scopeFilter: string }
+): string {
+  const lines: string[] = [];
+  lines.push("Memory Inspector Visible Cards Digest");
+  lines.push(`vantage_id: ${meta.vantageId || "user_global"}`);
+  lines.push(`kind_filter: ${meta.kindKey}`);
+  lines.push(`status_filter: ${meta.statusFilter}`);
+  lines.push(`scope_filter: ${meta.scopeFilter}`);
+  lines.push(`visible_count: ${items.length}`);
+  lines.push("");
+
+  items.forEach((it, idx) => {
+    lines.push(`${idx + 1}. card_id=${it.card_id ?? it.id ?? "—"} | ${asText(it.kind, "—")} | ${asText(it.status, "—")} | ${asText(it.use_scope, "—")} | confidence=${it.confidence ?? "—"}`);
+    lines.push(`   ${shortTopic(it.topic_key)}`);
+    lines.push(`   policy: ${asText(it.surface_policy, "—")}`);
+    lines.push(`   ${compactSummary(it.text || it.summary, 260) || "No summary."}`);
+  });
+
+  return lines.join("\n");
+}
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function CardsPanel() {
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [items, setItems] = React.useState<any[]>([]);
   const [err, setErr] = React.useState<string | null>(null);
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = React.useState("");
 
   const [vantageId, setVantageId] = React.useState("user_global");
   const [kindKey, setKindKey] = React.useState("all");
@@ -166,6 +231,23 @@ export function CardsPanel() {
     style: countWhere(items, (it) => asText(it.use_scope) === "STYLE_ONLY"),
     never: countWhere(items, (it) => asText(it.use_scope) === "NEVER_SURFACE"),
   };
+
+  async function copyVisibleDigest() {
+    const ok = await copyTextToClipboard(buildVisibleCardsDigest(filteredItems, {
+      vantageId,
+      kindKey,
+      statusFilter,
+      scopeFilter,
+    }));
+    setCopyStatus(ok ? "visible digest copied" : "copy failed");
+    window.setTimeout(() => setCopyStatus(""), 1800);
+  }
+
+  async function copyCardDigest(it: any) {
+    const ok = await copyTextToClipboard(buildCardDigest(it));
+    setCopyStatus(ok ? "card digest copied" : "copy failed");
+    window.setTimeout(() => setCopyStatus(""), 1800);
+  }
 
   return (
     <details
@@ -268,10 +350,18 @@ export function CardsPanel() {
 
         <div className="flex items-center justify-between gap-2">
           <div className="text-xs text-muted-foreground">
-            Showing {filteredItems.length} of {items.length} cards for <code>{vantageId}</code>.
+            Showing {filteredItems.length} of {items.length} cards for <code>{vantageId}</code>{copyStatus ? <span> · {copyStatus}</span> : null}.
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              className="rounded-lg border px-3 py-1.5 text-xs hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={copyVisibleDigest}
+              disabled={filteredItems.length === 0}
+            >
+              Copy Visible
+            </button>
+
             <button
               className="rounded-lg border px-3 py-1.5 text-xs hover:bg-muted/50"
               onClick={() => load(kindKey, vantageId)}
@@ -351,6 +441,19 @@ export function CardsPanel() {
 
                       {isOpen ? (
                         <div className="mt-2 space-y-2 border-t pt-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="text-[11px] text-muted-foreground">
+                              Durable card details
+                            </div>
+                            <button
+                              type="button"
+                              className="rounded-lg border px-3 py-1.5 text-xs hover:bg-muted/50"
+                              onClick={() => copyCardDigest(it)}
+                            >
+                              Copy Card Digest
+                            </button>
+                          </div>
+
                           <div className="grid gap-2 text-[11px] text-muted-foreground md:grid-cols-2">
                             <div><span className="font-semibold">card_id:</span> {it.card_id || it.id || "?"}</div>
                             <div><span className="font-semibold">vantage_id:</span> {it.vantage_id || "?"}</div>
