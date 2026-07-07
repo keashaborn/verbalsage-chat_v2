@@ -41,7 +41,7 @@ type ConditioningSessionRow = {
   prescription_name?: string | null;
 };
 
-type RangeDays = 7 | 14 | 30 | 90;
+type RangeDays = 10 | 30 | 90 | 180 | 365;
 
 function safeNum(x: any, fallback = 0) {
   const n = Number(x);
@@ -326,14 +326,20 @@ export default function TrainingAnalyzePage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {[7, 14, 30, 90].map((d) => (
+          {[
+            { value: 10, label: "10d" },
+            { value: 30, label: "30d" },
+            { value: 90, label: "90d" },
+            { value: 180, label: "6mo" },
+            { value: 365, label: "1y" },
+          ].map((r) => (
             <button
-              key={d}
+              key={r.value}
               type="button"
-              className={`rounded-full border px-3 py-1 text-sm ${rangeDays === d ? "border-foreground bg-foreground text-background" : "hover:bg-muted/20"}`}
-              onClick={() => setRangeDays(d as RangeDays)}
+              className={`rounded-full border px-3 py-1 text-sm ${rangeDays === r.value ? "border-foreground bg-foreground text-background" : "hover:bg-muted/20"}`}
+              onClick={() => setRangeDays(r.value as RangeDays)}
             >
-              {d}d
+              {r.label}
             </button>
           ))}
 
@@ -377,39 +383,6 @@ export default function TrainingAnalyzePage() {
           )}
         </div>
       </section>
-
-      <section className="mt-6 rounded-xl border p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold">Recent training events</div>
-            <div className="mt-1 text-xs text-muted-foreground">Strength and conditioning logs in this range.</div>
-          </div>
-          <div className="text-xs text-muted-foreground">count={recentItems.length}</div>
-        </div>
-
-        {recentItems.length ? (
-          <div className="mt-4 space-y-3">
-            {recentItems.map((item) => (
-              <div key={item.id} className="rounded-xl border p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold">{item.name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {item.kind} · {item.day} · {item.detail}
-                    </div>
-                    {item.notes ? <div className="mt-2 text-xs text-muted-foreground">{item.notes}</div> : null}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-4 rounded-xl border p-4 text-sm text-muted-foreground">
-            No training events in this range.
-          </div>
-        )}
-      </section>
-
       <section className="mt-6 grid gap-4">
         <div>
           <div className="text-sm font-semibold">Training trends</div>
@@ -454,6 +427,38 @@ export default function TrainingAnalyzePage() {
           heightPx={260}
         />
       </section>
+      <section className="mt-6 rounded-xl border p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold">Recent training events</div>
+            <div className="mt-1 text-xs text-muted-foreground">Strength and conditioning logs in this range.</div>
+          </div>
+          <div className="text-xs text-muted-foreground">count={recentItems.length}</div>
+        </div>
+
+        {recentItems.length ? (
+          <div className="mt-4 space-y-3">
+            {recentItems.map((item) => (
+              <div key={item.id} className="rounded-xl border p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">{item.name}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {item.kind} · {item.day} · {item.detail}
+                    </div>
+                    {item.notes ? <div className="mt-2 text-xs text-muted-foreground">{item.notes}</div> : null}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-xl border p-4 text-sm text-muted-foreground">
+            No training events in this range.
+          </div>
+        )}
+      </section>
+
     </div>
   );
 }
