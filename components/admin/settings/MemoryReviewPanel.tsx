@@ -84,17 +84,19 @@ function formatActionCounts(counts: Record<string, number> | undefined, rows: Re
   return `create_new_card=${create}, needs_manual_review=${manual}, skip_duplicate=${duplicate}`;
 }
 
-function buildReviewDigest(data: ReviewPlanResponse | null): string {
-  const rows = Array.isArray(data?.plan_rows) ? data!.plan_rows! : [];
+function buildReviewDigest(data: ReviewPlanResponse | null, opts?: { manualOnly?: boolean }): string {
+  const allRows = Array.isArray(data?.plan_rows) ? data!.plan_rows! : [];
+  const rows = opts?.manualOnly ? allRows.filter((r) => r.action === "needs_manual_review") : allRows;
   const lines: string[] = [];
 
-  lines.push("Memory Review Digest");
+  lines.push(opts?.manualOnly ? "Memory Review Digest - Manual Review Only" : "Memory Review Digest");
   lines.push(`schema: ${asText(data?.schema, "unknown")}`);
   lines.push(`mode: ${asText(data?.mode, "unknown")}`);
   lines.push(`source: ${asText(data?.source, "unknown")}`);
   lines.push(`read_only: ${data?.read_only === true ? "true" : "false"}`);
-  lines.push(`rows: ${data?.plan_row_count ?? rows.length}`);
-  lines.push(`action_counts: ${formatActionCounts(data?.action_counts, rows)}`);
+  lines.push(`rows: ${opts?.manualOnly ? rows.length : data?.plan_row_count ?? rows.length}`);
+  lines.push(`action_counts: ${formatActionCounts(data?.action_counts, allRows)}`);
+  if (opts?.manualOnly) lines.push(`filtered_to: needs_manual_review`);
   lines.push(`points_scanned: ${data?.points_scanned ?? "unknown"}`);
   lines.push(`raw_candidates: ${data?.raw_candidate_count ?? "unknown"}`);
   lines.push(`merged_candidates: ${data?.merged_card_candidate_count ?? "unknown"}`);
@@ -172,6 +174,13 @@ export function MemoryReviewPanel() {
     window.setTimeout(() => setCopyStatus(""), 1800);
   }
 
+  async function copyManualDigest() {
+    if (!data) return;
+    const ok = await copyTextToClipboard(buildReviewDigest(data, { manualOnly: true }));
+    setCopyStatus(ok ? "manual digest copied" : "copy failed");
+    window.setTimeout(() => setCopyStatus(""), 1800);
+  }
+
   async function copyJson() {
     if (!data) return;
     const ok = await copyTextToClipboard(JSON.stringify(data, null, 2));
@@ -229,6 +238,13 @@ export function MemoryReviewPanel() {
                     onClick={copyDigest}
                   >
                     Copy Digest
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-muted/50"
+                    onClick={copyManualDigest}
+                  >
+                    Copy Manual
                   </button>
                   <button
                     type="button"
