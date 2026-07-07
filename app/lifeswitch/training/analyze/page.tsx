@@ -1,6 +1,7 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
+import { MiniLineChart, type XYPoint } from "@/components/sslg/MiniLineChart";
 import * as React from "react";
 
 type TrainingSessionRow = {
@@ -86,6 +87,60 @@ function formatDuration(min: number) {
     return `${String(h).replace(/\.0$/, "")} hr`;
   }
   return `${Math.round(x)} min`;
+}
+
+function dailyStrengthSeries(
+  sessions: TrainingSessionRow[],
+  metric: "sessions" | "sets" | "volume"
+): XYPoint[] {
+  const byDay = new Map<string, number>();
+
+  for (const s of sessions) {
+    const day = String(s.day || "").slice(0, 10);
+    if (!day) continue;
+
+    const value =
+      metric === "sessions"
+        ? 1
+        : metric === "sets"
+          ? safeNum(s.set_count, 0)
+          : safeNum(s.volume, 0);
+
+    byDay.set(day, safeNum(byDay.get(day), 0) + value);
+  }
+
+  return Array.from(byDay.entries())
+    .map(([day, y]) => ({
+      x: day,
+      y,
+      id: day,
+      occurred_at: day,
+      sort_ts: day,
+      data: { day, metric },
+    }))
+    .sort((a, b) => String(a.sort_ts || a.x).localeCompare(String(b.sort_ts || b.x)));
+}
+
+function dailyConditioningSeries(sessions: ConditioningSessionRow[]): XYPoint[] {
+  const byDay = new Map<string, number>();
+
+  for (const s of sessions) {
+    const day = String(s.day || "").slice(0, 10);
+    if (!day) continue;
+
+    byDay.set(day, safeNum(byDay.get(day), 0) + safeNum(s.duration_min, 0));
+  }
+
+  return Array.from(byDay.entries())
+    .map(([day, y]) => ({
+      x: day,
+      y,
+      id: day,
+      occurred_at: day,
+      sort_ts: day,
+      data: { day, metric: "conditioning_minutes" },
+    }))
+    .sort((a, b) => String(a.sort_ts || a.x).localeCompare(String(b.sort_ts || b.x)));
 }
 
 async function fetchJson(url: string, init?: RequestInit) {
@@ -206,6 +261,26 @@ export default function TrainingAnalyzePage() {
       conditioningMinutes,
     };
   }, [filteredStrength, filteredConditioning]);
+
+  const strengthSessionsSeries = React.useMemo(
+    () => dailyStrengthSeries(filteredStrength, "sessions"),
+    [filteredStrength]
+  );
+
+  const strengthSetsSeries = React.useMemo(
+    () => dailyStrengthSeries(filteredStrength, "sets"),
+    [filteredStrength]
+  );
+
+  const strengthVolumeSeries = React.useMemo(
+    () => dailyStrengthSeries(filteredStrength, "volume"),
+    [filteredStrength]
+  );
+
+  const conditioningMinutesSeries = React.useMemo(
+    () => dailyConditioningSeries(filteredConditioning),
+    [filteredConditioning]
+  );
 
   const recentItems = React.useMemo(() => {
     const strength = filteredStrength.map((s) => ({
@@ -335,11 +410,49 @@ export default function TrainingAnalyzePage() {
         )}
       </section>
 
-      <section className="mt-6 rounded-xl border p-4">
-        <div className="text-sm font-semibold">Graph explorer</div>
-        <div className="mt-2 text-sm text-muted-foreground">
-          Trend graphs will appear here once graph controls are enabled.
+      <section className="mt-6 grid gap-4">
+        <div>
+          <div className="text-sm font-semibold">Training trends</div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Single-subject line graphs from completed training logs. Exercise-specific progression and Plan phase markers will be added later.
+          </p>
         </div>
+
+        <MiniLineChart
+          title="Strength sessions per training day"
+          series={strengthSessionsSeries}
+          xMode="date"
+          yLabel="Sessions"
+          includeZero={false}
+          heightPx={260}
+        />
+
+        <MiniLineChart
+          title="Strength sets per training day"
+          series={strengthSetsSeries}
+          xMode="date"
+          yLabel="Sets"
+          includeZero={false}
+          heightPx={260}
+        />
+
+        <MiniLineChart
+          title="Strength volume per training day"
+          series={strengthVolumeSeries}
+          xMode="date"
+          yLabel="Volume"
+          includeZero={false}
+          heightPx={260}
+        />
+
+        <MiniLineChart
+          title="Conditioning minutes per day"
+          series={conditioningMinutesSeries}
+          xMode="date"
+          yLabel="Minutes"
+          includeZero={false}
+          heightPx={260}
+        />
       </section>
     </div>
   );
