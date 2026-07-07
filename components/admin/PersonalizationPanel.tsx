@@ -3,10 +3,10 @@
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-type Theme = "dark" | "light" | "dark-hc";
+type Theme = "paper" | "light" | "dark" | "graphite" | "carbon" | "dark-hc";
 
 function isTheme(v: any): v is Theme {
-  return v === "dark" || v === "light" || v === "dark-hc";
+  return v === "paper" || v === "light" || v === "dark" || v === "graphite" || v === "carbon" || v === "dark-hc";
 }
 
 function lsGet<T>(k: string, fallback: T): T {
@@ -29,8 +29,11 @@ function lsSet(k: string, v: any) {
 
 function applyTheme(t: Theme) {
   const root = document.documentElement;
-  root.classList.toggle("dark", t === "dark" || t === "dark-hc");
+  root.classList.toggle("dark", t === "dark" || t === "dark-hc" || t === "graphite" || t === "carbon");
   root.classList.toggle("dark-hc", t === "dark-hc");
+  root.classList.toggle("paper", t === "paper");
+  root.classList.toggle("graphite", t === "graphite");
+  root.classList.toggle("carbon", t === "carbon");
   lsSet("vs_theme", t);
 
   try {
@@ -88,9 +91,12 @@ export function PersonalizationPanel() {
             saveThemeCloud(t);
           }}
         >
-          <option value="dark">Dark</option>
-          <option value="dark-hc">Dark (high contrast)</option>
+          <option value="paper">Paper</option>
           <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="graphite">Graphite</option>
+          <option value="carbon">Carbon</option>
+          <option value="dark-hc">Dark (high contrast)</option>
         </select>
 
         <div className="text-xs text-muted-foreground">

@@ -73,14 +73,21 @@ async function fetchOk(url: string, init: RequestInit, ms: number): Promise<bool
 
 
 function applyThemeFromMetadata(md: any) {
-  const t = String(md?.vs_theme || "").trim();
-  if (!(t === "dark" || t === "light" || t === "dark-hc")) return;
+  const rawTheme = String(md?.vs_theme || "").trim();
+  const t = ["paper", "light", "dark", "graphite", "carbon", "dark-hc"].includes(rawTheme)
+    ? rawTheme
+    : "";
+
+  if (!t) return;
 
   lsSet("vs_theme", JSON.stringify(t));
 
   try {
-    document.documentElement.classList.toggle("dark", t === "dark" || t === "dark-hc");
+    document.documentElement.classList.toggle("dark", t === "dark" || t === "dark-hc" || t === "graphite" || t === "carbon");
     document.documentElement.classList.toggle("dark-hc", t === "dark-hc");
+    document.documentElement.classList.toggle("paper", t === "paper");
+    document.documentElement.classList.toggle("graphite", t === "graphite");
+    document.documentElement.classList.toggle("carbon", t === "carbon");
     window.dispatchEvent(new Event("vs_theme_changed"));
   } catch {
     // ignore

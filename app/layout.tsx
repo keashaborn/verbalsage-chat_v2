@@ -43,10 +43,10 @@ export default function RootLayout({
     // tolerate either raw string or JSON-encoded string
     var t = raw ? (raw[0] === '"' ? JSON.parse(raw) : raw) : "dark";
 
-    var isDark = (t === "dark" || t === "dark-hc");
+    var isDark = (t === "dark" || t === "dark-hc" || t === "graphite" || t === "carbon");
 
     // prevent white flash before CSS loads
-    document.documentElement.style.backgroundColor = isDark ? "#000" : "#fff";
+    document.documentElement.style.backgroundColor = t === "paper" ? "#f7f5f0" : (t === "graphite" ? "#111113" : (t === "carbon" ? "#080808" : (isDark ? "#000" : "#fff")));
 
     if (isDark) document.documentElement.classList.add("dark");
     else document.documentElement.classList.remove("dark");

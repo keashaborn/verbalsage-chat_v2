@@ -60,9 +60,12 @@ function normalizeThemeRaw(raw: string | null) {
 function prettyThemeLabel(raw: string | null) {
   const v = normalizeThemeRaw(raw).toLowerCase();
   if (!v || v === "system") return "System";
-  if (v === "dark") return "Dark";
-  if (v === "dark-hc") return "Dark (HC)";
+  if (v === "paper") return "Paper";
   if (v === "light") return "Light";
+  if (v === "dark") return "Dark";
+  if (v === "graphite") return "Graphite";
+  if (v === "carbon") return "Carbon";
+  if (v === "dark-hc") return "Dark (HC)";
   return v;
 }
 
