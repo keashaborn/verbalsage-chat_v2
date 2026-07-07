@@ -3,6 +3,7 @@
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { CardsPanel } from "@/components/admin/settings/CardsPanel";
+import { MemoryReviewPanel } from "@/components/admin/settings/MemoryReviewPanel";
 import { VANTAGE_CONTROL_REGISTRY } from "@/components/admin/settings/vantage/controlRegistry";
 import { CAPABILITY_REGISTRY, PERMISSION_ROLES, type PermissionRole, capabilitiesForRole } from "@/components/admin/settings/permissions/permissionRegistry";
 
@@ -412,6 +413,8 @@ export function AdminConsolePage() {
               Goal: inspect what is active, style-only, content-eligible, retired, or never allowed to surface.
             </div>
           </div>
+
+          <MemoryReviewPanel />
 
           <div className="rounded-xl border p-3">
             <div className="text-sm font-semibold">Memory Inspector</div>
