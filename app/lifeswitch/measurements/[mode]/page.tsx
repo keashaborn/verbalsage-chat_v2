@@ -10,7 +10,7 @@ export default function MeasurementsModePage({ params }: { params: { mode?: stri
   if (mode === "design") redirect("/lifeswitch/measurements/design");
   if (mode === "capture") redirect("/lifeswitch/measurements/capture");
   if (mode === "analyze") redirect("/lifeswitch/measurements/analyze");
-  if (mode === "plan") redirect("/lifeswitch/plan#body-state");
+  if (mode === "plan") redirect("/lifeswitch/plan?section=measurements#body-state");
 
   redirect("/lifeswitch/measurements/log");
 }

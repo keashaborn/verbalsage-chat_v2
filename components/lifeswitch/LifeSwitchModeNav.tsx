@@ -37,6 +37,15 @@ function normalizeModeFromPath(pathname: string): Mode {
   return (MODES as readonly string[]).includes(mode) ? mode : "log";
 }
 
+function normalizePlanSectionFromBrowser(): string {
+  if (typeof window === "undefined") return "";
+
+  const raw = new URLSearchParams(window.location.search).get("section") || "";
+  const section = raw.toLowerCase();
+
+  return ACTIVE_DOMAINS.has(section) ? section : "";
+}
+
 function Tab({
   href,
   label,
@@ -67,9 +76,9 @@ function Tab({
 }
 
 function planHrefForDomain(domain: string) {
-  if (domain === "training") return "/lifeswitch/plan#training-targets";
-  if (domain === "nutrition") return "/lifeswitch/plan#nutrition-targets";
-  if (domain === "measurements") return "/lifeswitch/plan#body-state";
+  if (domain === "training") return "/lifeswitch/plan?section=training#training-targets";
+  if (domain === "nutrition") return "/lifeswitch/plan?section=nutrition#nutrition-targets";
+  if (domain === "measurements") return "/lifeswitch/plan?section=measurements#body-state";
   return "/lifeswitch/plan";
 }
 
@@ -86,18 +95,27 @@ function designLabelForDomain(domain: string) {
 
 export function LifeSwitchModeNav() {
   const pathname = usePathname() || "";
-  const domain = normalizeDomainFromPath(pathname);
-  const mode = normalizeModeFromPath(pathname);
+  const rawDomain = normalizeDomainFromPath(pathname);
+  const [planSection, setPlanSection] = React.useState("");
 
   React.useEffect(() => {
-    if (domain && domain !== "plan" && typeof window !== "undefined") {
+    if (rawDomain === "plan") {
+      setPlanSection(normalizePlanSectionFromBrowser());
+    } else {
+      setPlanSection("");
+    }
+  }, [rawDomain, pathname]);
+
+  const domain = rawDomain === "plan" ? planSection : rawDomain;
+  const mode = rawDomain === "plan" ? "plan" : normalizeModeFromPath(pathname);
+
+  React.useEffect(() => {
+    if (domain && typeof window !== "undefined") {
       window.localStorage.setItem("lifeswitch:lastDomain", domain);
     }
   }, [domain]);
 
   if (!domain) return null;
-
-  if (domain === "plan") return null;
 
   const logHref = domain === "training" ? "/lifeswitch/training/calendar" : `/lifeswitch/${domain}/log`;
   const captureHref = `/lifeswitch/${domain}/capture`;
