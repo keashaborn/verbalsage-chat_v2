@@ -70,6 +70,36 @@ function riskClass(risk: string) {
   return "border-muted bg-muted/30 text-muted-foreground";
 }
 
+
+function AdminSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="overflow-hidden rounded-xl border">
+      <summary className="cursor-pointer list-none px-3 py-3 hover:bg-muted/40">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold">{title}</div>
+            {description ? (
+              <div className="mt-0.5 text-xs text-muted-foreground">{description}</div>
+            ) : null}
+          </div>
+          <div className="shrink-0 rounded-lg border px-2 py-0.5 text-xs text-muted-foreground">
+            Open
+          </div>
+        </div>
+      </summary>
+      <div className="border-t p-3">{children}</div>
+    </details>
+  );
+}
+
 export function AdminConsolePage() {
   const [inspectorEnabled, setInspectorEnabled] = React.useState(false);
   const [status, setStatus] = React.useState("");
@@ -150,71 +180,68 @@ export function AdminConsolePage() {
       <div className="rounded-xl border bg-muted/20 p-3">
         <div className="text-sm font-semibold">Admin Console</div>
         <div className="mt-1 text-xs text-muted-foreground">
-          System tools for inspection, diagnostics, memory/card review, and future administrative controls.
+          System tools for diagnostics, Vantage registry review, permission preview, and memory/retrieval evaluation.
+        </div>
+        <div className="mt-2 text-[11px] text-muted-foreground">
+          Sections start collapsed to keep this page usable as more administrative tools are added.
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Inspection
-        </div>
-
-        <div className="rounded-xl border p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-sm font-semibold">Prompt Inspector</div>
-              <div className="text-xs text-muted-foreground">
-                Enables prompt inspection for this browser. Uses cookie <code>vs_debug_token</code>.
+      <AdminSection
+        title="Runtime / Diagnostics"
+        description="Prompt inspection, model diagnostics, and runtime debugging tools."
+      >
+        <div className="space-y-3">
+          <div className="rounded-xl border p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold">Prompt Inspector</div>
+                <div className="text-xs text-muted-foreground">
+                  Enables prompt inspection for this browser. Uses cookie <code>vs_debug_token</code>.
+                </div>
               </div>
+
+              <input
+                type="checkbox"
+                checked={inspectorEnabled}
+                onChange={(e) => {
+                  if (e.target.checked) enableInspector();
+                  else disableInspector();
+                }}
+              />
             </div>
 
-            <input
-              type="checkbox"
-              checked={inspectorEnabled}
-              onChange={(e) => {
-                if (e.target.checked) enableInspector();
-                else disableInspector();
-              }}
-            />
+            {status ? <div className="mt-2 text-xs text-muted-foreground">{status}</div> : null}
           </div>
 
-          {status ? <div className="mt-2 text-xs text-muted-foreground">{status}</div> : null}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Diagnostics
-        </div>
-
-        <div className="rounded-xl border p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-sm font-semibold">Model Diagnostics</div>
-              <div className="text-xs text-muted-foreground">
-                Run probe suites, store telemetry in seebx, and graph model behavior.
+          <div className="rounded-xl border p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold">Model Diagnostics</div>
+                <div className="text-xs text-muted-foreground">
+                  Run probe suites, store telemetry in seebx, and graph model behavior.
+                </div>
               </div>
-            </div>
 
-            <a
-              href="/developer/diagnostics"
-              className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
-            >
-              Open
-            </a>
+              <a
+                href="/developer/diagnostics"
+                className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
+              >
+                Open
+              </a>
+            </div>
           </div>
         </div>
-      </div>
+      </AdminSection>
 
-      <div className="space-y-2">
-        <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Vantage Controls
-        </div>
-
+      <AdminSection
+        title="Vantage Registry / Experimental Controls"
+        description="Read-only inventory of Vantage levers. Kept admin-only while the system is evaluated."
+      >
         <div className="rounded-xl border p-3">
           <div className="text-sm font-semibold">Control Registry</div>
           <div className="mt-1 text-xs text-muted-foreground">
-            Read-only inventory of Vantage levers. Later this becomes the admin control surface for visibility, editability, and server-side enforcement.
+            Read-only inventory of Vantage levers. Later this may be retired, kept internal, or replaced by system-level behavior.
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -251,8 +278,15 @@ export function AdminConsolePage() {
               ))}
             </div>
           </div>
+        </div>
+      </AdminSection>
 
-          <div className="mt-3 rounded-lg border p-3">
+      <AdminSection
+        title="Permissions / Identity Preview"
+        description="Current role, effective capabilities, and the capability registry."
+      >
+        <div className="space-y-3">
+          <div className="rounded-xl border p-3">
             <div className="text-sm font-semibold">Permissions</div>
             <div className="mt-1 text-xs text-muted-foreground">
               Read-only capability registry for roles, admin tools, Assistant Profile levers, memory tools, diagnostics, account data, and LifeSwitch module planning.
@@ -288,105 +322,108 @@ export function AdminConsolePage() {
             <div className="mt-2 text-xs text-muted-foreground">
               Categories: {capabilityCategories}. Future rule: frontend visibility is convenience; backend enforcement is the security boundary.
             </div>
+          </div>
 
-            <div className="mt-3 rounded-lg border p-3">
-              <div className="text-sm font-semibold">Effective Permissions Preview</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Current role: <span className="font-semibold uppercase text-foreground">{currentRole}</span>
-              </div>
-              <div className="mt-1 text-[11px] text-muted-foreground">
-                Source: {effectiveSource}
-              </div>
+          <div className="rounded-xl border p-3">
+            <div className="text-sm font-semibold">Effective Permissions Preview</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Current role: <span className="font-semibold uppercase text-foreground">{currentRole}</span>
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              Source: {effectiveSource}
+            </div>
 
-              <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                <div className="rounded-lg border p-2">
-                  <div className="font-semibold">{effectiveCapabilityCount} / {effectiveTotalCapabilities}</div>
-                  <div className="text-muted-foreground">allowed</div>
-                </div>
-                <div className="rounded-lg border p-2">
-                  <div className="font-semibold">{effectiveCriticalCapabilities}</div>
-                  <div className="text-muted-foreground">critical</div>
-                </div>
-                <div className="rounded-lg border p-2">
-                  <div className="font-semibold">{effectiveBackendCapabilities}</div>
-                  <div className="text-muted-foreground">backend</div>
-                </div>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+              <div className="rounded-lg border p-2">
+                <div className="font-semibold">{effectiveCapabilityCount} / {effectiveTotalCapabilities}</div>
+                <div className="text-muted-foreground">allowed</div>
               </div>
-
-              <div className="mt-3 max-h-40 overflow-auto rounded-lg border">
-                <div className="divide-y">
-                  {CAPABILITY_REGISTRY.map((cap) => {
-                    const allowed = effectiveCapabilityKeys.has(cap.key);
-                    return (
-                      <div key={cap.key} className="flex items-center justify-between gap-3 px-3 py-2">
-                        <div className="min-w-0">
-                          <div className="text-xs font-medium">{cap.key}</div>
-                          <div className="text-[11px] text-muted-foreground">{cap.category} · {cap.risk}</div>
-                        </div>
-                        <div className={allowed ? "text-xs font-semibold" : "text-xs text-muted-foreground"}>
-                          {allowed ? "allowed" : "blocked"}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="rounded-lg border p-2">
+                <div className="font-semibold">{effectiveCriticalCapabilities}</div>
+                <div className="text-muted-foreground">critical</div>
+              </div>
+              <div className="rounded-lg border p-2">
+                <div className="font-semibold">{effectiveBackendCapabilities}</div>
+                <div className="text-muted-foreground">backend</div>
               </div>
             </div>
 
-            <div className="mt-3 max-h-52 overflow-auto rounded-lg border">
+            <div className="mt-3 max-h-40 overflow-auto rounded-lg border">
               <div className="divide-y">
-                {CAPABILITY_REGISTRY.map((cap) => (
-                  <div key={cap.key} className="px-3 py-2">
-                    <div className="flex items-start justify-between gap-3">
+                {CAPABILITY_REGISTRY.map((cap) => {
+                  const allowed = effectiveCapabilityKeys.has(cap.key);
+                  return (
+                    <div key={cap.key} className="flex items-center justify-between gap-3 px-3 py-2">
                       <div className="min-w-0">
-                        <div className="text-sm font-medium">{cap.label}</div>
-                        <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">{cap.key}</div>
+                        <div className="text-xs font-medium">{cap.key}</div>
+                        <div className="text-[11px] text-muted-foreground">{cap.category} · {cap.risk}</div>
                       </div>
-                      <div className="flex shrink-0 flex-wrap justify-end gap-1 text-[10px] uppercase tracking-wide">
-                        <span className={`rounded-full border px-2 py-0.5 ${capabilityStatusClass(cap)}`}>
-                          {capabilityStatusLabel(cap)}
-                        </span>
-                        <span className={`rounded-full border px-2 py-0.5 ${riskClass(cap.risk)}`}>
-                          {cap.risk}
-                        </span>
+                      <div className={allowed ? "text-xs font-semibold" : "text-xs text-muted-foreground"}>
+                        {allowed ? "allowed" : "blocked"}
                       </div>
                     </div>
-                    <div className="mt-1 text-xs text-muted-foreground">{cap.description}</div>
-                    {cap.notes ? <div className="mt-1 text-[11px] text-muted-foreground">{cap.notes}</div> : null}
-                    <div className="mt-1 text-[11px] text-muted-foreground">
-                      {cap.category} · {cap.scope} · {cap.access} · Roles: {cap.defaultRoles.join(", ")}
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="max-h-52 overflow-auto rounded-lg border">
+            <div className="divide-y">
+              {CAPABILITY_REGISTRY.map((cap) => (
+                <div key={cap.key} className="px-3 py-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">{cap.label}</div>
+                      <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">{cap.key}</div>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap justify-end gap-1 text-[10px] uppercase tracking-wide">
+                      <span className={`rounded-full border px-2 py-0.5 ${capabilityStatusClass(cap)}`}>
+                        {capabilityStatusLabel(cap)}
+                      </span>
+                      <span className={`rounded-full border px-2 py-0.5 ${riskClass(cap.risk)}`}>
+                        {cap.risk}
+                      </span>
                     </div>
                   </div>
-                ))}
-              </div>
+                  <div className="mt-1 text-xs text-muted-foreground">{cap.description}</div>
+                  {cap.notes ? <div className="mt-1 text-[11px] text-muted-foreground">{cap.notes}</div> : null}
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    {cap.category} · {cap.scope} · {cap.access} · Roles: {cap.defaultRoles.join(", ")}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
-      </div>
+      </AdminSection>
 
-      <div className="space-y-2">
-        <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Memory System
-        </div>
-
-        <div className="rounded-xl border p-3">
-          <div className="text-sm font-semibold">Memory System Status</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            Backend route audit now checks card policy metadata, retrieval plans, profile-card gating, specific recall, and user isolation.
+      <AdminSection
+        title="Memory / Retrieval Evaluation"
+        description="Memory status, card inspection, and the future retrieval/prompt-injection evaluator."
+      >
+        <div className="space-y-3">
+          <div className="rounded-xl border p-3">
+            <div className="text-sm font-semibold">Memory System Status</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Backend route audit now checks card policy metadata, retrieval plans, profile-card gating, specific recall, and user isolation.
+            </div>
+            <div className="mt-3 text-xs text-muted-foreground">
+              Goal: inspect what is active, style-only, content-eligible, retired, or never allowed to surface.
+            </div>
           </div>
-          <div className="mt-3 text-xs text-muted-foreground">
-            Goal: inspect what is active, style-only, content-eligible, retired, or never allowed to surface.
+
+          <div className="rounded-xl border p-3">
+            <div className="text-sm font-semibold">Memory Inspector</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Existing memory/card inspector. The new memory evaluator should be added in this section, not as another top-level Admin block.
+            </div>
+            <div className="mt-3">
+              <CardsPanel />
+            </div>
           </div>
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Memory Inspector
-        </div>
-
-        <CardsPanel />
-      </div>
+      </AdminSection>
     </div>
   );
 }
