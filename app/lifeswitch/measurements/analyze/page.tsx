@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { MiniLineChart, type XYPoint } from "@/components/sslg/MiniLineChart";
 import { authFetch } from "@/lib/authFetch";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,37 @@ async function fetchJson(url: string, init?: RequestInit) {
 
 function latestOf(entries: MeasurementEntry[], kind: string) {
   return entries.find((e) => e.entry_kind === kind) || null;
+}
+
+function coerceNumber(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = Number(v.trim());
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function metricSeries(entries: MeasurementEntry[], key: keyof MeasurementEntry): XYPoint[] {
+  const points: XYPoint[] = [];
+
+  for (const e of entries) {
+    const y = coerceNumber(e[key]);
+    const x = String(e.local_date || e.created_at || "").slice(0, 10);
+
+    if (!x || y == null) continue;
+
+    points.push({
+      x,
+      y,
+      id: e.measurement_entry_id,
+      occurred_at: e.created_at || e.local_date,
+      sort_ts: e.local_date || e.created_at || x,
+      data: e,
+    });
+  }
+
+  return points.sort((a, b) => String(a.sort_ts || a.x).localeCompare(String(b.sort_ts || b.x)));
 }
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -75,6 +107,10 @@ export default function MeasurementsAnalyzePage() {
   const weight = latestWeight?.weight_value ?? latestScan?.weight_value ?? null;
   const fatMass = weight != null && bf != null ? Math.round(weight * (bf / 100) * 10) / 10 : null;
   const leanMass = weight != null && bf != null ? Math.round((weight - weight * (bf / 100)) * 10) / 10 : null;
+
+  const weightSeries = React.useMemo(() => metricSeries(entries, "weight_value"), [entries]);
+  const waistSeries = React.useMemo(() => metricSeries(entries, "waist_value"), [entries]);
+  const bodyFatSeries = React.useMemo(() => metricSeries(entries, "body_fat_percent"), [entries]);
 
   return (
     <div className="mx-auto max-w-5xl p-4 pb-28">
@@ -121,11 +157,43 @@ export default function MeasurementsAnalyzePage() {
         />
       </div>
 
-      <section className="mt-6 rounded-xl border p-4">
-        <div className="text-sm font-semibold">Trend status</div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Trend charts will become useful once there are multiple measurement dates. For now, this page summarizes the current body-state snapshot.
-        </p>
+      <section className="mt-6 grid gap-4">
+        <div>
+          <div className="text-sm font-semibold">Measurement trends</div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Single-subject line graphs from measurement entries. Phase-change markers will be added from Plan history later.
+          </p>
+        </div>
+
+        <MiniLineChart
+          title="Weight over time"
+          series={weightSeries}
+          xMode="date"
+          yLabel="Weight"
+          ySuffix=" lb"
+          includeZero={false}
+          heightPx={260}
+        />
+
+        <MiniLineChart
+          title="Waist over time"
+          series={waistSeries}
+          xMode="date"
+          yLabel="Waist"
+          ySuffix=" in"
+          includeZero={false}
+          heightPx={260}
+        />
+
+        <MiniLineChart
+          title="Body-fat estimate over time"
+          series={bodyFatSeries}
+          xMode="date"
+          yLabel="Body fat"
+          ySuffix="%"
+          includeZero={false}
+          heightPx={260}
+        />
       </section>
     </div>
   );
