@@ -423,7 +423,34 @@ export default function NutritionAnalyzePage() {
           )}
         </div>
       </section>
+      <section className="mt-6 grid gap-4">
+        <div>
+          <div className="text-sm font-semibold">Nutrition trends</div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Single-subject line graphs from logged nutrition days. Target lines and phase markers will be added later.
+          </p>
+        </div>
 
+        <MiniLineChart
+          title="Calories per logged day"
+          series={calorieSeries}
+          xMode="date"
+          yLabel="Calories"
+          ySuffix=" kcal"
+          includeZero={false}
+          heightPx={260}
+        />
+
+        <MiniLineChart
+          title="Protein per logged day"
+          series={proteinSeries}
+          xMode="date"
+          yLabel="Protein"
+          ySuffix="g"
+          includeZero={false}
+          heightPx={260}
+        />
+      </section>
       <section className="mt-6 rounded-xl border p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -461,35 +488,6 @@ export default function NutritionAnalyzePage() {
             No logged nutrition days in this range.
           </div>
         )}
-      </section>
-
-      <section className="mt-6 grid gap-4">
-        <div>
-          <div className="text-sm font-semibold">Nutrition trends</div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Single-subject line graphs from logged nutrition days. Target lines and phase markers will be added later.
-          </p>
-        </div>
-
-        <MiniLineChart
-          title="Calories per logged day"
-          series={calorieSeries}
-          xMode="date"
-          yLabel="Calories"
-          ySuffix=" kcal"
-          includeZero={false}
-          heightPx={260}
-        />
-
-        <MiniLineChart
-          title="Protein per logged day"
-          series={proteinSeries}
-          xMode="date"
-          yLabel="Protein"
-          ySuffix="g"
-          includeZero={false}
-          heightPx={260}
-        />
       </section>
     </div>
   );
