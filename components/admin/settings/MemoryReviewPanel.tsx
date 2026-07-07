@@ -71,12 +71,67 @@ function countRows(rows: ReviewPlanRow[], action: string): number {
   return rows.reduce((n, r) => n + (r.action === action ? 1 : 0), 0);
 }
 
+function compactSummary(text: any, limit = 260): string {
+  const s = String(text ?? "").replace(/\s+/g, " ").trim();
+  if (s.length <= limit) return s;
+  return s.slice(0, Math.max(0, limit - 1)).trimEnd() + "…";
+}
+
+function formatActionCounts(counts: Record<string, number> | undefined, rows: ReviewPlanRow[]): string {
+  const create = counts?.create_new_card ?? countRows(rows, "create_new_card");
+  const manual = counts?.needs_manual_review ?? countRows(rows, "needs_manual_review");
+  const duplicate = counts?.skip_duplicate ?? countRows(rows, "skip_duplicate");
+  return `create_new_card=${create}, needs_manual_review=${manual}, skip_duplicate=${duplicate}`;
+}
+
+function buildReviewDigest(data: ReviewPlanResponse | null): string {
+  const rows = Array.isArray(data?.plan_rows) ? data!.plan_rows! : [];
+  const lines: string[] = [];
+
+  lines.push("Memory Review Digest");
+  lines.push(`schema: ${asText(data?.schema, "unknown")}`);
+  lines.push(`mode: ${asText(data?.mode, "unknown")}`);
+  lines.push(`source: ${asText(data?.source, "unknown")}`);
+  lines.push(`read_only: ${data?.read_only === true ? "true" : "false"}`);
+  lines.push(`rows: ${data?.plan_row_count ?? rows.length}`);
+  lines.push(`action_counts: ${formatActionCounts(data?.action_counts, rows)}`);
+  lines.push(`points_scanned: ${data?.points_scanned ?? "unknown"}`);
+  lines.push(`raw_candidates: ${data?.raw_candidate_count ?? "unknown"}`);
+  lines.push(`merged_candidates: ${data?.merged_card_candidate_count ?? "unknown"}`);
+  lines.push(`existing_durable: ${data?.existing_card_count ?? "unknown"}`);
+  lines.push("");
+  lines.push("Rows:");
+
+  rows.forEach((row, idx) => {
+    const reasons = Array.isArray(row.action_reasons) ? row.action_reasons.join(", ") : "";
+    lines.push(
+      `${idx + 1}. ${asText(row.action, "unknown")} | ${asText(row.kind, "unknown")} | ${asText(row.comparison_status, "unknown")} | best_existing=${row.best_existing_card_id ?? "—"} | confidence=${asNumber(row.confidence)}`
+    );
+    lines.push(`   ${shortTopic(row.topic_key)}`);
+    lines.push(`   ${compactSummary(row.summary, 300) || "No summary."}`);
+    if (reasons) lines.push(`   reasons: ${reasons}`);
+  });
+
+  return lines.join("\n");
+}
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function MemoryReviewPanel() {
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [data, setData] = React.useState<ReviewPlanResponse | null>(null);
   const [err, setErr] = React.useState<string | null>(null);
   const [expandedKey, setExpandedKey] = React.useState<string | null>(null);
+  const [manualOnly, setManualOnly] = React.useState(false);
+  const [copyStatus, setCopyStatus] = React.useState("");
 
   async function load() {
     setLoading(true);
@@ -110,7 +165,22 @@ export function MemoryReviewPanel() {
     }
   }
 
+  async function copyDigest() {
+    if (!data) return;
+    const ok = await copyTextToClipboard(buildReviewDigest(data));
+    setCopyStatus(ok ? "digest copied" : "copy failed");
+    window.setTimeout(() => setCopyStatus(""), 1800);
+  }
+
+  async function copyJson() {
+    if (!data) return;
+    const ok = await copyTextToClipboard(JSON.stringify(data, null, 2));
+    setCopyStatus(ok ? "json copied" : "copy failed");
+    window.setTimeout(() => setCopyStatus(""), 1800);
+  }
+
   const rows = Array.isArray(data?.plan_rows) ? data!.plan_rows! : [];
+  const visibleRows = manualOnly ? rows.filter((r) => r.action === "needs_manual_review") : rows;
   const actionCounts = data?.action_counts || {};
 
   const stats = {
@@ -150,14 +220,35 @@ export function MemoryReviewPanel() {
               ) : null}
             </div>
 
-            <button
-              type="button"
-              className="shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={load}
-              disabled={loading}
-            >
-              {loading ? "Loading…" : data ? "Refresh" : "Load"}
-            </button>
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+              {data ? (
+                <>
+                  <button
+                    type="button"
+                    className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-muted/50"
+                    onClick={copyDigest}
+                  >
+                    Copy Digest
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-muted/50"
+                    onClick={copyJson}
+                  >
+                    Copy JSON
+                  </button>
+                </>
+              ) : null}
+
+              <button
+                type="button"
+                className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={load}
+                disabled={loading}
+              >
+                {loading ? "Loading…" : data ? "Refresh" : "Load"}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -207,8 +298,23 @@ export function MemoryReviewPanel() {
               </div>
             </div>
 
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2">
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={manualOnly}
+                  onChange={(e) => setManualOnly(e.target.checked)}
+                />
+                Show manual-review rows only
+              </label>
+
+              <div className="text-xs text-muted-foreground">
+                Showing {visibleRows.length} of {rows.length} rows{copyStatus ? ` · ${copyStatus}` : ""}
+              </div>
+            </div>
+
             <div className="space-y-2">
-              {rows.map((row, idx) => {
+              {visibleRows.map((row, idx) => {
                 const key = `${idx}:${row.topic_key || row.summary || "row"}`;
                 const isOpen = expandedKey === key;
                 const action = asText(row.action, "unknown");
@@ -225,7 +331,7 @@ export function MemoryReviewPanel() {
                         <div className="min-w-0">
                           <div className="truncate text-sm font-semibold">{shortTopic(row.topic_key)}</div>
                           <div className="mt-0.5 text-[11px] text-muted-foreground">
-                            {idx + 1}. {asText(row.kind, "unknown")} · confidence {asNumber(row.confidence)} · best existing {row.best_existing_card_id ?? "—"}
+                            {manualOnly ? "manual" : idx + 1}. {asText(row.kind, "unknown")} · confidence {asNumber(row.confidence)} · best existing {row.best_existing_card_id ?? "—"}
                           </div>
                         </div>
 
@@ -266,8 +372,10 @@ export function MemoryReviewPanel() {
               })}
             </div>
 
-            {!loading && rows.length === 0 ? (
-              <div className="text-xs text-muted-foreground">No review rows returned.</div>
+            {!loading && visibleRows.length === 0 ? (
+              <div className="text-xs text-muted-foreground">
+                {rows.length === 0 ? "No review rows returned." : "No rows match the current filter."}
+              </div>
             ) : null}
           </>
         ) : (
