@@ -76,7 +76,7 @@ function applyThemeFromMetadata(md: any) {
   const rawTheme = String(md?.vs_theme || "").trim();
   const t = ["paper", "light", "dark", "graphite", "carbon", "dark-hc"].includes(rawTheme)
     ? rawTheme
-    : "";
+    : "graphite";
 
   if (!t) return;
 

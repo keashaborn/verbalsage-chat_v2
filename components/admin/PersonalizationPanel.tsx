@@ -55,7 +55,7 @@ export function PersonalizationPanel() {
   React.useEffect(() => {
     let cancelled = false;
 
-    const local = lsGet<Theme>("vs_theme", "dark");
+    const local = lsGet<Theme>("vs_theme", "graphite");
     const localTheme = isTheme(local) ? local : "dark";
     setTheme(localTheme);
     applyTheme(localTheme);

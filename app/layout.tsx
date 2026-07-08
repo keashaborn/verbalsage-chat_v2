@@ -41,7 +41,7 @@ export default function RootLayout({
   try {
     var raw = localStorage.getItem("vs_theme");
     // tolerate either raw string or JSON-encoded string
-    var t = raw ? (raw[0] === '"' ? JSON.parse(raw) : raw) : "dark";
+    var t = raw ? (raw[0] === '"' ? JSON.parse(raw) : raw) : "graphite";
 
     var isDark = (t === "dark" || t === "dark-hc" || t === "graphite" || t === "carbon");
 
