@@ -95,6 +95,8 @@ async function maybeInspect(
 export function BrainsChatPane() {
   const [threadId, setThreadId] = React.useState<string | null>(null);
   const [msgs, setMsgs] = React.useState<Msg[]>([]);
+  const [editingMessageId, setEditingMessageId] = React.useState<string | null>(null);
+  const [editingText, setEditingText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
   const [listening, setListening] = React.useState(false);
@@ -563,6 +565,11 @@ export function BrainsChatPane() {
     return -1;
   }
 
+  function startEditingMessage(m: Msg) {
+    setEditingMessageId(m.id || null);
+    setEditingText(m.content || "");
+  }
+
   async function loadMessages(
     tid: string,
     attach?: { inspect: InspectResult | null; inspect_error: string | null }
@@ -919,6 +926,28 @@ export function BrainsChatPane() {
                   {m.role === "assistant" ? <MarkdownMessage>{m.content}</MarkdownMessage> : m.content}
                 </div>
 
+                {m.role === "user" && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    <button
+                      className="inline-flex items-center justify-center rounded-md p-2 hover:bg-muted"
+                      onClick={() => startEditingMessage(m)}
+                      aria-label="Edit message"
+                      title="Edit message"
+                    >
+                      ✎
+                    </button>
+
+                    <button
+                      className="inline-flex items-center justify-center rounded-md p-2 hover:bg-muted"
+                      onClick={() => copyText(m.content, idx)}
+                      aria-label="Copy message"
+                      title="Copy message"
+                    >
+                      ⧉
+                    </button>
+                  </div>
+                )}
+
                 {m.role === "assistant" && (
                   <>
                     <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -1070,8 +1099,14 @@ export function BrainsChatPane() {
               className="w-full resize-none bg-transparent text-sm outline-none"
               rows={2}
               placeholder="Send a message…"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
+              value={editingMessageId ? editingText : message}
+              onChange={(e) => {
+                if (editingMessageId) {
+                  setEditingText(e.target.value);
+                } else {
+                  setMessage(e.target.value);
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
