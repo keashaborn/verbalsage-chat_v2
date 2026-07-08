@@ -13,7 +13,7 @@ export function MarkdownMessage({
   className?: string;
 }) {
   return (
-    <div className={cn("break-words", className)}>
+    <div className={cn("min-w-0 max-w-full overflow-hidden break-words [overflow-wrap:anywhere]", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -27,7 +27,7 @@ export function MarkdownMessage({
             <h3 className={cn("mb-2 mt-3 text-base font-semibold leading-tight first:mt-0", className)} {...props} />
           ),
           p: ({ className, ...props }) => (
-            <p className={cn("my-2 leading-7 first:mt-0 last:mb-0", className)} {...props} />
+            <p className={cn("my-2 max-w-full break-words [overflow-wrap:anywhere] leading-7 first:mt-0 last:mb-0", className)} {...props} />
           ),
           ul: ({ className, ...props }) => (
             <ul className={cn("my-2 ml-5 list-disc space-y-1", className)} {...props} />
@@ -47,7 +47,7 @@ export function MarkdownMessage({
           code: ({ className, ...props }) => (
             <code
               className={cn(
-                "rounded border bg-muted px-1 py-0.5 text-[0.9em] font-medium",
+                "max-w-full break-all rounded border bg-muted px-1 py-0.5 text-[0.9em] font-medium",
                 className,
               )}
               {...props}
@@ -64,7 +64,7 @@ export function MarkdownMessage({
           ),
           a: ({ className, ...props }) => (
             <a
-              className={cn("text-primary underline underline-offset-4", className)}
+              className={cn("break-all text-primary underline underline-offset-4", className)}
               target="_blank"
               rel="noreferrer"
               {...props}

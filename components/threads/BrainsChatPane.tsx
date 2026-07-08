@@ -889,7 +889,7 @@ export function BrainsChatPane() {
 
       <div
         ref={scrollRef}
-        className="mx-auto w-full max-w-[44rem] flex-1 overflow-y-auto px-5 pt-6 pb-[calc(10.5rem+env(safe-area-inset-bottom))]"
+        className="mx-auto min-w-0 w-full max-w-[44rem] flex-1 overflow-x-hidden overflow-y-auto px-5 pt-6 pb-[calc(10.5rem+env(safe-area-inset-bottom))]"
       >
         {!threadId && <div className="mb-6 text-sm text-muted-foreground">Start typing to create a new chat.</div>}
         {loading && <div className="mb-4 text-xs text-muted-foreground">Loading…</div>}
@@ -913,7 +913,7 @@ export function BrainsChatPane() {
                   className={
                     m.role === "user"
                       ? "inline-block rounded-2xl bg-muted px-4 py-2 text-sm"
-                      : "inline-block max-w-[42rem] text-sm leading-7"
+                      : "block min-w-0 max-w-full overflow-hidden text-sm leading-7"
                   }
                 >
                   {m.role === "assistant" ? <MarkdownMessage>{m.content}</MarkdownMessage> : m.content}
