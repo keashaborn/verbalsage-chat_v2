@@ -494,15 +494,15 @@ export default function NutritionLogPage() {
           </div>
           <div className="mt-2 flex flex-wrap gap-3">
             <span className="inline-flex items-center gap-1">
-              <span className="h-3 w-3 rounded border border-emerald-500/30 bg-emerald-500/10" />
+              <span className="h-3 w-3 rounded-full border border-emerald-500/30 bg-emerald-500/10" />
               Hit
             </span>
             <span className="inline-flex items-center gap-1">
-              <span className="h-3 w-3 rounded border border-amber-500/30 bg-amber-500/10" />
+              <span className="h-3 w-3 rounded-full border border-amber-500/30 bg-amber-500/10" />
               Logged but not hit
             </span>
             <span className="inline-flex items-center gap-1">
-              <span className="h-3 w-3 rounded border border-muted/40" />
+              <span className="h-3 w-3 rounded-full border border-muted/40" />
               No log
             </span>
           </div>

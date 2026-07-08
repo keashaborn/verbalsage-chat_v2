@@ -182,11 +182,11 @@ function MonthCalendar(props: { ym: string; workoutDates: Set<string>; condition
             didWorkout && didConditioning ? "both" : didWorkout ? "strength" : didConditioning ? "conditioning" : "none";
 
           const cls = [
-            "h-7 flex items-center justify-center rounded-full border transition-colors",
+            "h-7 flex items-center justify-center rounded-md border transition-colors",
             state === "strength" ? "border-blue-500/80 bg-blue-500/10 text-blue-900 dark:text-blue-100 font-semibold" : "",
             state === "conditioning" ? "border-yellow-400/80 bg-yellow-500/20 text-yellow-100 font-semibold" : "",
             state === "both" ? "border-green-700/80 bg-green-500/30 text-green-950 dark:border-green-400/80 dark:bg-green-500/20 dark:text-green-100 font-semibold" : "",
-            state === "none" ? "border-transparent opacity-60" : "",
+            state === "none" ? "border-muted/40 text-muted-foreground" : "",
             isToday ? "underline underline-offset-4" : "",
           ]
             .filter(Boolean)
