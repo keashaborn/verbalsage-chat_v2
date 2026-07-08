@@ -758,7 +758,9 @@ export function BrainsChatPane() {
 
   async function sendMessage(overrideText?: string) {
     stopTTS();
-    const msg = String(overrideText ?? text).trim();
+    const msg = String(
+      overrideText ?? (editingMessageId ? editingText : text)
+    ).trim();
     if (!msg || sending) return;
 
     const lower = msg.toLowerCase();
@@ -772,6 +774,10 @@ export function BrainsChatPane() {
 
     setSending(true);
     setText("");
+    if (editingMessageId) {
+      setEditingMessageId(null);
+      setEditingText("");
+    }
 
     let tid: string;
     try {
