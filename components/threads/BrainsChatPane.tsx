@@ -567,7 +567,12 @@ export function BrainsChatPane() {
   }
 
   function startEditingMessage(m: Msg) {
-    setEditingMessageId(m.id || null);
+    const mid = String(m.id || "").trim();
+    if (!mid) {
+      alert("This message has no saved message id yet. Reload the thread, then edit it.");
+      return;
+    }
+    setEditingMessageId(mid);
     setEditingText(m.content || "");
   }
 
@@ -646,6 +651,14 @@ export function BrainsChatPane() {
     });
     if (!r.ok) throw new Error(await r.text());
     return await r.text();
+  }
+
+  async function truncateThreadFromMessage(tid: string, messageId: string): Promise<void> {
+    const r = await authFetch(
+      `/api/threads/${encodeURIComponent(tid)}/messages/${encodeURIComponent(messageId)}/truncate`,
+      { method: "DELETE" }
+    );
+    if (!r.ok) throw new Error(await r.text());
   }
 
   async function regenerateLast() {
@@ -772,6 +785,9 @@ export function BrainsChatPane() {
       return;
     }
 
+    const editMessageId = editingMessageId;
+    const isEditing = !!editMessageId;
+
     setSending(true);
     setText("");
     if (editingMessageId) {
@@ -782,6 +798,16 @@ export function BrainsChatPane() {
     let tid: string;
     try {
       tid = await ensureThread();
+
+      if (isEditing && editMessageId) {
+        await truncateThreadFromMessage(tid, editMessageId);
+
+        setMsgs((prev) => {
+          const idx = prev.findIndex((m) => m.id === editMessageId);
+          if (idx < 0) return prev;
+          return prev.slice(0, idx);
+        });
+      }
     } catch (e: any) {
       alert(e?.message || String(e));
       setSending(false);
