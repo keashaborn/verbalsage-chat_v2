@@ -15,6 +15,7 @@ type InspectResult = {
 };
 
 type Msg = {
+  id?: string;
   role: "user" | "assistant";
   content: string;
   created_at?: string;
@@ -1099,12 +1100,12 @@ export function BrainsChatPane() {
               className="w-full resize-none bg-transparent text-sm outline-none"
               rows={2}
               placeholder="Send a message…"
-              value={editingMessageId ? editingText : message}
+              value={editingMessageId ? editingText : text}
               onChange={(e) => {
                 if (editingMessageId) {
                   setEditingText(e.target.value);
                 } else {
-                  setMessage(e.target.value);
+                  setText(e.target.value);
                 }
               }}
               onKeyDown={(e) => {
