@@ -630,7 +630,7 @@ export default function NutritionFoodsPage() {
                 onClick={() => void searchBarcode()}
                 disabled={usdaLoading || !barcodeQ.trim()}
               >
-                {usdaLoading ? "Looking up barcode…" : "Find barcode"}
+                {usdaLoading ? "Looking up UPC…" : "Lookup UPC"}
               </button>
 
               <button
@@ -641,14 +641,16 @@ export default function NutritionFoodsPage() {
                 Scan barcode
               </button>
 
-              <button
-                type="button"
-                className="mt-2 w-full rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                onClick={clearLookup}
-                disabled={!usdaQ.trim() && !barcodeQ.trim() && usdaRows.length === 0 && !usdaErr}
-              >
-                Clear lookup
-              </button>
+              {usdaQ.trim() || barcodeQ.trim() || usdaRows.length || usdaErr ? (
+                <button
+                  type="button"
+                  className="mt-2 inline-flex items-center justify-center rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                  onClick={clearLookup}
+                  title="Clear lookup"
+                >
+                  Clear
+                </button>
+              ) : null}
             </div>
             </div>
 
