@@ -89,7 +89,6 @@ export default function ConditioningCapturePage() {
       const arr = Array.isArray(rows) ? rows.filter((x) => x.is_active) : [];
       arr.sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
       setPrescriptions(arr);
-      if (!selectedId && arr.length) setSelectedId(arr[0].my_conditioning_prescription_id);
     } catch (e: any) {
       setPrescriptions([]);
       setStatus(`Load failed: ${String(e?.message || e)}`);
@@ -157,13 +156,7 @@ export default function ConditioningCapturePage() {
     <div className="mx-auto max-w-5xl p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-lg font-semibold">Training · Conditioning Capture</div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            Log a conditioning prescription into the training log.
-          </div>
-          <Link href="/lifeswitch/training/capture" className="mt-2 inline-flex text-xs underline underline-offset-4">
-            Back to strength capture
-          </Link>
+          <div className="text-lg font-semibold">Training · Capture</div>
         </div>
 
         <input
@@ -172,6 +165,16 @@ export default function ConditioningCapturePage() {
           onChange={(e) => setDay(e.target.value)}
           className="rounded-xl border bg-background px-3 py-2 text-sm"
         />
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-xl border text-sm">
+        <Link
+          href="/lifeswitch/training/capture"
+          className="px-3 py-2 text-center hover:bg-muted/30"
+        >
+          Strength
+        </Link>
+        <div className="bg-muted px-3 py-2 text-center font-semibold">Conditioning</div>
       </div>
 
       {status ? <div className="mt-3 text-sm text-muted-foreground">{status}</div> : null}
@@ -203,22 +206,14 @@ export default function ConditioningCapturePage() {
             ))}
           </select>
 
-          {selected ? (
-            <div className="mt-4 rounded-xl border p-3 text-sm">
-              <div className="font-medium">{selected.name}</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                {selected.category || "conditioning"} · {selected.modality || "method"}
-              </div>
-              {selected.purpose ? <div className="mt-3 text-xs text-muted-foreground">{selected.purpose}</div> : null}
-            </div>
-          ) : (
+          {!selected && prescriptions.length === 0 ? (
             <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
               Create conditioning prescriptions in Workouts → Conditioning first.
             </div>
-          )}
+          ) : null}
         </aside>
 
-        <main className="rounded-xl border p-4">
+        <main className={selected ? "rounded-xl border p-4" : "hidden"}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">Conditioning session</div>

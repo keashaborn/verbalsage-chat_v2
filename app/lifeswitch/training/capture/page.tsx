@@ -745,15 +745,6 @@ export default function TrainingCapturePage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-lg font-semibold">Training · Capture</div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            Start from a workout template, edit today’s sets, then finish into the training log.
-          </div>
-            <a
-              href="/lifeswitch/training/capture/conditioning"
-              className="mt-3 inline-flex rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
-            >
-              Conditioning capture
-            </a>
         </div>
 
         <input
@@ -764,17 +755,22 @@ export default function TrainingCapturePage() {
         />
       </div>
 
+      <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-xl border text-sm">
+        <div className="bg-muted px-3 py-2 text-center font-semibold">Strength</div>
+        <a
+          href="/lifeswitch/training/capture/conditioning"
+          className="px-3 py-2 text-center hover:bg-muted/30"
+        >
+          Conditioning
+        </a>
+      </div>
+
       {flash ? <div className="mt-3 text-sm text-green-600">{flash}</div> : null}
       {status ? <div className="mt-3 text-sm text-red-600">{status}</div> : null}
 
       {draftRows.length && selected && !setupOpen ? (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
-          <div>
-            <div className="text-sm font-semibold">{selected.name}</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {day} · {summary.exerciseCount} exercises · {summary.setCount} completed sets · volume {Math.round(summary.volume)}
-            </div>
-          </div>
+          <div className="text-sm font-semibold">{selected.name}</div>
           <button
             type="button"
             className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
