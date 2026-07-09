@@ -988,25 +988,13 @@ export default function TrainingWorkoutsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl overflow-x-hidden p-4">
-      <div>
-        <div className="text-xl font-semibold">Training · Workouts</div>
-        <div className="mt-1 text-sm text-muted-foreground">
-          Build reusable workout templates from the catalog or from your unique exercises. Logging happens in Capture.
-        </div>
-        <a
-          href="/lifeswitch/training/design/exercises"
-          className="mt-2 inline-flex text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
-        >
-          Manage Unique Exercises
-        </a>
-      </div>
 
-      <div className="mt-6 grid min-w-0 gap-4 xl:grid-cols-[20rem_minmax(0,1fr)_18rem]">
+      <div className="grid min-w-0 gap-4">
         {/* Left: create + workout list */}
         <aside className="min-w-0 rounded-xl border p-4">
           <LifeSwitchToolPanel
-            title="Workout actions"
-            subtitle="Create workout templates when you need to expand your training library."
+            title="New workout"
+            subtitle="Create a reusable workout template."
             storageKey="lifeswitch:training:workout-actions"
             defaultOpen={templates.length === 0}
           >
@@ -1115,9 +1103,6 @@ export default function TrainingWorkoutsPage() {
         <aside className="min-w-0 rounded-xl border p-4">
           <div className="text-sm font-semibold">
             Add exercises{selected ? ` to ${selected.name}` : " to selected workout"}
-          </div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            Search the catalog or your custom exercises, then add directly to this workout template.
           </div>
 
           {selected ? (
@@ -1231,7 +1216,7 @@ export default function TrainingWorkoutsPage() {
                 </div>
               ) : (
                 <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
-                  Search the catalog or your custom exercises, then add directly to this workout.
+                  Search to add exercises.
                 </div>
               )}
 
