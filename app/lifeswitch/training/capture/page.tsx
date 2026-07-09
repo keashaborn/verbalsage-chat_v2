@@ -847,50 +847,50 @@ export default function TrainingCapturePage() {
                         >
                           <div className="order-1 pb-2 text-xs text-muted-foreground">Set {row.set_index}</div>
 
-                            {row.set_type === "drop" ? (
-                              <div className="grid gap-2 sm:col-span-3">
-                                {(row.segments || []).map((seg) => (
-                                  <div
-                                    key={`${row.draft_id}:${seg.segment_index}`}
-                                    className="grid gap-2 rounded-lg border p-2 sm:grid-cols-[5rem_1fr_1fr]"
-                                  >
-                                    <div className="text-xs text-muted-foreground">{seg.label}</div>
+                          {row.set_type === "drop" ? (
+                            <div className="order-2 col-span-3 grid gap-2">
+                              {(row.segments || []).map((seg) => (
+                                <div
+                                  key={`${row.draft_id}:${seg.segment_index}`}
+                                  className="grid grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,1fr)] items-end gap-2 rounded-xl border bg-background/30 p-2"
+                                >
+                                  <div className="pb-2 text-xs text-muted-foreground">{seg.label}</div>
 
-                                    <label className="text-xs">
-                                      <div className="text-muted-foreground">Weight</div>
-                                      <input
-                                        className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                                        inputMode="decimal"
-                                        value={seg.weight}
-                                        disabled={row.done}
-                                        readOnly={row.done}
-                                        onFocus={selectNumberInputValue}
-                                        onClick={selectNumberInputValue}
-                                        onChange={(e) =>
-                                          updateDraftSegment(row.draft_id, seg.segment_index, { weight: e.currentTarget.value })
-                                        }
-                                      />
-                                    </label>
+                                  <label className="text-xs">
+                                    <div className="text-muted-foreground">Weight</div>
+                                    <input
+                                      className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
+                                      inputMode="decimal"
+                                      value={seg.weight}
+                                      disabled={row.done}
+                                      readOnly={row.done}
+                                      onFocus={selectNumberInputValue}
+                                      onClick={selectNumberInputValue}
+                                      onChange={(e) =>
+                                        updateDraftSegment(row.draft_id, seg.segment_index, { weight: e.currentTarget.value })
+                                      }
+                                    />
+                                  </label>
 
-                                    <label className="text-xs">
-                                      <div className="text-muted-foreground">Reps</div>
-                                      <input
-                                        className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                                        inputMode="numeric"
-                                        value={seg.reps}
-                                        disabled={row.done}
-                                        readOnly={row.done}
-                                        onFocus={selectNumberInputValue}
-                                        onClick={selectNumberInputValue}
-                                        onChange={(e) =>
-                                          updateDraftSegment(row.draft_id, seg.segment_index, { reps: e.currentTarget.value })
-                                        }
-                                      />
-                                    </label>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
+                                  <label className="text-xs">
+                                    <div className="text-muted-foreground">Reps</div>
+                                    <input
+                                      className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
+                                      inputMode="numeric"
+                                      value={seg.reps}
+                                      disabled={row.done}
+                                      readOnly={row.done}
+                                      onFocus={selectNumberInputValue}
+                                      onClick={selectNumberInputValue}
+                                      onChange={(e) =>
+                                        updateDraftSegment(row.draft_id, seg.segment_index, { reps: e.currentTarget.value })
+                                      }
+                                    />
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
                               <>
                                 <label className="order-2 text-xs">
                                   <div className="text-muted-foreground">Weight</div>
