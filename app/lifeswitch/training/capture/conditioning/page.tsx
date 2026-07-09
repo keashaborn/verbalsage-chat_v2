@@ -57,6 +57,18 @@ function safeNum(x: any, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+const CONDITIONING_CAPTURE_DRAFT_KEY = "lifeswitch:training:conditioning_capture_draft:v1";
+
+type ConditioningCaptureDraft = {
+  day: string;
+  selectedId: string;
+  durationMin: string;
+  intensity: string;
+  distance: string;
+  heartRateAvg: string;
+  notes: string;
+};
+
 export default function ConditioningCapturePage() {
 
   const [day, setDay] = React.useState(todayLocalYYYYMMDD());
@@ -66,17 +78,78 @@ export default function ConditioningCapturePage() {
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [status, setStatus] = React.useState("");
+  const [restoredDraft, setRestoredDraft] = React.useState(false);
 
   const [durationMin, setDurationMin] = React.useState("");
   const [intensity, setIntensity] = React.useState("");
   const [distance, setDistance] = React.useState("");
   const [heartRateAvg, setHeartRateAvg] = React.useState("");
-  const [recoveryImpact, setRecoveryImpact] = React.useState("");
   const [notes, setNotes] = React.useState("");
 
   const selected = React.useMemo(() => {
     return prescriptions.find((p) => p.my_conditioning_prescription_id === selectedId) || null;
   }, [prescriptions, selectedId]);
+
+  function clearConditioningDraftStorage() {
+    try {
+      window.localStorage.removeItem(CONDITIONING_CAPTURE_DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+  }
+
+  React.useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(CONDITIONING_CAPTURE_DRAFT_KEY);
+      if (!raw) return;
+
+      const draft = JSON.parse(raw) as Partial<ConditioningCaptureDraft>;
+      if (!draft || typeof draft !== "object") return;
+
+      if (draft.day) setDay(String(draft.day));
+      if (draft.selectedId) setSelectedId(String(draft.selectedId));
+      setDurationMin(String(draft.durationMin || ""));
+      setIntensity(String(draft.intensity || ""));
+      setDistance(String(draft.distance || ""));
+      setHeartRateAvg(String(draft.heartRateAvg || ""));
+      setNotes(String(draft.notes || ""));
+      setRestoredDraft(true);
+      setStatus("Restored unfinished conditioning draft");
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  React.useEffect(() => {
+    try {
+      const hasDraft =
+        !!selectedId ||
+        !!durationMin.trim() ||
+        !!intensity.trim() ||
+        !!distance.trim() ||
+        !!heartRateAvg.trim() ||
+        !!notes.trim();
+
+      if (!hasDraft) {
+        window.localStorage.removeItem(CONDITIONING_CAPTURE_DRAFT_KEY);
+        return;
+      }
+
+      const draft: ConditioningCaptureDraft = {
+        day,
+        selectedId,
+        durationMin,
+        intensity,
+        distance,
+        heartRateAvg,
+        notes,
+      };
+
+      window.localStorage.setItem(CONDITIONING_CAPTURE_DRAFT_KEY, JSON.stringify(draft));
+    } catch {
+      // ignore
+    }
+  }, [day, selectedId, durationMin, intensity, distance, heartRateAvg, notes]);
 
 
 
@@ -104,13 +177,26 @@ export default function ConditioningCapturePage() {
 
   React.useEffect(() => {
     if (!selected) return;
+    if (restoredDraft) return;
+
     setDurationMin(String(selected.target_duration_min || ""));
     setIntensity(selected.target_intensity || "");
     setDistance("");
     setHeartRateAvg("");
-    setRecoveryImpact("");
     setNotes(selected.notes || "");
-  }, [selected]);
+  }, [selected, restoredDraft]);
+
+  function discardConditioningDraft() {
+    clearConditioningDraftStorage();
+    setSelectedId("");
+    setDurationMin("");
+    setIntensity("");
+    setDistance("");
+    setHeartRateAvg("");
+    setNotes("");
+    setRestoredDraft(false);
+    setStatus("Discarded conditioning draft");
+  }
 
   async function saveSession() {
     if (!selected) return;
@@ -135,13 +221,21 @@ export default function ConditioningCapturePage() {
       qs.set("intensity", intensity || "");
       qs.set("distance", distance || "");
       if (heartRateAvg.trim()) qs.set("heart_rate_avg", String(safeNum(heartRateAvg, 0)));
-      qs.set("recovery_impact", recoveryImpact || "");
+      qs.set("recovery_impact", "");
       qs.set("notes", notes || "");
 
       await fetchJson(`/api/lifeswitch/training/conditioning_sessions/create?${qs.toString()}`, {
         method: "POST",
       });
 
+      clearConditioningDraftStorage();
+      setSelectedId("");
+      setDurationMin("");
+      setIntensity("");
+      setDistance("");
+      setHeartRateAvg("");
+      setNotes("");
+      setRestoredDraft(false);
       setStatus(`Saved ${selected.name}.`);
     } catch (e: any) {
       setStatus(`Save failed: ${String(e?.message || e)}`);
@@ -196,7 +290,10 @@ export default function ConditioningCapturePage() {
           <select
             className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm"
             value={selectedId}
-            onChange={(e) => setSelectedId(e.target.value)}
+            onChange={(e) => {
+              setRestoredDraft(false);
+              setSelectedId(e.target.value);
+            }}
           >
             <option value="">Select conditioning</option>
             {prescriptions.map((p) => (
@@ -268,16 +365,6 @@ export default function ConditioningCapturePage() {
               </div>
 
               <label className="text-xs">
-                <div className="text-muted-foreground">Recovery impact</div>
-                <input
-                  className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  value={recoveryImpact}
-                  onChange={(e) => setRecoveryImpact(e.currentTarget.value)}
-                  placeholder="normal, easy, fatiguing, irritated calf..."
-                />
-              </label>
-
-              <label className="text-xs">
                 <div className="text-muted-foreground">Notes</div>
                 <textarea
                   className="mt-1 min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm"
@@ -287,7 +374,16 @@ export default function ConditioningCapturePage() {
                 />
               </label>
 
-              <div className="flex justify-end">
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  className="rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                  onClick={discardConditioningDraft}
+                  disabled={saving}
+                >
+                  Discard draft
+                </button>
+
                 <button
                   type="button"
                   className="rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
