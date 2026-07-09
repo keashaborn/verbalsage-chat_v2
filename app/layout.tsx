@@ -26,8 +26,8 @@ export const metadata: Metadata = {
   title: "LifeSwitch",
   description: "LifeSwitch health, training, nutrition, and measurement tracking.",
   icons: {
-    icon: [{ url: "/brand/lifeswitch/favicon-polished-v2.ico", sizes: "any" }],
-    apple: [{ url: "/brand/lifeswitch/app-icon-polished-180-v2.png", sizes: "180x180", type: "image/png" }],
+    icon: [{ url: "/brand/lifeswitch/favicon-favorite-v4.ico", sizes: "any" }],
+    apple: [{ url: "/brand/lifeswitch/app-icon-favorite-180-v4.png", sizes: "180x180", type: "image/png" }],
   },
 };
 

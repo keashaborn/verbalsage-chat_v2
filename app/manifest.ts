@@ -9,10 +9,10 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#111113",
     theme_color: "#111113",
     icons: [
-      { src: "/brand/lifeswitch/app-icon-polished-192-v2.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
-      { src: "/brand/lifeswitch/app-icon-polished-512-v2.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-      { src: "/brand/lifeswitch/app-icon-polished-192-v2.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/brand/lifeswitch/app-icon-polished-512-v2.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/brand/lifeswitch/app-icon-favorite-192-v4.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: "/brand/lifeswitch/app-icon-favorite-512-v4.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/brand/lifeswitch/app-icon-favorite-192-v4.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/brand/lifeswitch/app-icon-favorite-512-v4.png", sizes: "512x512", type: "image/png", purpose: "any" },
     ],
   };
 }
