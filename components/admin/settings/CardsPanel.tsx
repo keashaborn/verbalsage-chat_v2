@@ -53,11 +53,30 @@ function countWhere(items: any[], fn: (it: any) => boolean): number {
   return items.reduce((n, it) => n + (fn(it) ? 1 : 0), 0);
 }
 
+function cardPayload(it: any): Record<string, any> {
+  const payload = it?.payload;
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) return payload;
+  return {};
+}
+
+function cardMeta(it: any, key: string, fallback = ""): string {
+  const payload = cardPayload(it);
+  return asText(it?.[key] ?? payload[key], fallback);
+}
+
+function isDurablePersonalCard(it: any): boolean {
+  const status = asText(it.status, "unknown");
+  const reviewStatus = cardMeta(it, "review_status").toLowerCase();
+
+  return status === "active" && reviewStatus === "approved";
+}
+
 function groupLabel(it: any): string {
   const status = asText(it.status, "unknown");
   const scope = asText(it.use_scope, "unscoped");
+  if (isDurablePersonalCard(it)) return "Durable Personal Cards";
   if (status !== "active") return "Retired / Suppressed";
-  if (scope === "CONTENT_OK") return "Content Cards";
+  if (scope === "CONTENT_OK") return "Content Profile Cards";
   if (scope === "STYLE_ONLY") return "Style / Preference Cards";
   if (scope === "NEVER_SURFACE") return "Never-Surface Cards";
   return "Other Cards";
@@ -65,7 +84,8 @@ function groupLabel(it: any): string {
 
 function groupOrder(label: string): number {
   const order: Record<string, number> = {
-    "Content Cards": 10,
+    "Durable Personal Cards": 0,
+    "Content Profile Cards": 10,
     "Style / Preference Cards": 20,
     "Never-Surface Cards": 30,
     "Retired / Suppressed": 40,
