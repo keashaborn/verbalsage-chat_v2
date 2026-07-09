@@ -6,7 +6,6 @@ import { Send, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/authFetch";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
-import { FractalMark } from "@/components/brand/FractalMark";
 
 type LifeSwitchDomain = "plan" | "nutrition" | "training" | "measurements" | "unknown";
 type LifeSwitchMode =
@@ -609,11 +608,16 @@ export function LifeSwitchHelper() {
       ) : (
         <Button
           type="button"
-          className="h-12 w-12 overflow-hidden rounded-full bg-background p-0 shadow-lg hover:bg-muted/60"
+            className="h-12 w-12 overflow-hidden rounded-full border bg-background p-1.5 shadow-lg hover:bg-muted/60"
           aria-label="Open LifeSwitch helper"
           onClick={() => setOpen(true)}
         >
-          <FractalMark className="h-22 w-22 text-neutral-700 dark:text-neutral-100" />
+          <img
+              src="/brand/lifeswitch/symbol-light-128.png"
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-contain"
+            />
         </Button>
       )}
     </div>
