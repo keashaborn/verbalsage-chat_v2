@@ -68,13 +68,22 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
     <Sidebar {...props}>
       <SidebarHeader className="aui-sidebar-header mb-2 border-b">
         <div className="flex items-center gap-3 px-2 py-2">
-          <div className="flex aspect-square size-10 items-center justify-center rounded-lg overflow-hidden">
+          <div className="flex aspect-square size-10 items-center justify-center overflow-hidden rounded-lg">
             <Image
-              src="/brand/vs-icon.svg"
+              src="/brand/lifeswitch/symbol-dark-64.png"
               alt="LifeSwitch"
               width={28}
               height={28}
               priority
+              className="dark:hidden"
+            />
+            <Image
+              src="/brand/lifeswitch/symbol-light-64.png"
+              alt="LifeSwitch"
+              width={28}
+              height={28}
+              priority
+              className="hidden dark:block"
             />
           </div>
 

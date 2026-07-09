@@ -72,15 +72,27 @@ async function fetchOk(url: string, init: RequestInit, ms: number): Promise<bool
 }
 
 
+function normalizeThemeValue(raw: any): string {
+  let v = String(raw || "").trim();
+
+  // tolerate old JSON-encoded localStorage values, e.g. "\"graphite\""
+  if (v.startsWith("\"")) {
+    try {
+      v = JSON.parse(v);
+    } catch {
+      // ignore
+    }
+  }
+
+  return ["paper", "light", "dark", "graphite", "carbon", "dark-hc"].includes(v) ? v : "";
+}
+
 function applyThemeFromMetadata(md: any) {
-  const rawTheme = String(md?.vs_theme || "").trim();
-  const t = ["paper", "light", "dark", "graphite", "carbon", "dark-hc"].includes(rawTheme)
-    ? rawTheme
-    : "graphite";
+  const localTheme = normalizeThemeValue(lsGet("vs_theme"));
+  const cloudTheme = normalizeThemeValue(md?.vs_theme);
+  const t = localTheme || cloudTheme || "graphite";
 
-  if (!t) return;
-
-  lsSet("vs_theme", JSON.stringify(t));
+  lsSet("vs_theme", t);
 
   try {
     document.documentElement.classList.toggle("dark", t === "dark" || t === "dark-hc" || t === "graphite" || t === "carbon");
