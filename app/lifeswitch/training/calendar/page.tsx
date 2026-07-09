@@ -2,7 +2,6 @@
 
 import { authFetch } from "@/lib/authFetch";
 import Link from "next/link";
-import ConditioningLogSection from "@/components/lifeswitch/training/ConditioningLogSection";
 import * as React from "react";
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 
@@ -43,11 +42,16 @@ type ConditioningSessionRow = {
   prescription_name?: string | null;
 };
 
+type TrainingLogEvent =
+  | { kind: "strength"; id: string; day: string; created_at: string; row: TrainingSessionRow }
+  | { kind: "conditioning"; id: string; day: string; created_at: string; row: ConditioningSessionRow };
+
 type MonthSection = {
   ym: string;
   label: string;
   sessions: TrainingSessionRow[];
   conditioningSessions: ConditioningSessionRow[];
+  events: TrainingLogEvent[];
   workoutDates: Set<string>;
   conditioningDates: Set<string>;
   workouts: number;
@@ -337,11 +341,33 @@ export default function TrainingCalendarPage() {
       const sets = ss.reduce((acc, x) => acc + safeNum(x.set_count, 0), 0);
       const conditioningMinutes = cc.reduce((acc, x) => acc + safeNum(x.duration_min, 0), 0);
 
+      const events: TrainingLogEvent[] = [
+        ...ss.map((row) => ({
+          kind: "strength" as const,
+          id: row.training_session_id,
+          day: String(row.day || ""),
+          created_at: String(row.created_at || ""),
+          row,
+        })),
+        ...cc.map((row) => ({
+          kind: "conditioning" as const,
+          id: row.conditioning_session_log_id,
+          day: String(row.day || ""),
+          created_at: String(row.created_at || ""),
+          row,
+        })),
+      ].sort((a, b) => {
+        const d = String(b.day || "").localeCompare(String(a.day || ""));
+        if (d !== 0) return d;
+        return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+      });
+
       out.push({
         ym,
         label: monthLabel(ym),
         sessions: ss,
         conditioningSessions: cc,
+        events,
         workoutDates,
         conditioningDates,
         workouts: ss.length,
@@ -384,9 +410,6 @@ export default function TrainingCalendarPage() {
 
       <div className="mt-4 rounded-xl border bg-muted/10 p-3 text-xs text-muted-foreground">
         <div className="font-medium text-foreground">Training days</div>
-        <div className="mt-1">
-          Strength and conditioning are tracked separately. A green day means both were logged.
-        </div>
         <div className="mt-2 flex flex-wrap gap-3">
           <span className="inline-flex items-center gap-1">
             <span className="h-3 w-3 rounded-full border border-blue-500/80 bg-blue-500/10" />
@@ -456,71 +479,111 @@ export default function TrainingCalendarPage() {
               </div>
 
               <div className="mt-6 space-y-3">
-                {m.sessions.map((s) => (
-                  <Link
-                    key={s.training_session_id}
-                    href={`/lifeswitch/training/session?session_id=${encodeURIComponent(s.training_session_id)}${targetUserId ? `&target_user_id=${encodeURIComponent(targetUserId)}&target_name=${encodeURIComponent(targetName)}` : ""}`}
-                    className="block rounded-xl border p-4 hover:bg-muted/30"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold">{s.name}</div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {s.day} · {safeNum(s.exercise_count, 0)} exercises · {safeNum(s.set_count, 0)} sets · volume{" "}
-                          {formatK(safeNum(s.volume, 0))}
-                        </div>
-                        {s.notes ? <div className="mt-2 text-xs text-muted-foreground">{s.notes}</div> : null}
-                      </div>
+                {m.events.map((event) => {
+                  if (event.kind === "strength") {
+                    const s = event.row;
 
-                      <div className="flex shrink-0 flex-col items-end gap-2 text-xs">
-                        <span className="text-muted-foreground">View</span>
-                        {!readOnly ? (
-                          <>
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/30"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setOpenSessionActionsId((prev) =>
-                                  prev === s.training_session_id ? "" : s.training_session_id
-                                );
-                              }}
-                              aria-expanded={openSessionActionsId === s.training_session_id}
-                            >
-                              Actions
-                              {openSessionActionsId === s.training_session_id ? (
-                                <ChevronUp className="h-3 w-3" />
-                              ) : (
-                                <ChevronDown className="h-3 w-3" />
-                              )}
-                            </button>
+                    return (
+                      <Link
+                        key={`strength:${s.training_session_id}`}
+                        href={`/lifeswitch/training/session?session_id=${encodeURIComponent(s.training_session_id)}${targetUserId ? `&target_user_id=${encodeURIComponent(targetUserId)}&target_name=${encodeURIComponent(targetName)}` : ""}`}
+                        className="block rounded-xl border p-4 hover:bg-muted/30"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="truncate text-sm font-semibold">{s.name}</div>
+                              <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-blue-400">
+                                Strength
+                              </span>
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {s.day} · {safeNum(s.exercise_count, 0)} exercises · {safeNum(s.set_count, 0)} sets · volume{" "}
+                              {formatK(safeNum(s.volume, 0))}
+                            </div>
+                            {s.notes ? <div className="mt-2 text-xs text-muted-foreground">{s.notes}</div> : null}
+                          </div>
 
-                            {openSessionActionsId === s.training_session_id ? (
-                              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                                <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
-                                  Danger zone
-                                </div>
+                          <div className="flex shrink-0 flex-col items-end gap-2 text-xs">
+                            <span className="text-muted-foreground">View</span>
+                            {!readOnly ? (
+                              <>
                                 <button
                                   type="button"
-                                  className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-[11px] text-red-600 hover:bg-red-500/10"
+                                  className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/30"
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    void deleteSession(s.training_session_id, s.name);
+                                    setOpenSessionActionsId((prev) =>
+                                      prev === s.training_session_id ? "" : s.training_session_id
+                                    );
                                   }}
+                                  aria-expanded={openSessionActionsId === s.training_session_id}
                                 >
-                                  <Trash2 className="h-3 w-3" />
-                                  Delete session
+                                  Actions
+                                  {openSessionActionsId === s.training_session_id ? (
+                                    <ChevronUp className="h-3 w-3" />
+                                  ) : (
+                                    <ChevronDown className="h-3 w-3" />
+                                  )}
                                 </button>
-                              </div>
+
+                                {openSessionActionsId === s.training_session_id ? (
+                                  <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                                    <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                                      Danger zone
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-[11px] text-red-600 hover:bg-red-500/10"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        void deleteSession(s.training_session_id, s.name);
+                                      }}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                      Delete session
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </>
                             ) : null}
-                          </>
-                        ) : null}
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  }
+
+                  const c = event.row;
+                  const detailParts = [
+                    c.day,
+                    safeNum(c.duration_min, 0) ? `${safeNum(c.duration_min, 0)} min` : null,
+                    c.distance || null,
+                    c.intensity || null,
+                  ].filter(Boolean);
+
+                  return (
+                    <div key={`conditioning:${c.conditioning_session_log_id}`} className="rounded-xl border p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="truncate text-sm font-semibold">{c.name}</div>
+                            <span className="rounded-full border border-yellow-400/30 bg-yellow-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-yellow-300">
+                              Conditioning
+                            </span>
+                          </div>
+
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {detailParts.join(" · ")}
+                          </div>
+
+                          {c.notes ? <div className="mt-2 text-xs text-muted-foreground">{c.notes}</div> : null}
+                        </div>
                       </div>
                     </div>
-                  </Link>
-                ))}
+                  );
+                })}
               </div>
             </section>
           ))
@@ -530,8 +593,6 @@ export default function TrainingCalendarPage() {
           </div>
         )}
       </div>
-
-        <ConditioningLogSection targetUserId={targetUserId} readOnly={readOnly} />
     </div>
   );
 }
