@@ -446,22 +446,80 @@ export default function TrainingCapturePage() {
       const plannedSets = Math.max(0, Math.floor(safeNum(ex.planned_sets, 0)));
       const setType = String(ex.set_type || "straight").toLowerCase();
       const previousRows = lastRowsByExercise.get(ex.exercise_id) || [];
+      let nextSetIndex = 1;
 
       if (previousRows.length) {
         usedLastSession = true;
+
         for (const prev of previousRows) {
+          if (String(prev.set_type || "").toLowerCase() === "drop" && (prev.segments || []).length) {
+            for (const seg of prev.segments || []) {
+              out.push({
+                draft_id: makeDraftId(prev.exercise_id, nextSetIndex),
+                exercise_id: prev.exercise_id,
+                exercise_name: exerciseName,
+                exercise_sort_order: safeNum(ex.sort_order, prev.exercise_sort_order),
+                set_index: nextSetIndex,
+                set_type: "straight",
+                segments: undefined,
+                weight: String(safeNum(seg.weight, 0)),
+                reps: String(safeNum(seg.reps, 0)),
+                flags: [prev.flags, seg.label].filter(Boolean).join(" · "),
+                done: false,
+              });
+              nextSetIndex += 1;
+            }
+            continue;
+          }
+
           out.push({
             ...prev,
-            draft_id: makeDraftId(prev.exercise_id, prev.set_index),
+            draft_id: makeDraftId(prev.exercise_id, nextSetIndex),
             exercise_name: exerciseName,
             exercise_sort_order: safeNum(ex.sort_order, prev.exercise_sort_order),
+            set_index: nextSetIndex,
+            set_type: "straight",
+            segments: undefined,
             done: false,
           });
+          nextSetIndex += 1;
         }
         continue;
       }
 
-      const templateSegments = setType === "drop" ? await loadTemplateExerciseSegments(ex.workout_template_exercise_id) : [];
+      if (setType === "drop") {
+        const templateSegments = await loadTemplateExerciseSegments(ex.workout_template_exercise_id);
+        const segments = templateSegments.length
+          ? templateSegments
+          : [{
+              segment_index: 1,
+              label: "Start",
+              weight: String(safeNum(ex.default_weight, 0)),
+              reps: String(safeNum(ex.default_reps, 0)),
+              notes: "",
+            }];
+
+        for (let i = 1; i <= plannedSets; i++) {
+          for (const seg of segments) {
+            out.push({
+              draft_id: makeDraftId(ex.exercise_id, nextSetIndex),
+              exercise_id: ex.exercise_id,
+              exercise_name: exerciseName,
+              exercise_sort_order: safeNum(ex.sort_order, 0),
+              set_index: nextSetIndex,
+              set_type: "straight",
+              segments: undefined,
+              weight: String(safeNum(seg.weight, 0)),
+              reps: String(safeNum(seg.reps, 0)),
+              flags: [ex.flags, seg.label].filter(Boolean).join(" · "),
+              done: false,
+            });
+            nextSetIndex += 1;
+          }
+        }
+
+        continue;
+      }
 
       for (let i = 1; i <= plannedSets; i++) {
         out.push({
@@ -470,8 +528,8 @@ export default function TrainingCapturePage() {
           exercise_name: exerciseName,
           exercise_sort_order: safeNum(ex.sort_order, 0),
           set_index: i,
-          set_type: setType,
-          segments: setType === "drop" ? templateSegments.map((seg) => ({ ...seg })) : undefined,
+          set_type: "straight",
+          segments: undefined,
           weight: String(safeNum(ex.default_weight, 0)),
           reps: String(safeNum(ex.default_reps, 0)),
           flags: ex.flags || "",
