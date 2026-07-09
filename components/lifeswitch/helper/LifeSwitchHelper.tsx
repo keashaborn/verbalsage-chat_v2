@@ -608,16 +608,24 @@ export function LifeSwitchHelper() {
       ) : (
         <Button
           type="button"
-            className="h-12 w-12 overflow-hidden rounded-full border bg-background p-1.5 shadow-lg hover:bg-muted/60"
+          className="h-12 w-12 overflow-hidden rounded-full border bg-background p-1.5 shadow-lg hover:bg-muted/60"
           aria-label="Open LifeSwitch helper"
           onClick={() => setOpen(true)}
         >
-          <img
-              src="/brand/lifeswitch/symbol-light-128.png"
-              alt=""
-              aria-hidden="true"
-              className="h-full w-full object-contain"
-            />
+            <>
+              <img
+                src="/brand/lifeswitch/symbol-dark-64.png"
+                alt=""
+                aria-hidden="true"
+                className="h-full w-full object-contain dark:hidden"
+              />
+              <img
+                src="/brand/lifeswitch/symbol-light-128.png"
+                alt=""
+                aria-hidden="true"
+                className="hidden h-full w-full object-contain dark:block"
+              />
+            </>
         </Button>
       )}
     </div>
