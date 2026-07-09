@@ -179,7 +179,7 @@ export default function ConditioningCapturePage() {
 
       {status ? <div className="mt-3 text-sm text-muted-foreground">{status}</div> : null}
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-[20rem_1fr]">
+      <div className="mt-6 grid gap-4">
         <aside className="rounded-xl border p-4">
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-semibold">Conditioning prescription</div>
@@ -214,31 +214,15 @@ export default function ConditioningCapturePage() {
         </aside>
 
         <main className={selected ? "rounded-xl border p-4" : "hidden"}>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold">Conditioning session</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Duration is required. Other fields are optional.
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-              onClick={() => void saveSession()}
-              disabled={!selected || saving}
-            >
-              {saving ? "Saving..." : "Save conditioning session"}
-            </button>
-          </div>
+          <div className="text-sm font-semibold">Conditioning session</div>
 
           {selected ? (
-            <div className="mt-4 grid gap-3">
+            <div className="mt-4 grid gap-3 rounded-xl border border-blue-500/40 bg-blue-500/10 p-3">
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="text-xs">
                   <div className="text-muted-foreground">Duration min</div>
                   <input
-                    className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
                     type="number"
                     step="1"
                     value={durationMin}
@@ -251,7 +235,7 @@ export default function ConditioningCapturePage() {
                 <label className="text-xs">
                   <div className="text-muted-foreground">Intensity</div>
                   <input
-                    className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
                     value={intensity}
                     onChange={(e) => setIntensity(e.currentTarget.value)}
                     placeholder="easy, moderate, hard, RPE..."
@@ -261,7 +245,7 @@ export default function ConditioningCapturePage() {
                 <label className="text-xs">
                   <div className="text-muted-foreground">Distance / dose</div>
                   <input
-                    className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
                     value={distance}
                     onChange={(e) => setDistance(e.currentTarget.value)}
                     placeholder="4 laps, 1 mile, 3 rounds..."
@@ -271,7 +255,7 @@ export default function ConditioningCapturePage() {
                 <label className="text-xs">
                   <div className="text-muted-foreground">Avg heart rate optional</div>
                   <input
-                    className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
                     type="number"
                     step="1"
                     value={heartRateAvg}
@@ -286,7 +270,7 @@ export default function ConditioningCapturePage() {
               <label className="text-xs">
                 <div className="text-muted-foreground">Recovery impact</div>
                 <input
-                  className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
                   value={recoveryImpact}
                   onChange={(e) => setRecoveryImpact(e.currentTarget.value)}
                   placeholder="normal, easy, fatiguing, irritated calf..."
@@ -296,12 +280,23 @@ export default function ConditioningCapturePage() {
               <label className="text-xs">
                 <div className="text-muted-foreground">Notes</div>
                 <textarea
-                  className="mt-1 min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                  className="mt-1 min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm"
                   value={notes}
                   onChange={(e) => setNotes(e.currentTarget.value)}
                   placeholder="load, incline, speed, rounds, constraints..."
                 />
               </label>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                  onClick={() => void saveSession()}
+                  disabled={!selected || saving}
+                >
+                  {saving ? "Saving..." : "Save session"}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="mt-4 rounded-xl border p-4 text-sm text-muted-foreground">
