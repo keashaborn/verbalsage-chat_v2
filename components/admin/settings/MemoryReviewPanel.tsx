@@ -55,9 +55,25 @@ function shortTopic(topicKey: any): string {
 
 function actionClass(action: string) {
   if (action === "create_new_card") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+  if (action === "duplicate_or_subsumed") return "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300";
+  if (action === "split_or_skip") return "border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300";
+  if (action === "candidate_needs_rewrite") return "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300";
+  if (action === "distinct_life_context_candidate") return "border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300";
   if (action === "needs_manual_review") return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300";
-  if (action === "skip_duplicate") return "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300";
   return "border-muted bg-muted/30 text-muted-foreground";
+}
+
+function isReviewNeededAction(action: string): boolean {
+  return new Set([
+    "needs_manual_review",
+    "split_or_skip",
+    "candidate_needs_rewrite",
+    "distinct_life_context_candidate",
+  ]).has(action);
+}
+
+function formatActionLabel(action: string): string {
+  return action.replace(/_/g, " ");
 }
 
 function comparisonClass(status: string) {
@@ -78,25 +94,33 @@ function compactSummary(text: any, limit = 260): string {
 }
 
 function formatActionCounts(counts: Record<string, number> | undefined, rows: ReviewPlanRow[]): string {
-  const create = counts?.create_new_card ?? countRows(rows, "create_new_card");
-  const manual = counts?.needs_manual_review ?? countRows(rows, "needs_manual_review");
-  const duplicate = counts?.skip_duplicate ?? countRows(rows, "skip_duplicate");
-  return `create_new_card=${create}, needs_manual_review=${manual}, skip_duplicate=${duplicate}`;
+  const source = counts && Object.keys(counts).length
+    ? counts
+    : rows.reduce<Record<string, number>>((acc, row) => {
+      const action = asText(row.action, "unknown");
+      acc[action] = (acc[action] || 0) + 1;
+      return acc;
+    }, {});
+
+  return Object.entries(source)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([action, count]) => `${action}=${count}`)
+    .join(", ");
 }
 
 function buildReviewDigest(data: ReviewPlanResponse | null, opts?: { manualOnly?: boolean }): string {
   const allRows = Array.isArray(data?.plan_rows) ? data!.plan_rows! : [];
-  const rows = opts?.manualOnly ? allRows.filter((r) => r.action === "needs_manual_review") : allRows;
+  const rows = opts?.manualOnly ? allRows.filter((r) => isReviewNeededAction(asText(r.action, "unknown"))) : allRows;
   const lines: string[] = [];
 
-  lines.push(opts?.manualOnly ? "Memory Review Digest - Manual Review Only" : "Memory Review Digest");
+  lines.push(opts?.manualOnly ? "Memory Review Digest - Review Needed Only" : "Memory Review Digest");
   lines.push(`schema: ${asText(data?.schema, "unknown")}`);
   lines.push(`mode: ${asText(data?.mode, "unknown")}`);
   lines.push(`source: ${asText(data?.source, "unknown")}`);
   lines.push(`read_only: ${data?.read_only === true ? "true" : "false"}`);
   lines.push(`rows: ${opts?.manualOnly ? rows.length : data?.plan_row_count ?? rows.length}`);
   lines.push(`action_counts: ${formatActionCounts(data?.action_counts, allRows)}`);
-  if (opts?.manualOnly) lines.push(`filtered_to: needs_manual_review`);
+  if (opts?.manualOnly) lines.push(`filtered_to: review_needed_actions`);
   lines.push(`points_scanned: ${data?.points_scanned ?? "unknown"}`);
   lines.push(`raw_candidates: ${data?.raw_candidate_count ?? "unknown"}`);
   lines.push(`merged_candidates: ${data?.merged_card_candidate_count ?? "unknown"}`);
@@ -189,14 +213,17 @@ export function MemoryReviewPanel() {
   }
 
   const rows = Array.isArray(data?.plan_rows) ? data!.plan_rows! : [];
-  const visibleRows = manualOnly ? rows.filter((r) => r.action === "needs_manual_review") : rows;
+  const visibleRows = manualOnly ? rows.filter((r) => isReviewNeededAction(asText(r.action, "unknown"))) : rows;
   const actionCounts = data?.action_counts || {};
 
   const stats = {
     total: data?.plan_row_count ?? rows.length,
     create: actionCounts.create_new_card ?? countRows(rows, "create_new_card"),
-    manual: actionCounts.needs_manual_review ?? countRows(rows, "needs_manual_review"),
-    duplicate: actionCounts.skip_duplicate ?? countRows(rows, "skip_duplicate"),
+    reviewNeeded: rows.filter((r) => isReviewNeededAction(asText(r.action, "unknown"))).length,
+    duplicate: actionCounts.duplicate_or_subsumed ?? countRows(rows, "duplicate_or_subsumed"),
+    splitOrSkip: actionCounts.split_or_skip ?? countRows(rows, "split_or_skip"),
+    rewrite: actionCounts.candidate_needs_rewrite ?? countRows(rows, "candidate_needs_rewrite"),
+    distinctLife: actionCounts.distinct_life_context_candidate ?? countRows(rows, "distinct_life_context_candidate"),
   };
 
   return (
@@ -286,11 +313,11 @@ export function MemoryReviewPanel() {
                 <div className="mt-1 text-lg font-semibold">{stats.create}</div>
               </div>
               <div className="rounded-xl border p-3">
-                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Manual Review</div>
-                <div className="mt-1 text-lg font-semibold">{stats.manual}</div>
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Review Needed</div>
+                <div className="mt-1 text-lg font-semibold">{stats.reviewNeeded}</div>
               </div>
               <div className="rounded-xl border p-3">
-                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Duplicates</div>
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Duplicate/Subsumed</div>
                 <div className="mt-1 text-lg font-semibold">{stats.duplicate}</div>
               </div>
             </div>
@@ -321,7 +348,7 @@ export function MemoryReviewPanel() {
                   checked={manualOnly}
                   onChange={(e) => setManualOnly(e.target.checked)}
                 />
-                Show manual-review rows only
+                Show review-needed rows only
               </label>
 
               <div className="text-xs text-muted-foreground">
@@ -352,7 +379,7 @@ export function MemoryReviewPanel() {
                         </div>
 
                         <div className="flex shrink-0 flex-wrap justify-end gap-1 text-[10px] uppercase tracking-wide">
-                          <span className={`rounded-full border px-2 py-0.5 ${actionClass(action)}`}>{action}</span>
+                          <span className={`rounded-full border px-2 py-0.5 ${actionClass(action)}`}>{formatActionLabel(action)}</span>
                           <span className={`rounded-full border px-2 py-0.5 ${comparisonClass(comparison)}`}>{comparison}</span>
                         </div>
                       </div>
