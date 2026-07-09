@@ -158,12 +158,25 @@ function AccountMenuLink({
   children: React.ReactNode;
   onNavigate: () => void;
 }) {
+  function rememberReturnTarget() {
+    try {
+      const here = window.location.pathname + window.location.search + window.location.hash;
+      if (here && !here.startsWith("/settings") && here !== "/admin") {
+        window.sessionStorage.setItem("vs_settings_return_to", here);
+      }
+    } catch {
+      // ignore
+    }
+
+    onNavigate();
+  }
+
   return (
     <Link
       href={href}
       className="block px-3 py-2 hover:bg-muted/60"
       role="menuitem"
-      onClick={onNavigate}
+      onClick={rememberReturnTarget}
     >
       {children}
     </Link>
