@@ -6,16 +6,13 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "LifeSwitch",
     start_url: "/",
     display: "standalone",
-    background_color: "#000000",
-    theme_color: "#000000",
+    background_color: "#111113",
+    theme_color: "#111113",
     icons: [
-      // Safari/macOS Dock web app prefers maskable when available.
-      { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
-      { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-
-      // Keep "any" as fallback for other UAs.
-      { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/brand/lifeswitch/app-icon-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: "/brand/lifeswitch/app-icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/brand/lifeswitch/app-icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/brand/lifeswitch/app-icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
     ],
   };
 }
