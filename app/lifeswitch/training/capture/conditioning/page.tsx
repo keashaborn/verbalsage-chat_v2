@@ -276,7 +276,7 @@ export default function ConditioningCapturePage() {
       <div className="mt-6 grid gap-4">
         <aside className="rounded-xl border p-4">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold">Conditioning prescription</div>
+            <div className="text-sm font-semibold">Conditioning</div>
             <button
               type="button"
               className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
@@ -305,13 +305,14 @@ export default function ConditioningCapturePage() {
 
           {!selected && prescriptions.length === 0 ? (
             <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
-              Create conditioning prescriptions in Workouts → Conditioning first.
+              No conditioning plans yet.
+              Create one in Workouts.
             </div>
           ) : null}
         </aside>
 
         <main className={selected ? "rounded-xl border p-4" : "hidden"}>
-          <div className="text-sm font-semibold">Conditioning session</div>
+          <div className="text-sm font-semibold">Active conditioning draft</div>
 
           {selected ? (
             <div className="mt-4 grid gap-3 rounded-xl border border-blue-500/40 bg-blue-500/10 p-3">
@@ -349,19 +350,6 @@ export default function ConditioningCapturePage() {
                   />
                 </label>
 
-                <label className="text-xs">
-                  <div className="text-muted-foreground">Avg heart rate optional</div>
-                  <input
-                    className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
-                    type="number"
-                    step="1"
-                    value={heartRateAvg}
-                    onFocus={selectNumberInputValue}
-                    onClick={selectNumberInputValue}
-                    onChange={(e) => setHeartRateAvg(e.currentTarget.value)}
-                    placeholder="blank if not tracked"
-                  />
-                </label>
               </div>
 
               <label className="text-xs">
@@ -390,7 +378,7 @@ export default function ConditioningCapturePage() {
                   onClick={() => void saveSession()}
                   disabled={!selected || saving}
                 >
-                  {saving ? "Saving..." : "Save session"}
+                  {saving ? "Saving..." : "Finish Session"}
                 </button>
               </div>
             </div>
