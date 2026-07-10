@@ -972,14 +972,14 @@ export default function TrainingCapturePage() {
                       <div className="relative">
                         <button
                           type="button"
-                          className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border text-lg hover:bg-muted/30"
                           onClick={() =>
                             setOpenExerciseOptionsId((prev) =>
                               prev === first.exercise_id ? "" : first.exercise_id
                             )
                           }
                         >
-                          Options ▾
+                          + ▾
                         </button>
 
                         {openExerciseOptionsId === first.exercise_id ? (
