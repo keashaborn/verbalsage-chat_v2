@@ -957,19 +957,16 @@ export default function TrainingCapturePage() {
 
                 return (
                   <section key={block.key} className="rounded-xl border p-2">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <div className="text-sm font-semibold">{first.exercise_name}</div>
-
                         </div>
-
                         <div className="mt-1 text-xs text-muted-foreground">
                           {block.rows.filter((r) => r.done).length} completed sets
                         </div>
                       </div>
-
-                      <div className="relative">
+                      <div className="relative shrink-0">
                         <button
                           type="button"
                           className="inline-flex h-8 w-8 items-center justify-center rounded-md border text-lg hover:bg-muted/30"
