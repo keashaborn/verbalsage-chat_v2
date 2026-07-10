@@ -274,7 +274,7 @@ export default function ConditioningCapturePage() {
       {status ? <div className="mt-3 text-sm text-muted-foreground">{status}</div> : null}
 
       <div className="mt-6 grid gap-4">
-        <aside className="rounded-xl border p-4">
+        <aside className={selected ? "hidden" : "rounded-xl border p-4"}>
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-semibold">Conditioning</div>
             <button
@@ -312,7 +312,14 @@ export default function ConditioningCapturePage() {
         </aside>
 
         <main className={selected ? "rounded-xl border p-4" : "hidden"}>
-          <div className="text-sm font-semibold">Active conditioning draft</div>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold">Active conditioning draft</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {selected?.name}
+              </div>
+            </div>
+          </div>
 
           {selected ? (
             <div className="mt-4 grid gap-3 rounded-xl border border-blue-500/40 bg-blue-500/10 p-3">
