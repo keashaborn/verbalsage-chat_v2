@@ -273,18 +273,11 @@ export default function TrainingCapturePage() {
   }, [day, selectedId, draftRows, prefillSource]);
 
   React.useEffect(() => {
-    if (!draftRows.length) return;
-
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [draftRows.length]);
-
-
+    // Draft persistence is handled by localStorage autosave above.
+    // Avoid beforeunload warnings because internal LifeSwitch navigation
+    // (Strength ↔ Conditioning) should not feel like abandoning work.
+    return;
+  }, []);
 
   async function loadTemplates() {
     setLoadingTemplates(true);
