@@ -850,7 +850,7 @@ export default function TrainingCapturePage() {
 
 
 
-  const setupOpen = true;
+  const setupOpen = !draftRows.length;
 
   return (
     <div className="mx-auto max-w-6xl p-4">
@@ -881,7 +881,9 @@ export default function TrainingCapturePage() {
       {status ? <div className="mt-3 text-sm text-red-600">{status}</div> : null}
 
       <div className="mt-6 grid gap-4">
-        <aside className={setupOpen ? "rounded-xl border p-4" : "hidden"}>
+        {setupOpen ? (
+  <aside className="rounded-xl border p-4">
+
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-semibold">Workout template</div>
             <button
@@ -918,7 +920,8 @@ export default function TrainingCapturePage() {
             </div>
           ) : null}
 
-        </aside>
+          </aside>
+        ) : null}
 
         <main className={draftRows.length || loadingTemplateExercises ? "rounded-xl border p-4" : "hidden"}>
           <div className="flex flex-wrap items-center justify-between gap-3">
