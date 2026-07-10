@@ -643,6 +643,31 @@ export default function TrainingCapturePage() {
     setDraftRows((prev) => prev.filter((row) => row.exercise_id !== exerciseId));
     setOpenExerciseOptionsId("");
   }
+  async function saveCatalogExerciseToMyExercises(hit: ExerciseSearchHit) {
+    const qs = new URLSearchParams();
+
+    qs.set("exercise_id", hit.exercise_id);
+    qs.set("display_name", hit.display_name);
+    qs.set("kind", hit.kind || "strength");
+    qs.set("modality", hit.modality || "custom");
+
+    if (hit.brand_name) {
+      qs.set("brand_name", hit.brand_name);
+    }
+
+    if (hit.model_name) {
+      qs.set("model_name", hit.model_name);
+    }
+
+    if (hit.matched_source) {
+      qs.set("matched_source", hit.matched_source);
+    }
+
+    await fetchJson(`/api/lifeswitch/training/my_exercises/upsert?${qs.toString()}`, {
+      method: "POST",
+    });
+  }
+
 
   function addExerciseToDraft(afterExerciseId: string, exercise: MyExerciseRow) {
     setDraftRows((prev) => {
@@ -1026,8 +1051,10 @@ export default function TrainingCapturePage() {
                                               key={hit.exercise_id}
                                               type="button"
                                               className="w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30"
-                                              onClick={() =>
-                                                addExerciseToDraft(first.exercise_id, {
+                                              onClick={async () => {
+                                                await saveCatalogExerciseToMyExercises(hit);
+
+                                                const savedExercise: MyExerciseRow = {
                                                   my_exercise_id: "",
                                                   owner_user_id: "",
                                                   exercise_id: hit.exercise_id,
@@ -1039,8 +1066,10 @@ export default function TrainingCapturePage() {
                                                   is_active: true,
                                                   created_at: "",
                                                   updated_at: "",
-                                                })
-                                              }
+                                                };
+
+                                                addExerciseToDraft(first.exercise_id, savedExercise);
+                                              }}
                                             >
                                               {hit.display_name}
                                             </button>
