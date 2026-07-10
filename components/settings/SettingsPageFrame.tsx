@@ -50,7 +50,7 @@ export function SettingsPageFrame({
           </button>
         </div>
 
-        <div className="rounded-2xl border bg-background p-4 shadow-sm">
+        <div className="rounded-lg border bg-background p-4 shadow-sm">
           {children}
         </div>
       </main>
