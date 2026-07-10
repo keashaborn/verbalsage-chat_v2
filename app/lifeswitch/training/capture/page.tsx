@@ -179,6 +179,7 @@ export default function TrainingCapturePage() {
   const [prefillSource, setPrefillSource] = React.useState("Select a workout template to begin");
   const [restoredLocalDraft, setRestoredLocalDraft] = React.useState(false);
   const [draftSavedAt, setDraftSavedAt] = React.useState("");
+  const [openExerciseOptionsId, setOpenExerciseOptionsId] = React.useState("");
 
   const selected = React.useMemo(() => {
     return templates.find((t) => t.workout_template_id === selectedId) || null;
@@ -591,6 +592,11 @@ export default function TrainingCapturePage() {
     setStatus("");
   }
 
+  function removeExerciseFromDraft(exerciseId: string) {
+    setDraftRows((prev) => prev.filter((row) => row.exercise_id !== exerciseId));
+    setOpenExerciseOptionsId("");
+  }
+
   function addSetAfter(row: DraftSetRow) {
     const sameExercise = draftRows.filter((r) => r.exercise_id === row.exercise_id);
     const nextIndex = sameExercise.length ? Math.max(...sameExercise.map((r) => r.set_index)) + 1 : 1;
@@ -843,8 +849,37 @@ export default function TrainingCapturePage() {
                 return (
                   <section key={block.key} className="rounded-xl border p-2">
                     <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold">{first.exercise_name}</div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-semibold">{first.exercise_name}</div>
+
+                          <div className="relative">
+                            <button
+                              type="button"
+                              className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                              onClick={() =>
+                                setOpenExerciseOptionsId((prev) =>
+                                  prev === first.exercise_id ? "" : first.exercise_id
+                                )
+                              }
+                            >
+                              Options ▾
+                            </button>
+
+                            {openExerciseOptionsId === first.exercise_id ? (
+                              <div className="absolute left-0 z-20 mt-2 w-40 rounded-lg border bg-background p-2 shadow-lg">
+                                <button
+                                  type="button"
+                                  className="w-full rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                                  onClick={() => removeExerciseFromDraft(first.exercise_id)}
+                                >
+                                  Remove Exercise
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+
                         <div className="mt-1 text-xs text-muted-foreground">
                           {block.rows.filter((r) => r.done).length} completed sets
                         </div>
