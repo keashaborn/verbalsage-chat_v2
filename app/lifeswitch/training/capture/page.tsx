@@ -976,7 +976,7 @@ export default function TrainingCapturePage() {
                             )
                           }
                         >
-                          + ▾
+                          + 
                         </button>
 
                         {openExerciseOptionsId === first.exercise_id ? (
