@@ -180,6 +180,8 @@ export default function TrainingCapturePage() {
   const [restoredLocalDraft, setRestoredLocalDraft] = React.useState(false);
   const [draftSavedAt, setDraftSavedAt] = React.useState("");
   const [openExerciseOptionsId, setOpenExerciseOptionsId] = React.useState("");
+  const [openAddExerciseId, setOpenAddExerciseId] = React.useState("");
+  const [exerciseSearch, setExerciseSearch] = React.useState("");
 
   const selected = React.useMemo(() => {
     return templates.find((t) => t.workout_template_id === selectedId) || null;
@@ -597,6 +599,47 @@ export default function TrainingCapturePage() {
     setOpenExerciseOptionsId("");
   }
 
+  function addExerciseToDraft(afterExerciseId: string, exercise: MyExerciseRow) {
+    setDraftRows((prev) => {
+      const matchingRows = prev.filter((row) => row.exercise_id === afterExerciseId);
+
+      if (!matchingRows.length) return prev;
+
+      const lastRowIndex = prev.findIndex(
+        (row) => row.draft_id === matchingRows[matchingRows.length - 1].draft_id
+      );
+
+      const nextSortOrder =
+        matchingRows[0].exercise_sort_order + 0.1;
+
+      const newRow: DraftSetRow = {
+        draft_id: makeDraftId(exercise.exercise_id, 1),
+        exercise_id: exercise.exercise_id,
+        exercise_name: exercise.display_name,
+        exercise_sort_order: nextSortOrder,
+        set_index: 1,
+        set_type: "straight",
+        weight: "0",
+        reps: "0",
+        flags: "",
+        done: false,
+      };
+
+      const copy = prev.slice();
+      copy.splice(
+        prev.findIndex((row) => row.exercise_id === afterExerciseId),
+        0,
+        newRow
+      );
+
+      return copy;
+    });
+
+    setOpenAddExerciseId("");
+    setOpenExerciseOptionsId("");
+    setExerciseSearch("");
+  }
+
   function addSetAfter(row: DraftSetRow) {
     const sameExercise = draftRows.filter((r) => r.exercise_id === row.exercise_id);
     const nextIndex = sameExercise.length ? Math.max(...sameExercise.map((r) => r.set_index)) + 1 : 1;
@@ -867,14 +910,58 @@ export default function TrainingCapturePage() {
                             </button>
 
                             {openExerciseOptionsId === first.exercise_id ? (
-                              <div className="absolute left-0 z-20 mt-2 w-40 rounded-lg border bg-background p-2 shadow-lg">
+                              <div className="absolute left-0 z-20 mt-2 w-56 rounded-lg border bg-background p-2 shadow-lg">
                                 <button
                                   type="button"
-                                  className="w-full rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                                  className="w-full rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                                  onClick={() => {
+                                    setOpenAddExerciseId(first.exercise_id);
+                                    setExerciseSearch("");
+                                  }}
+                                >
+                                  Add Exercise
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="mt-2 w-full rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
                                   onClick={() => removeExerciseFromDraft(first.exercise_id)}
                                 >
                                   Remove Exercise
                                 </button>
+
+                                {openAddExerciseId === first.exercise_id ? (
+                                  <div className="mt-2">
+                                    <input
+                                      className="w-full rounded-md border bg-background px-2 py-1 text-xs"
+                                      placeholder="Search exercises"
+                                      value={exerciseSearch}
+                                      onChange={(e) => setExerciseSearch(e.target.value)}
+                                    />
+
+                                    <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
+                                      {myExercises
+                                        .filter((x) =>
+                                          x.display_name
+                                            .toLowerCase()
+                                            .includes(exerciseSearch.toLowerCase())
+                                        )
+                                        .slice(0, 10)
+                                        .map((exercise) => (
+                                          <button
+                                            key={exercise.exercise_id}
+                                            type="button"
+                                            className="w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30"
+                                            onClick={() =>
+                                              addExerciseToDraft(first.exercise_id, exercise)
+                                            }
+                                          >
+                                            {exercise.display_name}
+                                          </button>
+                                        ))}
+                                    </div>
+                                  </div>
+                                ) : null}
                               </div>
                             ) : null}
                           </div>
