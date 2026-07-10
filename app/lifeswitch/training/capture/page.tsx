@@ -957,128 +957,11 @@ export default function TrainingCapturePage() {
 
                 return (
                   <section key={block.key} className="rounded-xl border p-2">
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <div className="text-sm font-semibold">{first.exercise_name}</div>
 
-                          <div className="relative">
-                            <button
-                              type="button"
-                              className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
-                              onClick={() =>
-                                setOpenExerciseOptionsId((prev) =>
-                                  prev === first.exercise_id ? "" : first.exercise_id
-                                )
-                              }
-                            >
-                              Options ▾
-                            </button>
-
-                            {openExerciseOptionsId === first.exercise_id ? (
-                              <div className="absolute left-0 z-20 mt-2 w-56 rounded-lg border bg-background p-2 shadow-lg">
-                                <button
-                                  type="button"
-                                  className="w-full rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
-                                  onClick={() => {
-                                    setOpenAddExerciseId(first.exercise_id);
-                                    setExerciseSearch("");
-                                  }}
-                                >
-                                  Add Exercise
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="mt-2 w-full rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
-                                  onClick={() => removeExerciseFromDraft(first.exercise_id)}
-                                >
-                                  Remove Exercise
-                                </button>
-
-                                {openAddExerciseId === first.exercise_id ? (
-                                  <div className="mt-2">
-                                    <input
-                                      className="w-full rounded-md border bg-background px-2 py-1 text-xs"
-                                      placeholder="Search exercises"
-                                      value={exerciseSearch}
-                                      onChange={(e) => setExerciseSearch(e.target.value)}
-                                    />
-
-                                    <div className="mt-2 max-h-56 overflow-y-auto space-y-3">
-
-                                      <div>
-                                        <div className="mb-1 text-[11px] font-semibold text-muted-foreground">
-                                          My Exercises
-                                        </div>
-
-                                        <div className="space-y-1">
-                                          {myExercises
-                                            .filter((x) =>
-                                              x.display_name
-                                                .toLowerCase()
-                                                .includes(exerciseSearch.toLowerCase())
-                                            )
-                                            .slice(0, 10)
-                                            .map((exercise) => (
-                                              <button
-                                                key={exercise.exercise_id}
-                                                type="button"
-                                                className="w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30"
-                                                onClick={() =>
-                                                  addExerciseToDraft(first.exercise_id, exercise)
-                                                }
-                                              >
-                                                {exercise.display_name}
-                                              </button>
-                                            ))}
-                                        </div>
-                                      </div>
-
-                                      <div>
-                                        <div className="mb-1 text-[11px] font-semibold text-muted-foreground">
-                                          Catalog
-                                          {catalogLoading ? " · searching..." : ""}
-                                        </div>
-
-                                        <div className="space-y-1">
-                                          {catalogHits.map((hit) => (
-                                            <button
-                                              key={hit.exercise_id}
-                                              type="button"
-                                              className="w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30"
-                                              onClick={async () => {
-                                                await saveCatalogExerciseToMyExercises(hit);
-
-                                                const savedExercise: MyExerciseRow = {
-                                                  my_exercise_id: "",
-                                                  owner_user_id: "",
-                                                  exercise_id: hit.exercise_id,
-                                                  display_name: hit.display_name,
-                                                  kind: hit.kind,
-                                                  modality: hit.modality,
-                                                  brand_name: hit.brand_name,
-                                                  model_name: hit.model_name,
-                                                  is_active: true,
-                                                  created_at: "",
-                                                  updated_at: "",
-                                                };
-
-                                                addExerciseToDraft(first.exercise_id, savedExercise);
-                                              }}
-                                            >
-                                              {hit.display_name}
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </div>
-
-                                    </div>
-                                  </div>
-                                ) : null}
-                              </div>
-                            ) : null}
-                          </div>
                         </div>
 
                         <div className="mt-1 text-xs text-muted-foreground">
@@ -1086,13 +969,50 @@ export default function TrainingCapturePage() {
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
-                        onClick={() => addSetAfter(block.rows[block.rows.length - 1])}
-                      >
-                        <Plus className="inline h-3 w-3" /> Set
-                      </button>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                          onClick={() =>
+                            setOpenExerciseOptionsId((prev) =>
+                              prev === first.exercise_id ? "" : first.exercise_id
+                            )
+                          }
+                        >
+                          Options ▾
+                        </button>
+
+                        {openExerciseOptionsId === first.exercise_id ? (
+                          <div className="absolute right-0 z-20 mt-2 w-44 rounded-lg border bg-background p-2 shadow-lg">
+                            <button
+                              type="button"
+                              className="w-full rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                              onClick={() => addSetAfter(block.rows[block.rows.length - 1])}
+                            >
+                              + Add Set
+                            </button>
+
+                            <button
+                              type="button"
+                              className="mt-2 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                              onClick={() => {
+                                setOpenAddExerciseId(first.exercise_id);
+                                setExerciseSearch("");
+                              }}
+                            >
+                              Add Exercise
+                            </button>
+
+                            <button
+                              type="button"
+                              className="mt-2 w-full rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                              onClick={() => removeExerciseFromDraft(first.exercise_id)}
+                            >
+                              Remove Exercise
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
 
                     <div className="mt-3 space-y-2">
