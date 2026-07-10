@@ -9,7 +9,7 @@ export function SegmentTabs({ segments }: { segments: Segment[] }) {
   const pathname = usePathname() || "";
 
   return (
-    <div className="w-full max-w-full overflow-hidden rounded-2xl border border-muted/30 bg-background/40">
+    <div className="w-full max-w-full overflow-hidden rounded-xl border border-muted/30 bg-background/40">
       <div
         className="grid w-full"
         style={{ gridTemplateColumns: `repeat(${segments.length}, minmax(0, 1fr))` }}

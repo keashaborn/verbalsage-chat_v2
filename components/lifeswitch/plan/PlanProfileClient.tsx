@@ -335,7 +335,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} className="rounded-2xl border bg-background shadow-sm">
+    <section id={id} className="rounded-lg border bg-background shadow-sm">
       <details className="group">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
           <div className="min-w-0">
