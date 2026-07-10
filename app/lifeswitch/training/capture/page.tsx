@@ -31,6 +31,16 @@ type WorkoutTemplateExerciseRow = {
   updated_at: string;
 };
 
+type ExerciseSearchHit = {
+  exercise_id: string;
+  display_name: string;
+  kind: string;
+  modality: string;
+  brand_name?: string | null;
+  model_name?: string | null;
+  matched_source?: string | null;
+};
+
 type MyExerciseRow = {
   my_exercise_id: string;
   owner_user_id: string;
@@ -182,6 +192,8 @@ export default function TrainingCapturePage() {
   const [openExerciseOptionsId, setOpenExerciseOptionsId] = React.useState("");
   const [openAddExerciseId, setOpenAddExerciseId] = React.useState("");
   const [exerciseSearch, setExerciseSearch] = React.useState("");
+  const [catalogHits, setCatalogHits] = React.useState<ExerciseSearchHit[]>([]);
+  const [catalogLoading, setCatalogLoading] = React.useState(false);
 
   const selected = React.useMemo(() => {
     return templates.find((t) => t.workout_template_id === selectedId) || null;
@@ -290,6 +302,39 @@ export default function TrainingCapturePage() {
       setLoadingTemplates(false);
     }
   }
+
+  React.useEffect(() => {
+    const q = exerciseSearch.trim();
+
+    if (!q) {
+      setCatalogHits([]);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setCatalogLoading(true);
+
+      try {
+        const url = new URL(
+          "/api/catalog/exercises/search",
+          window.location.origin
+        );
+
+        url.searchParams.set("q", q);
+        url.searchParams.set("limit", "10");
+
+        const rows = (await fetchJson(url.toString())) as ExerciseSearchHit[];
+
+        setCatalogHits(Array.isArray(rows) ? rows : []);
+      } catch {
+        setCatalogHits([]);
+      } finally {
+        setCatalogLoading(false);
+      }
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [exerciseSearch]);
 
   async function loadMyExercises() {
     try {
@@ -939,26 +984,70 @@ export default function TrainingCapturePage() {
                                       onChange={(e) => setExerciseSearch(e.target.value)}
                                     />
 
-                                    <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
-                                      {myExercises
-                                        .filter((x) =>
-                                          x.display_name
-                                            .toLowerCase()
-                                            .includes(exerciseSearch.toLowerCase())
-                                        )
-                                        .slice(0, 10)
-                                        .map((exercise) => (
-                                          <button
-                                            key={exercise.exercise_id}
-                                            type="button"
-                                            className="w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30"
-                                            onClick={() =>
-                                              addExerciseToDraft(first.exercise_id, exercise)
-                                            }
-                                          >
-                                            {exercise.display_name}
-                                          </button>
-                                        ))}
+                                    <div className="mt-2 max-h-56 overflow-y-auto space-y-3">
+
+                                      <div>
+                                        <div className="mb-1 text-[11px] font-semibold text-muted-foreground">
+                                          My Exercises
+                                        </div>
+
+                                        <div className="space-y-1">
+                                          {myExercises
+                                            .filter((x) =>
+                                              x.display_name
+                                                .toLowerCase()
+                                                .includes(exerciseSearch.toLowerCase())
+                                            )
+                                            .slice(0, 10)
+                                            .map((exercise) => (
+                                              <button
+                                                key={exercise.exercise_id}
+                                                type="button"
+                                                className="w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30"
+                                                onClick={() =>
+                                                  addExerciseToDraft(first.exercise_id, exercise)
+                                                }
+                                              >
+                                                {exercise.display_name}
+                                              </button>
+                                            ))}
+                                        </div>
+                                      </div>
+
+                                      <div>
+                                        <div className="mb-1 text-[11px] font-semibold text-muted-foreground">
+                                          Catalog
+                                          {catalogLoading ? " · searching..." : ""}
+                                        </div>
+
+                                        <div className="space-y-1">
+                                          {catalogHits.map((hit) => (
+                                            <button
+                                              key={hit.exercise_id}
+                                              type="button"
+                                              className="w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30"
+                                              onClick={() =>
+                                                addExerciseToDraft(first.exercise_id, {
+                                                  my_exercise_id: "",
+                                                  owner_user_id: "",
+                                                  exercise_id: hit.exercise_id,
+                                                  display_name: hit.display_name,
+                                                  kind: hit.kind,
+                                                  modality: hit.modality,
+                                                  brand_name: hit.brand_name,
+                                                  model_name: hit.model_name,
+                                                  is_active: true,
+                                                  created_at: "",
+                                                  updated_at: "",
+                                                })
+                                              }
+                                            >
+                                              {hit.display_name}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+
                                     </div>
                                   </div>
                                 ) : null}
