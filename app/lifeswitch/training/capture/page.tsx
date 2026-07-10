@@ -1002,7 +1002,69 @@ export default function TrainingCapturePage() {
                             >
                               Add Exercise
                             </button>
+                            {openAddExerciseId === first.exercise_id ? (
+                              <div className="mt-2">
+                                <input
+                                  className="w-full rounded-md border bg-background px-2 py-1 text-xs"
+                                  placeholder="Search exercises"
+                                  value={exerciseSearch}
+                                  onChange={(e) => setExerciseSearch(e.target.value)}
+                                />
 
+                                <div className="mt-2 max-h-56 overflow-y-auto space-y-1">
+                                  {myExercises
+                                    .filter((x) =>
+                                      x.display_name
+                                        .toLowerCase()
+                                        .includes(exerciseSearch.toLowerCase())
+                                    )
+                                    .slice(0, 10)
+                                    .map((exercise) => (
+                                      <button
+                                        key={exercise.exercise_id}
+                                        type="button"
+                                        className="w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30"
+                                        onClick={() =>
+                                          addExerciseToDraft(first.exercise_id, exercise)
+                                        }
+                                      >
+                                        {exercise.display_name}
+                                      </button>
+                                    ))}
+                                </div>
+
+                                <div className="mt-3 text-[11px] font-semibold text-muted-foreground">
+                                  Catalog
+                                </div>
+
+                                <div className="mt-1 max-h-56 overflow-y-auto space-y-1">
+                                  {catalogHits.map((hit) => (
+                                    <button
+                                      key={hit.exercise_id}
+                                      type="button"
+                                      className="w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30"
+                                      onClick={() =>
+                                        addExerciseToDraft(first.exercise_id, {
+                                          my_exercise_id: "",
+                                          owner_user_id: "",
+                                          exercise_id: hit.exercise_id,
+                                          display_name: hit.display_name,
+                                          kind: hit.kind,
+                                          modality: hit.modality,
+                                          brand_name: hit.brand_name,
+                                          model_name: hit.model_name,
+                                          is_active: true,
+                                          created_at: "",
+                                          updated_at: "",
+                                        })
+                                      }
+                                    >
+                                      {hit.display_name}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
                             <button
                               type="button"
                               className="mt-2 w-full rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
