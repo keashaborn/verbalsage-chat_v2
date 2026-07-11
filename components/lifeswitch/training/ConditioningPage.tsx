@@ -139,7 +139,6 @@ export default function ConditioningPage() {
     const arr = Array.isArray(rows) ? rows.filter((x) => x.is_active) : [];
     arr.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
     setLibrary(arr);
-    if (!selectedLibraryId && arr.length) setSelectedLibraryId(arr[0].conditioning_library_id);
   }, [selectedLibraryId]);
 
   const loadPrescriptions = React.useCallback(async () => {
@@ -147,7 +146,6 @@ export default function ConditioningPage() {
     const arr = Array.isArray(rows) ? rows.filter((x) => x.is_active) : [];
     arr.sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
     setPrescriptions(arr);
-    if (!selectedPrescriptionId && arr.length) setSelectedPrescriptionId(arr[0].my_conditioning_prescription_id);
   }, [selectedPrescriptionId]);
 
 
@@ -230,8 +228,8 @@ export default function ConditioningPage() {
 
   async function deactivatePrescription(id: string) {
     const prescription = prescriptions.find((p) => p.my_conditioning_prescription_id === id);
-    const name = prescription?.name || "this prescription";
-    const ok = window.confirm(`Remove conditioning prescription "${name}"?`);
+    const name = prescription?.name || "this plan";
+    const ok = window.confirm(`Remove conditioning plan "${name}"?`);
     if (!ok) return;
 
     setLoading(true);
@@ -240,7 +238,7 @@ export default function ConditioningPage() {
       await fetchJson(`/api/lifeswitch/training/my_conditioning_prescriptions/${encodeURIComponent(id)}/deactivate`, {
         method: "POST",
       });
-      setStatus("Removed prescription");
+      setStatus("Removed conditioning plan");
       setOpenPrescriptionActions(false);
       if (selectedPrescriptionId === id) setSelectedPrescriptionId("");
       await loadPrescriptions();
@@ -259,7 +257,7 @@ export default function ConditioningPage() {
         <div>
           <div className="text-xl font-semibold">Training · Conditioning</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Select built-in conditioning methods, save personal prescriptions, then use Capture and Log to track completed sessions.
+            Choose conditioning methods, save personal plans, then use Capture and Log to track completed sessions.
           </div>
           {status ? <div className="mt-2 text-sm text-muted-foreground">{status}</div> : null}
         </div>
@@ -357,9 +355,9 @@ export default function ConditioningPage() {
                 className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
                 disabled={!selectedLibrary || loading}
                 onClick={() => selectedLibrary && void addLibraryToMine(selectedLibrary)}
-              >
-                Add to my conditioning
-              </button>
+                >
+                  Add to my plans
+                </button>
             </div>
 
             {selectedLibrary ? (
@@ -399,121 +397,184 @@ export default function ConditioningPage() {
             </div>
 
             {prescriptions.length ? (
-              <div className="mt-4 grid gap-3 lg:grid-cols-[18rem_minmax(0,1fr)]">
-                <div className="space-y-2">
-                  {prescriptions.map((p) => {
-                    const active = p.my_conditioning_prescription_id === selectedPrescriptionId;
-                    return (
+              <div className="mt-4 space-y-2">
+                {prescriptions.map((p) => {
+                  const active =
+                    p.my_conditioning_prescription_id === selectedPrescriptionId;
+
+                  return (
+                    <div
+                      key={p.my_conditioning_prescription_id}
+                      className={`min-w-0 rounded-xl border ${
+                        active
+                          ? "border-foreground bg-muted/20 ring-1 ring-foreground/60"
+                          : ""
+                      }`}
+                    >
                       <button
                         type="button"
-                        key={p.my_conditioning_prescription_id}
-                        className={`w-full rounded-xl border px-3 py-2 text-left ${active ? "border-foreground bg-muted/40 ring-1 ring-foreground/60" : "hover:bg-muted/10"}`}
-                        onClick={() => setSelectedPrescriptionId(p.my_conditioning_prescription_id)}
+                        className="w-full px-3 py-3 text-left hover:bg-muted/10"
+                        onClick={() =>
+                          setSelectedPrescriptionId(
+                            active ? "" : p.my_conditioning_prescription_id
+                          )
+                        }
                       >
-                        <div className="truncate text-sm font-medium">{p.name}</div>
+                        <div className="text-sm font-semibold text-blue-400">
+                          {p.name}
+                        </div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          {p.target_duration_min || 0} min · {p.target_frequency_per_week || 0}x/week
+                          {p.target_duration_min || 0} min ·{" "}
+                          {p.target_frequency_per_week || 0}x/week
                         </div>
                       </button>
-                    );
-                  })}
-                </div>
 
-                {selectedPrescription ? (
-                  <div className="grid gap-3 rounded-xl border p-3">
-                    <EditText
-                      label="Name"
-                      value={selectedPrescription.name}
-                      onSave={(value) => updatePrescription({ name: value })}
-                    />
-
-                    <EditText
-                      label="Purpose"
-                      value={selectedPrescription.purpose}
-                      onSave={(value) => updatePrescription({ purpose: value })}
-                      multiline
-                    />
-
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <EditNumber
-                        label="Duration min"
-                        value={selectedPrescription.target_duration_min}
-                        onSave={(value) => updatePrescription({ target_duration_min: value })}
-                      />
-                      <EditNumber
-                        label="Frequency / week"
-                        value={selectedPrescription.target_frequency_per_week}
-                        onSave={(value) => updatePrescription({ target_frequency_per_week: value })}
-                        step="0.5"
-                      />
-                    </div>
-
-                    <EditText
-                      label="Intensity"
-                      value={selectedPrescription.target_intensity}
-                      onSave={(value) => updatePrescription({ target_intensity: value })}
-                    />
-
-                    <EditText
-                      label="Preferred timing"
-                      value={selectedPrescription.preferred_timing}
-                      placeholder="After lifting, separate day, post-meal, morning..."
-                      onSave={(value) => updatePrescription({ preferred_timing: value })}
-                    />
-
-                    <EditText
-                      label="Recovery constraints"
-                      value={selectedPrescription.recovery_constraints}
-                      onSave={(value) => updatePrescription({ recovery_constraints: value })}
-                      multiline
-                    />
-
-                    <EditText
-                      label="Notes"
-                      value={selectedPrescription.notes}
-                      onSave={(value) => updatePrescription({ notes: value })}
-                      multiline
-                    />
-
-                    <div className="grid justify-items-start gap-2">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/30 disabled:opacity-50"
-                        onClick={() => setOpenPrescriptionActions((v) => !v)}
-                        disabled={loading}
-                        aria-expanded={openPrescriptionActions}
-                      >
-                        Actions
-                        {openPrescriptionActions ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3" />
-                        )}
-                      </button>
-
-                      {openPrescriptionActions ? (
-                        <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
-                            Danger zone
+                      {active && selectedPrescription ? (
+                        <div className="grid gap-3 border-t p-3">
+                          <div>
+                            <div className="text-sm font-semibold">
+                              Selected conditioning plan
+                            </div>
+                            <div className="mt-1 text-lg font-medium">
+                              {selectedPrescription.name}
+                            </div>
                           </div>
-                          <button
-                            type="button"
-                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
-                            onClick={() => void deactivatePrescription(selectedPrescription.my_conditioning_prescription_id)}
-                            disabled={loading}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                            Remove plan
-                          </button>
+
+                          <EditText
+                            label="Name"
+                            value={selectedPrescription.name}
+                            onSave={(value) =>
+                              updatePrescription({ name: value })
+                            }
+                          />
+
+                          <EditText
+                            label="Purpose"
+                            value={selectedPrescription.purpose}
+                            onSave={(value) =>
+                              updatePrescription({ purpose: value })
+                            }
+                            multiline
+                          />
+
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <EditNumber
+                              label="Duration min"
+                              value={selectedPrescription.target_duration_min}
+                              onSave={(value) =>
+                                updatePrescription({
+                                  target_duration_min: value,
+                                })
+                              }
+                            />
+
+                            <EditNumber
+                              label="Frequency / week"
+                              value={
+                                selectedPrescription.target_frequency_per_week
+                              }
+                              onSave={(value) =>
+                                updatePrescription({
+                                  target_frequency_per_week: value,
+                                })
+                              }
+                              step="0.5"
+                            />
+                          </div>
+
+                          <EditText
+                            label="Intensity"
+                            value={selectedPrescription.target_intensity}
+                            onSave={(value) =>
+                              updatePrescription({
+                                target_intensity: value,
+                              })
+                            }
+                          />
+
+                          <EditText
+                            label="Preferred timing"
+                            value={selectedPrescription.preferred_timing}
+                            placeholder="After lifting, separate day, post-meal, morning..."
+                            onSave={(value) =>
+                              updatePrescription({
+                                preferred_timing: value,
+                              })
+                            }
+                          />
+
+                          <EditText
+                            label="Recovery constraints"
+                            value={selectedPrescription.recovery_constraints}
+                            onSave={(value) =>
+                              updatePrescription({
+                                recovery_constraints: value,
+                              })
+                            }
+                            multiline
+                          />
+
+                          <EditText
+                            label="Notes"
+                            value={selectedPrescription.notes}
+                            onSave={(value) =>
+                              updatePrescription({ notes: value })
+                            }
+                            multiline
+                          />
+
+                          <div className="grid justify-items-start gap-2">
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/30 disabled:opacity-50"
+                              onClick={() =>
+                                setOpenPrescriptionActions((v) => !v)
+                              }
+                              disabled={loading}
+                              aria-expanded={openPrescriptionActions}
+                            >
+                              Actions
+                              {openPrescriptionActions ? (
+                                <ChevronUp className="h-3 w-3" />
+                              ) : (
+                                <ChevronDown className="h-3 w-3" />
+                              )}
+                            </button>
+
+                            {openPrescriptionActions ? (
+                              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                                <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                                  Danger zone
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                                  onClick={() =>
+                                    void deactivatePrescription(
+                                      selectedPrescription.my_conditioning_prescription_id
+                                    )
+                                  }
+                                  disabled={loading}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  Remove plan
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
                       ) : null}
                     </div>
-                  </div>
-                ) : null}
+                  );
+                })}
               </div>
             ) : (
               <div className="mt-3 grid gap-3 text-sm text-muted-foreground">
-                <div>No conditioning prescriptions yet. Select a method above and add it.</div>
+                <div>
+                  No conditioning plans yet. Select a method above and add it.
+                </div>
+
                 {!libraryOpen ? (
                   <button
                     type="button"
