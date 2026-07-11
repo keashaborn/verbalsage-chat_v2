@@ -240,8 +240,10 @@ export default function TrainingExercisesPage() {
       {/* Current exercises */}
       <div className="mt-10">
         <div className="flex items-center justify-between gap-2">
-          <div className="text-sm font-semibold">Current exercises</div>
-          <div className="text-xs text-muted-foreground">{myLoading ? "…" : `count=${myExercises.length}`}</div>
+          <div className="text-sm font-semibold">My exercise library</div>
+          {myLoading ? (
+            <div className="text-xs text-muted-foreground">Loading…</div>
+          ) : null}
         </div>
 
         {myExercises.length ? (
@@ -249,7 +251,9 @@ export default function TrainingExercisesPage() {
             {myExercises.map((x) => (
               <div key={x.my_exercise_id} className="py-3 flex items-start justify-between gap-3 min-w-0">
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{x.display_name}</div>
+                  <div className="truncate text-sm font-semibold text-blue-400">
+                    {x.display_name}
+                  </div>
                   <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal">
                     {x.modality}
                     {x.kind ? ` · ${x.kind}` : ""}
