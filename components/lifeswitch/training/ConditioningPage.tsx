@@ -276,18 +276,18 @@ export default function ConditioningPage() {
 
       <div className={libraryOpen ? "mt-6 grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]" : "mt-6 grid gap-4"}>
         {libraryOpen ? (
-        <aside className="min-w-0 rounded-xl border p-4">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold">Conditioning library</div>
-            <div className="text-xs text-muted-foreground">count={filteredLibrary.length}</div>
-          </div>
+          <aside className="min-w-0 rounded-xl border p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-semibold">Conditioning library</div>
+              <div className="text-xs text-muted-foreground">count={filteredLibrary.length}</div>
+            </div>
 
-          <input
-            className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search walking, zone 2, bike, intervals..."
-          />
+            <input
+              className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search walking, zone 2, bike, intervals..."
+            />
 
             <div className="mt-3 flex flex-wrap gap-2">
               <button
@@ -314,75 +314,75 @@ export default function ConditioningPage() {
               Current filter: {categoryFilter ? displayCategory(categoryFilter) : "All categories"}
             </div>
 
-          <div className="mt-3 space-y-2">
-            {filteredLibrary.map((row) => {
-              const active = row.conditioning_library_id === selectedLibraryId;
-              return (
-                <button
-                  type="button"
-                  key={row.conditioning_library_id}
-                  className={`w-full rounded-xl border px-3 py-2 text-left ${active ? "border-foreground bg-muted/40 ring-1 ring-foreground/60" : "hover:bg-muted/10"}`}
-                  onClick={() => setSelectedLibraryId(row.conditioning_library_id)}
-                >
-                  <div className="text-sm font-medium">{row.name}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {displayCategory(row.category)} · {row.modality} · {row.default_duration_min || "var"} min
-                  </div>
+            <div className="mt-3 space-y-2">
+              {filteredLibrary.map((row) => {
+                const active = row.conditioning_library_id === selectedLibraryId;
+                return (
+                  <button
+                    type="button"
+                    key={row.conditioning_library_id}
+                    className={`w-full rounded-xl border px-3 py-2 text-left ${active ? "border-foreground bg-muted/40 ring-1 ring-foreground/60" : "hover:bg-muted/10"}`}
+                    onClick={() => setSelectedLibraryId(row.conditioning_library_id)}
+                  >
+                    <div className="text-sm font-medium">{row.name}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {displayCategory(row.category)} · {row.modality} · {row.default_duration_min || "var"} min
+                    </div>
                     <div className="mt-1 text-[11px] text-muted-foreground">
                       Risk {riskLabel(row.interference_risk) || "—"} · Joint {riskLabel(row.joint_stress) || "—"}
                     </div>
                     {row.equipment ? (
                       <div className="mt-1 truncate text-[11px] text-muted-foreground">Equipment: {row.equipment}</div>
                     ) : null}
-                </button>
-              );
-            })}
-          </div>
-        </aside>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
         ) : null}
 
         <main className="grid min-w-0 gap-4">
           {libraryOpen ? (
-          <section className="min-w-0 rounded-xl border p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold">Selected method</div>
-                <div className="mt-1 text-lg font-medium">{selectedLibrary?.name || "Select a method"}</div>
-              </div>
+            <section className="min-w-0 rounded-xl border p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">Selected method</div>
+                  <div className="mt-1 text-lg font-medium">{selectedLibrary?.name || "Select a method"}</div>
+                </div>
 
-              <button
-                type="button"
-                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                disabled={!selectedLibrary || loading}
-                onClick={() => selectedLibrary && void addLibraryToMine(selectedLibrary)}
+                <button
+                  type="button"
+                  className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                  disabled={!selectedLibrary || loading}
+                  onClick={() => selectedLibrary && void addLibraryToMine(selectedLibrary)}
                 >
                   Add to my plans
                 </button>
-            </div>
-
-            {selectedLibrary ? (
-              <div className="mt-4 grid gap-3 text-sm">
-                <div className="rounded-xl border p-3">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Purpose</div>
-                  <div className="mt-1">{selectedLibrary.purpose}</div>
-                </div>
-
-                <div className="grid gap-2 md:grid-cols-2">
-                  <Info label="Category" value={displayCategory(selectedLibrary.category)} />
-                  <Info label="Modality" value={selectedLibrary.modality} />
-                  <Info label="Default duration" value={`${selectedLibrary.default_duration_min || 0} min`} />
-                  <Info label="Default frequency" value={`${selectedLibrary.default_frequency_per_week || 0}x/week`} />
-                  <Info label="Intensity" value={selectedLibrary.default_intensity} />
-                  <Info label="Equipment" value={selectedLibrary.equipment} />
-                  <Info label="Interference risk" value={riskLabel(selectedLibrary.interference_risk)} />
-                  <Info label="Joint stress" value={riskLabel(selectedLibrary.joint_stress)} />
-                </div>
-
-                <Info label="Progression" value={selectedLibrary.progression_notes} />
-                <Info label="Cautions" value={selectedLibrary.contraindication_notes} />
               </div>
-            ) : null}
-          </section>
+
+              {selectedLibrary ? (
+                <div className="mt-4 grid gap-3 text-sm">
+                  <div className="rounded-xl border p-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Purpose</div>
+                    <div className="mt-1">{selectedLibrary.purpose}</div>
+                  </div>
+
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <Info label="Category" value={displayCategory(selectedLibrary.category)} />
+                    <Info label="Modality" value={selectedLibrary.modality} />
+                    <Info label="Default duration" value={`${selectedLibrary.default_duration_min || 0} min`} />
+                    <Info label="Default frequency" value={`${selectedLibrary.default_frequency_per_week || 0}x/week`} />
+                    <Info label="Intensity" value={selectedLibrary.default_intensity} />
+                    <Info label="Equipment" value={selectedLibrary.equipment} />
+                    <Info label="Interference risk" value={riskLabel(selectedLibrary.interference_risk)} />
+                    <Info label="Joint stress" value={riskLabel(selectedLibrary.joint_stress)} />
+                  </div>
+
+                  <Info label="Progression" value={selectedLibrary.progression_notes} />
+                  <Info label="Cautions" value={selectedLibrary.contraindication_notes} />
+                </div>
+              ) : null}
+            </section>
           ) : null}
 
           <section className="min-w-0 rounded-xl border p-4">
@@ -405,11 +405,10 @@ export default function ConditioningPage() {
                   return (
                     <div
                       key={p.my_conditioning_prescription_id}
-                      className={`min-w-0 rounded-xl border ${
-                        active
+                      className={`min-w-0 rounded-xl border ${active
                           ? "border-foreground bg-muted/20 ring-1 ring-foreground/60"
                           : ""
-                      }`}
+                        }`}
                     >
                       <button
                         type="button"
