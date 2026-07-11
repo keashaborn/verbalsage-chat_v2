@@ -193,6 +193,57 @@ export default function ConditioningPage() {
     }
   }
 
+  async function createCustomConditioningPlan() {
+    const name = query.trim();
+    if (!name) return;
+
+    setLoading(true);
+    setStatus("");
+
+    try {
+      const qs = new URLSearchParams({
+        conditioning_library_id: "",
+        name,
+        category: "custom",
+        modality: "custom",
+        purpose: "",
+        target_duration_min: "0",
+        target_frequency_per_week: "0",
+        target_intensity: "",
+        preferred_timing: "",
+        recovery_constraints: "",
+        notes: "",
+        dose_type: "open",
+        dose_config: "{}",
+      });
+
+      const saved = (await fetchJson(
+        `/api/lifeswitch/training/my_conditioning_prescriptions/upsert?${qs.toString()}`,
+        {
+          method: "POST",
+        }
+      )) as MyConditioningPrescriptionRow;
+
+      setStatus(`Created ${saved.name}`);
+      setSelectedLibraryId("");
+      setSelectedPrescriptionId(
+        saved.my_conditioning_prescription_id
+      );
+      setQuery("");
+      setLibraryTouched(true);
+      setLibraryOpen(false);
+
+      await loadPrescriptions();
+    } catch (e: any) {
+      setStatus(
+        `Create failed: ${String(e?.message || e)}`
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+
   async function updatePrescription(patch: Partial<MyConditioningPrescriptionRow>) {
     if (!selectedPrescription) return;
     setLoading(true);
@@ -449,6 +500,35 @@ export default function ConditioningPage() {
                     </div>
                   );
                 })}
+                  {query.trim() &&
+                  !categoryFilter &&
+                  filteredLibrary.length === 0 ? (
+                    <section className="rounded-xl border p-3">
+                      <div className="text-sm text-muted-foreground">
+                        No matching conditioning method.
+                      </div>
+
+                      <div className="mt-4 text-sm font-medium">
+                        Need a custom conditioning plan?
+                      </div>
+
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Create “{query.trim()}” as a custom plan and
+                        configure how it is tracked.
+                      </div>
+
+                      <button
+                        type="button"
+                        className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                        onClick={() =>
+                          void createCustomConditioningPlan()
+                        }
+                        disabled={loading || !query.trim()}
+                      >
+                        Create custom plan
+                      </button>
+                    </section>
+                  ) : null}
               </div>
             </section>
           ) : null}
