@@ -976,6 +976,138 @@ export default function TrainingWorkoutsPage() {
                   <div className="mt-3 text-sm text-muted-foreground">Empty. Search exercises on the right and add a few.</div>
                 )}
               </section>
+                {/* Add exercises inside selected workout */}
+                <section className="min-w-0 rounded-xl border p-4">
+                  <div className="text-sm font-semibold">
+                    Add exercises{selected ? ` to ${selected.name}` : " to selected workout"}
+                  </div>
+
+                  {selected ? (
+                    <div className="mt-4">
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        value={q}
+                        onChange={(e) => setQ(e.target.value)}
+                        placeholder='Search exercises'
+                      />
+
+                      {q.trim() ? (
+                        <div className="mt-3 space-y-4">
+                          {personalHits.length ? (
+                            <section>
+                              <div className="text-xs font-semibold text-muted-foreground">My / custom exercises</div>
+                              <div className="mt-2 divide-y divide-muted/20">
+                                {personalHits.map((h) => {
+                                  const alreadyIn = templateExercises.some((x) => x.exercise_id === h.exercise_id);
+
+                                  return (
+                                    <div key={h.exercise_id} className="flex items-center justify-between gap-3 py-3">
+                                      <div className="min-w-0">
+                                        <div className="truncate text-sm font-medium">{h.display_name}</div>
+                                        <div className="mt-1 text-xs text-muted-foreground">
+                                          {h.modality}
+                                          {h.kind ? ` · ${h.kind}` : ""}
+                                          {h.brand_name ? ` · ${h.brand_name}` : ""}
+                                        </div>
+                                      </div>
+
+                                      <button
+                                        type="button"
+                                        className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                                        onClick={() => void addExerciseToSelected(h.exercise_id, h.display_name)}
+                                        disabled={!selected || alreadyIn}
+                                        title="Add exercise to workout"
+                                      >
+                                        {alreadyIn ? "Added" : "Add"}
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </section>
+                          ) : null}
+
+                          <section>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-xs font-semibold text-muted-foreground">Catalog</div>
+                              <div className="text-[11px] text-muted-foreground">
+                                {catalogLoading ? "searching..." : catalogStatus}
+                              </div>
+                            </div>
+
+                            {catalogHits.length ? (
+                              <div className="mt-2 divide-y divide-muted/20">
+                                {catalogHits.map((h) => {
+                                  const alreadyIn = templateExercises.some((x) => x.exercise_id === h.exercise_id);
+                                  const alreadySaved = savedExerciseIds.has(String(h.exercise_id));
+
+                                  return (
+                                    <div key={h.exercise_id} className="flex items-center justify-between gap-3 py-3">
+                                      <div className="min-w-0">
+                                        <div className="truncate text-sm font-medium">{h.display_name}</div>
+                                        <div className="mt-1 text-xs text-muted-foreground">
+                                          {h.modality}
+                                          {h.kind ? ` · ${h.kind}` : ""}
+                                          {h.brand_name ? ` · ${h.brand_name}` : ""}
+                                          {alreadySaved ? " · saved" : ""}
+                                        </div>
+                                        {h.matched_text ? (
+                                          <div className="mt-1 max-h-10 overflow-hidden text-xs opacity-80">
+                                            {h.matched_text}
+                                          </div>
+                                        ) : null}
+                                      </div>
+
+                                      <button
+                                        type="button"
+                                        className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                                        onClick={() => void addCatalogExerciseToSelected(h)}
+                                        disabled={!selected || alreadyIn}
+                                        title="Add catalog exercise to workout"
+                                      >
+                                        {alreadyIn ? "Added" : "Add"}
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : catalogLoading ? null : (
+                              <div className="mt-2 text-sm text-muted-foreground">No catalog match.</div>
+                            )}
+                          </section>
+
+                          <section className="rounded-xl border p-3">
+                            <div className="text-sm font-medium">Need a custom exercise?</div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              Create “{q.trim()}” as one of your exercises and add it directly to this workout.
+                            </div>
+                            <button
+                              type="button"
+                              className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                              onClick={() => void createCustomAndAddToSelected()}
+                              disabled={!selected || !q.trim()}
+                            >
+                              Create custom + add
+                            </button>
+                          </section>
+                        </div>
+                      ) : (
+                        <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
+                          Search to add exercises.
+                        </div>
+                      )}
+
+                      <div className="mt-3 text-xs text-muted-foreground">
+                        {myLoading ? "Loading My Exercises…" : addStatus}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
+                      Select or create a workout first.
+                    </div>
+                  )}
+                </section>
+
             </>
           ) : (
             <section className="rounded-xl border p-4">
@@ -1099,137 +1231,6 @@ export default function TrainingWorkoutsPage() {
         </aside>
 
 
-        {/* Right: add exercises */}
-        <aside className="min-w-0 rounded-xl border p-4">
-          <div className="text-sm font-semibold">
-            Add exercises{selected ? ` to ${selected.name}` : " to selected workout"}
-          </div>
-
-          {selected ? (
-            <div className="mt-4">
-              <input
-                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder='Search exercises'
-              />
-
-              {q.trim() ? (
-                <div className="mt-3 space-y-4">
-                  {personalHits.length ? (
-                    <section>
-                      <div className="text-xs font-semibold text-muted-foreground">My / custom exercises</div>
-                      <div className="mt-2 divide-y divide-muted/20">
-                        {personalHits.map((h) => {
-                          const alreadyIn = templateExercises.some((x) => x.exercise_id === h.exercise_id);
-
-                          return (
-                            <div key={h.exercise_id} className="flex items-center justify-between gap-3 py-3">
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-medium">{h.display_name}</div>
-                                <div className="mt-1 text-xs text-muted-foreground">
-                                  {h.modality}
-                                  {h.kind ? ` · ${h.kind}` : ""}
-                                  {h.brand_name ? ` · ${h.brand_name}` : ""}
-                                </div>
-                              </div>
-
-                              <button
-                                type="button"
-                                className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
-                                onClick={() => void addExerciseToSelected(h.exercise_id, h.display_name)}
-                                disabled={!selected || alreadyIn}
-                                title="Add exercise to workout"
-                              >
-                                {alreadyIn ? "Added" : "Add"}
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  ) : null}
-
-                  <section>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-xs font-semibold text-muted-foreground">Catalog</div>
-                      <div className="text-[11px] text-muted-foreground">
-                        {catalogLoading ? "searching..." : catalogStatus}
-                      </div>
-                    </div>
-
-                    {catalogHits.length ? (
-                      <div className="mt-2 divide-y divide-muted/20">
-                        {catalogHits.map((h) => {
-                          const alreadyIn = templateExercises.some((x) => x.exercise_id === h.exercise_id);
-                          const alreadySaved = savedExerciseIds.has(String(h.exercise_id));
-
-                          return (
-                            <div key={h.exercise_id} className="flex items-center justify-between gap-3 py-3">
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-medium">{h.display_name}</div>
-                                <div className="mt-1 text-xs text-muted-foreground">
-                                  {h.modality}
-                                  {h.kind ? ` · ${h.kind}` : ""}
-                                  {h.brand_name ? ` · ${h.brand_name}` : ""}
-                                  {alreadySaved ? " · saved" : ""}
-                                </div>
-                                {h.matched_text ? (
-                                  <div className="mt-1 max-h-10 overflow-hidden text-xs opacity-80">
-                                    {h.matched_text}
-                                  </div>
-                                ) : null}
-                              </div>
-
-                              <button
-                                type="button"
-                                className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
-                                onClick={() => void addCatalogExerciseToSelected(h)}
-                                disabled={!selected || alreadyIn}
-                                title="Add catalog exercise to workout"
-                              >
-                                {alreadyIn ? "Added" : "Add"}
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : catalogLoading ? null : (
-                      <div className="mt-2 text-sm text-muted-foreground">No catalog match.</div>
-                    )}
-                  </section>
-
-                  <section className="rounded-xl border p-3">
-                    <div className="text-sm font-medium">Need a custom exercise?</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      Create “{q.trim()}” as one of your exercises and add it directly to this workout.
-                    </div>
-                    <button
-                      type="button"
-                      className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                      onClick={() => void createCustomAndAddToSelected()}
-                      disabled={!selected || !q.trim()}
-                    >
-                      Create custom + add
-                    </button>
-                  </section>
-                </div>
-              ) : (
-                <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
-                  Search to add exercises.
-                </div>
-              )}
-
-              <div className="mt-3 text-xs text-muted-foreground">
-                {myLoading ? "Loading My Exercises…" : addStatus}
-              </div>
-            </div>
-          ) : (
-            <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
-              Select or create a workout first.
-            </div>
-          )}
-        </aside>
       </div>
     </div>
 
