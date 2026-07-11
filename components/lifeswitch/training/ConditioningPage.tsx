@@ -542,7 +542,18 @@ export default function ConditioningPage() {
                   Saved conditioning plans available in Capture and Log.
                 </div>
               </div>
-              <div className="text-xs text-muted-foreground">count={prescriptions.length}</div>
+              {selectedPrescriptionId ? (
+                <button
+                  type="button"
+                  className="rounded-xl border px-3 py-1.5 text-sm hover:bg-muted/30"
+                  onClick={() => {
+                    setSelectedPrescriptionId("");
+                    setOpenPrescriptionActions(false);
+                  }}
+                >
+                  Close
+                </button>
+              ) : null}
             </div>
 
             {prescriptions.length ? (
