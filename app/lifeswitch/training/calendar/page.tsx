@@ -36,6 +36,8 @@ type ConditioningSessionRow = {
   heart_rate_avg?: number | null;
   recovery_impact: string;
   notes: string;
+  dose_type: string;
+  dose_config: Record<string, unknown>;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -90,6 +92,133 @@ function safeNum(x: any, fallback = 0) {
   const n = Number(x);
   return Number.isFinite(n) ? n : fallback;
 }
+function doseValue(
+  config: Record<string, unknown>,
+  key: string
+): string {
+  const value = config?.[key];
+  return value == null || value === "" ? "" : String(value);
+}
+
+function formatConditioningDose(
+  row: ConditioningSessionRow
+): string {
+  const type = row.dose_type || "open";
+  const config =
+    row.dose_config &&
+    typeof row.dose_config === "object" &&
+    !Array.isArray(row.dose_config)
+      ? row.dose_config
+      : {};
+
+  if (type === "loaded_carry") {
+    const left = doseValue(config, "load_left");
+    const right = doseValue(config, "load_right");
+    const loadUnit = doseValue(config, "load_unit");
+    const laps = doseValue(config, "laps");
+    const distance = doseValue(config, "distance");
+    const distanceUnit = doseValue(config, "distance_unit");
+    const rounds = doseValue(config, "rounds");
+    const rest = doseValue(config, "rest_seconds");
+
+    return [
+      left || right
+        ? `${left || "—"} / ${right || "—"}${loadUnit ? ` ${loadUnit}` : ""}`
+        : "",
+      laps ? `${laps} ${laps === "1" ? "lap" : "laps"}` : "",
+      distance
+        ? `${distance}${distanceUnit ? ` ${distanceUnit}` : ""}`
+        : "",
+      rounds
+        ? `${rounds} ${rounds === "1" ? "round" : "rounds"}`
+        : "",
+      rest && rest !== "0" ? `${rest} sec rest` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  if (type === "intervals") {
+    const intervals = doseValue(config, "intervals");
+    const work = doseValue(config, "work_seconds");
+    const rest = doseValue(config, "rest_seconds");
+
+    return [
+      intervals
+        ? `${intervals} ${intervals === "1" ? "interval" : "intervals"}`
+        : "",
+      work ? `${work} sec work` : "",
+      rest && rest !== "0" ? `${rest} sec rest` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  if (type === "rounds") {
+    const rounds = doseValue(config, "rounds");
+    const work = doseValue(config, "work_seconds");
+    const rest = doseValue(config, "rest_seconds");
+
+    return [
+      rounds
+        ? `${rounds} ${rounds === "1" ? "round" : "rounds"}`
+        : "",
+      work ? `${work} sec work` : "",
+      rest && rest !== "0" ? `${rest} sec rest` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  if (type === "distance") {
+    const distance = doseValue(config, "distance");
+    const unit = doseValue(config, "distance_unit");
+    const time = doseValue(config, "target_time_min");
+    const pace = doseValue(config, "target_pace");
+
+    return [
+      distance ? `${distance}${unit ? ` ${unit}` : ""}` : "",
+      time ? `${time} min` : "",
+      pace ? `${pace} pace` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  if (type === "laps") {
+    const laps = doseValue(config, "laps");
+    const perLap = doseValue(config, "distance_per_lap");
+    const unit = doseValue(config, "distance_unit");
+
+    return [
+      laps ? `${laps} ${laps === "1" ? "lap" : "laps"}` : "",
+      perLap
+        ? `${perLap}${unit ? ` ${unit}` : ""} per lap`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  if (type === "repetitions") {
+    const sets = doseValue(config, "sets");
+    const reps = doseValue(config, "repetitions");
+
+    return [
+      sets ? `${sets} ${sets === "1" ? "set" : "sets"}` : "",
+      reps ? `${reps} ${reps === "1" ? "rep" : "reps"}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  if (type === "open") {
+    return doseValue(config, "description");
+  }
+
+  return "";
+}
+
 
 function monthLabel(ym: string) {
   const m = String(ym || "").trim();
@@ -577,6 +706,12 @@ export default function TrainingCalendarPage() {
                           <div className="mt-1 text-xs text-muted-foreground">
                             {detailParts.join(" · ")}
                           </div>
+
+                          {formatConditioningDose(c) ? (
+                            <div className="mt-2 text-xs font-medium text-blue-400">
+                              {formatConditioningDose(c)}
+                            </div>
+                          ) : null}
 
                           {c.notes ? <div className="mt-2 text-xs text-muted-foreground">{c.notes}</div> : null}
                         </div>
