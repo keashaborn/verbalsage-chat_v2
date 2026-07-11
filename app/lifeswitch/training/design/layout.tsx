@@ -7,7 +7,7 @@ export default function TrainingDesignLayout({ children }: { children: ReactNode
       <div>
         <div className="text-lg font-semibold">Training · Workouts</div>
         <div className="mt-1 text-sm text-muted-foreground">
-          Build workout templates directly from the catalog or from your unique exercises.
+          Build workout templates directly from the catalog or your exercise library.
         </div>
       </div>
 
@@ -15,7 +15,7 @@ export default function TrainingDesignLayout({ children }: { children: ReactNode
         segments={[
           { href: "/lifeswitch/training/design/workouts", label: "Workouts" },
           { href: "/lifeswitch/training/design/conditioning", label: "Conditioning" },
-          { href: "/lifeswitch/training/design/exercises", label: " My Training Library" },
+          { href: "/lifeswitch/training/design/exercises", label: "My Training Library" },
         ]}
       />
 

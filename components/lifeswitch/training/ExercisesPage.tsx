@@ -159,7 +159,7 @@ export default function TrainingExercisesPage() {
   }
 
   async function removeExercise(row: MyExerciseRow) {
-    const ok = window.confirm(`Remove exercise "${row.display_name}" from your unique exercises?`);
+    const ok = window.confirm(`Remove exercise "${row.display_name}" from your exercise library?`);
     if (!ok) return;
 
     await fetchJson(
@@ -182,7 +182,7 @@ export default function TrainingExercisesPage() {
           className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder='Search or review unique/custom exercises'
+          placeholder="Search or review saved/custom exercises"
         />
         <div className="text-xs text-muted-foreground">
           {hitsLoading ? "searching…" : hitsStatus}
