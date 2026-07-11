@@ -1098,7 +1098,7 @@ export default function TrainingWorkoutsPage() {
                       )}
 
                       <div className="mt-3 text-xs text-muted-foreground">
-                        {myLoading ? "Loading My Exercises…" : addStatus}
+                    {myLoading ? "Loading My Training Library" : addStatus}
                       </div>
                     </div>
                   ) : (

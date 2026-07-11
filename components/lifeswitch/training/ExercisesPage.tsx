@@ -63,7 +63,7 @@ function norm(s: string) {
 }
 
 export default function TrainingExercisesPage() {
-  // My Exercises (personal exercise library)
+  // My Training Library (personal exercise library)
   const [myExercises, setMyExercises] = React.useState<MyExerciseRow[]>([]);
   const [myLoading, setMyLoading] = React.useState(false);
 
@@ -174,7 +174,7 @@ export default function TrainingExercisesPage() {
 
   return (
     <div className="mx-auto max-w-3xl p-4">
-      <h1 className="text-xl font-semibold">My Exercises</h1>
+      <h1 className="text-xl font-semibold">My Training Library</h1>
 
       {/* Search */}
       <div className="mt-3 grid gap-2">
@@ -225,7 +225,7 @@ export default function TrainingExercisesPage() {
                       className="w-full sm:w-auto rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
                       onClick={() => void saveExercise(h)}
                       disabled={saved}
-                      title={saved ? "Already saved" : "Save to My Exercises"}
+                      title={saved ? "Already saved" : "Save to My Training Library"}
                     >
                       {saved ? "Saved" : "Save"}
                     </button>
