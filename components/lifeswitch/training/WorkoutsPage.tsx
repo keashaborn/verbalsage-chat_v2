@@ -1154,7 +1154,9 @@ export default function TrainingWorkoutsPage() {
 
           <div className="mt-6 flex items-center justify-between">
             <div className="text-sm font-semibold">Workouts</div>
-            <div className="text-xs text-muted-foreground">{tplLoading ? "…" : `count=${templates.length}`}</div>
+            {tplLoading ? (
+              <div className="text-xs text-muted-foreground">Loading…</div>
+            ) : null}
           </div>
 
           {templates.length ? (
@@ -1173,9 +1175,6 @@ export default function TrainingWorkoutsPage() {
                       onClick={() => setSelectedId(t.workout_template_id)}
                     >
                       <div className="truncate text-sm font-semibold text-blue-400">{t.name}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        updated={String(t.updated_at || "").slice(0, 10)}
-                      </div>
                     </button>
 
                     <div className="mt-2">
