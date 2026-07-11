@@ -38,6 +38,8 @@ type MyConditioningPrescriptionRow = {
   preferred_timing: string;
   recovery_constraints: string;
   notes: string;
+  dose_type: string;
+  dose_config: Record<string, unknown>;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -173,6 +175,8 @@ export default function ConditioningPage() {
         preferred_timing: "",
         recovery_constraints: row.contraindication_notes || "",
         notes: row.progression_notes || "",
+        dose_type: "open",
+        dose_config: "{}",
       });
 
       const saved = (await fetchJson(`/api/lifeswitch/training/my_conditioning_prescriptions/upsert?${qs.toString()}`, {
@@ -208,6 +212,8 @@ export default function ConditioningPage() {
         preferred_timing: merged.preferred_timing || "",
         recovery_constraints: merged.recovery_constraints || "",
         notes: merged.notes || "",
+        dose_type: merged.dose_type || "open",
+        dose_config: JSON.stringify(merged.dose_config || {}),
       });
 
       const saved = (await fetchJson(`/api/lifeswitch/training/my_conditioning_prescriptions/upsert?${qs.toString()}`, {
@@ -554,6 +560,13 @@ export default function ConditioningPage() {
                             }
                           />
 
+                          <ConditioningDoseEditor
+                            plan={selectedPrescription}
+                            onSave={(patch) =>
+                              updatePrescription(patch)
+                            }
+                          />
+
                           <EditText
                             label="Preferred timing"
                             value={selectedPrescription.preferred_timing}
@@ -666,6 +679,315 @@ function Info({ label, value }: { label: string; value: React.ReactNode }) {
     </div>
   );
 }
+
+function doseNumber(
+  config: Record<string, unknown>,
+  key: string
+): number {
+  const value = config?.[key];
+
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : Number(value || 0);
+}
+
+function doseString(
+  config: Record<string, unknown>,
+  key: string
+): string {
+  const value = config?.[key];
+  return value == null ? "" : String(value);
+}
+
+function ConditioningDoseEditor({
+  plan,
+  onSave,
+}: {
+  plan: MyConditioningPrescriptionRow;
+  onSave: (
+    patch: Partial<MyConditioningPrescriptionRow>
+  ) => void | Promise<void>;
+}) {
+  const doseType = plan.dose_type || "open";
+  const config = plan.dose_config || {};
+
+  function saveConfig(patch: Record<string, unknown>) {
+    return onSave({
+      dose_config: {
+        ...config,
+        ...patch,
+      },
+    });
+  }
+
+  return (
+    <section className="grid gap-3 rounded-xl border p-3">
+      <label className="grid gap-1">
+        <div className="text-xs font-medium text-muted-foreground">
+          Tracking method
+        </div>
+
+        <select
+          className="rounded-xl border bg-background px-3 py-2 text-sm"
+          value={doseType}
+          onChange={(e) =>
+            void onSave({
+              dose_type: e.target.value,
+              dose_config: {},
+            })
+          }
+        >
+          <option value="open">Custom / open</option>
+          <option value="time">Time</option>
+          <option value="distance">Distance</option>
+          <option value="rounds">Rounds</option>
+          <option value="intervals">Intervals</option>
+          <option value="laps">Laps</option>
+          <option value="repetitions">Repetitions</option>
+          <option value="loaded_carry">Loaded carry</option>
+        </select>
+      </label>
+
+      {doseType === "open" ? (
+        <EditText
+          label="Dose description"
+          value={doseString(config, "description")}
+          placeholder="Describe how this conditioning plan is performed."
+          onSave={(value) =>
+            saveConfig({ description: value })
+          }
+          multiline
+        />
+      ) : null}
+
+      {doseType === "time" ? (
+        <div className="text-xs text-muted-foreground">
+          Use Duration and Intensity above to define this time-based plan.
+        </div>
+      ) : null}
+
+      {doseType === "distance" ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          <EditNumber
+            label="Distance"
+            value={doseNumber(config, "distance")}
+            step="0.1"
+            onSave={(value) =>
+              saveConfig({ distance: value })
+            }
+          />
+
+          <EditText
+            label="Distance unit"
+            value={doseString(config, "distance_unit")}
+            placeholder="miles, km, meters, yards"
+            onSave={(value) =>
+              saveConfig({ distance_unit: value })
+            }
+          />
+
+          <EditNumber
+            label="Target time min"
+            value={doseNumber(config, "target_time_min")}
+            step="0.1"
+            onSave={(value) =>
+              saveConfig({ target_time_min: value })
+            }
+          />
+
+          <EditText
+            label="Target pace"
+            value={doseString(config, "target_pace")}
+            placeholder="15:00 per mile"
+            onSave={(value) =>
+              saveConfig({ target_pace: value })
+            }
+          />
+        </div>
+      ) : null}
+
+      {doseType === "rounds" ? (
+        <div className="grid gap-3 md:grid-cols-3">
+          <EditNumber
+            label="Rounds"
+            value={doseNumber(config, "rounds")}
+            onSave={(value) =>
+              saveConfig({ rounds: value })
+            }
+          />
+
+          <EditNumber
+            label="Work seconds"
+            value={doseNumber(config, "work_seconds")}
+            onSave={(value) =>
+              saveConfig({ work_seconds: value })
+            }
+          />
+
+          <EditNumber
+            label="Rest seconds"
+            value={doseNumber(config, "rest_seconds")}
+            onSave={(value) =>
+              saveConfig({ rest_seconds: value })
+            }
+          />
+        </div>
+      ) : null}
+
+      {doseType === "intervals" ? (
+        <div className="grid gap-3 md:grid-cols-3">
+          <EditNumber
+            label="Intervals"
+            value={doseNumber(config, "intervals")}
+            onSave={(value) =>
+              saveConfig({ intervals: value })
+            }
+          />
+
+          <EditNumber
+            label="Work seconds"
+            value={doseNumber(config, "work_seconds")}
+            onSave={(value) =>
+              saveConfig({ work_seconds: value })
+            }
+          />
+
+          <EditNumber
+            label="Rest seconds"
+            value={doseNumber(config, "rest_seconds")}
+            onSave={(value) =>
+              saveConfig({ rest_seconds: value })
+            }
+          />
+        </div>
+      ) : null}
+
+      {doseType === "laps" ? (
+        <div className="grid gap-3 md:grid-cols-3">
+          <EditNumber
+            label="Laps"
+            value={doseNumber(config, "laps")}
+            onSave={(value) =>
+              saveConfig({ laps: value })
+            }
+          />
+
+          <EditNumber
+            label="Distance per lap"
+            value={doseNumber(config, "distance_per_lap")}
+            step="0.1"
+            onSave={(value) =>
+              saveConfig({ distance_per_lap: value })
+            }
+          />
+
+          <EditText
+            label="Distance unit"
+            value={doseString(config, "distance_unit")}
+            placeholder="feet, meters, yards"
+            onSave={(value) =>
+              saveConfig({ distance_unit: value })
+            }
+          />
+        </div>
+      ) : null}
+
+      {doseType === "repetitions" ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          <EditNumber
+            label="Sets"
+            value={doseNumber(config, "sets")}
+            onSave={(value) =>
+              saveConfig({ sets: value })
+            }
+          />
+
+          <EditNumber
+            label="Repetitions"
+            value={doseNumber(config, "repetitions")}
+            onSave={(value) =>
+              saveConfig({ repetitions: value })
+            }
+          />
+        </div>
+      ) : null}
+
+      {doseType === "loaded_carry" ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          <EditNumber
+            label="Left-side load"
+            value={doseNumber(config, "load_left")}
+            step="0.5"
+            onSave={(value) =>
+              saveConfig({ load_left: value })
+            }
+          />
+
+          <EditNumber
+            label="Right-side load"
+            value={doseNumber(config, "load_right")}
+            step="0.5"
+            onSave={(value) =>
+              saveConfig({ load_right: value })
+            }
+          />
+
+          <EditText
+            label="Load unit"
+            value={doseString(config, "load_unit")}
+            placeholder="lb or kg"
+            onSave={(value) =>
+              saveConfig({ load_unit: value })
+            }
+          />
+
+          <EditNumber
+            label="Laps"
+            value={doseNumber(config, "laps")}
+            onSave={(value) =>
+              saveConfig({ laps: value })
+            }
+          />
+
+          <EditNumber
+            label="Distance"
+            value={doseNumber(config, "distance")}
+            step="0.1"
+            onSave={(value) =>
+              saveConfig({ distance: value })
+            }
+          />
+
+          <EditText
+            label="Distance unit"
+            value={doseString(config, "distance_unit")}
+            placeholder="feet, meters, yards"
+            onSave={(value) =>
+              saveConfig({ distance_unit: value })
+            }
+          />
+
+          <EditNumber
+            label="Rounds"
+            value={doseNumber(config, "rounds")}
+            onSave={(value) =>
+              saveConfig({ rounds: value })
+            }
+          />
+
+          <EditNumber
+            label="Rest seconds"
+            value={doseNumber(config, "rest_seconds")}
+            onSave={(value) =>
+              saveConfig({ rest_seconds: value })
+            }
+          />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 
 function EditText({
   label,
