@@ -390,9 +390,9 @@ export default function ConditioningPage() {
           <section className="min-w-0 rounded-xl border p-4">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <div className="text-sm font-semibold">My conditioning prescriptions</div>
+                <div className="text-sm font-semibold">My conditioning plans</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Personal versions of library methods. These feed Conditioning Capture, Log, and later Analyze.
+                  Saved conditioning plans available in Capture and Log.
                 </div>
               </div>
               <div className="text-xs text-muted-foreground">count={prescriptions.length}</div>
@@ -503,7 +503,7 @@ export default function ConditioningPage() {
                             disabled={loading}
                           >
                             <Trash2 className="h-3 w-3" />
-                            Remove prescription
+                            Remove plan
                           </button>
                         </div>
                       ) : null}
