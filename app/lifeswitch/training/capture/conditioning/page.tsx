@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { authFetch } from "@/lib/authFetch";
-import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
+import { NumericInput } from "@/components/lifeswitch/NumericInput";
 
 type MyConditioningPrescriptionRow = {
   my_conditioning_prescription_id: string;
@@ -399,16 +399,13 @@ export default function ConditioningCapturePage() {
                     <div className="text-muted-foreground">
                       Duration min
                     </div>
-                    <input
+                    <NumericInput
                       className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
-                      type="number"
+                      mode="integer"
+                      min={0}
                       step="1"
                       value={durationMin}
-                      onFocus={selectNumberInputValue}
-                      onClick={selectNumberInputValue}
-                      onChange={(e) =>
-                        setDurationMin(e.currentTarget.value)
-                      }
+                      onValueChange={setDurationMin}
                     />
                   </label>
 
@@ -777,16 +774,13 @@ function DoseInput({
   return (
     <label className="text-xs">
       <div className="text-muted-foreground">{label}</div>
-      <input
+      <NumericInput
         className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
-        type="number"
+        mode={step.includes(".") ? "decimal" : "integer"}
+        min={0}
         step={step}
         value={value}
-        onFocus={selectNumberInputValue}
-        onClick={selectNumberInputValue}
-        onChange={(e) =>
-          onChange(safeNum(e.currentTarget.value, 0))
-        }
+        onValueChange={(next) => onChange(safeNum(next, 0))}
       />
     </label>
   );

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
-import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
+import { NumericInput } from "@/components/lifeswitch/NumericInput";
 
 type ConditioningLibraryRow = {
   conditioning_library_id: string;
@@ -1143,14 +1143,14 @@ function EditNumber({
   return (
     <label className="grid gap-1">
       <div className="text-xs font-medium text-muted-foreground">{label}</div>
-      <input
+      <NumericInput
         className="rounded-xl border bg-background px-3 py-2 text-sm"
-        type="number"
+        mode={step.includes(".") ? "decimal" : "integer"}
+        min={0}
+        required
         step={step}
         value={draft}
-        onFocus={selectNumberInputValue}
-        onClick={selectNumberInputValue}
-        onChange={(e) => setDraft(e.target.value)}
+        onValueChange={setDraft}
         onBlur={() => void onSave(Number(draft || 0))}
       />
     </label>

@@ -19,7 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useRouter } from "next/navigation";
-import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
+import { NumericInput } from "@/components/lifeswitch/NumericInput";
 
 
 type TemplateListItem = {
@@ -1075,14 +1075,13 @@ export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
                     </div>
                     <div className="space-y-1">
                       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Set</div>
-                      <input
+                      <NumericInput
                         className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                        type="number"
+                        mode="integer"
                         min={1}
+                        required
                         value={wsSetIndex}
-                        onFocus={selectNumberInputValue}
-                        onClick={selectNumberInputValue}
-                        onChange={(e) => setWsSetIndex(e.target.value)}
+                        onValueChange={setWsSetIndex}
                       />
                     </div>
                   </div>
@@ -1090,28 +1089,24 @@ export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
                     <div className="space-y-1">
                       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Weight</div>
-                      <input
+                      <NumericInput
                         className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                        type="number"
-                        inputMode="decimal"
+                        mode="decimal"
+                        min={0}
                         value={wsWeight}
-                        onFocus={selectNumberInputValue}
-                        onClick={selectNumberInputValue}
-                        onChange={(e) => setWsWeight(e.target.value)}
+                        onValueChange={setWsWeight}
                         placeholder="lb"
                       />
                     </div>
 
                     <div className="space-y-1">
                       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reps</div>
-                      <input
+                      <NumericInput
                         className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                        type="number"
+                        mode="integer"
                         min={0}
                         value={wsReps}
-                        onFocus={selectNumberInputValue}
-                        onClick={selectNumberInputValue}
-                        onChange={(e) => setWsReps(e.target.value)}
+                        onValueChange={setWsReps}
                         placeholder="reps"
                       />
                     </div>
@@ -1191,14 +1186,13 @@ export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
                 <div className="mt-4">
                   <div className="flex items-center gap-2">
                     <div className="text-sm text-muted-foreground">Step</div>
-                    <input
+                    <NumericInput
                       className="w-24 rounded-xl border bg-background px-3 py-2 text-sm"
-                      type="number"
+                      mode="integer"
                       min={1}
+                      required
                       value={countStep}
-                      onFocus={selectNumberInputValue}
-                      onClick={selectNumberInputValue}
-                      onChange={(e) => setCountStep(Math.max(1, Math.trunc(Number(e.target.value) || 1)))}
+                      onValueChange={(value) => setCountStep(Math.max(1, Math.trunc(Number(value) || 1)))}
                     />
                   </div>
 

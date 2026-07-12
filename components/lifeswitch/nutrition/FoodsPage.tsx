@@ -3,7 +3,7 @@
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { Camera, ChevronDown, ChevronUp, Search, Trash2 } from "lucide-react";
-import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
+import { NumericInput } from "@/components/lifeswitch/NumericInput";
 import { LifeSwitchToolPanel } from "@/components/lifeswitch/LifeSwitchToolPanel";
 import BarcodeScanner from "./BarcodeScanner";
 
@@ -903,13 +903,13 @@ export default function NutritionFoodsPage() {
                       <div className="text-sm font-semibold">Preferred logging quantity</div>
                       <div className="mt-1 text-xs text-muted-foreground">This is what Capture selects first.</div>
                       <div className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2">
-                        <input
+                        <NumericInput
                           className="min-w-0 rounded-xl border bg-background px-3 py-2 text-sm"
                           value={editPreferredQuantity}
-                          onFocus={selectNumberInputValue}
-                          onClick={selectNumberInputValue}
-                          onChange={(e) => setEditPreferredQuantity(e.target.value)}
-                          inputMode="decimal"
+                          mode="decimal"
+                          min={0.001}
+                          required
+                          onValueChange={setEditPreferredQuantity}
                           aria-label="Preferred quantity"
                         />
                         <select
@@ -978,13 +978,12 @@ export default function NutritionFoodsPage() {
                         ] as const).map(([key, label]) => (
                           <label key={key} className="grid gap-1 text-xs text-muted-foreground">
                             {label}
-                            <input
+                            <NumericInput
                               className="min-w-0 rounded-lg border bg-background px-2 py-2 text-sm text-foreground"
                               value={nutritionDraft[key]}
-                              onFocus={selectNumberInputValue}
-                              onClick={selectNumberInputValue}
-                              onChange={(e) => setNutritionDraft((draft) => ({ ...draft, [key]: e.target.value }))}
-                              inputMode="decimal"
+                              mode="decimal"
+                              min={0}
+                              onValueChange={(value) => setNutritionDraft((draft) => ({ ...draft, [key]: value }))}
                             />
                           </label>
                         ))}
@@ -1017,11 +1016,13 @@ export default function NutritionFoodsPage() {
                               onChange={(e) => setEditingServingName(e.target.value)}
                               aria-label="Serving name"
                             />
-                            <input
+                            <NumericInput
                               className="rounded-lg border bg-background px-2 py-1.5 text-sm"
                               value={editingServingGrams}
-                              onChange={(e) => setEditingServingGrams(e.target.value)}
-                              inputMode="decimal"
+                              mode="decimal"
+                              min={0.001}
+                              required
+                              onValueChange={setEditingServingGrams}
                               aria-label="Serving grams"
                             />
                             <div className="flex gap-1">
@@ -1081,14 +1082,13 @@ export default function NutritionFoodsPage() {
                           onChange={(e) => setServName((p) => ({ ...p, [f.my_food_id]: e.target.value }))}
                           placeholder="Unit, e.g. slice or bottle"
                         />
-                        <input
+                        <NumericInput
                           className="min-w-0 rounded-xl border bg-background px-3 py-2 text-sm"
                           value={servGrams[f.my_food_id] ?? ""}
-                          onFocus={selectNumberInputValue}
-                          onClick={selectNumberInputValue}
-                          onChange={(e) => setServGrams((p) => ({ ...p, [f.my_food_id]: e.target.value }))}
+                          mode="decimal"
+                          min={0.001}
+                          onValueChange={(value) => setServGrams((p) => ({ ...p, [f.my_food_id]: value }))}
                           placeholder="grams/unit"
-                          inputMode="decimal"
                         />
                         <button
                           className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"

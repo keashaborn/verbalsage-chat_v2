@@ -3,7 +3,7 @@
 import * as React from "react";
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
-import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
+import { NumericInput } from "@/components/lifeswitch/NumericInput";
 
 export const dynamic = "force-dynamic";
 
@@ -170,13 +170,12 @@ function Field({
     <label className="text-sm">
       <div className="text-muted-foreground">{label}</div>
       {help ? <div className="mt-1 text-xs leading-snug text-muted-foreground">{help}</div> : null}
-      <input
+      <NumericInput
         className="mt-2 w-full rounded-xl border bg-background px-3 py-2 text-sm"
-        inputMode="decimal"
+        mode="decimal"
+        min={0}
         value={value}
-        onFocus={selectNumberInputValue}
-        onClick={selectNumberInputValue}
-        onChange={(e) => onChange(e.currentTarget.value)}
+        onValueChange={onChange}
         placeholder={placeholder || ""}
       />
     </label>

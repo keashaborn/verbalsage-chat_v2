@@ -3,7 +3,7 @@
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { ChevronUp, ChevronDown, Plus, Trash2 } from "lucide-react";
-import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
+import { NumericInput } from "@/components/lifeswitch/NumericInput";
 import { LifeSwitchToolPanel } from "@/components/lifeswitch/LifeSwitchToolPanel";
 
 type MyExerciseRow = {
@@ -876,42 +876,42 @@ export default function TrainingWorkoutsPage() {
                               <div className="flex flex-wrap items-end gap-4 text-sm">
                                 <label className="flex items-baseline gap-2">
                                   <span className="text-[11px] text-muted-foreground">sets</span>
-                                  <input
+                                  <NumericInput
                                     className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                    inputMode="numeric"
+                                    mode="integer"
+                                    min={1}
+                                    required
                                     value={String(e.planned_sets)}
-                                    onFocus={selectNumberInputValue}
-                                    onClick={selectNumberInputValue}
-                                    onChange={(ev) =>
-                                      void updateExercise(e.workout_template_exercise_id, { planned_sets: Number(ev.target.value || 0) })
+                                    onValueChange={(value) =>
+                                      void updateExercise(e.workout_template_exercise_id, { planned_sets: Number(value || 0) })
                                     }
                                   />
                                 </label>
 
                                 <label className="flex items-baseline gap-2">
                                   <span className="text-[11px] text-muted-foreground">wt</span>
-                                  <input
+                                  <NumericInput
                                     className="w-16 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                    inputMode="decimal"
+                                    mode="decimal"
+                                    min={0}
+                                    required
                                     value={String(e.default_weight)}
-                                    onFocus={selectNumberInputValue}
-                                    onClick={selectNumberInputValue}
-                                    onChange={(ev) =>
-                                      void updateExercise(e.workout_template_exercise_id, { default_weight: Number(ev.target.value || 0) })
+                                    onValueChange={(value) =>
+                                      void updateExercise(e.workout_template_exercise_id, { default_weight: Number(value || 0) })
                                     }
                                   />
                                 </label>
 
                                 <label className="flex items-baseline gap-2">
                                   <span className="text-[11px] text-muted-foreground">reps</span>
-                                  <input
+                                  <NumericInput
                                     className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                    inputMode="numeric"
+                                    mode="integer"
+                                    min={0}
+                                    required
                                     value={String(e.default_reps)}
-                                    onFocus={selectNumberInputValue}
-                                    onClick={selectNumberInputValue}
-                                    onChange={(ev) =>
-                                      void updateExercise(e.workout_template_exercise_id, { default_reps: Number(ev.target.value || 0) })
+                                    onValueChange={(value) =>
+                                      void updateExercise(e.workout_template_exercise_id, { default_reps: Number(value || 0) })
                                     }
                                   />
                                 </label>

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { NumericInput } from "@/components/lifeswitch/NumericInput";
 
 export const GRAMS_UNIT = "grams";
 
@@ -98,15 +99,15 @@ export function FoodQuantityControl({
   const activeServings = servings.filter((row) => row.is_active !== false);
   return (
     <div className={`grid min-w-0 grid-cols-[6.5rem_minmax(8rem,1fr)] gap-2 ${compact ? "max-w-sm" : "w-full"}`}>
-      <input
+      <NumericInput
         className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm"
         value={value.quantity}
-        inputMode="decimal"
+        mode="decimal"
+        min={0.001}
+        required
         aria-label={`${label} quantity`}
         disabled={disabled}
-        onFocus={(event) => event.currentTarget.select()}
-        onClick={(event) => event.currentTarget.select()}
-        onChange={(event) => onChange({ ...value, quantity: event.target.value })}
+        onValueChange={(quantity) => onChange({ ...value, quantity })}
       />
       <select
         className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm"

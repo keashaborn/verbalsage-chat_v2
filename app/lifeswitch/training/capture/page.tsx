@@ -4,7 +4,7 @@ import { authFetch } from "@/lib/authFetch";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Plus } from "lucide-react";
-import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
+import { NumericInput } from "@/components/lifeswitch/NumericInput";
 
 type WorkoutTemplateRow = {
   workout_template_id: string;
@@ -1098,32 +1098,30 @@ export default function TrainingCapturePage() {
 
                                   <label className="text-xs">
                                     <div className="text-muted-foreground">Weight</div>
-                                    <input
+                                    <NumericInput
                                       className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                                      inputMode="decimal"
+                                      mode="decimal"
+                                      min={0}
                                       value={seg.weight}
                                       disabled={row.done}
                                       readOnly={row.done}
-                                      onFocus={selectNumberInputValue}
-                                      onClick={selectNumberInputValue}
-                                      onChange={(e) =>
-                                        updateDraftSegment(row.draft_id, seg.segment_index, { weight: e.currentTarget.value })
+                                      onValueChange={(weight) =>
+                                        updateDraftSegment(row.draft_id, seg.segment_index, { weight })
                                       }
                                     />
                                   </label>
 
                                   <label className="text-xs">
                                     <div className="text-muted-foreground">Reps</div>
-                                    <input
+                                    <NumericInput
                                       className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                                      inputMode="numeric"
+                                      mode="integer"
+                                      min={0}
                                       value={seg.reps}
                                       disabled={row.done}
                                       readOnly={row.done}
-                                      onFocus={selectNumberInputValue}
-                                      onClick={selectNumberInputValue}
-                                      onChange={(e) =>
-                                        updateDraftSegment(row.draft_id, seg.segment_index, { reps: e.currentTarget.value })
+                                      onValueChange={(reps) =>
+                                        updateDraftSegment(row.draft_id, seg.segment_index, { reps })
                                       }
                                     />
                                   </label>
@@ -1134,35 +1132,27 @@ export default function TrainingCapturePage() {
                               <>
                                 <label className="order-2 text-xs">
                                   <div className="text-muted-foreground">Weight</div>
-                                  <input
+                                  <NumericInput
                                     className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                                    inputMode="decimal"
+                                    mode="decimal"
+                                    min={0}
                                     value={row.weight}
                                     disabled={row.done}
                                     readOnly={row.done}
-                                    onFocus={selectNumberInputValue}
-                                    onClick={selectNumberInputValue}
-                                    onChange={(e) => {
-                                      const value = e.currentTarget.value;
-                                      updateDraftRow(row.draft_id, { weight: value });
-                                    }}
+                                    onValueChange={(weight) => updateDraftRow(row.draft_id, { weight })}
                                   />
                                 </label>
 
                                 <label className="order-3 text-xs">
                                   <div className="text-muted-foreground">Reps</div>
-                                  <input
+                                  <NumericInput
                                     className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                                    inputMode="numeric"
+                                    mode="integer"
+                                    min={0}
                                     value={row.reps}
                                     disabled={row.done}
                                     readOnly={row.done}
-                                    onFocus={selectNumberInputValue}
-                                    onClick={selectNumberInputValue}
-                                    onChange={(e) => {
-                                      const value = e.currentTarget.value;
-                                      updateDraftRow(row.draft_id, { reps: value });
-                                    }}
+                                    onValueChange={(reps) => updateDraftRow(row.draft_id, { reps })}
                                   />
                                 </label>
 

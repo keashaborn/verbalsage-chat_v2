@@ -2,7 +2,7 @@
 
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
-import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
+import { NumericInput } from "@/components/lifeswitch/NumericInput";
 
 const DOW = ["S", "M", "T", "W", "T", "F", "S"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -737,14 +737,13 @@ export default function NutritionLogPage() {
 
                                             <div className="mt-2 grid w-full gap-2 sm:justify-items-end">
                                               <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-                                                <input
+                                                <NumericInput
                                                   className="w-20 rounded-xl border bg-background px-2 py-1.5 text-right text-xs"
                                                   value={gramsDraft}
-                                                  onFocus={selectNumberInputValue}
-                                                  onClick={selectNumberInputValue}
-                                                  inputMode="decimal"
-                                                  onChange={(ev) => {
-                                                    const value = ev.currentTarget.value;
+                                                  mode="decimal"
+                                                  min={0.001}
+                                                  required
+                                                  onValueChange={(value) => {
                                                     setEditGramsByEntryId((prev) => ({
                                                       ...prev,
                                                       [entryId]: value,
