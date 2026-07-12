@@ -12,6 +12,11 @@ function todayLocalYYYYMMDD() {
   const d = new Date();
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
+function daysAgoYYYYMMDD(daysAgo: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
 function monthLabel(ym: string) {
   const mm = String(ym || "").trim().match(/^(\d{4})-(\d{2})$/);
   if (!mm) return ym || "Unknown month";
@@ -40,15 +45,28 @@ function formatK(n: number) {
 }
 
 async function fetchJson(url: string, init?: RequestInit) {
-  const r = await authFetch(url, { cache: "no-store", ...(init || {}) });
-  const t = await r.text().catch(() => "");
-  let j: any = null;
-  try { j = t ? JSON.parse(t) : null; } catch { }
-  if (!r.ok) {
-    const detail = j?.detail || j?.error || t?.slice(0, 200) || `HTTP ${r.status}`;
-    throw new Error(String(detail));
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 15_000);
+  try {
+    const r = await authFetch(url, {
+      cache: "no-store",
+      ...(init || {}),
+      signal: init?.signal || controller.signal,
+    });
+    const t = await r.text().catch(() => "");
+    let j: any = null;
+    try { j = t ? JSON.parse(t) : null; } catch { }
+    if (!r.ok) {
+      const detail = j?.detail || j?.error || t?.slice(0, 200) || `HTTP ${r.status}`;
+      throw new Error(String(detail));
+    }
+    return j;
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error("Nutrition request timed out. Try Refresh.");
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
   }
-  return j;
 }
 async function patchLogEntry(nutrition_entry_id: string, qty_g: number) {
   const u = new URL("/api/lifeswitch/nutrition/log/entry", window.location.origin);
@@ -77,6 +95,7 @@ async function deleteLogEntry(nutrition_entry_id: string) {
 type DaySummary = {
   day: string;
   raw: any;
+  any: boolean;
   kcal: number | null;
   protein_g: number | null;
   carbs_g: number | null;
@@ -367,44 +386,34 @@ export default function NutritionLogPage() {
           }
         }
 
-        const N = 60;
-        const base = new Date();
-        const dayList: string[] = [];
-        for (let i = 0; i < N; i++) {
-          const d = new Date(base.getTime() - i * 24 * 3600 * 1000);
-          dayList.push(`${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`);
-        }
-        dayList.sort((a, b) => b.localeCompare(a));
+        const rangeUrl = new URL("/api/lifeswitch/nutrition/log/range", window.location.origin);
+        rangeUrl.searchParams.set("start_day", daysAgoYYYYMMDD(59));
+        rangeUrl.searchParams.set("end_day", todayLocalYYYYMMDD());
+        rangeUrl.searchParams.set("include_entries", "1");
+        if (targetUid) rangeUrl.searchParams.set("target_user_id", targetUid);
 
-        const out: DaySummary[] = [];
-        const chunkSize = 10;
-
-        for (let i = 0; i < dayList.length; i += chunkSize) {
-          const chunk = dayList.slice(i, i + chunkSize);
-          const results = await Promise.all(
-            chunk.map(async (day) => {
-              const u = new URL("/api/lifeswitch/nutrition/log/day", window.location.origin);
-              u.searchParams.set("day", day);
-              if (targetUid) u.searchParams.set("target_user_id", targetUid);
-              const raw = await fetchJson(u.toString());
-              const t = extractTotals(raw);
-
-              const any = hasAnyData(raw, t);
-
-              const hit = targetHit(any, t, nextTargetKcal, nextTargetProteinG);
-
-              return { day, raw, any, ...t, hit };
-            })
-          );
-          out.push(...results);
-          if (cancelled) return;
-          setDays([...out]);
-          setStatus(`loaded ${out.length} of ${dayList.length} days`);
-        }
+        const rangeJson = await fetchJson(rangeUrl.toString());
+        const rangeDays = Array.isArray(rangeJson?.days) ? rangeJson.days : [];
+        const out: DaySummary[] = rangeDays
+          .map((rangeDay: any) => {
+            const day = String(rangeDay?.day?.day || "");
+            const raw = {
+              day: rangeDay?.day || null,
+              entries: Array.isArray(rangeDay?.entries) ? rangeDay.entries : [],
+              totals: rangeDay?.totals || {},
+              _target_user_id: rangeJson?._target_user_id,
+              _delegated_view: rangeJson?._delegated_view,
+            };
+            const t = extractTotals(raw);
+            const any = hasAnyData(raw, t);
+            const hit = targetHit(any, t, nextTargetKcal, nextTargetProteinG);
+            return { day, raw, any, ...t, hit };
+          })
+          .filter((summary: DaySummary) => /^\d{4}-\d{2}-\d{2}$/.test(summary.day));
 
         if (cancelled) return;
         setDays(out);
-        setStatus(`loaded ${out.length} days`);
+        setStatus(`loaded ${out.filter((summary) => summary.any).length} logged days`);
       } catch (e: any) {
         if (cancelled) return;
         setDays([]);

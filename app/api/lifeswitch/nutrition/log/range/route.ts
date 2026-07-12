@@ -1,6 +1,11 @@
 import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
-import { getLifeSwitchOwnerUserId, injectOwnerUserId, unauthorizedLifeSwitch, lifeSwitchUpstreamHeaders } from "@/app/api/lifeswitch/_owner";
+import {
+  getLifeSwitchOwnerUserId,
+  injectOwnerUserId,
+  unauthorizedLifeSwitch,
+  lifeSwitchUpstreamHeaders,
+} from "@/app/api/lifeswitch/_owner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,9 +16,9 @@ export async function GET(req: NextRequest) {
   const rid = req.headers.get("x-request-id") || randomUUID();
   const owner_user_id = await getLifeSwitchOwnerUserId(req);
   if (!owner_user_id) return unauthorizedLifeSwitch(rid);
-  const inUrl = new URL(req.url);
 
-  const upstream = new URL(`${BRAINS_URL}/lifeswitch/nutrition/log/day`);
+  const inUrl = new URL(req.url);
+  const upstream = new URL(`${BRAINS_URL}/lifeswitch/nutrition/log/range`);
   upstream.search = inUrl.search;
   injectOwnerUserId(upstream, owner_user_id);
 
@@ -27,7 +32,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     const timedOut = error instanceof Error && error.name === "TimeoutError";
     return Response.json(
-      { detail: timedOut ? "Nutrition request timed out" : "Nutrition service unavailable" },
+      { detail: timedOut ? "Nutrition range request timed out" : "Nutrition service unavailable" },
       { status: timedOut ? 504 : 502, headers: { "x-request-id": rid } },
     );
   }

@@ -75,22 +75,35 @@ function proteinTargetFromPlan(plan: PlanProfile | null): number | null {
 }
 
 async function fetchJson(url: string, init?: RequestInit) {
-  const r = await authFetch(url, { cache: "no-store", ...(init || {}) });
-  const t = await r.text().catch(() => "");
-  let j: any = null;
-
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 15_000);
   try {
-    j = t ? JSON.parse(t) : null;
-  } catch {
-    // keep null
-  }
+    const r = await authFetch(url, {
+      cache: "no-store",
+      ...(init || {}),
+      signal: init?.signal || controller.signal,
+    });
+    const t = await r.text().catch(() => "");
+    let j: any = null;
 
-  if (!r.ok) {
-    const detail = j?.detail || j?.error || t?.slice(0, 300) || `HTTP ${r.status}`;
-    throw new Error(String(detail));
-  }
+    try {
+      j = t ? JSON.parse(t) : null;
+    } catch {
+      // keep null
+    }
 
-  return j;
+    if (!r.ok) {
+      const detail = j?.detail || j?.error || t?.slice(0, 300) || `HTTP ${r.status}`;
+      throw new Error(String(detail));
+    }
+
+    return j;
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error("Nutrition request timed out. Try Refresh.");
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 function hasAnyData(raw: any, t: { kcal: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null }) {
@@ -224,66 +237,45 @@ export default function NutritionAnalyzePage() {
       const planJson = await fetchJson("/api/lifeswitch/plan/profile?create_if_missing=1");
       setPlan(planJson && typeof planJson === "object" ? (planJson as PlanProfile) : null);
 
-      const dayList: string[] = [];
-      const base = new Date();
-      for (let i = 0; i < 90; i++) {
-        const d = new Date(base.getTime() - i * 24 * 3600 * 1000);
-        dayList.push(`${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`);
-      }
-      dayList.sort((a, b) => b.localeCompare(a));
+      const rangeUrl = new URL("/api/lifeswitch/nutrition/log/range", window.location.origin);
+      rangeUrl.searchParams.set("start_day", daysAgoYYYYMMDD(89));
+      rangeUrl.searchParams.set("end_day", todayLocalYYYYMMDD());
+      rangeUrl.searchParams.set("include_entries", "0");
+      const rangeJson = await fetchJson(rangeUrl.toString());
+      const rangeRows = Array.isArray(rangeJson?.days) ? rangeJson.days : [];
+      const calorieTarget = calorieTargetFromPlan(planJson);
+      const proteinTarget = proteinTargetFromPlan(planJson);
 
-      const out: DaySummary[] = [];
-      const chunkSize = 10;
+      const out: DaySummary[] = rangeRows
+        .map((rangeDay: any) => {
+          const day = String(rangeDay?.day?.day || "");
+          const raw = {
+            day: rangeDay?.day || null,
+            totals: rangeDay?.totals || {},
+          };
+          const t = extractTotals(raw);
+          const any = hasAnyData(raw, t);
+          const calorieHit = any && calorieTarget != null && t.kcal != null && t.kcal <= calorieTarget;
+          const proteinHit = any && proteinTarget != null && t.protein_g != null && t.protein_g >= proteinTarget;
+          const fullHit =
+            any &&
+            (calorieTarget == null || calorieHit) &&
+            (proteinTarget == null || proteinHit);
 
-      for (let i = 0; i < dayList.length; i += chunkSize) {
-        const chunk = dayList.slice(i, i + chunkSize);
-
-        const results = await Promise.all(
-          chunk.map(async (day) => {
-            const u = new URL("/api/lifeswitch/nutrition/log/day", window.location.origin);
-            u.searchParams.set("day", day);
-
-            const raw = await fetchJson(u.toString());
-            const t = extractTotals(raw);
-            const any = hasAnyData(raw, t);
-
-            const kcal = t.kcal;
-            const protein = t.protein_g;
-
-            const calorieHit =
-              any &&
-              calorieTargetFromPlan(planJson) != null &&
-              kcal != null &&
-              kcal <= Number(calorieTargetFromPlan(planJson));
-
-            const proteinHit =
-              any &&
-              proteinTargetFromPlan(planJson) != null &&
-              protein != null &&
-              protein >= Number(proteinTargetFromPlan(planJson));
-
-            const fullHit =
-              any &&
-              (calorieTargetFromPlan(planJson) == null || calorieHit) &&
-              (proteinTargetFromPlan(planJson) == null || proteinHit);
-
-            return {
-              day,
-              raw,
-              any,
-              ...t,
-              calorieHit,
-              proteinHit,
-              fullHit,
-            };
-          })
-        );
-
-        out.push(...results);
-      }
+          return {
+            day,
+            raw,
+            any,
+            ...t,
+            calorieHit,
+            proteinHit,
+            fullHit,
+          };
+        })
+        .filter((summary: DaySummary) => /^\d{4}-\d{2}-\d{2}$/.test(summary.day));
 
       setDays(out);
-      setStatus(`loaded ${out.length} days`);
+      setStatus(`loaded ${out.filter((summary) => summary.any).length} logged days`);
     } catch (e: any) {
       setDays([]);
       setPlan(null);
