@@ -2,8 +2,13 @@ import { redirect } from "next/navigation";
 
 const MODES = new Set(["log", "design", "capture", "plan", "analyze"]);
 
-export default function MeasurementsModePage({ params }: { params: { mode?: string } }) {
-  const mode = (params?.mode || "").toLowerCase();
+export default async function MeasurementsModePage({
+  params,
+}: {
+  params: Promise<{ mode?: string }>;
+}) {
+  const { mode: rawMode } = await params;
+  const mode = (rawMode || "").toLowerCase();
 
   if (!MODES.has(mode)) redirect("/lifeswitch/measurements/log");
   if (mode === "log") redirect("/lifeswitch/measurements/log");

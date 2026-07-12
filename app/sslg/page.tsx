@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
 
-export default function SSLGRedirect({
+export default async function SSLGRedirect({
   searchParams,
 }: {
-  searchParams: Record<string, string | string[] | undefined>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const resolvedSearchParams = await searchParams;
   const qs = new URLSearchParams();
 
-  for (const [k, v] of Object.entries(searchParams || {})) {
+  for (const [k, v] of Object.entries(resolvedSearchParams || {})) {
     if (v === undefined) continue;
     if (Array.isArray(v)) {
       for (const x of v) qs.append(k, x);

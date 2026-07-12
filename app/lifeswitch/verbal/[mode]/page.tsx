@@ -2,8 +2,13 @@ import { redirect } from "next/navigation";
 
 const MODES = new Set(["log", "design", "capture", "plan", "analyze"]);
 
-export default function VerbalModePage({ params }: { params: { mode?: string } }) {
-  const mode = (params?.mode || "").toLowerCase();
+export default async function VerbalModePage({
+  params,
+}: {
+  params: Promise<{ mode?: string }>;
+}) {
+  const { mode: rawMode } = await params;
+  const mode = (rawMode || "").toLowerCase();
   if (!MODES.has(mode)) redirect("/lifeswitch/verbal/design");
 
   if (mode === "capture") redirect("/lifeswitch/verbal/capture");

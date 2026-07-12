@@ -2,8 +2,13 @@ import { redirect } from "next/navigation";
 
 const MODES = new Set(["log", "design", "capture", "plan", "analyze"]);
 
-export default function TrainingModePage({ params }: { params: { mode?: string } }) {
-  const mode = (params?.mode || "").toLowerCase();
+export default async function TrainingModePage({
+  params,
+}: {
+  params: Promise<{ mode?: string }>;
+}) {
+  const { mode: rawMode } = await params;
+  const mode = (rawMode || "").toLowerCase();
 
   // Never fall back to /lifeswitch/training/log to avoid self-loop.
   if (!MODES.has(mode)) redirect("/lifeswitch/training/calendar");

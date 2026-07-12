@@ -2,8 +2,13 @@ import { redirect } from "next/navigation";
 
 const MODES = new Set(["log", "design", "capture", "plan", "analyze"]);
 
-export default function BehaviorModePage({ params }: { params: { mode?: string } }) {
-  const mode = (params?.mode || "").toLowerCase();
+export default async function BehaviorModePage({
+  params,
+}: {
+  params: Promise<{ mode?: string }>;
+}) {
+  const { mode: rawMode } = await params;
+  const mode = (rawMode || "").toLowerCase();
   if (!MODES.has(mode)) redirect("/lifeswitch/behavior/design");
 
   if (mode === "capture") redirect("/lifeswitch/behavior/capture");
