@@ -3,6 +3,16 @@
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import {
+  FoodQuantityControl,
+  GRAMS_UNIT,
+  preferredQuantitySelection,
+  preferredServingSeed,
+  resolvedQuantityGrams,
+  servingUnitLabel,
+  type FoodQuantitySelection,
+  type FoodServingOption,
+} from "./FoodQuantityControl";
 
 type Meal = {
   meal_id: string;
@@ -59,23 +69,12 @@ type MyFood = {
   protein_g: number | null;
   carbs_g: number | null;
   fat_g: number | null;
+  preferred_mode: "grams" | "serving";
+  preferred_quantity: number;
+  preferred_serving_id: string | null;
+  preferred_serving_name: string | null;
+  preferred_serving_grams: number | null;
   is_active: boolean;
-};
-
-
-type FoodOverride = {
-  alias?: string;
-  default_grams?: number;
-};
-
-type OverrideRow = {
-  owner_user_id: string;
-  my_food_id: string;
-  alias: string | null;
-  default_grams: number | null;
-  sort_order: number | null;
-  created_at: string;
-  updated_at: string;
 };
 
 function fmt(n: number | null, digits = 0) {
@@ -107,24 +106,6 @@ async function fetchJson(url: string, init?: RequestInit) {
 }
 
 
-async function fetchOverridesFromDb(): Promise<Record<string, FoodOverride>> {
-  const rows = (await fetchJson("/api/lifeswitch/nutrition/my_food_overrides")) as OverrideRow[];
-
-  const out: Record<string, FoodOverride> = {};
-  for (const row of Array.isArray(rows) ? rows : []) {
-    const fid = String(row?.my_food_id || "").trim();
-    if (!fid) continue;
-
-    out[fid] = {
-      alias: row?.alias ? String(row.alias) : undefined,
-      default_grams: row?.default_grams != null ? Number(row.default_grams) : undefined,
-    };
-  }
-
-  return out;
-}
-
-
 export default function MealsPage() {
   const [meals, setMeals] = React.useState<Meal[]>([]);
   const [selectedMealId, setSelectedMealId] = React.useState<string>("");
@@ -140,25 +121,13 @@ export default function MealsPage() {
   const [hits, setHits] = React.useState<MyFood[]>([]);
   const [loading, setLoading] = React.useState(false);
 
-  // add item controls
-  // add item controls
-  const [addGramsByFoodId, setAddGramsByFoodId] = React.useState<Record<string, string>>({});
-  const [foodOverrides, setFoodOverrides] = React.useState<Record<string, FoodOverride>>({});
-
-  function gramsFor(my_food_id: string): string {
-    const raw = addGramsByFoodId[my_food_id];
-
-    // Preserve exactly what the user is typing, including temporary blank.
-    if (raw !== undefined) return raw;
-
-    const g = foodOverrides[my_food_id]?.default_grams;
-    if (g != null && Number.isFinite(Number(g)) && Number(g) > 0) {
-      return String(g);
-    }
-
-    return "100";
-  }
+  const [quantityByFoodId, setQuantityByFoodId] = React.useState<Record<string, FoodQuantitySelection>>({});
+  const [servingsByFoodId, setServingsByFoodId] = React.useState<Record<string, FoodServingOption[]>>({});
+  const [servingsLoading, setServingsLoading] = React.useState<Record<string, boolean>>({});
   const [addingId, setAddingId] = React.useState<string | null>(null);
+  const [editingItemId, setEditingItemId] = React.useState<string>("");
+  const [editQuantity, setEditQuantity] = React.useState<FoodQuantitySelection>({ quantity: "", unit: GRAMS_UNIT });
+  const [savingItemId, setSavingItemId] = React.useState<string>("");
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const [deletingMealId, setDeletingMealId] = React.useState<string | null>(null);
   const [openMealActions, setOpenMealActions] = React.useState(false);
@@ -179,15 +148,6 @@ export default function MealsPage() {
   }, []);
 
   React.useEffect(() => {
-    void (async () => {
-      try {
-        const db = await fetchOverridesFromDb();
-        setFoodOverrides(db);
-      } catch {
-        setFoodOverrides({});
-      }
-    })();
-
     void loadMeals();
   }, [loadMeals]);
 
@@ -220,7 +180,23 @@ export default function MealsPage() {
       const qq = q.trim();
       if (qq) qs.set("q", qq);
       const j = (await fetchJson(`/api/lifeswitch/nutrition/my_foods?${qs.toString()}`)) as MyFood[];
-      setHits(Array.isArray(j) ? j.filter((x) => x.is_active) : []);
+      const rows = Array.isArray(j) ? j.filter((x) => x.is_active) : [];
+      setHits(rows);
+      setQuantityByFoodId((previous) => {
+        const next = { ...previous };
+        for (const food of rows) {
+          if (!next[food.my_food_id]) next[food.my_food_id] = preferredQuantitySelection(food);
+        }
+        return next;
+      });
+      setServingsByFoodId((previous) => {
+        const next = { ...previous };
+        for (const food of rows) {
+          if (!next[food.my_food_id]) next[food.my_food_id] = preferredServingSeed(food);
+        }
+        return next;
+      });
+      for (const food of rows) void loadServingOptions(food.my_food_id, preferredServingSeed(food));
     } catch (e: any) {
       setErr(String(e?.message || e));
       setHits([]);
@@ -230,7 +206,37 @@ export default function MealsPage() {
   }
 
 
-  async function addItem(my_food_id: string, gramsStr: string) {
+  async function loadServingOptions(my_food_id: string, fallback: FoodServingOption[] = []) {
+    setServingsLoading((previous) => ({ ...previous, [my_food_id]: true }));
+    try {
+      const rows = (await fetchJson(
+        `/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/servings`
+      )) as FoodServingOption[];
+      setServingsByFoodId((previous) => ({
+        ...previous,
+        [my_food_id]: Array.isArray(rows) ? rows : fallback,
+      }));
+    } catch {
+      setServingsByFoodId((previous) => ({ ...previous, [my_food_id]: fallback }));
+    } finally {
+      setServingsLoading((previous) => ({ ...previous, [my_food_id]: false }));
+    }
+  }
+
+  function appendQuantity(qs: URLSearchParams, selection: FoodQuantitySelection, servings: FoodServingOption[]) {
+    const quantity = Number(selection.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) throw new Error("quantity must be greater than zero");
+    if (selection.unit === GRAMS_UNIT) {
+      qs.set("qty_g", String(quantity));
+      return;
+    }
+    const serving = servings.find((row) => row.my_food_serving_id === selection.unit);
+    if (!serving) throw new Error("select an available serving unit");
+    qs.set("my_food_serving_id", serving.my_food_serving_id);
+    qs.set("qty_servings", String(quantity));
+  }
+
+  async function addItem(my_food_id: string) {
     if (!selectedMealId) return;
     setErr(null);
     try {
@@ -239,10 +245,9 @@ export default function MealsPage() {
         my_food_id,
         sort_order: "1",
       });
-
-      const g = Number(String(gramsStr || "").trim());
-      if (!Number.isFinite(g) || g <= 0) throw new Error("grams must be > 0");
-      qs.set("qty_g", String(g));
+      const food = hits.find((row) => row.my_food_id === my_food_id);
+      const selection = quantityByFoodId[my_food_id] || preferredQuantitySelection(food || {});
+      appendQuantity(qs, selection, servingsByFoodId[my_food_id] || preferredServingSeed(food || { my_food_id }));
 
       await fetchJson(`/api/lifeswitch/nutrition/meals/${encodeURIComponent(selectedMealId)}/items/add?${qs.toString()}`, { method: "POST" });
       await loadItems(selectedMealId);
@@ -250,6 +255,47 @@ export default function MealsPage() {
       setErr(String(e?.message || e));
     } finally {
       setAddingId(null);
+    }
+  }
+
+  async function beginEditItem(item: MealItem) {
+    const fallback = item.my_food_serving_id && item.serving_name && item.serving_grams
+      ? [{
+          my_food_serving_id: item.my_food_serving_id,
+          my_food_id: item.my_food_id,
+          name: item.serving_name,
+          grams: Number(item.serving_grams),
+          is_active: true,
+        }]
+      : [];
+    setEditingItemId(item.meal_item_id);
+    setEditQuantity(item.my_food_serving_id && item.qty_servings != null
+      ? { quantity: String(Number(item.qty_servings)), unit: item.my_food_serving_id }
+      : { quantity: String(Number(item.qty_g || 0)), unit: GRAMS_UNIT });
+    setOpenItemActionsId("");
+    if (!servingsByFoodId[item.my_food_id]) {
+      setServingsByFoodId((previous) => ({ ...previous, [item.my_food_id]: fallback }));
+    }
+    await loadServingOptions(item.my_food_id, fallback);
+  }
+
+  async function saveItemQuantity(item: MealItem) {
+    if (!selectedMealId) return;
+    setErr(null);
+    setSavingItemId(item.meal_item_id);
+    try {
+      const qs = new URLSearchParams();
+      appendQuantity(qs, editQuantity, servingsByFoodId[item.my_food_id] || []);
+      await fetchJson(
+        `/api/lifeswitch/nutrition/meals/${encodeURIComponent(selectedMealId)}/items/${encodeURIComponent(item.meal_item_id)}?${qs.toString()}`,
+        { method: "PATCH" }
+      );
+      setEditingItemId("");
+      await loadItems(selectedMealId);
+    } catch (e: any) {
+      setErr(String(e?.message || e));
+    } finally {
+      setSavingItemId("");
     }
   }
 
@@ -300,6 +346,7 @@ export default function MealsPage() {
 
       setSelectedMealId("");
       setItems([]);
+      setEditingItemId("");
       setOpenMealActions(false);
       await loadMeals();
     } catch (e: any) {
@@ -430,6 +477,7 @@ export default function MealsPage() {
                             onClick={() => {
                               setOpenMealActions(false);
                               setOpenItemActionsId("");
+                              setEditingItemId("");
                               setQ("");
                               setHits([]);
 
@@ -473,6 +521,7 @@ export default function MealsPage() {
                                         setHits([]);
                                         setOpenMealActions(false);
                                         setOpenItemActionsId("");
+                                        setEditingItemId("");
                                       }}
                                     >
                                       Close
@@ -581,12 +630,11 @@ export default function MealsPage() {
                                               {it.variant
                                                 ? ` · ${it.variant}`
                                                 : ""}
-                                              {resolvedQtyG(it) != null
-                                                ? ` · ${fmt(
-                                                    resolvedQtyG(it),
-                                                    0
-                                                  )}g`
-                                                : ""}
+                                              {it.my_food_serving_id && it.qty_servings != null && it.serving_name
+                                                ? ` · ${Number(it.qty_servings)} × ${servingUnitLabel(it.serving_name)} · ${fmt(resolvedQtyG(it), 0)}g`
+                                                : resolvedQtyG(it) != null
+                                                  ? ` · ${fmt(resolvedQtyG(it), 0)}g`
+                                                  : ""}
                                             </div>
                                             <div className="mt-1 text-xs text-muted-foreground">
                                               kcal{" "}
@@ -622,6 +670,40 @@ export default function MealsPage() {
                                                 0
                                               )}
                                             </div>
+
+                                            {editingItemId === it.meal_item_id ? (
+                                              <div className="mt-3 grid gap-2 rounded-xl border bg-muted/10 p-3">
+                                                <FoodQuantityControl
+                                                  label={it.display_name}
+                                                  value={editQuantity}
+                                                  servings={servingsByFoodId[it.my_food_id] || []}
+                                                  disabled={savingItemId === it.meal_item_id || servingsLoading[it.my_food_id]}
+                                                  onChange={setEditQuantity}
+                                                />
+                                                <div className="text-xs text-muted-foreground">
+                                                  {resolvedQuantityGrams(editQuantity, servingsByFoodId[it.my_food_id] || []) != null
+                                                    ? `${fmt(resolvedQuantityGrams(editQuantity, servingsByFoodId[it.my_food_id] || []), 1)}g resolved`
+                                                    : "Enter a valid quantity."}
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                  <button
+                                                    type="button"
+                                                    className="rounded-md border px-3 py-1.5 text-xs disabled:opacity-50"
+                                                    disabled={savingItemId === it.meal_item_id}
+                                                    onClick={() => void saveItemQuantity(it)}
+                                                  >
+                                                    {savingItemId === it.meal_item_id ? "Saving…" : "Save quantity"}
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    className="rounded-md border px-3 py-1.5 text-xs text-muted-foreground"
+                                                    onClick={() => setEditingItemId("")}
+                                                  >
+                                                    Cancel
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            ) : null}
                                           </div>
 
                                           <div className="grid shrink-0 justify-items-end gap-2">
@@ -645,24 +727,25 @@ export default function MealsPage() {
                                               )}
                                             </button>
 
-                                            {openItemActionsId ===
-                                            it.meal_item_id ? (
-                                              <button
-                                                type="button"
-                                                className="inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
-                                                onClick={() =>
-                                                  void deleteItem(
-                                                    it.meal_item_id
-                                                  )
-                                                }
-                                                disabled={
-                                                  deletingId ===
-                                                  it.meal_item_id
-                                                }
-                                              >
-                                                <Trash2 className="h-3 w-3" />
-                                                Remove item
-                                              </button>
+                                            {openItemActionsId === it.meal_item_id ? (
+                                              <div className="grid justify-items-end gap-2">
+                                                <button
+                                                  type="button"
+                                                  className="rounded-md border px-2 py-1 text-xs"
+                                                  onClick={() => void beginEditItem(it)}
+                                                >
+                                                  Edit quantity
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  className="inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                                                  onClick={() => void deleteItem(it.meal_item_id)}
+                                                  disabled={deletingId === it.meal_item_id}
+                                                >
+                                                  <Trash2 className="h-3 w-3" />
+                                                  Remove item
+                                                </button>
+                                              </div>
                                             ) : null}
                                           </div>
                                         </div>
@@ -706,61 +789,49 @@ export default function MealsPage() {
 
                                 {hits.length ? (
                                   <div className="mt-4 space-y-2">
-                                    {hits.map((f) => (
-                                      <div
-                                        key={f.my_food_id}
-                                        className="rounded-xl border p-3"
-                                      >
-                                        <div className="truncate text-sm font-medium">
-                                          {f.display_name}
-                                        </div>
-                                        <div className="mt-1 text-xs text-muted-foreground">
-                                          {f.brand || "—"}
-                                          {f.variant
-                                            ? ` · ${f.variant}`
-                                            : ""}
-                                        </div>
-                                        <div className="mt-1 text-xs text-muted-foreground">
-                                          per 100g: kcal {fmt(f.kcal, 0)} · P{" "}
-                                          {fmt(f.protein_g, 1)} · C{" "}
-                                          {fmt(f.carbs_g, 1)} · F{" "}
-                                          {fmt(f.fat_g, 1)}
-                                        </div>
+                                    {hits.map((f) => {
+                                      const selection = quantityByFoodId[f.my_food_id] || preferredQuantitySelection(f);
+                                      const servings = servingsByFoodId[f.my_food_id] || preferredServingSeed(f);
+                                      const grams = resolvedQuantityGrams(selection, servings);
+                                      return (
+                                        <div key={f.my_food_id} className="rounded-xl border p-3">
+                                          <div className="truncate text-sm font-medium">{f.display_name}</div>
+                                          <div className="mt-1 text-xs text-muted-foreground">
+                                            {f.brand || "—"}{f.variant ? ` · ${f.variant}` : ""}
+                                          </div>
+                                          <div className="mt-1 text-xs text-muted-foreground">
+                                            {grams != null
+                                              ? `${fmt(grams, 1)}g · kcal ${fmt(scaled(f.kcal, grams), 0)} · P ${fmt(scaled(f.protein_g, grams), 1)} · C ${fmt(scaled(f.carbs_g, grams), 1)} · F ${fmt(scaled(f.fat_g, grams), 1)}`
+                                              : "Select a valid quantity."}
+                                          </div>
 
-                                        <div className="mt-3 flex items-center gap-2">
-                                          <input
-                                            className="w-24 rounded-md border bg-background px-3 py-2 text-sm"
-                                            value={gramsFor(f.my_food_id)}
-                                            onChange={(e) =>
-                                              setAddGramsByFoodId(
-                                                (previous) => ({
-                                                  ...previous,
-                                                  [f.my_food_id]:
-                                                    e.target.value,
-                                                })
-                                              )
-                                            }
-                                          />
-                                          <button
-                                            type="button"
-                                            className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                                            onClick={() =>
-                                              void addItem(
-                                                f.my_food_id,
-                                                gramsFor(f.my_food_id)
-                                              )
-                                            }
-                                            disabled={
-                                              addingId === f.my_food_id
-                                            }
-                                          >
-                                            {addingId === f.my_food_id
-                                              ? "Adding…"
-                                              : "Add"}
-                                          </button>
+                                          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                                            <div className="min-w-0 flex-1">
+                                              <FoodQuantityControl
+                                                label={f.display_name}
+                                                value={selection}
+                                                servings={servings}
+                                                disabled={addingId === f.my_food_id}
+                                                onChange={(next) =>
+                                                  setQuantityByFoodId((previous) => ({
+                                                    ...previous,
+                                                    [f.my_food_id]: next,
+                                                  }))
+                                                }
+                                              />
+                                            </div>
+                                            <button
+                                              type="button"
+                                              className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                                              onClick={() => void addItem(f.my_food_id)}
+                                              disabled={addingId === f.my_food_id || grams == null}
+                                            >
+                                              {addingId === f.my_food_id ? "Adding…" : "Add"}
+                                            </button>
+                                          </div>
                                         </div>
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
                                   </div>
                                 ) : (
                                   <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
