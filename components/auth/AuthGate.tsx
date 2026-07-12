@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch } from "@/lib/authFetch";
+import { applyTheme, normalizeThemeValue } from "@/lib/theme";
 
 const MAX_AGE_S = 60 * 60 * 24 * 30; // 30d
 const LS_CLOUD_UPDATED_AT = "vs_cloud_settings_v1_updated_at";
@@ -72,38 +73,10 @@ async function fetchOk(url: string, init: RequestInit, ms: number): Promise<bool
 }
 
 
-function normalizeThemeValue(raw: any): string {
-  let v = String(raw || "").trim();
-
-  // tolerate old JSON-encoded localStorage values, e.g. "\"graphite\""
-  if (v.startsWith("\"")) {
-    try {
-      v = JSON.parse(v);
-    } catch {
-      // ignore
-    }
-  }
-
-  return ["paper", "light", "dark", "graphite", "carbon", "dark-hc"].includes(v) ? v : "";
-}
-
 function applyThemeFromMetadata(md: any) {
   const localTheme = normalizeThemeValue(lsGet("vs_theme"));
   const cloudTheme = normalizeThemeValue(md?.vs_theme);
-  const t = localTheme || cloudTheme || "graphite";
-
-  lsSet("vs_theme", t);
-
-  try {
-    document.documentElement.classList.toggle("dark", t === "dark" || t === "dark-hc" || t === "graphite" || t === "carbon");
-    document.documentElement.classList.toggle("dark-hc", t === "dark-hc");
-    document.documentElement.classList.toggle("paper", t === "paper");
-    document.documentElement.classList.toggle("graphite", t === "graphite");
-    document.documentElement.classList.toggle("carbon", t === "carbon");
-    window.dispatchEvent(new Event("vs_theme_changed"));
-  } catch {
-    // ignore
-  }
+  applyTheme(cloudTheme || localTheme || "graphite");
 }
 
 function applyProfileCookiesFromSession(session: any): boolean {

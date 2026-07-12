@@ -37,26 +37,36 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className="dark graphite"
+      data-theme="graphite"
+      style={{ colorScheme: "dark", backgroundColor: "#111113" }}
+      suppressHydrationWarning
+    >
       <script
         dangerouslySetInnerHTML={{
           __html: `
 (function() {
   try {
     var raw = localStorage.getItem("vs_theme");
-    // tolerate either raw string or JSON-encoded string
-    var t = raw ? (raw[0] === '"' ? JSON.parse(raw) : raw) : "graphite";
+    var value = raw ? (raw[0] === '"' ? JSON.parse(raw) : raw) : "graphite";
+    var t = (value === "paper" || value === "light") ? "paper" : "graphite";
+    var root = document.documentElement;
 
-    var isDark = (t === "dark" || t === "dark-hc" || t === "graphite" || t === "carbon");
+    localStorage.setItem("vs_theme", JSON.stringify(t));
+    root.classList.remove("dark", "dark-hc", "paper", "graphite", "carbon");
+    root.dataset.theme = t;
 
-    // prevent white flash before CSS loads
-    document.documentElement.style.backgroundColor = t === "paper" ? "#f7f5f0" : (t === "graphite" ? "#111113" : (t === "carbon" ? "#080808" : (isDark ? "#000" : "#fff")));
-
-    if (isDark) document.documentElement.classList.add("dark");
-    else document.documentElement.classList.remove("dark");
-
-    if (t === "dark-hc") document.documentElement.classList.add("dark-hc");
-    else document.documentElement.classList.remove("dark-hc");
+    if (t === "paper") {
+      root.classList.add("paper");
+      root.style.colorScheme = "light";
+      root.style.backgroundColor = "#f7f5f0";
+    } else {
+      root.classList.add("dark", "graphite");
+      root.style.colorScheme = "dark";
+      root.style.backgroundColor = "#111113";
+    }
 
   } catch (e) {}
 })();

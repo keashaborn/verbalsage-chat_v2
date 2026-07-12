@@ -2,70 +2,30 @@
 
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { applyTheme, normalizeThemeValue, readStoredTheme, type VSTheme } from "@/lib/theme";
 
-type Theme = "paper" | "light" | "dark" | "graphite" | "carbon" | "dark-hc";
-
-function isTheme(v: any): v is Theme {
-  return v === "paper" || v === "light" || v === "dark" || v === "graphite" || v === "carbon" || v === "dark-hc";
-}
-
-function lsGet<T>(k: string, fallback: T): T {
-  try {
-    const v = localStorage.getItem(k);
-    if (v == null) return fallback;
-    return JSON.parse(v) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function lsSet(k: string, v: any) {
-  try {
-    localStorage.setItem(k, JSON.stringify(v));
-  } catch {
-    // ignore
-  }
-}
-
-function applyTheme(t: Theme) {
-  const root = document.documentElement;
-  root.classList.toggle("dark", t === "dark" || t === "dark-hc" || t === "graphite" || t === "carbon");
-  root.classList.toggle("dark-hc", t === "dark-hc");
-  root.classList.toggle("paper", t === "paper");
-  root.classList.toggle("graphite", t === "graphite");
-  root.classList.toggle("carbon", t === "carbon");
-  lsSet("vs_theme", t);
-
-  try {
-    window.dispatchEvent(new Event("vs_theme_changed"));
-  } catch {
-    // ignore
-  }
-}
-
-function saveThemeCloud(t: Theme) {
+function saveThemeCloud(t: VSTheme) {
   void supabase.auth.updateUser({
     data: { vs_theme: t },
   });
 }
 
 export function PersonalizationPanel() {
-  const [theme, setTheme] = React.useState<Theme>("dark");
+  const [theme, setTheme] = React.useState<VSTheme>("graphite");
 
   React.useEffect(() => {
     let cancelled = false;
 
-    const local = lsGet<Theme>("vs_theme", "graphite");
-    const localTheme = isTheme(local) ? local : "dark";
+    const localTheme = readStoredTheme();
     setTheme(localTheme);
     applyTheme(localTheme);
 
     void (async () => {
       const { data } = await supabase.auth.getUser();
       const md: any = data?.user?.user_metadata || {};
-      const cloudTheme = md?.vs_theme;
+      const cloudTheme = normalizeThemeValue(md?.vs_theme);
 
-      if (cancelled || !isTheme(cloudTheme)) return;
+      if (cancelled || !cloudTheme) return;
 
       setTheme(cloudTheme);
       applyTheme(cloudTheme);
@@ -85,22 +45,18 @@ export function PersonalizationPanel() {
           className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
           value={theme}
           onChange={(e) => {
-            const t = e.target.value as Theme;
+            const t = e.target.value as VSTheme;
             setTheme(t);
             applyTheme(t);
             saveThemeCloud(t);
           }}
         >
-          <option value="paper">Paper</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
           <option value="graphite">Graphite</option>
-          <option value="carbon">Carbon</option>
-          <option value="dark-hc">Dark (high contrast)</option>
+          <option value="paper">Paper</option>
         </select>
 
         <div className="text-xs text-muted-foreground">
-          Synced to your account and cached in this browser.
+          Graphite is the default. Paper is a softer light theme. Your choice syncs to your account.
         </div>
       </div>
     </div>

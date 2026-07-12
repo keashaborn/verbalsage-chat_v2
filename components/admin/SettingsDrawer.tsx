@@ -4,6 +4,7 @@ import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { supabase } from "@/lib/supabaseClient";
 import Image from "next/image";
+import { normalizeThemeValue } from "@/lib/theme";
 
 import { PersonalizationPanel } from "@/components/admin/PersonalizationPanel";
 import { VoicePanel } from "@/components/admin/VoicePanel";
@@ -47,26 +48,8 @@ const PAGE_TITLES: Record<PageId, string> = {
   security: "Security",
 };
 
-function normalizeThemeRaw(raw: string | null) {
-  const v = (raw || "").trim();
-  if (!v) return "system";
-  try {
-    const parsed = JSON.parse(v);
-    if (typeof parsed === "string" && parsed.trim()) return parsed.trim();
-  } catch { }
-  return v;
-}
-
 function prettyThemeLabel(raw: string | null) {
-  const v = normalizeThemeRaw(raw).toLowerCase();
-  if (!v || v === "system") return "System";
-  if (v === "paper") return "Paper";
-  if (v === "light") return "Light";
-  if (v === "dark") return "Dark";
-  if (v === "graphite") return "Graphite";
-  if (v === "carbon") return "Carbon";
-  if (v === "dark-hc") return "Dark (HC)";
-  return v;
+  return normalizeThemeValue(raw) === "paper" ? "Paper" : "Graphite";
 }
 
 
