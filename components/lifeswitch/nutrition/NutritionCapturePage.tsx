@@ -533,7 +533,7 @@ export default function NutritionCapturePage() {
                 </div>
 
                 <button
-                  className="border rounded px-3 py-1 text-sm"
+                  className="rounded border border-emerald-500/60 bg-emerald-600 px-3 py-1 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
                   onClick={() => void logMealCombo()}
                   disabled={mealItemsLoading || mealItems.length === 0}
                 >
@@ -598,7 +598,7 @@ export default function NutritionCapturePage() {
                             }
                           />
                           <button
-                            className="rounded border px-3 py-2 text-sm disabled:opacity-50"
+                            className="rounded border border-emerald-500/45 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-50 dark:text-emerald-300"
                             disabled={!included || grams == null}
                             onClick={() =>
                               void (async () => {
@@ -695,7 +695,7 @@ export default function NutritionCapturePage() {
                       }
                     />
                     <button
-                      className="rounded border px-3 py-2 text-sm disabled:opacity-50"
+                      className="rounded border border-emerald-500/45 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-50 dark:text-emerald-300"
                       disabled={resolvedGrams == null}
                       onClick={() => void logSingleFood(food)}
                     >

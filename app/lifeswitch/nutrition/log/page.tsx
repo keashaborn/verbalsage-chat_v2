@@ -259,6 +259,7 @@ export default function NutritionLogPage() {
   const [targetName, setTargetName] = React.useState<string>("");
   const [status, setStatus] = React.useState<string>("loading nutrition log…");
   const [days, setDays] = React.useState<DaySummary[]>([]);
+  const [expandedDay, setExpandedDay] = React.useState<string>("");
   const [loading, setLoading] = React.useState(true);
   const [editGramsByEntryId, setEditGramsByEntryId] = React.useState<Record<string, string>>({});
   const [savingEntryId, setSavingEntryId] = React.useState<string>("");
@@ -374,6 +375,8 @@ export default function NutritionLogPage() {
           );
           out.push(...results);
           if (cancelled) return;
+          setDays([...out]);
+          setStatus(`loaded ${out.length} of ${dayList.length} days`);
         }
 
         if (cancelled) return;
@@ -559,15 +562,26 @@ export default function NutritionLogPage() {
               <div className="mt-8">
                 {m.days.filter((d: any) => d.any).slice(0, 20).map((d, didx) => (
                   <div key={d.day} className={didx ? "mt-6 pt-6 border-t border-muted/20" : ""}>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="text-lg font-semibold">{d.day}</div>
-                      <div className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-wide ${d.hit
-                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                        : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                        }`}>
-                        {d.hit ? "Hit" : "Logged"}
-                      </div>
-                    </div>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-3 text-left"
+                      aria-expanded={expandedDay === d.day}
+                      aria-controls={`nutrition-day-${d.day}`}
+                      onClick={() => setExpandedDay((current) => current === d.day ? "" : d.day)}
+                    >
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-lg font-semibold">{d.day}</span>
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-wide ${d.hit
+                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                          : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                          }`}>
+                          {d.hit ? "Hit" : "Logged"}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-sm text-muted-foreground" aria-hidden="true">
+                        {expandedDay === d.day ? "▴" : "▾"}
+                      </span>
+                    </button>
                     <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-xl border border-muted/20 bg-background/40 px-3 py-2 text-xs">
                       <div className="flex items-baseline gap-2">
                         <div className="opacity-70">KCAL</div>
@@ -586,8 +600,9 @@ export default function NutritionLogPage() {
                         <div className="font-semibold">{fmt1tight(safeNum(d.fat_g, 0))}g</div>
                       </div>
                     </div>
-                    {Array.isArray(d.raw?.entries) && d.raw.entries.length ? (
-                      <div className="mt-4 rounded-xl border border-muted/20 overflow-hidden">
+                    {expandedDay === d.day ? (
+                      Array.isArray(d.raw?.entries) && d.raw.entries.length ? (
+                      <div id={`nutrition-day-${d.day}`} className="mt-4 rounded-xl border border-muted/20 overflow-hidden">
                         {(() => {
                           const entries = [...d.raw.entries];
 
@@ -632,6 +647,13 @@ export default function NutritionLogPage() {
                               metaParts.push(`${st}${sid ? ":" + sid : ""}`.replace(/^:/, ""));
                             }
                             const meta = metaParts.filter(Boolean).join(" · ");
+                            const servingName = String(e?.serving_name || "").trim();
+                            const servingQty = safeNum(e?.qty_servings, 0);
+                            const quantityLabel = servingName && servingQty > 0
+                              ? `${Math.abs(servingQty - 1) < 0.0001 ? servingName : `${fmt1tight(servingQty)} × ${servingName}`} · ${fmt1tight(qty)}g`
+                              : qty > 0
+                                ? `${fmt1tight(qty)}g`
+                                : "";
 
                             return (
                               <div key={String(e.nutrition_entry_id)} className="px-3">
@@ -650,29 +672,29 @@ export default function NutritionLogPage() {
                                     </div>
                                   ) : null}
 
-                                  <div className="mt-2 flex items-center justify-between gap-3 min-w-0">
+                                  <div className="mt-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                     {/* left: macros */}
                                     <div className="min-w-0 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
-                                      {qty > 0 ? `${fmt1tight(qty)}g · ` : ""}
+                                      {quantityLabel ? `${quantityLabel} · ` : ""}
                                       kcal {fmt1tight(m.kcal)} · P {fmt1tight(m.p)} · C {fmt1tight(m.c)} · F {fmt1tight(m.f)}
                                     </div>
 
                                     {/* right: edit + delete */}
-                                    <div className="shrink-0">
+                                    <div className="w-full sm:w-auto sm:shrink-0">
                                       {isDelegatedView ? (
                                         <div className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
                                           Read-only
                                         </div>
                                       ) : (
-                                          <details className="group">
-                                            <summary className="inline-flex list-none cursor-pointer select-none items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 [&::-webkit-details-marker]:hidden">
+                                          <details className="group w-full sm:w-auto">
+                                            <summary className="ml-auto inline-flex list-none cursor-pointer select-none items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 [&::-webkit-details-marker]:hidden">
                                               Actions
                                               <span className="opacity-60 group-open:hidden">▾</span>
                                               <span className="hidden opacity-60 group-open:inline">▴</span>
                                             </summary>
 
-                                            <div className="mt-2 grid justify-items-end gap-2">
-                                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                            <div className="mt-2 grid w-full gap-2 sm:justify-items-end">
+                                              <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
                                                 <input
                                                   className="w-20 rounded-xl border bg-background px-2 py-1.5 text-right text-xs"
                                                   value={gramsDraft}
@@ -741,9 +763,10 @@ export default function NutritionLogPage() {
                           });
                         })()}
                       </div>
-                    ) : (
+                      ) : (
                       <div className="mt-3 text-sm text-muted-foreground">No entries.</div>
-                    )}
+                      )
+                    ) : null}
                   </div>
                 ))}
               </div>
