@@ -161,7 +161,7 @@ export default function MeasurementsAnalyzePage() {
         <div>
           <div className="text-sm font-semibold">Measurement trends</div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Single-subject line graphs from measurement entries. Phase-change markers will be added from Plan history later.
+            Changes in your recorded measurements over time.
           </p>
         </div>
 

@@ -419,7 +419,7 @@ export default function NutritionAnalyzePage() {
         <div>
           <div className="text-sm font-semibold">Nutrition trends</div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Single-subject line graphs from logged nutrition days. Target lines and phase markers will be added later.
+            Calories and protein across logged nutrition days.
           </p>
         </div>
 
@@ -448,10 +448,12 @@ export default function NutritionAnalyzePage() {
           <div>
             <div className="text-sm font-semibold">Recent nutrition days</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Daily totals from the nutrition truth ledger.
+              Daily totals from your nutrition log.
             </div>
           </div>
-          <div className="text-xs text-muted-foreground">count={loggedDays.length}</div>
+          <div className="text-xs text-muted-foreground">
+            {loggedDays.length} day{loggedDays.length === 1 ? "" : "s"}
+          </div>
         </div>
 
         {loggedDays.length ? (

@@ -424,7 +424,7 @@ export default function MealPlansPage() {
       </div>
       <div className="text-lg font-semibold">Nutrition · Meal Plans</div>
       <div className="mt-1 text-sm text-muted-foreground">
-        Build templates from <span className="font-medium">My Foods</span>. No USDA/catalog search here.
+        Build reusable plans from foods in your library.
       </div>
 
       {err ? <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900">{err}</div> : null}

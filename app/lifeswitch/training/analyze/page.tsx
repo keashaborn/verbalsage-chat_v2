@@ -387,7 +387,7 @@ export default function TrainingAnalyzePage() {
         <div>
           <div className="text-sm font-semibold">Training trends</div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Single-subject line graphs from completed training logs. Exercise-specific progression and Plan phase markers will be added later.
+            Strength and conditioning patterns across completed training days.
           </p>
         </div>
 
@@ -433,7 +433,9 @@ export default function TrainingAnalyzePage() {
             <div className="text-sm font-semibold">Recent training events</div>
             <div className="mt-1 text-xs text-muted-foreground">Strength and conditioning logs in this range.</div>
           </div>
-          <div className="text-xs text-muted-foreground">count={recentItems.length}</div>
+          <div className="text-xs text-muted-foreground">
+            {recentItems.length} event{recentItems.length === 1 ? "" : "s"}
+          </div>
         </div>
 
         {recentItems.length ? (

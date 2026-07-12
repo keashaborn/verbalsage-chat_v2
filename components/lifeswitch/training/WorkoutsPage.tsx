@@ -748,7 +748,11 @@ export default function TrainingWorkoutsPage() {
                       Template defaults. Capture can change these for a single session.
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">{exLoading ? "…" : `count=${templateExercises.length}`}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {exLoading
+                      ? "Loading…"
+                      : `${templateExercises.length} exercise${templateExercises.length === 1 ? "" : "s"}`}
+                  </div>
                 </div>
 
                 {templateExercises.length ? (
