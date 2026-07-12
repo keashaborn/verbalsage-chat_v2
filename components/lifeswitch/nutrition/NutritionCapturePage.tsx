@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
-import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
-
-type FoodOverride = {
-  alias?: string;
-  default_grams?: number;
-};
+import {
+  FoodQuantityControl,
+  GRAMS_UNIT,
+  preferredQuantitySelection,
+  preferredServingSeed,
+  resolvedQuantityGrams,
+  type FoodQuantitySelection,
+  type FoodServingOption,
+} from "./FoodQuantityControl";
 
 type MyFood = {
   my_food_id: string;
@@ -26,24 +29,13 @@ type MyFood = {
   carbs_g: number | null;
   fat_g: number | null;
 
+  preferred_mode: "grams" | "serving";
+  preferred_quantity: number;
+  preferred_serving_id: string | null;
+  preferred_serving_name: string | null;
+  preferred_serving_grams: number | null;
+
   is_active: boolean;
-};
-
-type MyFoodServing = {
-  my_food_serving_id: string;
-  my_food_id: string;
-  name: string;
-  grams: number;
-  is_default: boolean;
-  created_at?: string;
-  updated_at?: string;
-};
-
-const GRAMS_UNIT = "grams";
-
-type FoodQuantityState = {
-  quantity: string;
-  unit: string;
 };
 
 type FoodLogQuantity =
@@ -107,27 +99,6 @@ function scaled(per100: number | null, grams: number | null): number | null {
   return (per100 * grams) / 100;
 }
 
-function defaultServingFor(servings: MyFoodServing[] | undefined): MyFoodServing | null {
-  const rows = Array.isArray(servings) ? servings : [];
-  return rows.find((s) => s.is_default) || rows[0] || null;
-}
-
-function resolvedFoodGrams(
-  selection: FoodQuantityState | undefined,
-  servings: MyFoodServing[] | undefined
-): number | null {
-  const quantity = Number(selection?.quantity);
-  if (!Number.isFinite(quantity) || quantity <= 0) return null;
-  if (!selection || selection.unit === GRAMS_UNIT) return quantity;
-
-  const serving = (servings || []).find(
-    (row) => row.my_food_serving_id === selection.unit
-  );
-  if (!serving || !Number.isFinite(Number(serving.grams))) return null;
-
-  return quantity * Number(serving.grams);
-}
-
 function resolvedItemGrams(item: MealComboItem): number | null {
   return item.qty_g_resolved ?? item.qty_g;
 }
@@ -152,33 +123,6 @@ async function fetchJson(url: string, init?: RequestInit) {
 }
 
 
-type OverrideRow = {
-  owner_user_id: string;
-  my_food_id: string;
-  alias: string | null;
-  default_grams: number | null;
-  sort_order: number | null;
-  created_at: string;
-  updated_at: string;
-};
-
-async function fetchOverridesFromDb(): Promise<Record<string, FoodOverride>> {
-  const rows = (await fetchJson("/api/lifeswitch/nutrition/my_food_overrides")) as OverrideRow[];
-
-  const out: Record<string, FoodOverride> = {};
-  for (const row of Array.isArray(rows) ? rows : []) {
-    const fid = String(row?.my_food_id || "").trim();
-    if (!fid) continue;
-
-    out[fid] = {
-      alias: row?.alias ? String(row.alias) : undefined,
-      default_grams: row?.default_grams != null ? Number(row.default_grams) : undefined,
-    };
-  }
-
-  return out;
-}
-
 export default function NutritionCapturePage() {
 
   const [mode, setMode] = React.useState<CaptureMode>("foods");
@@ -187,19 +131,17 @@ export default function NutritionCapturePage() {
   const [foodsLoading, setFoodsLoading] = React.useState(false);
   const [q, setQ] = React.useState("");
   const [foodQuantityByFood, setFoodQuantityByFood] = React.useState<
-    Record<string, FoodQuantityState>
+    Record<string, FoodQuantitySelection>
   >({});
-  const [servingsByFood, setServingsByFood] = React.useState<Record<string, MyFoodServing[]>>({});
+  const [servingsByFood, setServingsByFood] = React.useState<Record<string, FoodServingOption[]>>({});
 
   const [meals, setMeals] = React.useState<MealCombo[]>([]);
   const [mealsLoading, setMealsLoading] = React.useState(false);
   const [selectedMealId, setSelectedMealId] = React.useState<string>("");
   const [mealItems, setMealItems] = React.useState<MealComboItem[]>([]);
   const [mealItemsLoading, setMealItemsLoading] = React.useState(false);
-  const [gramsByMealItem, setGramsByMealItem] = React.useState<Record<string, string>>({});
+  const [mealQuantityByItem, setMealQuantityByItem] = React.useState<Record<string, FoodQuantitySelection>>({});
   const [includedMealItemIds, setIncludedMealItemIds] = React.useState<Record<string, boolean>>({});
-
-  const [overrides, setOverrides] = React.useState<Record<string, FoodOverride>>({});
 
   const [day, setDay] = React.useState<string>(todayLocalYYYYMMDD());
   const [status, setStatus] = React.useState<string>("");
@@ -217,8 +159,9 @@ export default function NutritionCapturePage() {
       for (const item of mealItems) {
         if (includedMealItemIds[item.meal_item_id] === false) continue;
 
-        const grams = gramsByMealItem[item.meal_item_id]
-          ? Number(gramsByMealItem[item.meal_item_id])
+        const selection = mealQuantityByItem[item.meal_item_id];
+        const grams = selection
+          ? resolvedQuantityGrams(selection, servingsByFood[item.my_food_id] || [])
           : resolvedItemGrams(item);
 
         const v = scaled((item as any)[k], Number.isFinite(Number(grams)) ? Number(grams) : null);
@@ -237,33 +180,30 @@ export default function NutritionCapturePage() {
       carbs_g: sum("carbs_g"),
       fat_g: sum("fat_g"),
     };
-  }, [mealItems, gramsByMealItem, includedMealItemIds]);
+  }, [mealItems, mealQuantityByItem, includedMealItemIds, servingsByFood]);
 
   // ----------------------------
   // LOAD FOODS
   // ----------------------------
-  async function loadServingsForFoods(rows: MyFood[]) {
-    const active = Array.isArray(rows) ? rows.filter((x) => x?.is_active) : [];
-    const next: Record<string, MyFoodServing[]> = {};
+  async function loadServingsForFoodIds(foodIds: string[]) {
+    const ids = [...new Set(foodIds.map((value) => String(value || "").trim()).filter(Boolean))];
+    const next: Record<string, FoodServingOption[]> = {};
 
     await Promise.all(
-      active.map(async (f) => {
-        const id = String(f?.my_food_id || "").trim();
-        if (!id) return;
-
+      ids.map(async (id) => {
         try {
           const servings = (await fetchJson(
             `/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(id)}/servings`
-          )) as MyFoodServing[];
+          )) as FoodServingOption[];
 
           next[id] = Array.isArray(servings) ? servings : [];
         } catch {
-          next[id] = [];
+          // Keep the preferred/current serving seed when an option request fails.
         }
       })
     );
 
-    setServingsByFood(next);
+    setServingsByFood((previous) => ({ ...previous, ...next }));
   }
 
   async function loadFoods() {
@@ -279,7 +219,21 @@ export default function NutritionCapturePage() {
       const active = Array.isArray(list) ? list.filter((x) => x?.is_active) : [];
 
       setFoods(active);
-      void loadServingsForFoods(active);
+      setFoodQuantityByFood((previous) => {
+        const next = { ...previous };
+        for (const food of active) {
+          if (!next[food.my_food_id]) next[food.my_food_id] = preferredQuantitySelection(food);
+        }
+        return next;
+      });
+      setServingsByFood((previous) => {
+        const next = { ...previous };
+        for (const food of active) {
+          if (!next[food.my_food_id]) next[food.my_food_id] = preferredServingSeed(food);
+        }
+        return next;
+      });
+      void loadServingsForFoodIds(active.map((food) => food.my_food_id));
     } catch (e: any) {
       setFoods([]);
       setStatus(String(e?.message || e));
@@ -315,6 +269,7 @@ export default function NutritionCapturePage() {
   async function loadMealItems(mealId: string) {
     if (!mealId) {
       setMealItems([]);
+      setMealQuantityByItem({});
       setIncludedMealItemIds({});
       return;
     }
@@ -332,11 +287,40 @@ export default function NutritionCapturePage() {
         : [];
 
       setMealItems(sorted);
+      setMealQuantityByItem(Object.fromEntries(sorted.map((item) => [
+        item.meal_item_id,
+        item.my_food_serving_id && item.qty_servings != null
+          ? { quantity: String(Number(item.qty_servings)), unit: item.my_food_serving_id }
+          : { quantity: String(Number(item.qty_g || 0)), unit: GRAMS_UNIT },
+      ])));
+      setServingsByFood((previous) => {
+        const next = { ...previous };
+        for (const item of sorted) {
+          if (
+            item.my_food_serving_id &&
+            item.serving_name &&
+            Number.isFinite(Number(item.serving_grams)) &&
+            Number(item.serving_grams) > 0 &&
+            !next[item.my_food_id]
+          ) {
+            next[item.my_food_id] = [{
+              my_food_serving_id: item.my_food_serving_id,
+              my_food_id: item.my_food_id,
+              name: item.serving_name,
+              grams: Number(item.serving_grams),
+              is_active: true,
+            }];
+          }
+        }
+        return next;
+      });
       setIncludedMealItemIds(
         Object.fromEntries(sorted.map((item) => [item.meal_item_id, true]))
       );
+      void loadServingsForFoodIds(sorted.map((item) => item.my_food_id));
     } catch (e: any) {
       setMealItems([]);
+      setMealQuantityByItem({});
       setIncludedMealItemIds({});
       setStatus(String(e?.message || e));
     } finally {
@@ -345,15 +329,6 @@ export default function NutritionCapturePage() {
   }
 
   React.useEffect(() => {
-    void (async () => {
-      try {
-        const db = await fetchOverridesFromDb();
-        setOverrides(db);
-      } catch {
-        setOverrides({});
-      }
-    })();
-
     void loadFoods();
     void loadMeals();
   }, []);
@@ -361,51 +336,13 @@ export default function NutritionCapturePage() {
   React.useEffect(() => {
     if (!selectedMealId) {
       setMealItems([]);
+      setMealQuantityByItem({});
       setIncludedMealItemIds({});
       return;
     }
 
     void loadMealItems(selectedMealId);
   }, [selectedMealId]);
-
-
-  React.useEffect(() => {
-    if (!foods.length) return;
-
-    setFoodQuantityByFood((previous) => {
-      const next = { ...previous };
-
-      for (const food of foods) {
-        const id = String(food?.my_food_id || "").trim();
-        if (!id || next[id]) continue;
-
-        // Do not choose the fallback until this food's serving request finishes.
-        if (!Object.prototype.hasOwnProperty.call(servingsByFood, id)) continue;
-
-        const defaultServing = defaultServingFor(servingsByFood[id]);
-        if (defaultServing) {
-          next[id] = {
-            quantity: "1",
-            unit: defaultServing.my_food_serving_id,
-          };
-          continue;
-        }
-
-        const defaultGrams = overrides[id]?.default_grams;
-        next[id] = {
-          quantity:
-            defaultGrams != null &&
-            Number.isFinite(Number(defaultGrams)) &&
-            Number(defaultGrams) > 0
-              ? String(defaultGrams)
-              : "",
-          unit: GRAMS_UNIT,
-        };
-      }
-
-      return next;
-    });
-  }, [foods, overrides, servingsByFood]);
 
   // ----------------------------
   // LOG (ATOMIC)
@@ -435,27 +372,31 @@ export default function NutritionCapturePage() {
     }
   }
 
+  function logQuantityForSelection(
+    selection: FoodQuantitySelection | undefined,
+    servings: FoodServingOption[]
+  ): FoodLogQuantity {
+    const quantity = Number(selection?.quantity);
+    if (!selection || !Number.isFinite(quantity) || quantity <= 0) {
+      throw new Error("quantity must be greater than 0");
+    }
+    if (selection.unit === GRAMS_UNIT) return { qty_g: quantity };
+    const serving = servings.find((row) => row.my_food_serving_id === selection.unit);
+    if (!serving) throw new Error("select an available serving unit");
+    return { my_food_serving_id: serving.my_food_serving_id, qty_servings: quantity };
+  }
+
   async function logSingleFood(food: MyFood) {
     try {
       setStatus("");
 
-      const selection = foodQuantityByFood[food.my_food_id];
-      const quantity = Number(selection?.quantity || 0);
+      const quantity = logQuantityForSelection(
+        foodQuantityByFood[food.my_food_id],
+        servingsByFood[food.my_food_id] || []
+      );
+      await logFood(food.my_food_id, quantity);
 
-      if (!selection || !Number.isFinite(quantity) || quantity <= 0) {
-        throw new Error("quantity must be greater than 0");
-      }
-
-      if (selection.unit === GRAMS_UNIT) {
-        await logFood(food.my_food_id, { qty_g: quantity });
-      } else {
-        await logFood(food.my_food_id, {
-          my_food_serving_id: selection.unit,
-          qty_servings: quantity,
-        });
-      }
-
-      setFlash(`Logged ${overrides[food.my_food_id]?.alias || food.display_name}`);
+      setFlash(`Logged ${food.display_name}`);
       setTimeout(() => setFlash(""), 1200);
     } catch (e: any) {
       setStatus(String(e?.message || e));
@@ -482,30 +423,25 @@ export default function NutritionCapturePage() {
       }
 
       setStatus(`logging ${selectedMeal.name}...`);
-
-      let count = 0;
-
-      for (const item of selectedItems) {
-        if (includedMealItemIds[item.meal_item_id] === false) continue;
-
-        const grams = gramsByMealItem[item.meal_item_id]
-          ? Number(gramsByMealItem[item.meal_item_id])
-          : resolvedItemGrams(item);
-
-        if (!Number.isFinite(Number(grams)) || Number(grams) <= 0) {
-          continue;
-        }
-
-        await logFood(item.my_food_id, { qty_g: Number(grams) });
-        count += 1;
+      const batchItems = selectedItems.map((item) => ({
+        my_food_id: item.my_food_id,
+        ...logQuantityForSelection(
+          mealQuantityByItem[item.meal_item_id],
+          servingsByFood[item.my_food_id] || []
+        ),
+        sort_order: item.sort_order,
+      }));
+      const response = await authFetch("/api/lifeswitch/nutrition/log/entries/batch", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ day, items: batchItems }),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `HTTP ${response.status}`);
       }
 
-      if (count === 0) {
-        setStatus("No selected foods had a valid gram amount.");
-        return;
-      }
-
-      setFlash(`Logged ${selectedMeal.name} (${count} foods)`);
+      setFlash(`Logged ${selectedMeal.name} (${batchItems.length} foods)`);
       setTimeout(() => setFlash(""), 1200);
       setStatus("");
     } catch (e: any) {
@@ -559,7 +495,7 @@ export default function NutritionCapturePage() {
             <div>
               <div className="text-sm font-semibold">Meals</div>
               <div className="text-xs text-muted-foreground">
-                Select a meal, adjust grams if needed, then log the selected foods.
+                Select a meal, adjust quantities if needed, then log the selected foods.
               </div>
             </div>
 
@@ -612,20 +548,20 @@ export default function NutritionCapturePage() {
 
                 {!mealItemsLoading &&
                   mealItems.map((item) => {
-                    const grams =
-                      gramsByMealItem[item.meal_item_id] ?? String(resolvedItemGrams(item) ?? "");
-
-                    const gramsNum = Number(grams);
-                    const rowKcal = Number.isFinite(gramsNum) ? scaled(item.kcal, gramsNum) : null;
-                    const rowProtein = Number.isFinite(gramsNum) ? scaled(item.protein_g, gramsNum) : null;
+                    const servings = servingsByFood[item.my_food_id] || [];
+                    const selection = mealQuantityByItem[item.meal_item_id] || (
+                      item.my_food_serving_id && item.qty_servings != null
+                        ? { quantity: String(Number(item.qty_servings)), unit: item.my_food_serving_id }
+                        : { quantity: String(Number(item.qty_g || 0)), unit: GRAMS_UNIT }
+                    );
+                    const grams = resolvedQuantityGrams(selection, servings);
+                    const rowKcal = scaled(item.kcal, grams);
+                    const rowProtein = scaled(item.protein_g, grams);
 
                     const included = includedMealItemIds[item.meal_item_id] !== false;
 
                     return (
-                      <div
-                        key={item.meal_item_id}
-                        className={`border rounded p-2 flex justify-between gap-3 ${included ? "" : "opacity-50"}`}
-                      >
+                      <div key={item.meal_item_id} className={`grid gap-3 rounded border p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center ${included ? "" : "opacity-50"}`}>
                         <label className="flex min-w-0 flex-1 items-start gap-2">
                           <input
                             type="checkbox"
@@ -647,29 +583,30 @@ export default function NutritionCapturePage() {
                           </div>
                         </label>
 
-                        <div className="flex items-center gap-2">
-                          <input
-                            className="w-20 border rounded px-2 py-1 text-sm text-right"
-                            value={grams}
-                            inputMode="decimal"
-                            aria-label={`${item.display_name} grams`}
-                            onFocus={selectNumberInputValue}
-                            onClick={selectNumberInputValue}
-                            onChange={(e) =>
-                              setGramsByMealItem((p) => ({
-                                ...p,
-                                [item.meal_item_id]: e.target.value,
+                        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                          <FoodQuantityControl
+                            label={item.display_name}
+                            value={selection}
+                            servings={servings}
+                            compact
+                            disabled={!included}
+                            onChange={(next) =>
+                              setMealQuantityByItem((previous) => ({
+                                ...previous,
+                                [item.meal_item_id]: next,
                               }))
                             }
                           />
-                          <div className="text-xs text-muted-foreground">g</div>
-
                           <button
-                            className="border rounded px-2 py-1 text-sm"
+                            className="rounded border px-3 py-2 text-sm disabled:opacity-50"
+                            disabled={!included || grams == null}
                             onClick={() =>
                               void (async () => {
                                 try {
-                                  await logFood(item.my_food_id, { qty_g: Number(grams) });
+                                  await logFood(
+                                    item.my_food_id,
+                                    logQuantityForSelection(selection, servings)
+                                  );
                                   setFlash(`Logged ${item.display_name}`);
                                   setTimeout(() => setFlash(""), 1200);
                                 } catch (e: any) {
@@ -722,13 +659,9 @@ export default function NutritionCapturePage() {
           <div className="mt-3 space-y-2">
             {foods.map((food) => {
               const servings = servingsByFood[food.my_food_id] || [];
-              const selection = foodQuantityByFood[food.my_food_id] || {
-                quantity: "",
-                unit: GRAMS_UNIT,
-              };
-              const resolvedGrams = resolvedFoodGrams(selection, servings);
-              const displayName =
-                overrides[food.my_food_id]?.alias || food.display_name;
+              const selection = foodQuantityByFood[food.my_food_id] || preferredQuantitySelection(food);
+              const resolvedGrams = resolvedQuantityGrams(selection, servings);
+              const displayName = food.display_name;
 
               return (
                 <div
@@ -748,60 +681,21 @@ export default function NutritionCapturePage() {
                     </div>
                   </div>
 
-                  <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
-                    <input
-                      className="w-20 rounded border px-2 py-1 text-right text-sm"
-                      value={selection.quantity}
-                      inputMode="decimal"
-                      aria-label={`${displayName} quantity`}
-                      onFocus={selectNumberInputValue}
-                      onClick={selectNumberInputValue}
-                      onChange={(event) =>
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                    <FoodQuantityControl
+                      label={displayName}
+                      value={selection}
+                      servings={servings}
+                      compact
+                      onChange={(next) =>
                         setFoodQuantityByFood((previous) => ({
                           ...previous,
-                          [food.my_food_id]: {
-                            ...selection,
-                            quantity: event.target.value,
-                          },
+                          [food.my_food_id]: next,
                         }))
                       }
                     />
-
-                    <select
-                      className="min-w-32 max-w-56 flex-1 rounded border px-2 py-1 text-sm sm:flex-none"
-                      value={selection.unit}
-                      aria-label={`${displayName} unit`}
-                      onChange={(event) => {
-                        const nextUnit = event.target.value;
-                        const currentGrams = resolvedFoodGrams(selection, servings);
-
-                        setFoodQuantityByFood((previous) => ({
-                          ...previous,
-                          [food.my_food_id]: {
-                            quantity:
-                              nextUnit === GRAMS_UNIT
-                                ? currentGrams != null
-                                  ? String(Number(currentGrams.toFixed(3)))
-                                  : ""
-                                : "1",
-                            unit: nextUnit,
-                          },
-                        }));
-                      }}
-                    >
-                      <option value={GRAMS_UNIT}>grams</option>
-                      {servings.map((serving) => (
-                        <option
-                          key={serving.my_food_serving_id}
-                          value={serving.my_food_serving_id}
-                        >
-                          {serving.name} · {fmt(serving.grams, 0)}g
-                        </option>
-                      ))}
-                    </select>
-
                     <button
-                      className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+                      className="rounded border px-3 py-2 text-sm disabled:opacity-50"
                       disabled={resolvedGrams == null}
                       onClick={() => void logSingleFood(food)}
                     >

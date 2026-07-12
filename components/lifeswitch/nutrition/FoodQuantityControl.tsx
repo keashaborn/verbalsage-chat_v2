@@ -118,6 +118,8 @@ export function FoodQuantityControl({
           onChange({
             quantity: unit === GRAMS_UNIT && value.unit !== GRAMS_UNIT
               ? String(resolvedQuantityGrams(value, activeServings) ?? "")
+              : unit !== GRAMS_UNIT && value.unit === GRAMS_UNIT
+                ? "1"
               : value.quantity,
             unit,
           });
