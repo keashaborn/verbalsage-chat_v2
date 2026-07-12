@@ -611,12 +611,14 @@ export default function TrainingCalendarPage() {
                 {m.events.map((event) => {
                   if (event.kind === "strength") {
                     const s = event.row;
+                    const sessionHref = `/lifeswitch/training/session?session_id=${encodeURIComponent(s.training_session_id)}${targetUserId ? `&target_user_id=${encodeURIComponent(targetUserId)}&target_name=${encodeURIComponent(targetName)}` : ""}`;
+                    const actionsOpen = openSessionActionsId === s.training_session_id;
+                    const actionsId = `session-actions-${s.training_session_id}`;
 
                     return (
-                      <Link
+                      <article
                         key={`strength:${s.training_session_id}`}
-                        href={`/lifeswitch/training/session?session_id=${encodeURIComponent(s.training_session_id)}${targetUserId ? `&target_user_id=${encodeURIComponent(targetUserId)}&target_name=${encodeURIComponent(targetName)}` : ""}`}
-                        className="block rounded-xl border p-4 hover:bg-muted/30"
+                        className="rounded-xl border p-4 transition-colors hover:bg-muted/30"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
@@ -634,40 +636,44 @@ export default function TrainingCalendarPage() {
                           </div>
 
                           <div className="flex shrink-0 flex-col items-end gap-2 text-xs">
-                            <span className="text-muted-foreground">View</span>
+                            <Link
+                              href={sessionHref}
+                              className="inline-flex min-h-8 items-center rounded-md px-2 py-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              aria-label={`View ${s.name} session`}
+                            >
+                              View
+                            </Link>
                             {!readOnly ? (
                               <>
                                 <button
                                   type="button"
-                                  className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/30"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
+                                  className="inline-flex min-h-8 items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  onClick={() => {
                                     setOpenSessionActionsId((prev) =>
                                       prev === s.training_session_id ? "" : s.training_session_id
                                     );
                                   }}
-                                  aria-expanded={openSessionActionsId === s.training_session_id}
+                                  aria-expanded={actionsOpen}
+                                  aria-controls={actionsId}
+                                  aria-label={`Actions for ${s.name}`}
                                 >
                                   Actions
-                                  {openSessionActionsId === s.training_session_id ? (
+                                  {actionsOpen ? (
                                     <ChevronUp className="h-3 w-3" />
                                   ) : (
                                     <ChevronDown className="h-3 w-3" />
                                   )}
                                 </button>
 
-                                {openSessionActionsId === s.training_session_id ? (
-                                  <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                                {actionsOpen ? (
+                                  <div id={actionsId} className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
                                     <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
                                       Danger zone
                                     </div>
                                     <button
                                       type="button"
                                       className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-[11px] text-red-600 hover:bg-red-500/10"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
+                                      onClick={() => {
                                         void deleteSession(s.training_session_id, s.name);
                                       }}
                                     >
@@ -680,7 +686,7 @@ export default function TrainingCalendarPage() {
                             ) : null}
                           </div>
                         </div>
-                      </Link>
+                      </article>
                     );
                   }
 
