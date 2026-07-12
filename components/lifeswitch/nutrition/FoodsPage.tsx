@@ -185,6 +185,17 @@ export default function NutritionFoodsPage() {
   const [editNutrientDetail, setEditNutrientDetail] = React.useState("");
   const [editSaving, setEditSaving] = React.useState(false);
   const [editStatus, setEditStatus] = React.useState<string | null>(null);
+  const editScrollRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!openFoodActionsId) return;
+    const editor = editScrollRef.current;
+    if (!editor) return;
+    const frame = window.requestAnimationFrame(() => {
+      editor.scrollTop = editor.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [openFoodActionsId]);
 
   function nutritionDraftFor(f: MyFood, basisGrams: number): NutritionDraft {
     const factor = basisGrams / 100;
@@ -849,8 +860,11 @@ export default function NutritionFoodsPage() {
             const servings = servMap[f.my_food_id] || [];
 
             return (
-              <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-3">
-                <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border bg-background p-4">
+              <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:items-center">
+                <div
+                  ref={editScrollRef}
+                  className="max-h-[calc(100svh-1.5rem-env(safe-area-inset-bottom))] w-full max-w-2xl overflow-y-auto rounded-2xl border bg-background p-4 sm:max-h-[92vh]"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <div className="text-sm font-semibold">Edit food</div>
@@ -1046,11 +1060,12 @@ export default function NutritionFoodsPage() {
                               <button
                                 className="rounded-lg border border-red-500/30 px-2 py-1 text-red-500"
                                 onClick={() => {
-                                  if (window.confirm(`Remove serving "${sv.name}"?`)) {
+                                  if (window.confirm(`Remove serving unit "${sv.name}"?`)) {
                                     void updateServing(f.my_food_id, sv, { is_active: false });
                                   }
                                 }}
-                              >Remove</button>
+                                aria-label={`Remove ${sv.name} serving unit`}
+                              >Remove unit</button>
                             </div>
                           </div>
                         ))}
@@ -1108,7 +1123,7 @@ export default function NutritionFoodsPage() {
 
                     <div className="flex flex-wrap items-center gap-2">
                       <button
-                        className="rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                        className="min-h-12 w-full rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50 sm:w-auto"
                         onClick={() => void saveFoodEditor()}
                         disabled={editSaving}
                       >
@@ -1117,25 +1132,27 @@ export default function NutritionFoodsPage() {
                       {editStatus ? <div className={`text-xs ${editStatus === "Saved." ? "text-muted-foreground" : "text-red-500"}`}>{editStatus}</div> : null}
                     </div>
 
-                    <div className="border-t border-muted/20 pt-3">
+                    <div className="rounded-xl border border-red-500/20 bg-red-500/[0.03]">
                       <button
                         type="button"
                         onClick={() => setOpenFoodActionsId((prev) => prev === f.my_food_id ? "" : f.my_food_id)}
-                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                        className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left hover:bg-red-500/5"
                         aria-expanded={openFoodActionsId === f.my_food_id}
                       >
-                        Actions
-                        {openFoodActionsId === f.my_food_id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                        <span>
+                          <span className="block text-sm font-semibold text-red-500">Danger zone</span>
+                          <span className="block text-xs text-muted-foreground">Delete this food from your library</span>
+                        </span>
+                        {openFoodActionsId === f.my_food_id ? <ChevronUp className="h-4 w-4 text-red-500" /> : <ChevronDown className="h-4 w-4 text-red-500" />}
                       </button>
                       {openFoodActionsId === f.my_food_id ? (
-                        <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">Danger zone</div>
+                        <div className="border-t border-red-500/20 p-3">
                           <button
                             type="button"
-                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-500/40 px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-500/10 sm:w-auto"
                             onClick={() => void deactivateMyFood(f.my_food_id)}
                           >
-                            <Trash2 className="h-3 w-3" /> Delete food
+                            <Trash2 className="h-4 w-4" /> Delete food
                           </button>
                         </div>
                       ) : null}
