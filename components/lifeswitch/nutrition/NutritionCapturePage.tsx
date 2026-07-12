@@ -257,8 +257,8 @@ export default function NutritionCapturePage() {
 
       setMeals(active);
 
-      if (!selectedMealId && active.length > 0) {
-        setSelectedMealId(active[0].meal_id);
+      if (selectedMealId && !active.some((meal) => meal.meal_id === selectedMealId)) {
+        setSelectedMealId("");
       }
     } catch (e: any) {
       setMeals([]);
