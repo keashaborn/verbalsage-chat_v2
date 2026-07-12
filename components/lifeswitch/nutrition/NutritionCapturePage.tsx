@@ -39,6 +39,17 @@ type MyFoodServing = {
   updated_at?: string;
 };
 
+const GRAMS_UNIT = "grams";
+
+type FoodQuantityState = {
+  quantity: string;
+  unit: string;
+};
+
+type FoodLogQuantity =
+  | { qty_g: number }
+  | { my_food_serving_id: string; qty_servings: number };
+
 type MealCombo = {
   meal_id: string;
   owner_user_id: string;
@@ -86,11 +97,6 @@ function todayLocalYYYYMMDD(): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
-function safeNum(x: any): number | null {
-  const n = Number(x);
-  return Number.isFinite(n) ? n : null;
-}
-
 function fmt(n: number | null, digits = 0) {
   if (n == null || Number.isNaN(n)) return "—";
   return Number(n).toFixed(digits);
@@ -104,6 +110,22 @@ function scaled(per100: number | null, grams: number | null): number | null {
 function defaultServingFor(servings: MyFoodServing[] | undefined): MyFoodServing | null {
   const rows = Array.isArray(servings) ? servings : [];
   return rows.find((s) => s.is_default) || rows[0] || null;
+}
+
+function resolvedFoodGrams(
+  selection: FoodQuantityState | undefined,
+  servings: MyFoodServing[] | undefined
+): number | null {
+  const quantity = Number(selection?.quantity);
+  if (!Number.isFinite(quantity) || quantity <= 0) return null;
+  if (!selection || selection.unit === GRAMS_UNIT) return quantity;
+
+  const serving = (servings || []).find(
+    (row) => row.my_food_serving_id === selection.unit
+  );
+  if (!serving || !Number.isFinite(Number(serving.grams))) return null;
+
+  return quantity * Number(serving.grams);
 }
 
 function resolvedItemGrams(item: MealComboItem): number | null {
@@ -164,7 +186,9 @@ export default function NutritionCapturePage() {
   const [foods, setFoods] = React.useState<MyFood[]>([]);
   const [foodsLoading, setFoodsLoading] = React.useState(false);
   const [q, setQ] = React.useState("");
-  const [gramsByFood, setGramsByFood] = React.useState<Record<string, string>>({});
+  const [foodQuantityByFood, setFoodQuantityByFood] = React.useState<
+    Record<string, FoodQuantityState>
+  >({});
   const [servingsByFood, setServingsByFood] = React.useState<Record<string, MyFoodServing[]>>({});
 
   const [meals, setMeals] = React.useState<MealCombo[]>([]);
@@ -348,20 +372,35 @@ export default function NutritionCapturePage() {
   React.useEffect(() => {
     if (!foods.length) return;
 
-    setGramsByFood((prev) => {
-      const next = { ...prev };
+    setFoodQuantityByFood((previous) => {
+      const next = { ...previous };
 
-      for (const f of foods) {
-        const id = String(f?.my_food_id || "").trim();
-        if (!id) continue;
-        if (String(next[id] || "").trim()) continue;
+      for (const food of foods) {
+        const id = String(food?.my_food_id || "").trim();
+        if (!id || next[id]) continue;
+
+        // Do not choose the fallback until this food's serving request finishes.
+        if (!Object.prototype.hasOwnProperty.call(servingsByFood, id)) continue;
 
         const defaultServing = defaultServingFor(servingsByFood[id]);
-        const g = overrides[id]?.default_grams ?? defaultServing?.grams;
-
-        if (g != null && Number.isFinite(Number(g)) && Number(g) > 0) {
-          next[id] = String(g);
+        if (defaultServing) {
+          next[id] = {
+            quantity: "1",
+            unit: defaultServing.my_food_serving_id,
+          };
+          continue;
         }
+
+        const defaultGrams = overrides[id]?.default_grams;
+        next[id] = {
+          quantity:
+            defaultGrams != null &&
+            Number.isFinite(Number(defaultGrams)) &&
+            Number(defaultGrams) > 0
+              ? String(defaultGrams)
+              : "",
+          unit: GRAMS_UNIT,
+        };
       }
 
       return next;
@@ -371,10 +410,12 @@ export default function NutritionCapturePage() {
   // ----------------------------
   // LOG (ATOMIC)
   // ----------------------------
-  async function logFood(my_food_id: string, grams: number) {
+  async function logFood(my_food_id: string, quantity: FoodLogQuantity) {
+    const numericQuantity =
+      "qty_g" in quantity ? quantity.qty_g : quantity.qty_servings;
 
-    if (!Number.isFinite(grams) || grams <= 0) {
-      throw new Error("grams must be greater than 0");
+    if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
+      throw new Error("quantity must be greater than 0");
     }
 
     const r = await authFetch("/api/lifeswitch/nutrition/log/entry", {
@@ -383,7 +424,7 @@ export default function NutritionCapturePage() {
       body: JSON.stringify({
         day,
         my_food_id,
-        qty_g: grams,
+        ...quantity,
         sort_order: 1,
       }),
     });
@@ -394,14 +435,27 @@ export default function NutritionCapturePage() {
     }
   }
 
-  async function logSingleFood(f: MyFood) {
+  async function logSingleFood(food: MyFood) {
     try {
       setStatus("");
 
-      const grams = Number(gramsByFood[f.my_food_id] || 0);
-      await logFood(f.my_food_id, grams);
+      const selection = foodQuantityByFood[food.my_food_id];
+      const quantity = Number(selection?.quantity || 0);
 
-      setFlash(`Logged ${overrides[f.my_food_id]?.alias || f.display_name}`);
+      if (!selection || !Number.isFinite(quantity) || quantity <= 0) {
+        throw new Error("quantity must be greater than 0");
+      }
+
+      if (selection.unit === GRAMS_UNIT) {
+        await logFood(food.my_food_id, { qty_g: quantity });
+      } else {
+        await logFood(food.my_food_id, {
+          my_food_serving_id: selection.unit,
+          qty_servings: quantity,
+        });
+      }
+
+      setFlash(`Logged ${overrides[food.my_food_id]?.alias || food.display_name}`);
       setTimeout(() => setFlash(""), 1200);
     } catch (e: any) {
       setStatus(String(e?.message || e));
@@ -442,7 +496,7 @@ export default function NutritionCapturePage() {
           continue;
         }
 
-        await logFood(item.my_food_id, Number(grams));
+        await logFood(item.my_food_id, { qty_g: Number(grams) });
         count += 1;
       }
 
@@ -615,7 +669,7 @@ export default function NutritionCapturePage() {
                             onClick={() =>
                               void (async () => {
                                 try {
-                                  await logFood(item.my_food_id, Number(grams));
+                                  await logFood(item.my_food_id, { qty_g: Number(grams) });
                                   setFlash(`Logged ${item.display_name}`);
                                   setTimeout(() => setFlash(""), 1200);
                                 } catch (e: any) {
@@ -666,46 +720,90 @@ export default function NutritionCapturePage() {
           </button>
 
           <div className="mt-3 space-y-2">
-            {foods.map((f) => {
-              const defaultServing = defaultServingFor(servingsByFood[f.my_food_id]);
-              const displayName = overrides[f.my_food_id]?.alias || f.display_name;
+            {foods.map((food) => {
+              const servings = servingsByFood[food.my_food_id] || [];
+              const selection = foodQuantityByFood[food.my_food_id] || {
+                quantity: "",
+                unit: GRAMS_UNIT,
+              };
+              const resolvedGrams = resolvedFoodGrams(selection, servings);
+              const displayName =
+                overrides[food.my_food_id]?.alias || food.display_name;
 
               return (
-                <div key={f.my_food_id} className="border rounded p-2 flex justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-medium">
+                <div
+                  key={food.my_food_id}
+                  className="flex flex-col gap-3 rounded border p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">
                       {displayName}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      kcal {safeNum(f.kcal)} · P {safeNum(f.protein_g)}g · C {safeNum(f.carbs_g)}g · F {safeNum(f.fat_g)}g
+                      Selected · {fmt(resolvedGrams, 1)}g · kcal{" "}
+                      {fmt(scaled(food.kcal, resolvedGrams))} · P{" "}
+                      {fmt(scaled(food.protein_g, resolvedGrams), 1)}g · C{" "}
+                      {fmt(scaled(food.carbs_g, resolvedGrams), 1)}g · F{" "}
+                      {fmt(scaled(food.fat_g, resolvedGrams), 1)}g
                     </div>
-                    {defaultServing ? (
-                      <div className="mt-0.5 text-xs text-muted-foreground">
-                        default serving: {defaultServing.name} · {fmt(defaultServing.grams, 0)}g
-                      </div>
-                    ) : null}
                   </div>
 
-                  <div className="flex gap-2 items-center">
+                  <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
                     <input
-                      className="w-20 border rounded px-2 py-1 text-sm text-right"
-                      value={gramsByFood[f.my_food_id] || ""}
+                      className="w-20 rounded border px-2 py-1 text-right text-sm"
+                      value={selection.quantity}
                       inputMode="decimal"
-                      aria-label={`${displayName} grams`}
+                      aria-label={`${displayName} quantity`}
                       onFocus={selectNumberInputValue}
                       onClick={selectNumberInputValue}
-                      onChange={(e) =>
-                        setGramsByFood((p) => ({
-                          ...p,
-                          [f.my_food_id]: e.target.value,
+                      onChange={(event) =>
+                        setFoodQuantityByFood((previous) => ({
+                          ...previous,
+                          [food.my_food_id]: {
+                            ...selection,
+                            quantity: event.target.value,
+                          },
                         }))
                       }
                     />
-                    <div className="text-xs text-muted-foreground">g</div>
+
+                    <select
+                      className="min-w-32 max-w-56 flex-1 rounded border px-2 py-1 text-sm sm:flex-none"
+                      value={selection.unit}
+                      aria-label={`${displayName} unit`}
+                      onChange={(event) => {
+                        const nextUnit = event.target.value;
+                        const currentGrams = resolvedFoodGrams(selection, servings);
+
+                        setFoodQuantityByFood((previous) => ({
+                          ...previous,
+                          [food.my_food_id]: {
+                            quantity:
+                              nextUnit === GRAMS_UNIT
+                                ? currentGrams != null
+                                  ? String(Number(currentGrams.toFixed(3)))
+                                  : ""
+                                : "1",
+                            unit: nextUnit,
+                          },
+                        }));
+                      }}
+                    >
+                      <option value={GRAMS_UNIT}>grams</option>
+                      {servings.map((serving) => (
+                        <option
+                          key={serving.my_food_serving_id}
+                          value={serving.my_food_serving_id}
+                        >
+                          {serving.name} · {fmt(serving.grams, 0)}g
+                        </option>
+                      ))}
+                    </select>
 
                     <button
-                      className="border rounded px-2 py-1 text-sm"
-                      onClick={() => void logSingleFood(f)}
+                      className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+                      disabled={resolvedGrams == null}
+                      onClick={() => void logSingleFood(food)}
                     >
                       Log
                     </button>
