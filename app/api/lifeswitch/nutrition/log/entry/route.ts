@@ -33,7 +33,17 @@ async function proxy(req: NextRequest, method: "POST" | "PATCH" | "DELETE") {
 
     // Brains expects these log fields as query parameters.
     // The UI sends them in JSON, so mirror them into the upstream query.
-    for (const key of ["day", "my_food_id", "meal_id", "qty_g", "sort_order", "label", "meal_type"]) {
+    for (const key of [
+      "day",
+      "my_food_id",
+      "meal_id",
+      "qty_g",
+      "my_food_serving_id",
+      "qty_servings",
+      "sort_order",
+      "label",
+      "meal_type",
+    ]) {
       const value = parsed?.[key];
       if (value !== undefined && value !== null && String(value).trim() !== "") {
         upstream.searchParams.set(key, String(value));
