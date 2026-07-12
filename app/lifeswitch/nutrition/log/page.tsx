@@ -2,7 +2,12 @@
 
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
-import { NumericInput } from "@/components/lifeswitch/NumericInput";
+import {
+  FoodQuantityControl,
+  GRAMS_UNIT,
+  type FoodQuantitySelection,
+  type FoodServingOption,
+} from "@/components/lifeswitch/nutrition/FoodQuantityControl";
 
 const DOW = ["S", "M", "T", "W", "T", "F", "S"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -68,10 +73,19 @@ async function fetchJson(url: string, init?: RequestInit) {
     window.clearTimeout(timeout);
   }
 }
-async function patchLogEntry(nutrition_entry_id: string, qty_g: number) {
+type LogEntryQuantity =
+  | { qty_g: number }
+  | { my_food_serving_id: string; qty_servings: number };
+
+async function patchLogEntry(nutrition_entry_id: string, quantity: LogEntryQuantity) {
   const u = new URL("/api/lifeswitch/nutrition/log/entry", window.location.origin);
   u.searchParams.set("nutrition_entry_id", nutrition_entry_id);
-  u.searchParams.set("qty_g", String(qty_g));
+  if ("qty_g" in quantity) {
+    u.searchParams.set("qty_g", String(quantity.qty_g));
+  } else {
+    u.searchParams.set("my_food_serving_id", quantity.my_food_serving_id);
+    u.searchParams.set("qty_servings", String(quantity.qty_servings));
+  }
 
   const r = await authFetch(u.toString(), { method: "PATCH", cache: "no-store" });
   const t = await r.text().catch(() => "");
@@ -102,6 +116,30 @@ type DaySummary = {
   fat_g: number | null;
   hit: boolean;
 };
+
+function entryQuantitySelection(entry: any): FoodQuantitySelection {
+  const servingId = String(entry?.my_food_serving_id || "").trim();
+  const servingQuantity = Number(entry?.qty_servings);
+  if (servingId && Number.isFinite(servingQuantity) && servingQuantity > 0) {
+    return { quantity: String(servingQuantity), unit: servingId };
+  }
+  return { quantity: String(Number(entry?.qty_g) || ""), unit: GRAMS_UNIT };
+}
+
+function entryServingSeed(entry: any): FoodServingOption[] {
+  const servingId = String(entry?.my_food_serving_id || "").trim();
+  const foodId = String(entry?.my_food_id || "").trim();
+  const name = String(entry?.serving_name || "").trim();
+  const grams = Number(entry?.serving_grams);
+  if (!servingId || !foodId || !name || !Number.isFinite(grams) || grams <= 0) return [];
+  return [{
+    my_food_serving_id: servingId,
+    my_food_id: foodId,
+    name,
+    grams,
+    is_active: true,
+  }];
+}
 
 function hasAnyData(raw: any, t: { kcal: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null }) {
   // totals-based
@@ -303,7 +341,9 @@ export default function NutritionLogPage() {
   const [days, setDays] = React.useState<DaySummary[]>([]);
   const [expandedDay, setExpandedDay] = React.useState<string>("");
   const [loading, setLoading] = React.useState(true);
-  const [editGramsByEntryId, setEditGramsByEntryId] = React.useState<Record<string, string>>({});
+  const [editQuantityByEntryId, setEditQuantityByEntryId] = React.useState<Record<string, FoodQuantitySelection>>({});
+  const [servingsByFoodId, setServingsByFoodId] = React.useState<Record<string, FoodServingOption[]>>({});
+  const [servingsLoadingByFoodId, setServingsLoadingByFoodId] = React.useState<Record<string, boolean>>({});
   const [savingEntryId, setSavingEntryId] = React.useState<string>("");
   const [savedEntryId, setSavedEntryId] = React.useState<string>("");
   const [entrySaveError, setEntrySaveError] = React.useState<Record<string, string>>({});
@@ -477,12 +517,60 @@ export default function NutritionLogPage() {
     return out;
   }, [days]);
 
-  async function saveEditedGrams(day: string, nutrition_entry_id: string, rawValue: string) {
-    const grams = Number(String(rawValue || "").trim());
+  async function loadEntryServings(entry: any) {
+    const foodId = String(entry?.my_food_id || "").trim();
+    if (
+      !foodId ||
+      Object.prototype.hasOwnProperty.call(servingsByFoodId, foodId) ||
+      servingsLoadingByFoodId[foodId]
+    ) return;
 
-    if (!Number.isFinite(grams) || grams <= 0) {
-      setEntrySaveError((prev) => ({ ...prev, [nutrition_entry_id]: "grams must be > 0" }));
+    const seed = entryServingSeed(entry);
+    if (seed.length) setServingsByFoodId((previous) => ({ ...previous, [foodId]: seed }));
+    setServingsLoadingByFoodId((previous) => ({ ...previous, [foodId]: true }));
+    try {
+      const rows = (await fetchJson(
+        `/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(foodId)}/servings`
+      )) as FoodServingOption[];
+      const active = Array.isArray(rows) ? rows : [];
+      const merged = [
+        ...seed,
+        ...active.filter((row) => !seed.some((item) => item.my_food_serving_id === row.my_food_serving_id)),
+      ];
+      setServingsByFoodId((previous) => ({ ...previous, [foodId]: merged }));
+    } catch (e: any) {
+      setEntrySaveError((previous) => ({
+        ...previous,
+        [String(entry?.nutrition_entry_id || "")]: String(e?.message || e),
+      }));
+    } finally {
+      setServingsLoadingByFoodId((previous) => ({ ...previous, [foodId]: false }));
+    }
+  }
+
+  async function saveEditedQuantity(
+    day: string,
+    nutrition_entry_id: string,
+    selection: FoodQuantitySelection,
+    servings: FoodServingOption[],
+  ) {
+    const quantity = Number(String(selection.quantity || "").trim());
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setEntrySaveError((prev) => ({ ...prev, [nutrition_entry_id]: "quantity must be greater than 0" }));
       return;
+    }
+
+    let payload: LogEntryQuantity;
+    if (selection.unit === GRAMS_UNIT) {
+      payload = { qty_g: quantity };
+    } else {
+      const serving = servings.find((row) => row.my_food_serving_id === selection.unit);
+      if (!serving) {
+        setEntrySaveError((prev) => ({ ...prev, [nutrition_entry_id]: "select an available serving unit" }));
+        return;
+      }
+      payload = { my_food_serving_id: serving.my_food_serving_id, qty_servings: quantity };
     }
 
     setSavingEntryId(nutrition_entry_id);
@@ -494,8 +582,13 @@ export default function NutritionLogPage() {
     });
 
     try {
-      await patchLogEntry(nutrition_entry_id, grams);
+      await patchLogEntry(nutrition_entry_id, payload);
       await refreshOneDay(day, "");
+      setEditQuantityByEntryId((previous) => {
+        const next = { ...previous };
+        delete next[nutrition_entry_id];
+        return next;
+      });
       setSavedEntryId(nutrition_entry_id);
       window.setTimeout(() => {
         setSavedEntryId((current) => (current === nutrition_entry_id ? "" : current));
@@ -666,11 +759,19 @@ export default function NutritionLogPage() {
                             const label = String(e?.label || "").trim() || "—";
                             const qty = safeNum(e?.qty_g, 0);
                             const entryId = String(e?.nutrition_entry_id || "");
-                            const gramsDraft = editGramsByEntryId[entryId] ?? String(qty || "");
-                            const gramsChanged =
+                            const foodId = String(e?.my_food_id || "").trim();
+                            const currentQuantity = entryQuantitySelection(e);
+                            const quantityDraft = editQuantityByEntryId[entryId] ?? currentQuantity;
+                            const servingOptions = Object.prototype.hasOwnProperty.call(servingsByFoodId, foodId)
+                              ? servingsByFoodId[foodId]
+                              : entryServingSeed(e);
+                            const draftNumber = Number(quantityDraft.quantity);
+                            const currentNumber = Number(currentQuantity.quantity);
+                            const quantityChanged =
                               !!entryId &&
-                              String(gramsDraft || "").trim() !== "" &&
-                              Number(gramsDraft) !== qty;
+                              Number.isFinite(draftNumber) &&
+                              draftNumber > 0 &&
+                              (quantityDraft.unit !== currentQuantity.unit || Math.abs(draftNumber - currentNumber) > 0.0001);
                             const m = entryMacros(e);
 
                             // bucket by minute so “submitted together” items cluster
@@ -729,7 +830,10 @@ export default function NutritionLogPage() {
                                         </div>
                                       ) : (
                                           <details className="group w-full sm:w-auto">
-                                            <summary className="ml-auto inline-flex list-none cursor-pointer select-none items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 [&::-webkit-details-marker]:hidden">
+                                            <summary
+                                              className="ml-auto inline-flex list-none cursor-pointer select-none items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 [&::-webkit-details-marker]:hidden"
+                                              onClick={() => void loadEntryServings(e)}
+                                            >
                                               Actions
                                               <span className="opacity-60 group-open:hidden">▾</span>
                                               <span className="hidden opacity-60 group-open:inline">▴</span>
@@ -737,32 +841,27 @@ export default function NutritionLogPage() {
 
                                             <div className="mt-2 grid w-full gap-2 sm:justify-items-end">
                                               <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-                                                <NumericInput
-                                                  className="w-20 rounded-xl border bg-background px-2 py-1.5 text-right text-xs"
-                                                  value={gramsDraft}
-                                                  mode="decimal"
-                                                  min={0.001}
-                                                  required
-                                                  onValueChange={(value) => {
-                                                    setEditGramsByEntryId((prev) => ({
-                                                      ...prev,
-                                                      [entryId]: value,
-                                                    }));
-                                                  }}
-                                                  onKeyDown={(ev) => {
-                                                    if (ev.key !== "Enter") return;
-                                                    const value = ev.currentTarget.value;
-                                                    void saveEditedGrams(String(d.day), entryId, value);
-                                                  }}
-                                                  title="Edit grams, then Save"
-                                                />
-                                                <div className="text-xs text-muted-foreground">g</div>
+                                                {foodId ? (
+                                                  <FoodQuantityControl
+                                                    label={label}
+                                                    value={quantityDraft}
+                                                    servings={servingOptions}
+                                                    onChange={(selection) => setEditQuantityByEntryId((previous) => ({
+                                                      ...previous,
+                                                      [entryId]: selection,
+                                                    }))}
+                                                    compact
+                                                    disabled={savingEntryId === entryId}
+                                                  />
+                                                ) : (
+                                                  <div className="text-xs text-muted-foreground">Meal entry quantity is read-only.</div>
+                                                )}
 
                                                 <button
                                                   className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30 disabled:opacity-50"
-                                                  onClick={() => void saveEditedGrams(String(d.day), entryId, gramsDraft)}
-                                                  disabled={!entryId || !gramsChanged || savingEntryId === entryId}
-                                                  title="Save grams"
+                                                  onClick={() => void saveEditedQuantity(String(d.day), entryId, quantityDraft, servingOptions)}
+                                                  disabled={!foodId || !entryId || !quantityChanged || savingEntryId === entryId}
+                                                  title="Save quantity"
                                                 >
                                                   {savingEntryId === entryId ? "Saving…" : "Save"}
                                                 </button>
@@ -773,6 +872,9 @@ export default function NutritionLogPage() {
 
                                                 {entrySaveError[entryId] ? (
                                                   <div className="text-xs text-red-600">{entrySaveError[entryId]}</div>
+                                                ) : null}
+                                                {foodId && servingsLoadingByFoodId[foodId] ? (
+                                                  <div className="text-xs text-muted-foreground">Loading units…</div>
                                                 ) : null}
                                               </div>
 
