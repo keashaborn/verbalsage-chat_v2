@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   FoodQuantityControl,
   GRAMS_UNIT,
@@ -126,6 +127,7 @@ async function fetchJson(url: string, init?: RequestInit) {
 export default function NutritionCapturePage() {
 
   const [mode, setMode] = React.useState<CaptureMode>("foods");
+  const [expandedFoodId, setExpandedFoodId] = React.useState("");
 
   const [foods, setFoods] = React.useState<MyFood[]>([]);
   const [foodsLoading, setFoodsLoading] = React.useState(false);
@@ -454,10 +456,10 @@ export default function NutritionCapturePage() {
   // ----------------------------
   return (
     <div className="mx-auto max-w-5xl p-4">
-      <div className="flex justify-between items-center gap-3">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <div className="text-lg font-semibold">Nutrition · Capture</div>
-          <div className="text-xs text-muted-foreground">
+          <div className="mt-1 text-sm text-muted-foreground">
             Log single foods or saved meals for the selected day.
           </div>
         </div>
@@ -466,23 +468,30 @@ export default function NutritionCapturePage() {
           type="date"
           value={day}
           onChange={(e) => setDay(e.target.value)}
-          className="border rounded px-2 py-1 text-sm"
+          aria-label="Nutrition log date"
+          className="min-h-12 shrink-0 rounded-xl border bg-background px-3 py-2 text-sm"
         />
       </div>
 
 
       {flash && <div className="mt-3 text-sm text-green-600">{flash}</div>}
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-xl border" role="tablist" aria-label="Nutrition capture type">
         <button
-          className={`rounded border px-3 py-1 text-sm ${mode === "foods" ? "bg-muted" : ""}`}
+          type="button"
+          role="tab"
+          aria-selected={mode === "foods"}
+          className={`min-h-12 px-3 text-sm font-medium ${mode === "foods" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/20"}`}
           onClick={() => setMode("foods")}
         >
           Foods
         </button>
 
         <button
-          className={`rounded border px-3 py-1 text-sm ${mode === "meals" ? "bg-muted" : ""}`}
+          type="button"
+          role="tab"
+          aria-selected={mode === "meals"}
+          className={`min-h-12 border-l px-3 text-sm font-medium ${mode === "meals" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/20"}`}
           onClick={() => setMode("meals")}
         >
           Meals
@@ -641,20 +650,29 @@ export default function NutritionCapturePage() {
         <div className="mt-4">
           <div className="text-sm font-semibold">Foods</div>
 
-          <input
-            className="mt-2 border rounded px-2 py-1 w-full text-sm"
-            placeholder="Search foods"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
+          <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <input
+              className="min-h-12 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              placeholder="Search foods"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void loadFoods();
+                }
+              }}
+            />
 
-          <button
-            className="mt-2 border rounded px-3 py-1 text-sm"
-            onClick={() => void loadFoods()}
-            disabled={foodsLoading}
-          >
-            {foodsLoading ? "Loading…" : "Refresh"}
-          </button>
+            <button
+              type="button"
+              className="min-h-12 rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/30 disabled:opacity-50"
+              onClick={() => void loadFoods()}
+              disabled={foodsLoading}
+            >
+              {foodsLoading ? "Loading…" : q.trim() ? "Search" : "Refresh"}
+            </button>
+          </div>
 
           <div className="mt-3 space-y-2">
             {foods.map((food) => {
@@ -662,46 +680,59 @@ export default function NutritionCapturePage() {
               const selection = foodQuantityByFood[food.my_food_id] || preferredQuantitySelection(food);
               const resolvedGrams = resolvedQuantityGrams(selection, servings);
               const displayName = food.display_name;
+              const expanded = expandedFoodId === food.my_food_id;
 
               return (
                 <div
                   key={food.my_food_id}
-                  className="flex flex-col gap-3 rounded border p-3 sm:flex-row sm:items-center sm:justify-between"
+                  className="overflow-hidden rounded-xl border bg-muted/10"
                 >
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">
-                      {displayName}
+                  <button
+                    type="button"
+                    className="flex min-h-16 w-full items-center justify-between gap-3 p-3 text-left hover:bg-muted/20 active:bg-muted/30"
+                    aria-expanded={expanded}
+                    aria-controls={`capture-food-${food.my_food_id}`}
+                    onClick={() => setExpandedFoodId((current) => current === food.my_food_id ? "" : food.my_food_id)}
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">
+                        {displayName}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {fmt(resolvedGrams, 1)}g · kcal {fmt(scaled(food.kcal, resolvedGrams))} · P{" "}
+                        {fmt(scaled(food.protein_g, resolvedGrams), 1)}g · C{" "}
+                        {fmt(scaled(food.carbs_g, resolvedGrams), 1)}g · F{" "}
+                        {fmt(scaled(food.fat_g, resolvedGrams), 1)}g
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      Selected · {fmt(resolvedGrams, 1)}g · kcal{" "}
-                      {fmt(scaled(food.kcal, resolvedGrams))} · P{" "}
-                      {fmt(scaled(food.protein_g, resolvedGrams), 1)}g · C{" "}
-                      {fmt(scaled(food.carbs_g, resolvedGrams), 1)}g · F{" "}
-                      {fmt(scaled(food.fat_g, resolvedGrams), 1)}g
-                    </div>
-                  </div>
+                    <span className="shrink-0 text-muted-foreground" aria-hidden="true">
+                      {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </span>
+                  </button>
 
-                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                    <FoodQuantityControl
-                      label={displayName}
-                      value={selection}
-                      servings={servings}
-                      compact
-                      onChange={(next) =>
-                        setFoodQuantityByFood((previous) => ({
-                          ...previous,
-                          [food.my_food_id]: next,
-                        }))
-                      }
-                    />
-                    <button
-                      className="rounded border border-emerald-500/45 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-50 dark:text-emerald-300"
-                      disabled={resolvedGrams == null}
-                      onClick={() => void logSingleFood(food)}
-                    >
-                      Log
-                    </button>
-                  </div>
+                  {expanded ? (
+                    <div id={`capture-food-${food.my_food_id}`} className="grid gap-2 border-t p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                      <FoodQuantityControl
+                        label={displayName}
+                        value={selection}
+                        servings={servings}
+                        compact
+                        onChange={(next) =>
+                          setFoodQuantityByFood((previous) => ({
+                            ...previous,
+                            [food.my_food_id]: next,
+                          }))
+                        }
+                      />
+                      <button
+                        className="min-h-11 rounded-xl border border-emerald-500/45 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-50 dark:text-emerald-300"
+                        disabled={resolvedGrams == null}
+                        onClick={() => void logSingleFood(food)}
+                      >
+                        Log
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}

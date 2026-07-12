@@ -201,8 +201,15 @@ function entryMacros(e: any) {
 
   return { kcal, p, c, f };
 }
-function MonthCalendar(props: { ym: string; hitDates: Set<string>; anyDates: Set<string>; today: string }) {
-  const { ym, hitDates, anyDates, today } = props;
+function MonthCalendar(props: {
+  ym: string;
+  hitDates: Set<string>;
+  anyDates: Set<string>;
+  today: string;
+  selectedDate: string;
+  onSelectDate: (date: string) => void;
+}) {
+  const { ym, hitDates, anyDates, today, selectedDate, onSelectDate } = props;
   const mm = String(ym || "").trim().match(/^(\d{4})-(\d{2})$/);
   if (!mm) return null;
 
@@ -241,7 +248,23 @@ function MonthCalendar(props: { ym: string; hitDates: Set<string>; anyDates: Set
                 ? "border-amber-500/30 bg-amber-500/10"
                 : "border-transparent opacity-55",
             isToday ? "underline underline-offset-4" : "",
+            selectedDate === date ? "ring-1 ring-blue-500/70" : "",
           ].join(" ");
+
+          if (hasAny) {
+            return (
+              <button
+                key={date}
+                type="button"
+                className={`${cls} w-full hover:brightness-125`}
+                aria-label={`Open nutrition log for ${date}`}
+                aria-pressed={selectedDate === date}
+                onClick={() => onSelectDate(date)}
+              >
+                {dayNum}
+              </button>
+            );
+          }
 
           return <div key={date} className={cls}>{dayNum}</div>;
         })}
@@ -478,24 +501,27 @@ export default function NutritionLogPage() {
   const isDelegatedView = Boolean(targetUserId);
   const showDebug = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debug") === "1";
 
+  function openCalendarDay(day: string) {
+    setExpandedDay(day);
+    window.setTimeout(() => {
+      document.getElementById(`nutrition-day-summary-${day}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
+  }
+
   return (
     <div className="mx-auto max-w-5xl p-4">
       <div>
         <div className="text-lg font-semibold">Nutrition · Log</div>
-        <div className="mt-1 text-sm text-muted-foreground">
-          Review recent intake, daily totals, and Plan-based calorie/protein adherence.
-        </div>
-        <div className="mt-2 text-xs text-muted-foreground">
+        <div className="mt-1 text-xs text-muted-foreground">
           Targets: {targetKcal != null ? `${targetKcal} kcal` : "no calorie target"} · {targetProteinG != null ? `${targetProteinG}g protein` : "no protein target"} · {targetStatus}
         </div>
 
-        <div className="mt-3 rounded-xl border bg-muted/10 p-3 text-xs text-muted-foreground">
-          <div className="font-medium text-foreground">Day scoring</div>
-          <div className="mt-1">
-            A hit day means protein is at or above the Plan target and calories are at or below the Plan target.
-            {(targetKcal == null || targetProteinG == null) ? " Set both targets in Plan to score hit days." : ""}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-3">
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
+          <div className="font-medium text-foreground">Status</div>
+          <div className="flex flex-wrap gap-3">
             <span className="inline-flex items-center gap-1">
               <span className="h-3 w-3 rounded-full border border-emerald-500/30 bg-emerald-500/10" />
               Hit
@@ -540,7 +566,14 @@ export default function NutritionLogPage() {
               <div className="text-base font-semibold">{m.label}</div>
 
               <div className="mt-4 grid grid-cols-[1fr_6.5rem] gap-2 items-start">
-                <MonthCalendar ym={m.ym} hitDates={m.hitDates} anyDates={m.anyDates} today={today} />
+                <MonthCalendar
+                  ym={m.ym}
+                  hitDates={m.hitDates}
+                  anyDates={m.anyDates}
+                  today={today}
+                  selectedDate={expandedDay}
+                  onSelectDate={openCalendarDay}
+                />
 
                 <div className="flex justify-center">
                   <div className="w-[6.25rem] rounded-xl border border-muted/20 px-2 py-2 text-center">
@@ -560,8 +593,8 @@ export default function NutritionLogPage() {
               </div>
 
               <div className="mt-8">
-                {m.days.filter((d: any) => d.any).slice(0, 20).map((d, didx) => (
-                  <div key={d.day} className={didx ? "mt-6 pt-6 border-t border-muted/20" : ""}>
+                {m.days.filter((d: any) => d.any).map((d, didx) => (
+                  <div id={`nutrition-day-summary-${d.day}`} key={d.day} className={`scroll-mt-24 ${didx ? "mt-6 pt-6 border-t border-muted/20" : ""}`}>
                     <button
                       type="button"
                       className="flex w-full items-center justify-between gap-3 text-left"

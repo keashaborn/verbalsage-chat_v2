@@ -398,20 +398,25 @@ export default function MealsPage() {
         </div>
       ) : null}
 
-      <details className="mt-6 rounded-xl border p-4">
-        <summary className="cursor-pointer list-none">
-          <div className="flex items-center justify-between gap-3">
+      <details className="group mt-6 rounded-xl border">
+        <summary className="cursor-pointer list-none p-4 hover:bg-muted/20 active:bg-muted/30">
+          <div className="flex min-h-10 items-center justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">New meal</div>
               <div className="mt-1 text-xs text-muted-foreground">
                 Create a reusable meal template.
               </div>
             </div>
-            <div className="text-xs text-muted-foreground">Open</div>
+            <div className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
+              <span className="group-open:hidden">Open</span>
+              <span className="hidden group-open:inline">Close</span>
+              <ChevronDown className="h-4 w-4 group-open:hidden" />
+              <ChevronUp className="hidden h-4 w-4 group-open:block" />
+            </div>
           </div>
         </summary>
 
-        <div className="mt-4 grid gap-3">
+        <div className="grid gap-3 border-t p-4">
           <input
             className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
             value={createName}

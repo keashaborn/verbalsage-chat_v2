@@ -2,7 +2,7 @@
 
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
-import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Camera, ChevronDown, ChevronUp, Search, Trash2 } from "lucide-react";
 import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
 import { LifeSwitchToolPanel } from "@/components/lifeswitch/LifeSwitchToolPanel";
 import BarcodeScanner from "./BarcodeScanner";
@@ -147,6 +147,7 @@ export default function NutritionFoodsPage() {
   // USDA search
   const [usdaQ, setUsdaQ] = React.useState("");
   const [barcodeQ, setBarcodeQ] = React.useState("");
+  const [lookupMode, setLookupMode] = React.useState<"description" | "barcode">("description");
   const [scannerOpen, setScannerOpen] = React.useState(false);
   const [usdaRows, setUsdaRows] = React.useState<UsdaHit[]>([]);
   const [usdaLoading, setUsdaLoading] = React.useState(false);
@@ -550,91 +551,143 @@ export default function NutritionFoodsPage() {
       </div>
 
       <div className="mt-5 grid gap-6">
-          {/* LIBRARY ACTIONS */}
+          {/* ADD FOOD */}
           <LifeSwitchToolPanel
-            title="Library actions"
-            subtitle="Describe a food once, then import the best USDA match."
+            title="Add food"
+            subtitle="Search USDA foods or scan a packaged product."
             storageKey="lifeswitch:nutrition:foods-library-actions"
-            defaultOpen={myFoods.length === 0}
+            defaultOpen={false}
           >
-            {/* Search USDA */}
-            <div className="grid gap-2 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
-              <input
-                className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                value={usdaQ}
-                onChange={(e) => setUsdaQ(e.target.value)}
-                placeholder="Describe food, brand, UPC, package, cooked/raw, or grams"
-                inputMode="search"
-                autoCapitalize="none"
-                autoCorrect="off"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    void searchUsda();
-                  }
-                }}
-              />
+            <div className="grid grid-cols-2 overflow-hidden rounded-xl border" role="tablist" aria-label="Food lookup method">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={lookupMode === "description"}
+                className={`min-h-12 px-3 text-sm font-medium ${lookupMode === "description" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/20"}`}
+                onClick={() => setLookupMode("description")}
+              >
+                Describe food
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={lookupMode === "barcode"}
+                className={`min-h-12 border-l px-3 text-sm font-medium ${lookupMode === "barcode" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/20"}`}
+                onClick={() => setLookupMode("barcode")}
+              >
+                Barcode
+              </button>
+            </div>
 
-              <button
-                type="button"
-                className="w-full rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                onClick={() => void searchUsda()}
-                disabled={usdaLoading || !usdaQ.trim()}
-              >
-                {usdaLoading ? "Finding matches…" : "Find food"}
-              </button>
-            <div className="mt-3 border-t border-muted/20 pt-3">
-              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Barcode lookup
-              </div>
-              <input
-                className="w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                value={barcodeQ}
-                onChange={(e) => setBarcodeQ(e.target.value)}
-                placeholder="Enter UPC/barcode"
-                inputMode="numeric"
-                autoCapitalize="none"
-                autoCorrect="off"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    void searchBarcode();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                className="mt-2 w-full rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                onClick={() => void searchBarcode()}
-                disabled={usdaLoading || !barcodeQ.trim()}
-              >
-                {usdaLoading ? "Looking up UPC…" : "Lookup UPC"}
-              </button>
+            <div className="mt-4 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
+              {lookupMode === "description" ? (
+                <div className="rounded-xl border bg-background/40 p-4">
+                  <label htmlFor="nutrition-food-description" className="text-sm font-semibold text-foreground">
+                    Search USDA foods
+                  </label>
+                  <div className="mt-1">
+                    Include the food, brand, package, cooked/raw state, or serving details.
+                  </div>
+                  <input
+                    id="nutrition-food-description"
+                    className="mt-3 min-h-12 w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 text-sm text-foreground"
+                    value={usdaQ}
+                    onChange={(e) => setUsdaQ(e.target.value)}
+                    placeholder="Example: Fairlife 30g protein, 14 oz bottle"
+                    inputMode="search"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void searchUsda();
+                      }
+                    }}
+                  />
 
-              <button
-                type="button"
-                className="mt-2 w-full rounded-xl border px-4 py-2 text-sm hover:bg-muted/30"
-                onClick={() => setScannerOpen(true)}
-              >
-                Scan barcode
-              </button>
+                  <button
+                    type="button"
+                    className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-blue-500/60 bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+                    onClick={() => void searchUsda()}
+                    disabled={usdaLoading || !usdaQ.trim()}
+                  >
+                    <Search className="h-4 w-4" />
+                    {usdaLoading ? "Finding matches…" : "Find matches"}
+                  </button>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-2 text-blue-500">
+                        <Camera className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-foreground">Scan a product barcode</div>
+                        <div className="mt-1">Use your phone’s rear camera to find the packaged food.</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-blue-500/60 bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+                      onClick={() => setScannerOpen(true)}
+                    >
+                      <Camera className="h-4 w-4" /> Open camera scanner
+                    </button>
+                  </div>
+
+                  <div className="rounded-xl border bg-background/40 p-4">
+                    <label htmlFor="nutrition-food-barcode" className="text-sm font-semibold text-foreground">
+                      Enter barcode manually
+                    </label>
+                    <input
+                      id="nutrition-food-barcode"
+                      className="mt-3 min-h-12 w-full min-w-0 max-w-full rounded-xl border bg-background px-3 py-2 text-sm text-foreground"
+                      value={barcodeQ}
+                      onChange={(e) => setBarcodeQ(e.target.value)}
+                      placeholder="UPC or barcode number"
+                      inputMode="numeric"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void searchBarcode();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="mt-3 min-h-12 w-full rounded-xl border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/30 disabled:opacity-50"
+                      onClick={() => void searchBarcode()}
+                      disabled={usdaLoading || !barcodeQ.trim()}
+                    >
+                      {usdaLoading ? "Looking up barcode…" : "Look up barcode"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {usdaQ.trim() || barcodeQ.trim() || usdaRows.length || usdaErr ? (
                 <button
                   type="button"
-                  className="mt-2 inline-flex items-center justify-center rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                  className="mt-3 inline-flex min-h-10 items-center justify-center rounded-full border px-3 py-1 text-xs text-muted-foreground hover:bg-muted/30"
                   onClick={clearLookup}
-                  title="Clear lookup"
                 >
-                  Clear
+                  Clear lookup
                 </button>
               ) : null}
             </div>
-            </div>
 
-            {(!usdaLoading && usdaRows.length === 0) ? (
+            {(!usdaLoading && usdaRows.length === 0 && (usdaQ.trim() || barcodeQ.trim()) && !usdaErr) ? (
               <div className="mt-3 text-xs text-muted-foreground">
-                No results yet. Describe a food and click Find food.
+                No matches found.
+              </div>
+            ) : null}
+
+            {usdaErr ? (
+              <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-500">
+                {usdaErr}
               </div>
             ) : null}
 
