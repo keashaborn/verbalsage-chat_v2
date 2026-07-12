@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 
 const JWKS = process.env.SUPABASE_JWKS_URL
   ? createRemoteJWKSet(new URL(process.env.SUPABASE_JWKS_URL))
@@ -6,55 +6,74 @@ const JWKS = process.env.SUPABASE_JWKS_URL
 
 const ISSUER = process.env.SUPABASE_ISSUER;
 
-export async function getSupabaseUserIdFromRequest(req: Request): Promise<string | null> {
+type SupabaseJwtPayload = JWTPayload & {
+  sub: string;
+  role: "authenticated";
+  session_id: string;
+  is_anonymous?: boolean;
+  app_metadata?: Record<string, unknown>;
+};
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function bearerToken(req: Request): string {
+  const auth = req.headers.get("authorization") || "";
+  return auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
+}
+
+async function verifiedSupabasePayload(req: Request): Promise<SupabaseJwtPayload | null> {
   if (!JWKS || !ISSUER) return null;
 
-  const auth = req.headers.get("authorization") || "";
-  const token = auth.toLowerCase().startsWith("bearer ")
-    ? auth.slice(7).trim()
-    : "";
-
+  const token = bearerToken(req);
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, JWKS, { issuer: ISSUER });
-    return (payload.sub as string) || null;
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer: ISSUER,
+      audience: "authenticated",
+    });
+    if (
+      typeof payload.sub !== "string" ||
+      !UUID_PATTERN.test(payload.sub) ||
+      payload.role !== "authenticated" ||
+      typeof payload.session_id !== "string" ||
+      !UUID_PATTERN.test(payload.session_id) ||
+      payload.is_anonymous === true
+    ) {
+      return null;
+    }
+    return payload as SupabaseJwtPayload;
   } catch {
     return null;
   }
+}
+
+export async function getSupabaseUserIdFromRequest(req: Request): Promise<string | null> {
+  const payload = await verifiedSupabasePayload(req);
+  return payload?.sub || null;
 }
 
 export type SupabaseRequestAuth = {
   user_id: string;
   role: string | null;
   is_admin: boolean;
-  payload: any;
+  payload: SupabaseJwtPayload;
 };
 
-export async function getSupabasePayloadFromRequest(req: Request): Promise<any | null> {
-  if (!JWKS || !ISSUER) return null;
-
-  const auth = req.headers.get("authorization") || "";
-  const token = auth.toLowerCase().startsWith("bearer ")
-    ? auth.slice(7).trim()
-    : "";
-
-  if (!token) return null;
-
-  try {
-    const { payload } = await jwtVerify(token, JWKS, { issuer: ISSUER });
-    return payload;
-  } catch {
-    return null;
-  }
+export async function getSupabasePayloadFromRequest(
+  req: Request,
+): Promise<SupabaseJwtPayload | null> {
+  return await verifiedSupabasePayload(req);
 }
 
 export async function getSupabaseAuthContextFromRequest(req: Request): Promise<SupabaseRequestAuth | null> {
   const payload = await getSupabasePayloadFromRequest(req);
-  const user_id = (payload?.sub as string) || "";
-  if (!user_id) return null;
+  if (!payload) return null;
+  const user_id = payload.sub;
 
-  const role = (payload as any)?.app_metadata?.role ?? null;
+  const appRole = payload.app_metadata?.role;
+  const role = typeof appRole === "string" ? appRole : null;
 
   return {
     user_id,
@@ -63,4 +82,3 @@ export async function getSupabaseAuthContextFromRequest(req: Request): Promise<S
     payload,
   };
 }
-
