@@ -2,7 +2,7 @@
 
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
-import { ChevronDown, ChevronUp, Search as SearchIcon, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { selectNumberInputValue } from "@/components/lifeswitch/selectInputValue";
 import { LifeSwitchToolPanel } from "@/components/lifeswitch/LifeSwitchToolPanel";
 import BarcodeScanner from "./BarcodeScanner";
@@ -50,6 +50,7 @@ type MyFood = {
   owner_user_id: string;
 
   display_name: string;
+  source_display_name: string | null;
   brand: string | null;
   variant: string | null;
 
@@ -63,6 +64,19 @@ type MyFood = {
   protein_g: number | null;
   carbs_g: number | null;
   fat_g: number | null;
+  fiber_g: number | null;
+  sugar_g: number | null;
+  sodium_mg: number | null;
+
+  nutrient_source: string;
+  nutrient_source_detail: string | null;
+  nutrient_updated_at: string;
+
+  preferred_mode: "grams" | "serving";
+  preferred_quantity: number;
+  preferred_serving_id: string | null;
+  preferred_serving_name: string | null;
+  preferred_serving_grams: number | null;
 
   is_verified: boolean;
   is_active: boolean;
@@ -77,86 +91,40 @@ type MyFoodServing = {
   name: string;
   grams: number;
   is_default: boolean;
+  source_type: string;
+  source_label: string | null;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 };
 
-type FoodOverride = {
-  alias?: string;        // display override
-  default_grams?: number; // typical grams
+type NutritionDraft = {
+  kcal: string;
+  protein_g: string;
+  carbs_g: string;
+  fat_g: string;
+  fiber_g: string;
+  sugar_g: string;
+  sodium_mg: string;
 };
 
-const LS_OV_KEY = "vs_food_overrides_v1";
-const LS_OV_MIGRATED = "vs_food_overrides_v1_migrated_to_db_v1";
-
-function loadLocalOverrides(): Record<string, FoodOverride> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(LS_OV_KEY);
-    const j = raw ? JSON.parse(raw) : {};
-    return j && typeof j === "object" ? j : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveLocalOverrides(next: Record<string, FoodOverride>) {
-  try {
-    localStorage.setItem(LS_OV_KEY, JSON.stringify(next));
-  } catch { }
-}
-
-type OverrideRow = {
-  owner_user_id: string;
-  my_food_id: string;
-  alias: string | null;
-  default_grams: number | null;
-  sort_order: number | null;
-  created_at: string;
-  updated_at: string;
+const emptyNutritionDraft: NutritionDraft = {
+  kcal: "",
+  protein_g: "",
+  carbs_g: "",
+  fat_g: "",
+  fiber_g: "",
+  sugar_g: "",
+  sodium_mg: "",
 };
 
-async function fetchOverridesFromDb(): Promise<Record<string, FoodOverride>> {
-  const r = await authFetch("/api/lifeswitch/nutrition/my_food_overrides", { cache: "no-store" });
-  const t = await r.text().catch(() => "");
-  if (!r.ok) throw new Error(t.slice(0, 200) || `HTTP ${r.status}`);
-  const j = t ? JSON.parse(t) : [];
-  const rows: OverrideRow[] = Array.isArray(j) ? j : [];
-
-  const out: Record<string, FoodOverride> = {};
-  for (const row of rows) {
-    const fid = String(row?.my_food_id || "").trim();
-    if (!fid) continue;
-    out[fid] = {
-      alias: row?.alias ? String(row.alias) : undefined,
-      default_grams: row?.default_grams != null ? Number(row.default_grams) : undefined,
-    };
-  }
-  return out;
-}
-
-async function upsertOverrideToDb(args: {
-  my_food_id: string;
-  alias?: string;
-  default_grams?: number;
-  sort_order?: number;
-}) {
-  const qs = new URLSearchParams({
-    my_food_id: args.my_food_id,
-  });
-  if (args.alias && args.alias.trim()) qs.set("alias", args.alias.trim());
-  if (args.default_grams != null && Number.isFinite(args.default_grams) && args.default_grams > 0) {
-    qs.set("default_grams", String(args.default_grams));
-  }
-  if (args.sort_order != null && Number.isFinite(args.sort_order)) qs.set("sort_order", String(args.sort_order));
-
-  const r = await authFetch(`/api/lifeswitch/nutrition/my_food_overrides/upsert?${qs.toString()}`, {
-    method: "POST",
-    cache: "no-store",
-  });
-  const t = await r.text().catch(() => "");
-  if (!r.ok) throw new Error(t.slice(0, 200) || `HTTP ${r.status}`);
-  return t ? JSON.parse(t) : null;
+async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const r = await authFetch(url, { cache: "no-store", ...(init || {}) });
+  const t = await r.text();
+  let j: any = null;
+  try { j = t ? JSON.parse(t) : null; } catch { }
+  if (!r.ok) throw new Error(j?.detail || j?.error || t.slice(0, 200) || `HTTP ${r.status}`);
+  return j as T;
 }
 
 function scaledFromPer100(per100: number | null, grams: number | null): number | null {
@@ -168,6 +136,10 @@ function scaledFromPer100(per100: number | null, grams: number | null): number |
 function fmt(n: number | null, digits = 0) {
   if (n == null || Number.isNaN(n)) return "—";
   return Number(n).toFixed(digits);
+}
+
+function fmtQty(n: number) {
+  return Number(Number(n || 0).toFixed(3)).toString();
 }
 
 export default function NutritionFoodsPage() {
@@ -184,146 +156,134 @@ export default function NutritionFoodsPage() {
   const [variant, setVariant] = React.useState("");
   const [importingFdc, setImportingFdc] = React.useState<number | null>(null);
 
-  // My Foods list
   const [myFoods, setMyFoods] = React.useState<MyFood[]>([]);
-  const [myFilter, setMyFilter] = React.useState("");
   const [myLoading, setMyLoading] = React.useState(false);
   const [myErr, setMyErr] = React.useState<string | null>(null);
   const [openFoodActionsId, setOpenFoodActionsId] = React.useState("");
 
-  // Serving presets per My Food (e.g. "slice"=24g, "egg"=50g, "tbsp"=14g)
-  const [servOpen, setServOpen] = React.useState<Record<string, boolean>>({});
   const [servMap, setServMap] = React.useState<Record<string, MyFoodServing[]>>({});
   const [servLoading, setServLoading] = React.useState<Record<string, boolean>>({});
   const [servCreating, setServCreating] = React.useState<Record<string, boolean>>({});
   const [servErr, setServErr] = React.useState<Record<string, string | null>>({});
   const [servName, setServName] = React.useState<Record<string, string>>({});
   const [servGrams, setServGrams] = React.useState<Record<string, string>>({});
-  const [servDefault, setServDefault] = React.useState<Record<string, boolean>>({});
-  const [vw, setVw] = React.useState({
-    inner: 0,
-    vv: 0,
-    docClient: 0,
-    docScroll: 0,
-    bodyClient: 0,
-    dpr: 1,
-  });
-  // Local-only overrides (alias + default grams)
-  const [foodOverrides, setFoodOverrides] = React.useState<Record<string, FoodOverride>>({});
+  const [servPreferred, setServPreferred] = React.useState<Record<string, boolean>>({});
+  const [editingServingId, setEditingServingId] = React.useState<string | null>(null);
+  const [editingServingName, setEditingServingName] = React.useState("");
+  const [editingServingGrams, setEditingServingGrams] = React.useState("");
+  const [servSavingId, setServSavingId] = React.useState<string | null>(null);
+
   const [editFoodId, setEditFoodId] = React.useState<string | null>(null);
-  const [editAlias, setEditAlias] = React.useState<string>("");
-  const [editGrams, setEditGrams] = React.useState<string>("");
+  const [editName, setEditName] = React.useState("");
+  const [editBrand, setEditBrand] = React.useState("");
+  const [editPreferredUnit, setEditPreferredUnit] = React.useState("grams");
+  const [editPreferredQuantity, setEditPreferredQuantity] = React.useState("100");
+  const [nutritionBasis, setNutritionBasis] = React.useState("100g");
+  const [nutritionDraft, setNutritionDraft] = React.useState<NutritionDraft>(emptyNutritionDraft);
+  const [editNutrientSource, setEditNutrientSource] = React.useState("usda");
+  const [editNutrientDetail, setEditNutrientDetail] = React.useState("");
+  const [editSaving, setEditSaving] = React.useState(false);
+  const [editStatus, setEditStatus] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    // local fallback immediately (fast paint)
-    setFoodOverrides(loadLocalOverrides());
-  }, []);
-
-  React.useEffect(() => {
-    void (async () => {
-      try {
-        const migrated = localStorage.getItem(LS_OV_MIGRATED);
-        if (!migrated) {
-          const local = loadLocalOverrides();
-          const keys = Object.keys(local || {});
-
-          if (keys.length) {
-            for (const my_food_id of keys) {
-              const ov = local[my_food_id] || {};
-              await upsertOverrideToDb({
-                my_food_id,
-                alias: ov.alias,
-                default_grams: ov.default_grams,
-              });
-            }
-          }
-
-          localStorage.setItem(LS_OV_MIGRATED, "1");
-        }
-
-        const db = await fetchOverridesFromDb();
-        setFoodOverrides(db);
-      } catch (e) {
-        console.warn("override sync failed:", e);
-      }
-    })();
-  }, []);
+  function nutritionDraftFor(f: MyFood, basisGrams: number): NutritionDraft {
+    const factor = basisGrams / 100;
+    const value = (n: number | null) => n == null ? "" : String(Number((n * factor).toFixed(3)));
+    return {
+      kcal: value(f.kcal),
+      protein_g: value(f.protein_g),
+      carbs_g: value(f.carbs_g),
+      fat_g: value(f.fat_g),
+      fiber_g: value(f.fiber_g),
+      sugar_g: value(f.sugar_g),
+      sodium_mg: value(f.sodium_mg),
+    };
+  }
 
   function closeFoodEditor() {
     setEditFoodId(null);
-    setEditAlias("");
-    setEditGrams("");
+    setEditStatus(null);
+    setEditingServingId(null);
+    setOpenFoodActionsId("");
   }
 
   async function openFoodEditor(f: MyFood) {
-    const ov = foodOverrides[f.my_food_id] || {};
     setEditFoodId(f.my_food_id);
-    setEditAlias(String(ov.alias ?? ""));
-    setEditGrams(ov.default_grams != null ? String(ov.default_grams) : "");
+    setEditName(f.display_name);
+    setEditBrand(f.brand || "");
+    setEditPreferredUnit(f.preferred_mode === "serving" && f.preferred_serving_id ? f.preferred_serving_id : "grams");
+    setEditPreferredQuantity(String(Number(f.preferred_quantity || 1)));
+    setNutritionBasis("100g");
+    setNutritionDraft(nutritionDraftFor(f, 100));
+    setEditNutrientSource(f.nutrient_source || "manual");
+    setEditNutrientDetail(f.nutrient_source_detail || "");
+    setEditStatus(null);
+    await loadServings(f.my_food_id);
+  }
 
-    const servings = await loadServings(f.my_food_id);
-    const defaultServing = servings.find((s) => s.is_default) || servings[0] || null;
-
-    if (ov.default_grams == null && defaultServing?.grams != null) {
-      setEditGrams(String(Number(defaultServing.grams)));
-    }
+  function changeNutritionBasis(f: MyFood, basis: string) {
+    const serving = (servMap[f.my_food_id] || []).find((s) => s.my_food_serving_id === basis);
+    const grams = basis === "100g" ? 100 : Number(serving?.grams || 100);
+    setNutritionBasis(basis);
+    setNutritionDraft(nutritionDraftFor(f, grams));
   }
 
   async function saveFoodEditor() {
     if (!editFoodId) return;
-    const alias = editAlias.trim();
-    const gramsNum = Number(editGrams.trim());
+    const f = myFoods.find((food) => food.my_food_id === editFoodId);
+    if (!f) return;
 
-    const next: Record<string, FoodOverride> = { ...(foodOverrides || {}) };
-    next[editFoodId] = {
-      alias: alias ? alias : undefined,
-      default_grams: Number.isFinite(gramsNum) && gramsNum > 0 ? gramsNum : undefined,
+    const name = editName.trim();
+    const quantity = Number(editPreferredQuantity);
+    if (!name) return setEditStatus("Name is required.");
+    if (!Number.isFinite(quantity) || quantity <= 0) return setEditStatus("Preferred quantity must be greater than zero.");
+
+    const serving = (servMap[editFoodId] || []).find((s) => s.my_food_serving_id === nutritionBasis);
+    const basisGrams = nutritionBasis === "100g" ? 100 : Number(serving?.grams || 0);
+    if (!Number.isFinite(basisGrams) || basisGrams <= 0) return setEditStatus("Choose a valid nutrition basis.");
+
+    const per100 = (value: string) => {
+      if (!value.trim()) return null;
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < 0) throw new Error("Nutrients must be zero or greater.");
+      return (n * 100) / basisGrams;
     };
 
-    // optimistic UI
-    setFoodOverrides(next);
-
+    setEditSaving(true);
+    setEditStatus(null);
     try {
-      await upsertOverrideToDb({
-        my_food_id: editFoodId,
-        alias: alias ? alias : undefined,
-        default_grams: Number.isFinite(gramsNum) && gramsNum > 0 ? gramsNum : undefined,
-      });
-
-      // refresh from DB for source-of-truth
-      const db = await fetchOverridesFromDb();
-      setFoodOverrides(db);
-    } catch (e) {
-      // fallback: keep local if DB write fails
-      saveLocalOverrides(next);
-      console.warn("override save failed:", e);
+      const preferredServingId = editPreferredUnit === "grams" ? null : editPreferredUnit;
+      const updated = await apiJson<MyFood>(
+        `/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(editFoodId)}`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            display_name: name,
+            brand: editBrand.trim() || null,
+            preferred_mode: preferredServingId ? "serving" : "grams",
+            preferred_quantity: quantity,
+            preferred_serving_id: preferredServingId,
+            nutrient_source: editNutrientSource,
+            nutrient_source_detail: editNutrientDetail.trim() || null,
+            kcal: per100(nutritionDraft.kcal),
+            protein_g: per100(nutritionDraft.protein_g),
+            carbs_g: per100(nutritionDraft.carbs_g),
+            fat_g: per100(nutritionDraft.fat_g),
+            fiber_g: per100(nutritionDraft.fiber_g),
+            sugar_g: per100(nutritionDraft.sugar_g),
+            sodium_mg: per100(nutritionDraft.sodium_mg),
+            is_verified: editNutrientSource !== "manual",
+          }),
+        },
+      );
+      setMyFoods((rows) => rows.map((row) => row.my_food_id === updated.my_food_id ? updated : row));
+      setEditStatus("Saved.");
+    } catch (e: any) {
+      setEditStatus(String(e?.message || e));
     } finally {
-      closeFoodEditor();
+      setEditSaving(false);
     }
   }
-
-  React.useEffect(() => {
-    const snap = () => {
-      const doc = document.documentElement;
-      const body = document.body;
-      const vv = (window as any).visualViewport;
-      setVw({
-        inner: Math.round(window.innerWidth || 0),
-        vv: Math.round(vv?.width || 0),
-        docClient: Math.round(doc?.clientWidth || 0),
-        docScroll: Math.round(doc?.scrollWidth || 0),
-        bodyClient: Math.round(body?.clientWidth || 0),
-        dpr: Number(window.devicePixelRatio || 1),
-      });
-    };
-    snap();
-    window.addEventListener("resize", snap);
-    (window as any).visualViewport?.addEventListener("resize", snap);
-    return () => {
-      window.removeEventListener("resize", snap);
-      (window as any).visualViewport?.removeEventListener("resize", snap);
-    };
-  }, []);
   async function loadServings(my_food_id: string) {
     setServErr((p) => ({ ...p, [my_food_id]: null }));
     setServLoading((p) => ({ ...p, [my_food_id]: true }));
@@ -345,21 +305,19 @@ export default function NutritionFoodsPage() {
     }
   }
 
-  async function toggleServings(my_food_id: string) {
-    const next = !(servOpen[my_food_id] ?? false);
-    setServOpen((p) => ({ ...p, [my_food_id]: next }));
-    if (next && servMap[my_food_id] == null) {
-      await loadServings(my_food_id);
-    }
-  }
-
   async function createServing(my_food_id: string) {
     const name = (servName[my_food_id] ?? "").trim();
     const grams = Number((servGrams[my_food_id] ?? "").trim());
-    const isDefault = !!(servDefault[my_food_id] ?? false);
+    const isPreferred = !!(servPreferred[my_food_id] ?? false);
 
-    if (!name) throw new Error("serving name required");
-    if (!Number.isFinite(grams) || grams <= 0) throw new Error("grams must be > 0");
+    if (!name) {
+      setServErr((p) => ({ ...p, [my_food_id]: "Serving unit is required." }));
+      return;
+    }
+    if (!Number.isFinite(grams) || grams <= 0) {
+      setServErr((p) => ({ ...p, [my_food_id]: "Grams per unit must be greater than zero." }));
+      return;
+    }
 
     setServErr((p) => ({ ...p, [my_food_id]: null }));
     setServCreating((p) => ({ ...p, [my_food_id]: true }));
@@ -367,7 +325,7 @@ export default function NutritionFoodsPage() {
       const qs = new URLSearchParams({
         name,
         grams: String(grams),
-        is_default: isDefault ? "1" : "0",
+        is_default: isPreferred ? "1" : "0",
       });
 
       const r = await authFetch(
@@ -379,16 +337,44 @@ export default function NutritionFoodsPage() {
       try { j = t ? JSON.parse(t) : null; } catch { }
       if (!r.ok) throw new Error(j?.detail || j?.error || t?.slice(0, 200) || `HTTP ${r.status}`);
 
-      // refresh list + keep panel open
-      setServOpen((p) => ({ ...p, [my_food_id]: true }));
       await loadServings(my_food_id);
-
-      // keep name but reset default checkbox
-      setServDefault((p) => ({ ...p, [my_food_id]: false }));
+      await loadMyFoods();
+      setServName((p) => ({ ...p, [my_food_id]: "" }));
+      setServGrams((p) => ({ ...p, [my_food_id]: "" }));
+      setServPreferred((p) => ({ ...p, [my_food_id]: false }));
     } catch (e: any) {
       setServErr((p) => ({ ...p, [my_food_id]: String(e?.message || e) }));
     } finally {
       setServCreating((p) => ({ ...p, [my_food_id]: false }));
+    }
+  }
+
+  async function updateServing(my_food_id: string, serving: MyFoodServing, body: Record<string, unknown>) {
+    setServSavingId(serving.my_food_serving_id);
+    setServErr((p) => ({ ...p, [my_food_id]: null }));
+    try {
+      await apiJson(
+        `/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/servings/${encodeURIComponent(serving.my_food_serving_id)}`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
+      setEditingServingId(null);
+      if (body.set_preferred === true) {
+        setEditPreferredUnit(serving.my_food_serving_id);
+        setEditPreferredQuantity("1");
+      } else if (body.is_active === false && editPreferredUnit === serving.my_food_serving_id) {
+        setEditPreferredUnit("grams");
+        setEditPreferredQuantity(String(Number(serving.grams)));
+      }
+      await loadServings(my_food_id);
+      await loadMyFoods();
+    } catch (e: any) {
+      setServErr((p) => ({ ...p, [my_food_id]: String(e?.message || e) }));
+    } finally {
+      setServSavingId(null);
     }
   }
 
@@ -471,12 +457,7 @@ export default function NutritionFoodsPage() {
     setMyErr(null);
 
     try {
-      const p = new URLSearchParams();
-      const q = myFilter.trim();
-      if (q) p.set("q", q);
-
-      const url = p.toString() ? `/api/lifeswitch/nutrition/my_foods?${p.toString()}` : "/api/lifeswitch/nutrition/my_foods";
-      const r = await authFetch(url, { cache: "no-store" });
+      const r = await authFetch("/api/lifeswitch/nutrition/my_foods", { cache: "no-store" });
       if (!r.ok) {
         const t = await r.text();
         throw new Error(`my_foods HTTP ${r.status}: ${t.slice(0, 200)}`);
@@ -489,7 +470,7 @@ export default function NutritionFoodsPage() {
     } finally {
       setMyLoading(false);
     }
-  }, [myFilter]);
+  }, []);
 
   React.useEffect(() => {
     void loadMyFoods();
@@ -553,15 +534,12 @@ export default function NutritionFoodsPage() {
         cache: "no-store",
       });
       setOpenFoodActionsId("");
+      closeFoodEditor();
       await loadMyFoods();
     } catch (e: any) {
       setMyErr(String(e?.message || e));
     }
   }
-
-  const rootRef = React.useRef<HTMLDivElement | null>(null);
-
-  const [[], setDbgOverflow] = React.useState<string[]>([]);
 
   return (
 
@@ -773,14 +751,16 @@ export default function NutritionFoodsPage() {
 
           <div className="mt-3 divide-y divide-muted/20">
             {myFoods.map((f) => {
-              const ov = foodOverrides[f.my_food_id] || {};
-              const display = (ov.alias && ov.alias.trim()) ? ov.alias.trim() : f.display_name;
-
-              const g = ov.default_grams ?? null;
+              const g = f.preferred_mode === "serving"
+                ? Number(f.preferred_serving_grams || 0) * Number(f.preferred_quantity || 0)
+                : Number(f.preferred_quantity || 0);
               const kcal = scaledFromPer100(f.kcal, g);
               const p = scaledFromPer100(f.protein_g, g);
               const c = scaledFromPer100(f.carbs_g, g);
               const fat = scaledFromPer100(f.fat_g, g);
+              const preferredLabel = f.preferred_mode === "serving" && f.preferred_serving_name
+                ? `${fmtQty(f.preferred_quantity)} × ${f.preferred_serving_name} · ${fmt(g, 1)}g`
+                : `${fmtQty(f.preferred_quantity)}g`;
 
               return (
                 <button
@@ -790,24 +770,19 @@ export default function NutritionFoodsPage() {
                   onClick={() => void openFoodEditor(f)}
                 >
                   <div className="min-w-0">
-                    <div className="text-sm font-medium break-words whitespace-normal">{display}</div>
+                    <div className="text-sm font-medium text-blue-400 break-words whitespace-normal">{f.display_name}</div>
 
-                    <div className="mt-0.5 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
-                      {(f.brand ? f.brand : "—")}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>{f.brand || "Unbranded"}</span>
                       {f.variant ? ` · ${f.variant}` : ""}
-                      {f.source ? ` · ${f.source}` : ""}
-                      {f.source_id ? `:${f.source_id}` : ""}
+                      {f.source_type === "usda" ? (
+                        <span className="rounded-full border px-1.5 py-0.5 text-[10px]">USDA</span>
+                      ) : null}
                     </div>
 
-                    {g ? (
-                      <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
-                        {g}g · kcal {fmt(kcal, 0)} · P {fmt(p, 1)} · C {fmt(c, 1)} · F {fmt(fat, 1)}
-                      </div>
-                    ) : (
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        kcal/100g {fmt(f.kcal, 0)} · P {fmt(f.protein_g, 1)}g · C {fmt(f.carbs_g, 1)}g · F {fmt(f.fat_g, 1)}g
-                      </div>
-                    )}
+                    <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal [overflow-wrap:anywhere]">
+                      {preferredLabel} · kcal {fmt(kcal, 0)} · P {fmt(p, 1)} · C {fmt(c, 1)} · F {fmt(fat, 1)}
+                    </div>
                   </div>
                 </button>
               );
@@ -818,148 +793,299 @@ export default function NutritionFoodsPage() {
           {editFoodId ? (() => {
             const f = myFoods.find((x) => x.my_food_id === editFoodId);
             if (!f) return null;
+            const servings = servMap[f.my_food_id] || [];
 
             return (
               <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-3">
-                <div className="w-full max-w-lg rounded-2xl border bg-background p-4">
+                <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border bg-background p-4">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-semibold">Edit food</div>
+                    <div>
+                      <div className="text-sm font-semibold">Edit food</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">{f.display_name}</div>
+                    </div>
                     <button className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30" onClick={closeFoodEditor}>
                       Close
                     </button>
                   </div>
 
-                  <div className="mt-3 grid gap-3">
-                    <div className="grid gap-1">
-                      <div className="text-xs text-muted-foreground">Alias</div>
-                      <input
-                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                        value={editAlias}
-                        onChange={(e) => setEditAlias(e.target.value)}
-                        placeholder={f.display_name}
-                      />
-                    </div>
+                  <div className="mt-4 grid gap-4">
+                    <section className="rounded-xl border p-3">
+                      <div className="text-sm font-semibold">Food</div>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <label className="grid gap-1 text-xs text-muted-foreground">
+                          Name
+                          <input
+                            className="w-full rounded-xl border bg-background px-3 py-2 text-sm text-foreground"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                          />
+                        </label>
+                        <label className="grid gap-1 text-xs text-muted-foreground">
+                          Brand
+                          <input
+                            className="w-full rounded-xl border bg-background px-3 py-2 text-sm text-foreground"
+                            value={editBrand}
+                            onChange={(e) => setEditBrand(e.target.value)}
+                            placeholder="Optional"
+                          />
+                        </label>
+                      </div>
+                    </section>
 
-                    <div className="grid gap-1">
-                      <div className="text-xs text-muted-foreground">Default grams</div>
-                      <input
-                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                        value={editGrams}
-                        onFocus={selectNumberInputValue}
-                        onClick={selectNumberInputValue}
-                        onChange={(e) => setEditGrams(e.target.value)}
-                        placeholder="e.g. 150"
-                        inputMode="decimal"
-                      />
-                    </div>
+                    <section className="rounded-xl border p-3">
+                      <div className="text-sm font-semibold">Preferred logging quantity</div>
+                      <div className="mt-1 text-xs text-muted-foreground">This is what Capture selects first.</div>
+                      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2">
+                        <input
+                          className="min-w-0 rounded-xl border bg-background px-3 py-2 text-sm"
+                          value={editPreferredQuantity}
+                          onFocus={selectNumberInputValue}
+                          onClick={selectNumberInputValue}
+                          onChange={(e) => setEditPreferredQuantity(e.target.value)}
+                          inputMode="decimal"
+                          aria-label="Preferred quantity"
+                        />
+                        <select
+                          className="min-w-0 rounded-xl border bg-background px-3 py-2 text-sm"
+                          value={editPreferredUnit}
+                          onChange={(e) => {
+                            setEditPreferredUnit(e.target.value);
+                            if (e.target.value !== "grams") setEditPreferredQuantity("1");
+                          }}
+                          aria-label="Preferred unit"
+                        >
+                          <option value="grams">grams</option>
+                          {servings.map((sv) => (
+                            <option key={sv.my_food_serving_id} value={sv.my_food_serving_id}>
+                              {sv.name} · {fmt(sv.grams, 1)}g
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </section>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
-                        onClick={saveFoodEditor}
-                      >
-                        Save
-                      </button>
-
-                      <button
-                        className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
-                        onClick={closeFoodEditor}
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    <div className="mt-2 border-t border-muted/20 pt-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenFoodActionsId((prev) =>
-                            prev === f.my_food_id ? "" : f.my_food_id
-                          )
-                        }
-                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
-                        aria-expanded={openFoodActionsId === f.my_food_id}
-                      >
-                        Actions
-                        {openFoodActionsId === f.my_food_id ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3" />
-                        )}
-                      </button>
-
-                      {openFoodActionsId === f.my_food_id ? (
-                        <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
-                            Danger zone
-                          </div>
-                          <button
-                            type="button"
-                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
-                            onClick={() => void deactivateMyFood(f.my_food_id)}
-                            title="Remove from My Foods"
+                    <section className="rounded-xl border p-3">
+                      <div className="text-sm font-semibold">Nutrition facts</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Enter the values exactly as shown on USDA or the package label.
+                      </div>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <label className="grid gap-1 text-xs text-muted-foreground">
+                          Values are for
+                          <select
+                            className="rounded-xl border bg-background px-3 py-2 text-sm text-foreground"
+                            value={nutritionBasis}
+                            onChange={(e) => changeNutritionBasis(f, e.target.value)}
                           >
-                            <Trash2 className="h-3 w-3" />
-                            Delete food
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-                    {/* Servings live here */}
-                    <div className="mt-2 border-t border-muted/20 pt-3">
-                      <div className="text-sm font-semibold">Servings</div>
+                            <option value="100g">100 grams</option>
+                            {servings.map((sv) => (
+                              <option key={sv.my_food_serving_id} value={sv.my_food_serving_id}>
+                                1 {sv.name} · {fmt(sv.grams, 1)}g
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="grid gap-1 text-xs text-muted-foreground">
+                          Source
+                          <select
+                            className="rounded-xl border bg-background px-3 py-2 text-sm text-foreground"
+                            value={editNutrientSource}
+                            onChange={(e) => setEditNutrientSource(e.target.value)}
+                          >
+                            <option value="usda">USDA</option>
+                            <option value="label">Nutrition label</option>
+                            <option value="manual">Manual</option>
+                          </select>
+                        </label>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        {([
+                          ["kcal", "Calories"],
+                          ["protein_g", "Protein (g)"],
+                          ["carbs_g", "Carbs (g)"],
+                          ["fat_g", "Fat (g)"],
+                          ["fiber_g", "Fiber (g)"],
+                          ["sugar_g", "Sugar (g)"],
+                          ["sodium_mg", "Sodium (mg)"],
+                        ] as const).map(([key, label]) => (
+                          <label key={key} className="grid gap-1 text-xs text-muted-foreground">
+                            {label}
+                            <input
+                              className="min-w-0 rounded-lg border bg-background px-2 py-2 text-sm text-foreground"
+                              value={nutritionDraft[key]}
+                              onFocus={selectNumberInputValue}
+                              onClick={selectNumberInputValue}
+                              onChange={(e) => setNutritionDraft((draft) => ({ ...draft, [key]: e.target.value }))}
+                              inputMode="decimal"
+                            />
+                          </label>
+                        ))}
+                      </div>
+
+                      <label className="mt-3 grid gap-1 text-xs text-muted-foreground">
+                        Source note
+                        <input
+                          className="rounded-xl border bg-background px-3 py-2 text-sm text-foreground"
+                          value={editNutrientDetail}
+                          onChange={(e) => setEditNutrientDetail(e.target.value)}
+                          placeholder="Optional, e.g. package label checked July 2026"
+                        />
+                      </label>
+                    </section>
+
+                    <section className="rounded-xl border p-3">
+                      <div className="text-sm font-semibold">Serving units</div>
+                      <div className="mt-1 text-xs text-muted-foreground">Each unit resolves to grams for calculations.</div>
 
                       {servErr[f.my_food_id] ? <div className="mt-2 text-xs text-red-500">{servErr[f.my_food_id]}</div> : null}
                       {servLoading[f.my_food_id] ? <div className="mt-2 text-xs text-muted-foreground">Loading…</div> : null}
 
-                      <div className="mt-2 space-y-1">
-                        {(servMap[f.my_food_id] || []).map((sv) => (
-                          <div key={sv.my_food_serving_id} className="flex items-center justify-between gap-2 text-xs">
-                            <div className="min-w-0 truncate">
+                      <div className="mt-3 space-y-2">
+                        {servings.map((sv) => editingServingId === sv.my_food_serving_id ? (
+                          <div key={sv.my_food_serving_id} className="grid gap-2 rounded-xl border p-2 sm:grid-cols-[1fr_8rem_auto]">
+                            <input
+                              className="rounded-lg border bg-background px-2 py-1.5 text-sm"
+                              value={editingServingName}
+                              onChange={(e) => setEditingServingName(e.target.value)}
+                              aria-label="Serving name"
+                            />
+                            <input
+                              className="rounded-lg border bg-background px-2 py-1.5 text-sm"
+                              value={editingServingGrams}
+                              onChange={(e) => setEditingServingGrams(e.target.value)}
+                              inputMode="decimal"
+                              aria-label="Serving grams"
+                            />
+                            <div className="flex gap-1">
+                              <button
+                                className="rounded-lg border px-2 py-1 text-xs"
+                                disabled={servSavingId === sv.my_food_serving_id}
+                                onClick={() => void updateServing(f.my_food_id, sv, {
+                                  name: editingServingName,
+                                  grams: Number(editingServingGrams),
+                                })}
+                              >Save</button>
+                              <button className="rounded-lg border px-2 py-1 text-xs" onClick={() => setEditingServingId(null)}>Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div key={sv.my_food_serving_id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-2 text-xs">
+                            <div>
                               <span className="font-medium">{sv.name}</span>
-                              <span className="text-muted-foreground"> · {fmt(sv.grams, 0)}g</span>
-                              {sv.is_default ? <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px]">default</span> : null}
+                              <span className="text-muted-foreground"> · {fmt(sv.grams, 1)}g</span>
+                              {f.preferred_serving_id === sv.my_food_serving_id ? (
+                                <span className="ml-2 rounded-full border px-1.5 py-0.5 text-[10px]">Preferred</span>
+                              ) : null}
+                            </div>
+                            <div className="flex gap-1">
+                              {f.preferred_serving_id !== sv.my_food_serving_id ? (
+                                <button className="rounded-lg border px-2 py-1" onClick={() => void updateServing(f.my_food_id, sv, { set_preferred: true })}>Use</button>
+                              ) : null}
+                              <button
+                                className="rounded-lg border px-2 py-1"
+                                onClick={() => {
+                                  setEditingServingId(sv.my_food_serving_id);
+                                  setEditingServingName(sv.name);
+                                  setEditingServingGrams(String(Number(sv.grams)));
+                                }}
+                              >Edit</button>
+                              <button
+                                className="rounded-lg border border-red-500/30 px-2 py-1 text-red-500"
+                                onClick={() => {
+                                  if (window.confirm(`Remove serving "${sv.name}"?`)) {
+                                    void updateServing(f.my_food_id, sv, { is_active: false });
+                                  }
+                                }}
+                              >Remove</button>
                             </div>
                           </div>
                         ))}
-                        {(servMap[f.my_food_id]?.length ?? 0) === 0 && !servLoading[f.my_food_id] ? (
-                          <div className="text-xs text-muted-foreground">None yet. Add one below.</div>
+                        {!servings.length && !servLoading[f.my_food_id] ? (
+                          <div className="text-xs text-muted-foreground">No natural units yet. Grams remain available.</div>
                         ) : null}
                       </div>
 
-                      <div className="mt-3 grid grid-cols-1 gap-2">
+                      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_8rem_auto]">
                         <input
-                          className="min-w-0 rounded-xl border bg-background px-3 py-2 text-xs"
+                          className="min-w-0 rounded-xl border bg-background px-3 py-2 text-sm"
                           value={servName[f.my_food_id] ?? ""}
                           onChange={(e) => setServName((p) => ({ ...p, [f.my_food_id]: e.target.value }))}
-                          placeholder="name (e.g. slice)"
+                          placeholder="Unit, e.g. slice or bottle"
                         />
                         <input
-                          className="min-w-0 rounded-xl border bg-background px-3 py-2 text-xs"
+                          className="min-w-0 rounded-xl border bg-background px-3 py-2 text-sm"
                           value={servGrams[f.my_food_id] ?? ""}
                           onFocus={selectNumberInputValue}
                           onClick={selectNumberInputValue}
                           onChange={(e) => setServGrams((p) => ({ ...p, [f.my_food_id]: e.target.value }))}
-                          placeholder="grams"
+                          placeholder="grams/unit"
                           inputMode="decimal"
-                      />
+                        />
                         <button
-                          className="rounded-xl border px-3 py-2 text-xs hover:bg-muted/30 disabled:opacity-50"
+                          className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
                           onClick={() => void createServing(f.my_food_id)}
                           disabled={!!servCreating[f.my_food_id]}
                         >
-                          {servCreating[f.my_food_id] ? "Saving…" : "Add serving"}
+                          {servCreating[f.my_food_id] ? "Adding…" : "Add"}
                         </button>
                       </div>
 
                       <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                         <input
                           type="checkbox"
-                          checked={!!servDefault[f.my_food_id]}
-                          onChange={(e) => setServDefault((p) => ({ ...p, [f.my_food_id]: e.target.checked }))}
+                          checked={!!servPreferred[f.my_food_id]}
+                          onChange={(e) => setServPreferred((p) => ({ ...p, [f.my_food_id]: e.target.checked }))}
                         />
-                        set as default
+                        Make this the preferred logging unit
                       </label>
+                    </section>
+
+                    <details className="rounded-xl border p-3">
+                      <summary className="cursor-pointer text-sm font-semibold">Source details</summary>
+                      <div className="mt-3 grid gap-1 text-xs text-muted-foreground">
+                        <div>Original name: {f.source_display_name || "—"}</div>
+                        <div>Source: {f.source_type === "usda" ? "USDA FoodData Central" : (f.source || f.source_type)}</div>
+                        <div>Source ID: {f.source_id || "—"}</div>
+                        <div>Barcode: {f.barcode || "—"}</div>
+                        <div>Nutrients: {f.nutrient_source}</div>
+                        <div>Verified: {f.is_verified ? "yes" : "no"}</div>
+                      </div>
+                    </details>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        className="rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                        onClick={() => void saveFoodEditor()}
+                        disabled={editSaving}
+                      >
+                        {editSaving ? "Saving…" : "Save changes"}
+                      </button>
+                      {editStatus ? <div className={`text-xs ${editStatus === "Saved." ? "text-muted-foreground" : "text-red-500"}`}>{editStatus}</div> : null}
+                    </div>
+
+                    <div className="border-t border-muted/20 pt-3">
+                      <button
+                        type="button"
+                        onClick={() => setOpenFoodActionsId((prev) => prev === f.my_food_id ? "" : f.my_food_id)}
+                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                        aria-expanded={openFoodActionsId === f.my_food_id}
+                      >
+                        Actions
+                        {openFoodActionsId === f.my_food_id ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      </button>
+                      {openFoodActionsId === f.my_food_id ? (
+                        <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                          <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">Danger zone</div>
+                          <button
+                            type="button"
+                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                            onClick={() => void deactivateMyFood(f.my_food_id)}
+                          >
+                            <Trash2 className="h-3 w-3" /> Delete food
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </div>
