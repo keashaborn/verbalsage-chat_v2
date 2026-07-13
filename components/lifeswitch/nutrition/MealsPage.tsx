@@ -137,7 +137,7 @@ export default function MealsPage() {
     setErr(null);
     const j = (await fetchJson("/api/lifeswitch/nutrition/meals")) as Meal[];
     setMeals(Array.isArray(j) ? j : []);
-  }, [selectedMealId]);
+  }, []);
 
 
   const loadItems = React.useCallback(async (mealId: string) => {
@@ -384,7 +384,7 @@ export default function MealsPage() {
   }, [items]);
 
   return (
-    <div className="mx-auto max-w-6xl overflow-x-hidden p-4">
+    <div className="mx-auto w-full min-w-0 max-w-6xl p-0 sm:p-4">
       <div>
         <div className="text-lg font-semibold">Nutrition · Meals</div>
         <div className="mt-1 text-sm text-muted-foreground">
@@ -449,7 +449,7 @@ export default function MealsPage() {
         </div>
       </details>
 
-      <section className="mt-6 rounded-xl border p-4">
+      <section className="mt-6 min-w-0 rounded-md border p-3 sm:p-4">
         <div className="text-sm font-semibold">Meals</div>
 
         {meals.length ? (
@@ -470,7 +470,7 @@ export default function MealsPage() {
                       return (
                         <div
                           key={m.meal_id}
-                          className={`min-w-0 rounded-xl border ${
+                          className={`min-w-0 rounded-md border ${
                             active
                               ? "border-foreground bg-muted/20 ring-1 ring-foreground/60"
                               : ""
@@ -494,95 +494,67 @@ export default function MealsPage() {
                               }
                             }}
                           >
-                            <div className="text-sm font-semibold text-blue-400">
-                              {m.name}
-                            </div>
-                            <div className="mt-1 text-xs capitalize text-muted-foreground">
-                              {m.meal_type}
+                            <div className="flex min-w-0 items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="break-words text-sm font-semibold text-blue-400">
+                                  {m.name}
+                                </div>
+                                <div className="mt-1 text-xs capitalize text-muted-foreground">
+                                  {m.meal_type}
+                                </div>
+                              </div>
+                              <span className="shrink-0 text-xs text-muted-foreground">
+                                {active ? "Close" : "Open"}
+                              </span>
                             </div>
                           </button>
 
                           {active && selectedMeal ? (
-                            <div className="grid gap-4 border-t p-4">
-                              <section className="rounded-xl border p-4">
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                  <div>
-                                    <div className="text-sm font-semibold">
-                                      Selected meal
-                                    </div>
-                                    <div className="mt-1 text-lg font-medium">
-                                      {selectedMeal.name}
+                            <div className="grid min-w-0 gap-3 border-t p-3 sm:gap-4 sm:p-4">
+                              <section className="min-w-0 sm:rounded-md sm:border sm:p-4">
+                                <div className="flex min-w-0 items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-semibold">Meal items</div>
+                                    <div className="mt-1 text-xs text-muted-foreground">
+                                      Changes save as you make them.
                                     </div>
                                   </div>
 
-                                  <div className="flex flex-wrap items-center gap-2">
+                                  <div className="relative shrink-0">
                                     <button
                                       type="button"
-                                      className="rounded-xl border px-3 py-1.5 text-sm hover:bg-muted/30"
-                                      onClick={() => {
-                                        setSelectedMealId("");
-                                        setItems([]);
-                                        setQ("");
-                                        setHits([]);
-                                        setOpenMealActions(false);
-                                        setOpenItemActionsId("");
-                                        setEditingItemId("");
-                                      }}
+                                      className="inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/30"
+                                      onClick={() => setOpenMealActions((value) => !value)}
+                                      aria-expanded={openMealActions}
                                     >
-                                      Close
+                                      Actions
+                                      {openMealActions ? (
+                                        <ChevronUp className="h-3 w-3" />
+                                      ) : (
+                                        <ChevronDown className="h-3 w-3" />
+                                      )}
                                     </button>
 
-                                    <div className="relative">
-                                      <button
-                                        type="button"
-                                        className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted/30"
-                                        onClick={() =>
-                                          setOpenMealActions((v) => !v)
-                                        }
-                                        aria-expanded={openMealActions}
-                                      >
-                                        Actions
-                                        {openMealActions ? (
-                                          <ChevronUp className="h-3 w-3" />
-                                        ) : (
-                                          <ChevronDown className="h-3 w-3" />
-                                        )}
-                                      </button>
-
-                                      {openMealActions ? (
-                                        <div className="absolute right-0 z-20 mt-2 w-44 rounded-lg border border-red-500/20 bg-background p-2 shadow-lg">
-                                          <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
-                                            Danger zone
-                                          </div>
-                                          <button
-                                            type="button"
-                                            className="mt-2 inline-flex w-full items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
-                                            onClick={() =>
-                                              void deactivateMeal()
-                                            }
-                                            disabled={
-                                              deletingMealId === selectedMealId
-                                            }
-                                          >
-                                            <Trash2 className="h-3 w-3" />
-                                            {deletingMealId === selectedMealId
-                                              ? "Deleting…"
-                                              : "Delete meal"}
-                                          </button>
+                                    {openMealActions ? (
+                                      <div className="absolute right-0 z-20 mt-2 w-44 rounded-md border border-red-500/20 bg-background p-2 shadow-lg">
+                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                                          Danger zone
                                         </div>
-                                      ) : null}
-                                    </div>
+                                        <button
+                                          type="button"
+                                          className="mt-2 inline-flex w-full items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                                          onClick={() => void deactivateMeal()}
+                                          disabled={deletingMealId === selectedMealId}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                          {deletingMealId === selectedMealId ? "Deleting…" : "Delete meal"}
+                                        </button>
+                                      </div>
+                                    ) : null}
                                   </div>
                                 </div>
-                              </section>
 
-                              <section className="rounded-xl border p-4">
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                  <div className="text-sm font-semibold">
-                                    Meal items
-                                  </div>
-
-                                  <div className="grid grid-cols-4 gap-4 text-xs">
+                                <div className="mt-3 grid min-w-0 grid-cols-2 gap-x-4 gap-y-2 rounded-md bg-muted/10 p-3 text-xs sm:grid-cols-4">
                                     <div>
                                       <div className="text-muted-foreground">
                                         kcal
@@ -615,7 +587,6 @@ export default function MealsPage() {
                                         {fmt(totals.f, 0)}g
                                       </div>
                                     </div>
-                                  </div>
                                 </div>
 
                                 {items.length ? (
@@ -623,14 +594,14 @@ export default function MealsPage() {
                                     {items.map((it) => (
                                       <div
                                         key={it.meal_item_id}
-                                        className="rounded-xl border p-3"
+                                        className="min-w-0 rounded-md border p-3"
                                       >
                                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                           <div className="min-w-0">
-                                            <div className="truncate text-sm font-medium">
+                                            <div className="break-words text-sm font-medium">
                                               {it.display_name}
                                             </div>
-                                            <div className="mt-1 text-xs text-muted-foreground">
+                                            <div className="mt-1 break-words text-xs text-muted-foreground">
                                               {it.brand || "—"}
                                               {it.variant
                                                 ? ` · ${it.variant}`
@@ -677,7 +648,7 @@ export default function MealsPage() {
                                             </div>
 
                                             {editingItemId === it.meal_item_id ? (
-                                              <div className="mt-3 grid gap-2 rounded-xl border bg-muted/10 p-3">
+                                              <div className="mt-3 grid gap-2 rounded-md border bg-muted/10 p-3">
                                                 <FoodQuantityControl
                                                   label={it.display_name}
                                                   value={editQuantity}
@@ -711,7 +682,7 @@ export default function MealsPage() {
                                             ) : null}
                                           </div>
 
-                                          <div className="grid shrink-0 justify-items-end gap-2">
+                                          <div className="grid w-full shrink-0 justify-items-start gap-2 sm:w-auto sm:justify-items-end">
                                             <button
                                               type="button"
                                               className="inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/30"
@@ -722,6 +693,7 @@ export default function MealsPage() {
                                                     : it.meal_item_id
                                                 )
                                               }
+                                              aria-expanded={openItemActionsId === it.meal_item_id}
                                             >
                                               Actions
                                               {openItemActionsId ===
@@ -733,7 +705,7 @@ export default function MealsPage() {
                                             </button>
 
                                             {openItemActionsId === it.meal_item_id ? (
-                                              <div className="grid justify-items-end gap-2">
+                                              <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:grid-cols-1 sm:justify-items-end">
                                                 <button
                                                   type="button"
                                                   className="rounded-md border px-2 py-1 text-xs"
@@ -758,21 +730,21 @@ export default function MealsPage() {
                                     ))}
                                   </div>
                                 ) : (
-                                  <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
+                                  <div className="mt-4 rounded-md border p-3 text-sm text-muted-foreground">
                                     This meal has no foods yet. Search below
                                     to add one.
                                   </div>
                                 )}
                               </section>
 
-                              <section className="rounded-xl border p-4">
+                              <section className="min-w-0 sm:rounded-md sm:border sm:p-4">
                                 <div className="text-sm font-semibold">
                                   Add foods to this meal
                                 </div>
 
                                 <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                                   <input
-                                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                                     value={q}
                                     onChange={(e) => setQ(e.target.value)}
                                     placeholder="Search saved foods"
@@ -784,7 +756,7 @@ export default function MealsPage() {
                                   />
                                   <button
                                     type="button"
-                                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                                    className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
                                     onClick={() => void searchMyFoods()}
                                     disabled={loading}
                                   >
@@ -799,8 +771,8 @@ export default function MealsPage() {
                                       const servings = servingsByFoodId[f.my_food_id] || preferredServingSeed(f);
                                       const grams = resolvedQuantityGrams(selection, servings);
                                       return (
-                                        <div key={f.my_food_id} className="rounded-xl border p-3">
-                                          <div className="truncate text-sm font-medium">{f.display_name}</div>
+                                        <div key={f.my_food_id} className="min-w-0 rounded-md border p-3">
+                                          <div className="break-words text-sm font-medium">{f.display_name}</div>
                                           <div className="mt-1 text-xs text-muted-foreground">
                                             {f.brand || "—"}{f.variant ? ` · ${f.variant}` : ""}
                                           </div>
@@ -839,7 +811,7 @@ export default function MealsPage() {
                                     })}
                                   </div>
                                 ) : (
-                                  <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
+                                  <div className="mt-4 rounded-md border p-3 text-sm text-muted-foreground">
                                     Search your saved foods to add an item.
                                   </div>
                                 )}
