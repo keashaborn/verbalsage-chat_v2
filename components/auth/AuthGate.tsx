@@ -180,15 +180,6 @@ export function AuthGate({ children }: { children: ReactNode }) {
     );
   }
 
-  async function applyDefaultProfileBestEffort() {
-    if (hasProfileCookies()) return;
-    await withTimeout(
-      authFetch("/api/profiles/apply_default", { method: "POST" }),
-      2500,
-      "profiles.apply_default"
-    );
-  }
-
   async function bootstrapFromSession(s: any | null) {
     setMsg("");
 
@@ -203,7 +194,6 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
     // Best-effort, non-blocking extras.
     applyProfileCookiesFromSession(s);
-    void applyDefaultProfileBestEffort();
     void syncIdentityBestEffort(s);
   }
 

@@ -262,30 +262,6 @@ async function cloudSetPresets(profiles: any[], defaultId: string) {
   }
 }
 
-async function brainsSyncVantagePresets(args: {
-  profiles: any[];
-  defaultId: string;
-  active: any | null;
-  source_updated_at?: string;
-}) {
-  try {
-    await fetch("/api/vantages/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({
-        profiles: normalizeProfileList(Array.isArray(args.profiles) ? args.profiles : []),
-        defaultId: args.defaultId || "",
-        active: args.active || null,
-        source_updated_at: args.source_updated_at || new Date().toISOString(),
-      }),
-    });
-  } catch {
-    // best-effort mirror only; Supabase remains source of truth
-  }
-}
-
-
 function clamp01(x: any, d: number) {
   const n = Number(x);
   if (!Number.isFinite(n)) return d;
@@ -694,20 +670,6 @@ export function VantageProfilePage({
     };
   }
 
-  function appliedActivePayload() {
-    return {
-      vantageId: normalizeVantageId(applied.vantageId),
-      state: {
-        vantageId: normalizeVantageId(applied.vantageId),
-        limits: sanitizeLimits(applied.limits),
-        routing: sanitizeRouting(applied.routing),
-        mix: sanitizeMix(applied.mix),
-        roleplay: sanitizeRoleplay((applied as any).roleplay),
-        pragmatics: sanitizePragmatics((applied as any).pragmatics),
-      },
-    };
-  }
-
   function loadIntoDraft(p: VantageProfile) {
     const clean = normalizeProfileIdentity(p) as VantageProfile;
     setDraft((s) => ({
@@ -815,7 +777,6 @@ export function VantageProfilePage({
               setProfiles(next);
               saveProfiles(next);
               void cloudSetPresets(userProfilesOnly(next), defaultId);
-              void brainsSyncVantagePresets({ profiles: userProfilesOnly(next), defaultId, active: appliedActivePayload() });
               setSelectedId(existing.id);
               setMsg(`Overwrote Profile "${namespace}".`);
               return;
@@ -826,7 +787,6 @@ export function VantageProfilePage({
             setProfiles(next);
             saveProfiles(next);
             void cloudSetPresets(userProfilesOnly(next), defaultId);
-              void brainsSyncVantagePresets({ profiles: userProfilesOnly(next), defaultId, active: appliedActivePayload() });
             setSelectedId(p.id);
             setMsg(`Saved Profile "${namespace}".`);
           }}
@@ -845,7 +805,6 @@ export function VantageProfilePage({
             const nextDefaultId = defaultId === selected.id ? "" : defaultId;
             if (defaultId === selected.id) clearDefaultProfileId(); // local cache
             void cloudSetPresets(userProfilesOnly(next as any), nextDefaultId);
-            void brainsSyncVantagePresets({ profiles: userProfilesOnly(next as any), defaultId: nextDefaultId, active: appliedActivePayload() });
 
             if (defaultId === selected.id) setDefaultId("");
             setSelectedId("");

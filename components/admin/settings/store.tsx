@@ -61,40 +61,6 @@ async function pushCloudActiveProfile(args: {
   }
 }
 
-async function brainsSyncActiveVantage(args: {
-  vantageId: string;
-  mix: any | null;
-  routing: any | null;
-  limits: any | null;
-  pragmatics: any | null;
-  roleplay: any | null;
-}) {
-  try {
-    await fetch("/api/vantages/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({
-        mode: "active",
-        source_updated_at: new Date().toISOString(),
-        active: {
-          vantageId: normalizeVantageId(args.vantageId),
-          state: {
-            vantageId: normalizeVantageId(args.vantageId),
-            mix: args.mix ?? null,
-            routing: args.routing ?? null,
-            limits: args.limits ?? null,
-            pragmatics: args.pragmatics ?? null,
-            roleplay: args.roleplay ?? null,
-          },
-        },
-      }),
-    });
-  } catch {
-    // best-effort mirror only; Supabase remains source of truth
-  }
-}
-
 export type VSSettingsState = {
   // These may be shown in the UI, but (for now) Save only commits Vantage cookies.
   theme: string | null; // localStorage: vs_theme (not saved by global Save yet)
@@ -366,15 +332,6 @@ export function SettingsStoreProvider({
     const modelNow = readCookie("vs_model"); // always read latest cookie
     void pushCloudActiveProfile({
       model: modelNow,
-      vantageId: vid,
-      mix: draft.mix,
-      routing: draft.routing,
-      limits: draft.limits,
-      pragmatics: draft.pragmatics,
-      roleplay: draft.roleplay,
-    });
-
-    void brainsSyncActiveVantage({
       vantageId: vid,
       mix: draft.mix,
       routing: draft.routing,
