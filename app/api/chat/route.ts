@@ -238,7 +238,7 @@ export async function POST(req: Request) {
     const rawVid = String(body?.vantage_id || jar.get("vs_vantage_id")?.value || "").trim();
     const vantage_id = rawVid ? rawVid.slice(0, 64) : null;
 
-    // model from request body OR cookie (LabControlsPanel writes vs_model)
+    // Model from the request body or the persisted model-settings cookie.
     const rawModel = String(body?.model || jar.get("vs_model")?.value || "").trim();
 
     // allowlist to avoid weird values
