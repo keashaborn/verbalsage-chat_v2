@@ -193,13 +193,13 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
 
   {
     key: "voice.realtime_token",
-    label: "Use Realtime Voice Token",
-    description: "Request the server-side realtime voice websocket token.",
+    label: "Use Realtime Voice",
+    description: "Start an authenticated OpenAI Realtime WebRTC voice session.",
     category: "voice",
-    scope: "system",
+    scope: "own_account",
     access: "use",
     risk: "high",
-    defaultRoles: ["owner", "admin", "developer"],
+    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
     backendEnforced: true,
   },
 
