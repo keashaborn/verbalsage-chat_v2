@@ -183,6 +183,8 @@ export default function LifeSwitchPeoplePage() {
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [openInviteActionsId, setOpenInviteActionsId] = React.useState("");
+  const [relationshipActionsOpen, setRelationshipActionsOpen] = React.useState(false);
+  const [removingRelationshipId, setRemovingRelationshipId] = React.useState("");
   const [error, setError] = React.useState("");
 
   const visiblePeople = React.useMemo(
@@ -222,7 +224,7 @@ export default function LifeSwitchPeoplePage() {
       setInvitations(Array.isArray(inviteRows) ? inviteRows : []);
       setWorkoutShares(Array.isArray(shareRows) ? shareRows : []);
 
-      const next = nextSelectedUserId || selectedUserId || "";
+      const next = nextSelectedUserId !== undefined ? nextSelectedUserId : selectedUserId;
 
       setSelectedUserId(next);
 
@@ -254,6 +256,7 @@ export default function LifeSwitchPeoplePage() {
   }
 
   async function selectPerson(userId: string) {
+    setRelationshipActionsOpen(false);
     setSelectedUserId(userId);
     const rel = relationships.find((r) => r.other_user_id === userId);
     if (rel) {
@@ -364,6 +367,36 @@ export default function LifeSwitchPeoplePage() {
       setError(String(e instanceof Error ? e.message : e));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function removeConnection() {
+    if (!selectedRelationship || !selectedPerson) return;
+
+    const name = displayName(selectedPerson, selectedUserId);
+    const ok = window.confirm(
+      `Remove connection with "${name}"? This removes them from Contacts and revokes shared access. Existing messages are not deleted.`
+    );
+    if (!ok) return;
+
+    setRemovingRelationshipId(selectedRelationship.relationship_id);
+    setError("");
+    try {
+      await fetchJson<Relationship>(
+        `/api/lifeswitch/people/relationships/${encodeURIComponent(
+          selectedRelationship.relationship_id
+        )}/revoke`,
+        { method: "POST" }
+      );
+      setRelationshipActionsOpen(false);
+      setSelectedUserId("");
+      setSelectedKind("friend");
+      setPermissions([]);
+      await loadAll("");
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setRemovingRelationshipId("");
     }
   }
 
@@ -715,20 +748,57 @@ export default function LifeSwitchPeoplePage() {
               </div>
 
               {selectedPerson ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedUserId("");
-                    setSelectedKind("friend");
-                    setPermissions([]);
-                  }}
-                  className="shrink-0 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
-                >
-                  <span className="lg:hidden">← Contacts</span>
-                  <span className="hidden lg:inline">Close</span>
-                </button>
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRelationshipActionsOpen(false);
+                      setSelectedUserId("");
+                      setSelectedKind("friend");
+                      setPermissions([]);
+                    }}
+                    className="rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                  >
+                    <span className="lg:hidden">← Contacts</span>
+                    <span className="hidden lg:inline">Close</span>
+                  </button>
+
+                  {selectedRelationship ? (
+                    <button
+                      type="button"
+                      onClick={() => setRelationshipActionsOpen((open) => !open)}
+                      aria-expanded={relationshipActionsOpen}
+                      className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                    >
+                      Actions
+                      {relationshipActionsOpen ? (
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
             </div>
+
+            {selectedRelationship && relationshipActionsOpen ? (
+              <div className="mt-3 rounded-md border border-red-500/30 bg-red-500/5 p-3">
+                <div className="text-xs font-semibold text-red-500">Remove connection</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Remove this person from Contacts and revoke shared access. Existing messages are kept.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void removeConnection()}
+                  disabled={Boolean(removingRelationshipId)}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {removingRelationshipId ? "Removing…" : "Remove connection"}
+                </button>
+              </div>
+            ) : null}
 
             {selectedPerson ? (
 
