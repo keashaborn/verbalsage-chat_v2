@@ -127,6 +127,20 @@ function operationFor(method: string, path: string[]): Operation | null {
     };
   }
   if (
+    normalizedMethod === "POST" &&
+    path.length === 2 &&
+    path[0] === "revisions" &&
+    path[1] === "adopt-current-profile"
+  ) {
+    return {
+      upstreamPath: "/lifeswitch/plan/revisions/adopt-current-profile",
+      method: "POST",
+      bodyMode: "none",
+      requiresIdempotency: true,
+      queryFields: COMMON_QUERY_FIELDS,
+    };
+  }
+  if (
     normalizedMethod === "GET" &&
     path.length === 2 &&
     path[0] === "revisions" &&
