@@ -216,6 +216,21 @@ function operationFor(method: string, path: string[]): Operation | null {
     path.length === 3 &&
     path[0] === "revisions" &&
     UUID_PATTERN.test(path[1]) &&
+    path[2] === "recommendations"
+  ) {
+    return {
+      upstreamPath: `/lifeswitch/plan/revisions/${encodeURIComponent(path[1])}/recommendations`,
+      method: "POST",
+      bodyMode: "json",
+      requiresIdempotency: false,
+      queryFields: COMMON_QUERY_FIELDS,
+    };
+  }
+  if (
+    normalizedMethod === "POST" &&
+    path.length === 3 &&
+    path[0] === "revisions" &&
+    UUID_PATTERN.test(path[1]) &&
     path[2] === "refresh-current-profile"
   ) {
     return {

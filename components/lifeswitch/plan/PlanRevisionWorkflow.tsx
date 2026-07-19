@@ -7,6 +7,8 @@ import {
   PlanDraftWorkspace,
   type JsonObject,
   type PlanDocument,
+  type SagePlanReview,
+  type SageReviewFocus,
 } from "@/components/lifeswitch/plan/PlanDraftWorkspace";
 import { authFetch } from "@/lib/authFetch";
 
@@ -369,6 +371,41 @@ export function PlanRevisionWorkflow() {
     }
   }
 
+  async function requestSageReview(request: {
+    focus: SageReviewFocus;
+    user_request: string;
+  }): Promise<SagePlanReview> {
+    const currentRevision = workspace?.open_revision;
+    if (!currentRevision || currentRevision.state !== "draft") {
+      throw new Error("Sage can review only an inactive draft.");
+    }
+    const response = await authFetch(
+      apiUrl(`revisions/${currentRevision.revision_id}/recommendations`),
+      {
+        method: "POST",
+        cache: "no-store",
+        body: JSON.stringify(request),
+        headers: {
+          "content-type": "application/json",
+          "x-lifeswitch-owner-timezone":
+            Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        },
+      },
+    );
+    const text = await response.text();
+    const payload: unknown = text ? JSON.parse(text) : null;
+    if (!response.ok) throw new Error(friendlyError(payload, response.status));
+    if (!payload || typeof payload !== "object") {
+      throw new Error("Sage returned an invalid Plan review.");
+    }
+    const recommendation = (payload as { recommendation?: unknown })
+      .recommendation;
+    if (!recommendation || typeof recommendation !== "object") {
+      throw new Error("Sage returned an invalid Plan review.");
+    }
+    return recommendation as SagePlanReview;
+  }
+
   const revision = workspace?.open_revision || null;
   const activePlan = workspace?.active_plan || null;
   const canEdit = workspace?.capabilities?.can_edit ?? !delegated;
@@ -485,6 +522,7 @@ export function PlanRevisionWorkflow() {
                     "PUT",
                   )
                 }
+                onSageReview={requestSageReview}
               />
             ) : null}
             {revision.state !== "draft" || !canEdit ? (

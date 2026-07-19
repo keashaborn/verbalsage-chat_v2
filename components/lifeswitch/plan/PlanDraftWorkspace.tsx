@@ -22,6 +22,50 @@ export type PlanDocument = {
   coach_notes: string;
 };
 
+export type SageReviewFocus =
+  | "whole_plan"
+  | "direction"
+  | "goal"
+  | "schedule"
+  | "body_state"
+  | "nutrition_targets"
+  | "training_targets"
+  | "conditioning_targets"
+  | "activity_targets"
+  | "recovery_targets"
+  | "monitoring_rules"
+  | "coach_notes";
+
+export type SagePlanReview = {
+  summary: string;
+  questions: Array<{
+    field_path: string;
+    question: string;
+    why_needed: string;
+  }>;
+  suggestions: Array<{
+    field_path: string;
+    current_value: unknown;
+    proposed_value: unknown;
+    rationale: string;
+    evidence: Array<{
+      field_path: string;
+      observed_value: unknown;
+      explanation: string;
+    }>;
+    confidence: "low" | "medium" | "high";
+    data_sufficiency: "insufficient" | "limited" | "sufficient";
+  }>;
+  provenance: {
+    provider: string;
+    model: string;
+    response_id: string | null;
+    draft_sha256: string;
+    generated_at: string;
+    writes_performed: false;
+  };
+};
+
 type SectionKey =
   | "body_state"
   | "nutrition_targets"
@@ -45,6 +89,10 @@ type PlanDraftWorkspaceProps = {
   saving: boolean;
   onDirtyChange: (dirty: boolean) => void;
   onSave: (document: PlanDocument) => Promise<boolean>;
+  onSageReview: (request: {
+    focus: SageReviewFocus;
+    user_request: string;
+  }) => Promise<SagePlanReview>;
 };
 
 const SECTIONS: Array<{
@@ -106,6 +154,17 @@ const PHASES = [
   ["other", "Other"],
 ] as const;
 
+const SAGE_FOCUS_OPTIONS: Array<[SageReviewFocus, string]> = [
+  ["whole_plan", "Whole Plan"],
+  ["direction", "Direction"],
+  ["goal", "Primary goal"],
+  ["schedule", "Schedule and review"],
+  ...SECTIONS.map(
+    (section) => [section.key, section.label] as [SageReviewFocus, string],
+  ),
+  ["coach_notes", "Notes and context"],
+];
+
 function cloneDocument(document: PlanDocument): PlanDocument {
   return JSON.parse(JSON.stringify(document)) as PlanDocument;
 }
@@ -118,6 +177,55 @@ function humanize(value: string): string {
 
 function isPlainObject(value: unknown): value is JsonObject {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function pointerParts(path: string): string[] | null {
+  if (!path.startsWith("/") || path === "/") return null;
+  const parts = path
+    .slice(1)
+    .split("/")
+    .map((part) => part.replaceAll("~1", "/").replaceAll("~0", "~"));
+  const encoded = parts
+    .map((part) => part.replaceAll("~", "~0").replaceAll("/", "~1"))
+    .join("/");
+  return encoded === path.slice(1) ? parts : null;
+}
+
+function applyPointerValue(
+  document: PlanDocument,
+  path: string,
+  value: unknown,
+): PlanDocument | null {
+  const parts = pointerParts(path);
+  if (!parts?.length) return null;
+  const copy = cloneDocument(document);
+  let current: JsonObject = copy as unknown as JsonObject;
+  for (const part of parts.slice(0, -1)) {
+    const child = current[part];
+    if (!isPlainObject(child)) return null;
+    current = child;
+  }
+  const field = parts[parts.length - 1];
+  if (!(field in current)) return null;
+  current[field] = JSON.parse(JSON.stringify(value)) as unknown;
+  return copy;
+}
+
+function formatFieldPath(path: string): string {
+  const parts = pointerParts(path);
+  return parts?.map(humanize).join(" › ") || path;
+}
+
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "Not set";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) return value.map(formatValue).join(", ");
+  if (isPlainObject(value)) {
+    return Object.entries(value)
+      .map(([key, item]) => `${humanize(key)}: ${formatValue(item)}`)
+      .join(" · ");
+  }
+  return String(value);
 }
 
 function isMeaningful(value: unknown): boolean {
@@ -343,6 +451,7 @@ export function PlanDraftWorkspace({
   saving,
   onDirtyChange,
   onSave,
+  onSageReview,
 }: PlanDraftWorkspaceProps) {
   const [draft, setDraft] = React.useState<PlanDocument>(() =>
     cloneDocument(document),
@@ -352,12 +461,28 @@ export function PlanDraftWorkspace({
   );
   const [guideOpen, setGuideOpen] = React.useState(false);
   const [stepIndex, setStepIndex] = React.useState(0);
+  const [sageOpen, setSageOpen] = React.useState(false);
+  const [sageReviewing, setSageReviewing] = React.useState(false);
+  const [sageError, setSageError] = React.useState("");
+  const [sageFocus, setSageFocus] =
+    React.useState<SageReviewFocus>("whole_plan");
+  const [sageRequest, setSageRequest] = React.useState("");
+  const [sageReview, setSageReview] = React.useState<SagePlanReview | null>(
+    null,
+  );
+  const [suggestionStates, setSuggestionStates] = React.useState<
+    Record<string, "applied" | "dismissed">
+  >({});
 
   React.useEffect(() => {
     setDraft(cloneDocument(document));
     setBaseline(JSON.stringify(document));
     setGuideOpen(false);
     setStepIndex(0);
+    setSageOpen(false);
+    setSageError("");
+    setSageReview(null);
+    setSuggestionStates({});
   }, [document, revisionId]);
 
   const serializedDraft = JSON.stringify(draft);
@@ -389,6 +514,35 @@ export function PlanDraftWorkspace({
     if (!saved) return;
     setBaseline(serializedDraft);
     if (closeAfterSave) setGuideOpen(false);
+  }
+
+  async function requestSageReview() {
+    if (dirty || sageReviewing) return;
+    setSageReviewing(true);
+    setSageError("");
+    try {
+      const review = await onSageReview({
+        focus: sageFocus,
+        user_request: sageRequest.trim(),
+      });
+      setSageReview(review);
+      setSuggestionStates({});
+    } catch (caught) {
+      setSageError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setSageReviewing(false);
+    }
+  }
+
+  function applySuggestion(fieldPath: string, proposedValue: unknown) {
+    setDraft((current) => {
+      const next = applyPointerValue(current, fieldPath, proposedValue);
+      return next || current;
+    });
+    setSuggestionStates((current) => ({
+      ...current,
+      [fieldPath]: "applied",
+    }));
   }
 
   const step = GUIDE_STEPS[stepIndex];
@@ -424,6 +578,19 @@ export function PlanDraftWorkspace({
           className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
         >
           Guide me through the Plan
+        </button>
+        <button
+          type="button"
+          disabled={sageReviewing || (dirty && !sageReview)}
+          title={
+            dirty && !sageReview
+              ? "Save the draft before asking Sage to review it."
+              : undefined
+          }
+          onClick={() => setSageOpen(true)}
+          className="rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
+        >
+          {sageReview ? "Review Sage suggestions" : "Ask Sage to review"}
         </button>
         <button
           type="button"
@@ -499,6 +666,285 @@ export function PlanDraftWorkspace({
         </button>
       </div>
 
+      {sageOpen ? (
+        <div
+          className="fixed inset-0 z-[90] overflow-y-auto bg-background"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Sage Plan review"
+        >
+          <div className="mx-auto flex min-h-full max-w-3xl flex-col">
+            <header className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                    Bounded Plan assistance
+                  </div>
+                  <div className="text-lg font-semibold">Sage Plan review</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSageOpen(false)}
+                  className="rounded-lg border px-3 py-2 text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </header>
+
+            <main className="grid flex-1 content-start gap-4 px-4 py-6">
+              <div className="rounded-xl border bg-muted/30 p-3 text-sm text-muted-foreground">
+                Sage can read only this saved inactive draft and its
+                deterministic validation. It cannot save, submit, approve, or
+                activate a Plan. You decide whether any suggestion enters the
+                editable draft.
+              </div>
+
+              {sageError ? (
+                <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                  {sageError}
+                </div>
+              ) : null}
+
+              {!sageReview ? (
+                <div className="grid gap-4 rounded-2xl border p-4">
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      What should Sage review?
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Choose a section or request a review of the complete Plan.
+                      Add a question only if you want Sage to focus on something
+                      specific.
+                    </p>
+                  </div>
+                  <label className="grid gap-1.5 text-sm">
+                    <span className="font-medium">Review focus</span>
+                    <select
+                      value={sageFocus}
+                      onChange={(event) =>
+                        setSageFocus(event.target.value as SageReviewFocus)
+                      }
+                      className="rounded-xl border bg-background px-3 py-3"
+                    >
+                      {SAGE_FOCUS_OPTIONS.map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1.5 text-sm">
+                    <span className="font-medium">
+                      Question for Sage (optional)
+                    </span>
+                    <textarea
+                      value={sageRequest}
+                      maxLength={1200}
+                      onChange={(event) => setSageRequest(event.target.value)}
+                      rows={4}
+                      placeholder="For example: Is this goal measurable enough?"
+                      className="rounded-xl border bg-background px-3 py-3"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={dirty || sageReviewing}
+                    onClick={() => void requestSageReview()}
+                    className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                  >
+                    {sageReviewing
+                      ? "Sage is reviewing…"
+                      : "Review saved draft"}
+                  </button>
+                  {dirty ? (
+                    <p className="text-xs text-muted-foreground">
+                      Close this panel and save the draft before requesting a
+                      new review.
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  <section className="rounded-2xl border p-4">
+                    <h3 className="text-sm font-semibold">Sage summary</h3>
+                    <p className="mt-2 text-sm whitespace-pre-wrap">
+                      {sageReview.summary}
+                    </p>
+                  </section>
+
+                  {sageReview.questions.length ? (
+                    <section className="rounded-2xl border p-4">
+                      <h3 className="font-semibold">
+                        Information Sage still needs
+                      </h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Use these questions while completing the guide, save the
+                        answers, then request another review.
+                      </p>
+                      <div className="mt-3 grid gap-3">
+                        {sageReview.questions.map((question) => (
+                          <div
+                            key={`${question.field_path}:${question.question}`}
+                            className="rounded-xl bg-muted/40 p-3"
+                          >
+                            <div className="text-xs font-medium text-muted-foreground">
+                              {formatFieldPath(question.field_path)}
+                            </div>
+                            <div className="mt-1 text-sm font-medium">
+                              {question.question}
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {question.why_needed}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  <section className="grid gap-3">
+                    <div>
+                      <h3 className="font-semibold">Proposed draft edits</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Applying an edit changes only the local inactive draft.
+                        It remains unsaved until you press Save draft.
+                      </p>
+                    </div>
+                    {sageReview.suggestions.length ? (
+                      sageReview.suggestions.map((suggestion) => {
+                        const suggestionState =
+                          suggestionStates[suggestion.field_path];
+                        return (
+                          <article
+                            key={suggestion.field_path}
+                            className="grid gap-3 rounded-2xl border p-4"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="font-semibold">
+                                {formatFieldPath(suggestion.field_path)}
+                              </div>
+                              <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                                <span className="rounded-full border px-2 py-1">
+                                  {humanize(suggestion.confidence)} confidence
+                                </span>
+                                <span className="rounded-full border px-2 py-1">
+                                  {humanize(suggestion.data_sufficiency)} data
+                                </span>
+                              </div>
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <div className="rounded-xl bg-muted/40 p-3">
+                                <div className="text-xs font-medium text-muted-foreground">
+                                  Current
+                                </div>
+                                <div className="mt-1 text-sm break-words">
+                                  {formatValue(suggestion.current_value)}
+                                </div>
+                              </div>
+                              <div className="rounded-xl bg-primary/5 p-3">
+                                <div className="text-xs font-medium text-muted-foreground">
+                                  Sage proposes
+                                </div>
+                                <div className="mt-1 text-sm font-medium break-words">
+                                  {formatValue(suggestion.proposed_value)}
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-sm">{suggestion.rationale}</p>
+                            <details className="rounded-xl border">
+                              <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+                                Supporting Plan evidence
+                              </summary>
+                              <div className="grid gap-2 border-t p-3">
+                                {suggestion.evidence.map((evidence) => (
+                                  <div
+                                    key={`${suggestion.field_path}:${evidence.field_path}`}
+                                    className="text-sm"
+                                  >
+                                    <span className="font-medium">
+                                      {formatFieldPath(evidence.field_path)}:
+                                    </span>{" "}
+                                    {formatValue(evidence.observed_value)}
+                                    <div className="mt-1 text-xs text-muted-foreground">
+                                      {evidence.explanation}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                            <div className="grid gap-2 sm:flex">
+                              <button
+                                type="button"
+                                disabled={Boolean(suggestionState)}
+                                onClick={() =>
+                                  applySuggestion(
+                                    suggestion.field_path,
+                                    suggestion.proposed_value,
+                                  )
+                                }
+                                className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                              >
+                                {suggestionState === "applied"
+                                  ? "Applied to draft"
+                                  : "Apply to draft"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={Boolean(suggestionState)}
+                                onClick={() =>
+                                  setSuggestionStates((current) => ({
+                                    ...current,
+                                    [suggestion.field_path]: "dismissed",
+                                  }))
+                                }
+                                className="rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
+                              >
+                                {suggestionState === "dismissed"
+                                  ? "Dismissed"
+                                  : "Dismiss"}
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                        Sage found no evidence-supported field edit to propose.
+                      </div>
+                    )}
+                  </section>
+
+                  <div className="grid gap-2 sm:flex sm:items-center sm:justify-between">
+                    <button
+                      type="button"
+                      disabled={dirty}
+                      title={
+                        dirty
+                          ? "Save applied suggestions before requesting another review."
+                          : undefined
+                      }
+                      onClick={() => {
+                        setSageReview(null);
+                        setSageError("");
+                        setSuggestionStates({});
+                      }}
+                      className="rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
+                    >
+                      Start another review
+                    </button>
+                    <div className="text-xs text-muted-foreground">
+                      {sageReview.provenance.model} · Saved draft only · No
+                      writes
+                    </div>
+                  </div>
+                </div>
+              )}
+            </main>
+          </div>
+        </div>
+      ) : null}
+
       {guideOpen ? (
         <div
           className="fixed inset-0 z-[80] overflow-y-auto bg-background"
@@ -539,10 +985,10 @@ export function PlanDraftWorkspace({
               {step.id === "direction" ? (
                 <div className="grid gap-4">
                   <div className="rounded-xl border bg-muted/30 p-3 text-xs text-muted-foreground">
-                    This first guided slice organizes and saves the inactive
-                    draft. Sage-generated recommendations will be connected to
-                    this same workspace next; nothing in this guide is
-                    model-generated yet.
+                    This guide edits the inactive draft directly. Sage review is
+                    available from the draft workspace; applying a
+                    recommendation creates an unsaved edit and never saves or
+                    activates the Plan.
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold">
