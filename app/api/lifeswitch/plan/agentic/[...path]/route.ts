@@ -155,6 +155,20 @@ function operationFor(method: string, path: string[]): Operation | null {
   }
   if (
     normalizedMethod === "POST" &&
+    path.length === 2 &&
+    path[0] === "revisions" &&
+    path[1] === "from-current-profile"
+  ) {
+    return {
+      upstreamPath: "/lifeswitch/plan/revisions/from-current-profile",
+      method: "POST",
+      bodyMode: "none",
+      requiresIdempotency: true,
+      queryFields: COMMON_QUERY_FIELDS,
+    };
+  }
+  if (
+    normalizedMethod === "POST" &&
     path.length === 3 &&
     path[0] === "revisions" &&
     path[1] === "adopt-current-profile" &&
@@ -193,6 +207,21 @@ function operationFor(method: string, path: string[]): Operation | null {
       upstreamPath: `/lifeswitch/plan/revisions/${encodeURIComponent(path[1])}/draft`,
       method: "PUT",
       bodyMode: "json",
+      requiresIdempotency: true,
+      queryFields: COMMON_QUERY_FIELDS,
+    };
+  }
+  if (
+    normalizedMethod === "POST" &&
+    path.length === 3 &&
+    path[0] === "revisions" &&
+    UUID_PATTERN.test(path[1]) &&
+    path[2] === "refresh-current-profile"
+  ) {
+    return {
+      upstreamPath: `/lifeswitch/plan/revisions/${encodeURIComponent(path[1])}/refresh-current-profile`,
+      method: "POST",
+      bodyMode: "none",
       requiresIdempotency: true,
       queryFields: COMMON_QUERY_FIELDS,
     };

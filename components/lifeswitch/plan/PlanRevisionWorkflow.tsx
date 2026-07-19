@@ -44,6 +44,7 @@ type RevisionChange = {
 type Revision = {
   revision_id: string;
   state: string;
+  base_plan_version_id: string | null;
   base_is_current: boolean;
   proposed_document: PlanDocument;
   validation_result: {
@@ -54,6 +55,7 @@ type Revision = {
   proposed_at: string | null;
   source: {
     source_kind?: string;
+    source_action?: string;
     legacy_plan_profile_id?: string;
     legacy_profile_updated_at?: string;
   } | null;
@@ -367,6 +369,7 @@ export function PlanRevisionWorkflow() {
   const revision = workspace?.open_revision || null;
   const activePlan = workspace?.active_plan || null;
   const canEdit = workspace?.capabilities?.can_edit ?? !delegated;
+  const isInitialAdoption = Boolean(revision && !revision.base_plan_version_id);
 
   return (
     <section className="mx-auto grid max-w-6xl gap-4 px-4 pt-4 md:px-6 md:pt-6">
@@ -470,14 +473,18 @@ export function PlanRevisionWorkflow() {
 
             {revision.state === "draft" ? (
               <div className="grid gap-2 sm:flex sm:flex-wrap">
-                {!delegated ? (
+                {canEdit &&
+                revision.source &&
+                (!isInitialAdoption || !delegated) ? (
                   <button
                     className="rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
                     type="button"
                     disabled={Boolean(pendingAction)}
                     onClick={() =>
                       void runAction(
-                        "revisions/adopt-current-profile/refresh",
+                        isInitialAdoption
+                          ? "revisions/adopt-current-profile/refresh"
+                          : `revisions/${revision.revision_id}/refresh-current-profile`,
                         `refresh:${revision.revision_id}`,
                         "Draft refreshed from the plan editor.",
                       )
@@ -550,10 +557,42 @@ export function PlanRevisionWorkflow() {
 
         {status === "ready" && !revision && activePlan ? (
           <div className="mt-4 grid gap-4">
-            <p className="text-sm text-muted-foreground">
-              Activated {new Date(activePlan.activated_at).toLocaleString()}.
-              Changes in the editor below do not alter this active version.
-            </p>
+            <div className="grid gap-3 rounded-xl border p-4">
+              <p className="text-sm text-muted-foreground">
+                Activated {new Date(activePlan.activated_at).toLocaleString()}.
+                Changes in the editor below do not alter this active version.
+              </p>
+              {canEdit ? (
+                <div className="grid gap-2">
+                  <p className="text-sm">
+                    After saving changes in the editor below, prepare them as a
+                    new draft for review. The current version remains active
+                    until the owner approves the replacement.
+                  </p>
+                  <button
+                    className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50 sm:w-auto"
+                    type="button"
+                    disabled={Boolean(pendingAction)}
+                    onClick={() =>
+                      void runAction(
+                        "revisions/from-current-profile",
+                        `profile-revision:${activePlan.plan_version_id}`,
+                        "Editor changes prepared as a draft. Review them before submitting.",
+                      )
+                    }
+                  >
+                    {pendingAction ===
+                    `profile-revision:${activePlan.plan_version_id}`
+                      ? "Preparing…"
+                      : "Prepare editor changes as new revision"}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-sm">
+                  There is no revision waiting for your review.
+                </p>
+              )}
+            </div>
             <PlanSummary document={activePlan.document} />
           </div>
         ) : null}
