@@ -3,27 +3,12 @@
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 
+import {
+  PlanDraftWorkspace,
+  type JsonObject,
+  type PlanDocument,
+} from "@/components/lifeswitch/plan/PlanDraftWorkspace";
 import { authFetch } from "@/lib/authFetch";
-
-type JsonObject = Record<string, unknown>;
-
-type PlanDocument = {
-  schema_version: number;
-  phase: string;
-  phase_label: string;
-  primary_goal: string;
-  start_date: string | null;
-  review_date: string | null;
-  review_cadence: string;
-  body_state: JsonObject;
-  nutrition_targets: JsonObject;
-  training_targets: JsonObject;
-  conditioning_targets: JsonObject;
-  activity_targets: JsonObject;
-  recovery_targets: JsonObject;
-  monitoring_rules: JsonObject;
-  coach_notes: string;
-};
 
 type ValidationIssue = {
   code: string;
@@ -301,6 +286,8 @@ export function PlanRevisionWorkflow() {
   const [error, setError] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [pendingAction, setPendingAction] = React.useState("");
+  const [draftHasUnsavedChanges, setDraftHasUnsavedChanges] =
+    React.useState(false);
   const idempotencyKeys = React.useRef<Record<string, string>>({});
 
   const apiUrl = React.useCallback(
@@ -346,7 +333,9 @@ export function PlanRevisionWorkflow() {
     path: string,
     actionKey: string,
     successMessage: string,
-  ) {
+    body?: Record<string, unknown>,
+    method: "POST" | "PUT" = "POST",
+  ): Promise<boolean> {
     setPendingAction(actionKey);
     setError("");
     setMessage("");
@@ -354,10 +343,12 @@ export function PlanRevisionWorkflow() {
     idempotencyKeys.current[actionKey] = key;
     try {
       const response = await authFetch(apiUrl(path), {
-        method: "POST",
+        method,
         cache: "no-store",
+        body: body ? JSON.stringify(body) : undefined,
         headers: {
           "idempotency-key": key,
+          ...(body ? { "content-type": "application/json" } : {}),
           "x-lifeswitch-owner-timezone":
             Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
         },
@@ -369,8 +360,10 @@ export function PlanRevisionWorkflow() {
       delete idempotencyKeys.current[actionKey];
       setMessage(successMessage);
       await loadWorkspace();
+      return true;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
+      return false;
     } finally {
       setPendingAction("");
     }
@@ -393,8 +386,8 @@ export function PlanRevisionWorkflow() {
               Plan review and activation
             </h1>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Edit the plan below, prepare a revision, review the evidence and
-              changes, then activate it only after the owner approves.
+              Build an inactive draft, review the evidence and changes, then
+              activate it only after the owner approves.
             </p>
           </div>
           {revision ? (
@@ -470,16 +463,37 @@ export function PlanRevisionWorkflow() {
           <div className="mt-4 grid gap-4">
             {revision.source?.legacy_profile_updated_at ? (
               <p className="text-xs text-muted-foreground">
-                Draft copied from the plan editor at{" "}
+                Draft originally copied from the legacy plan editor at{" "}
                 {new Date(
                   revision.source.legacy_profile_updated_at,
                 ).toLocaleString()}
                 .
               </p>
             ) : null}
-            <PlanSummary document={revision.proposed_document} />
-            <ValidationSummary revision={revision} />
-            <ChangeSummary changes={revision.changes} />
+            {revision.state === "draft" && canEdit ? (
+              <PlanDraftWorkspace
+                revisionId={revision.revision_id}
+                document={revision.proposed_document}
+                saving={pendingAction === `save:${revision.revision_id}`}
+                onDirtyChange={setDraftHasUnsavedChanges}
+                onSave={(document) =>
+                  runAction(
+                    `revisions/${revision.revision_id}/draft`,
+                    `save:${revision.revision_id}`,
+                    "Draft saved. The active Plan has not changed.",
+                    { document },
+                    "PUT",
+                  )
+                }
+              />
+            ) : null}
+            {revision.state !== "draft" || !canEdit ? (
+              <>
+                <PlanSummary document={revision.proposed_document} />
+                <ValidationSummary revision={revision} />
+                <ChangeSummary changes={revision.changes} />
+              </>
+            ) : null}
 
             {revision.state === "draft" ? (
               <div className="grid gap-2 sm:flex sm:flex-wrap">
@@ -509,7 +523,12 @@ export function PlanRevisionWorkflow() {
                   <button
                     className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                     type="button"
-                    disabled={Boolean(pendingAction)}
+                    disabled={Boolean(pendingAction) || draftHasUnsavedChanges}
+                    title={
+                      draftHasUnsavedChanges
+                        ? "Save the draft before submitting it for approval."
+                        : undefined
+                    }
                     onClick={() =>
                       void runAction(
                         `revisions/${revision.revision_id}/propose`,
@@ -520,7 +539,9 @@ export function PlanRevisionWorkflow() {
                   >
                     {pendingAction === `propose:${revision.revision_id}`
                       ? "Submitting…"
-                      : "Submit for approval"}
+                      : draftHasUnsavedChanges
+                        ? "Save draft before submitting"
+                        : "Submit for approval"}
                   </button>
                 ) : null}
               </div>
@@ -570,14 +591,15 @@ export function PlanRevisionWorkflow() {
             <div className="grid gap-3 rounded-xl border p-4">
               <p className="text-sm text-muted-foreground">
                 Activated {new Date(activePlan.activated_at).toLocaleString()}.
-                Changes in the editor below do not alter this active version.
+                Version {activePlan.version_number} remains authoritative until
+                the owner approves a replacement.
               </p>
               {canEdit ? (
-                <div className="grid gap-2">
+                <div className="grid gap-3">
                   <p className="text-sm">
-                    After saving changes in the editor below, prepare them as a
-                    new draft for review. The current version remains active
-                    until the owner approves the replacement.
+                    Start an inactive copy of the active Plan, then edit it
+                    directly or use the guided setup. Nothing changes in the
+                    active version while you work.
                   </p>
                   <button
                     className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50 sm:w-auto"
@@ -585,17 +607,49 @@ export function PlanRevisionWorkflow() {
                     disabled={Boolean(pendingAction)}
                     onClick={() =>
                       void runAction(
-                        "revisions/from-current-profile",
-                        `profile-revision:${activePlan.plan_version_id}`,
-                        "Editor changes prepared as a draft. Review them before submitting.",
+                        "revisions",
+                        `direct-revision:${activePlan.plan_version_id}`,
+                        "Inactive draft created from the active Plan.",
+                        {
+                          document: activePlan.document,
+                          base_plan_version_id: activePlan.plan_version_id,
+                        },
                       )
                     }
                   >
                     {pendingAction ===
-                    `profile-revision:${activePlan.plan_version_id}`
-                      ? "Preparing…"
-                      : "Prepare editor changes as new revision"}
+                    `direct-revision:${activePlan.plan_version_id}`
+                      ? "Creating draft…"
+                      : "Start a new draft"}
                   </button>
+                  <details className="rounded-xl border bg-background">
+                    <summary className="cursor-pointer px-3 py-3 text-sm font-medium">
+                      Import from the legacy editor below
+                    </summary>
+                    <div className="grid gap-3 border-t p-3">
+                      <p className="text-sm text-muted-foreground">
+                        Use this only when you already changed the older Plan
+                        editor and want those values copied into a draft.
+                      </p>
+                      <button
+                        className="rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
+                        type="button"
+                        disabled={Boolean(pendingAction)}
+                        onClick={() =>
+                          void runAction(
+                            "revisions/from-current-profile",
+                            `profile-revision:${activePlan.plan_version_id}`,
+                            "Legacy editor changes imported as an inactive draft.",
+                          )
+                        }
+                      >
+                        {pendingAction ===
+                        `profile-revision:${activePlan.plan_version_id}`
+                          ? "Importing…"
+                          : "Import editor changes"}
+                      </button>
+                    </div>
+                  </details>
                 </div>
               ) : (
                 <p className="text-sm">
