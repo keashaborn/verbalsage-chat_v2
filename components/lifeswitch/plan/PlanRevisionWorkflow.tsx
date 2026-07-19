@@ -95,6 +95,14 @@ function humanize(value: string): string {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function formatFieldPath(value: string): string {
+  return value
+    .split("/")
+    .filter(Boolean)
+    .map((part) => humanize(part.replaceAll("~1", "/").replaceAll("~0", "~")))
+    .join(" › ");
+}
+
 function formatValue(value: unknown): string {
   if (value === null || value === undefined || value === "") return "Not set";
   if (typeof value === "boolean") return value ? "Yes" : "No";
@@ -256,7 +264,9 @@ function ChangeSummary({ changes }: { changes: RevisionChange[] }) {
             key={change.field_path}
             className="grid gap-1 text-sm sm:grid-cols-[12rem_1fr]"
           >
-            <div className="font-medium">{humanize(change.field_path)}</div>
+            <div className="font-medium">
+              {formatFieldPath(change.field_path)}
+            </div>
             <div>
               <span className="text-muted-foreground">
                 {change.old_present
