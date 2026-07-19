@@ -89,6 +89,19 @@ function operationFor(method: string, path: string[]): Operation | null {
   if (
     normalizedMethod === "GET" &&
     path.length === 1 &&
+    path[0] === "workspace"
+  ) {
+    return {
+      upstreamPath: "/lifeswitch/plan/workspace",
+      method: "GET",
+      bodyMode: "none",
+      requiresIdempotency: false,
+      queryFields: COMMON_QUERY_FIELDS,
+    };
+  }
+  if (
+    normalizedMethod === "GET" &&
+    path.length === 1 &&
     path[0] === "versions"
   ) {
     return {
@@ -134,6 +147,21 @@ function operationFor(method: string, path: string[]): Operation | null {
   ) {
     return {
       upstreamPath: "/lifeswitch/plan/revisions/adopt-current-profile",
+      method: "POST",
+      bodyMode: "none",
+      requiresIdempotency: true,
+      queryFields: COMMON_QUERY_FIELDS,
+    };
+  }
+  if (
+    normalizedMethod === "POST" &&
+    path.length === 3 &&
+    path[0] === "revisions" &&
+    path[1] === "adopt-current-profile" &&
+    path[2] === "refresh"
+  ) {
+    return {
+      upstreamPath: "/lifeswitch/plan/revisions/adopt-current-profile/refresh",
       method: "POST",
       bodyMode: "none",
       requiresIdempotency: true,
