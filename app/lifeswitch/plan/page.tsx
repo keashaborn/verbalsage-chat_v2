@@ -18,8 +18,7 @@ export default function LifeSwitchPlanPage() {
         </div>
       }
     >
-      {agenticPlanEnabled ? <PlanRevisionWorkflow /> : null}
-      <PlanProfileClient />
+      {agenticPlanEnabled ? <PlanRevisionWorkflow /> : <PlanProfileClient />}
     </Suspense>
   );
 }
