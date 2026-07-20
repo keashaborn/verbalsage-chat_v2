@@ -1790,15 +1790,21 @@ function RecoveryTargetsEditor({
   );
 }
 
-const STRUCTURED_NUTRITION_KEYS = new Set([
+const LEGACY_NUTRITION_TARGET_KEYS = [
   "calories",
   "target_kcal",
-  "calorie_target",
-  "calorie_range",
+  "kcal",
   "protein",
   "protein_g",
+  "target_protein_g",
   "protein_minimum_g",
   "protein_grams_minimum",
+] as const;
+
+const STRUCTURED_NUTRITION_KEYS = new Set([
+  ...LEGACY_NUTRITION_TARGET_KEYS,
+  "calorie_target",
+  "calorie_range",
   "protein_target",
   "adherence_rule",
 ]);
@@ -1833,6 +1839,9 @@ function NutritionTargetsEditor({
   const adherenceRule = isPlainObject(value.adherence_rule)
     ? value.adherence_rule
     : {};
+  const hasLegacyTargetAliases = LEGACY_NUTRITION_TARGET_KEYS.some(
+    (key) => key in value,
+  );
 
   const nominalCalories = structuredCalories
     ? calorieObject.nominal_kcal
@@ -1841,6 +1850,7 @@ function NutritionTargetsEditor({
       (!isPlainObject(calorieRaw) ? calorieRaw : null));
   const proteinMinimum =
     proteinObject.minimum_g ??
+    value.target_protein_g ??
     value.protein_grams_minimum ??
     value.protein_minimum_g ??
     value.protein_g ??
@@ -1848,6 +1858,9 @@ function NutritionTargetsEditor({
 
   function normalizedValue(): JsonObject {
     const next = JSON.parse(JSON.stringify(value)) as JsonObject;
+    for (const key of LEGACY_NUTRITION_TARGET_KEYS) {
+      delete next[key];
+    }
     next.calorie_target = {
       ...(structuredCalories ? calorieObject : {}),
       nominal_kcal: optionalNumber(nominalCalories),
@@ -1887,12 +1900,6 @@ function NutritionTargetsEditor({
 
   function setKnown(path: string[], nextValue: unknown) {
     const next = updateNestedValue(normalizedValue(), path, nextValue);
-    if (path.join("/") === "calorie_target/nominal_kcal") {
-      next.calories = nextValue === null ? "" : String(nextValue);
-    }
-    if (path.join("/") === "protein_target/minimum_g") {
-      next.protein_g = nextValue === null ? "" : String(nextValue);
-    }
     onChange(next);
   }
 
@@ -1912,6 +1919,26 @@ function NutritionTargetsEditor({
 
   return (
     <div className="grid min-w-0 gap-4">
+      {hasLegacyTargetAliases ? (
+        <div className="grid gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+          <div className="grid gap-1">
+            <div className="text-sm font-semibold">
+              Older duplicate target fields are attached to this draft
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Keep the same calorie and protein values while making the
+              structured targets the only source used by this Plan version.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40"
+            onClick={() => onChange(normalizedValue())}
+          >
+            Use structured targets only
+          </button>
+        </div>
+      ) : null}
       <fieldset className="grid min-w-0 gap-3 rounded-2xl border p-3">
         <legend className="px-1 text-sm font-semibold">Calories</legend>
         <NumberTargetField

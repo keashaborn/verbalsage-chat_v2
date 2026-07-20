@@ -1,6 +1,7 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
+import { readPlanNutritionTargets } from "@/lib/lifeswitch/planNutritionTargets";
 import * as React from "react";
 import {
   FoodQuantityControl,
@@ -32,15 +33,6 @@ function monthLabel(ym: string) {
 function daysInMonthUTC(year: number, month1: number) { return new Date(Date.UTC(year, month1, 0)).getUTCDate(); }
 function firstDowUTC(year: number, month1: number) { return new Date(Date.UTC(year, month1 - 1, 1)).getUTCDay(); }
 function safeNum(x: any, fallback = 0) { const n = Number(x); return Number.isFinite(n) ? n : fallback; }
-function firstNumber(value: any): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  const raw = String(value ?? "").replace(/,/g, " ").trim();
-  if (!raw) return null;
-  const m = raw.match(/-?\d+(\.\d+)?/);
-  if (!m) return null;
-  const n = Number(m[0]);
-  return Number.isFinite(n) ? n : null;
-}
 function formatK(n: number) {
   const x = safeNum(n, 0);
   const abs = Math.abs(x);
@@ -406,8 +398,9 @@ export default function NutritionLogPage() {
         try {
           const planJson = await fetchJson(planUrl.toString());
           const nt = planJson?.nutrition_targets || {};
-          nextTargetKcal = firstNumber(nt.calories ?? nt.target_kcal ?? nt.kcal);
-          nextTargetProteinG = firstNumber(nt.protein_g ?? nt.target_protein_g ?? nt.protein);
+          const targets = readPlanNutritionTargets(nt);
+          nextTargetKcal = targets.nominalKcal;
+          nextTargetProteinG = targets.proteinMinimumG;
 
           if (!cancelled) {
             setTargetKcal(nextTargetKcal);

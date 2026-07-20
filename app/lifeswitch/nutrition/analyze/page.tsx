@@ -1,6 +1,7 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
+import { readPlanNutritionTargets } from "@/lib/lifeswitch/planNutritionTargets";
 import { MiniLineChart, type XYPoint } from "@/components/sslg/MiniLineChart";
 import * as React from "react";
 
@@ -54,24 +55,12 @@ function fmt0(x: number) {
   return String(Math.round(safeNum(x, 0)));
 }
 
-function firstNumber(value: any): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  const raw = String(value ?? "").replace(/,/g, " ").trim();
-  if (!raw) return null;
-  const m = raw.match(/-?\d+(\.\d+)?/);
-  if (!m) return null;
-  const n = Number(m[0]);
-  return Number.isFinite(n) ? n : null;
-}
-
 function calorieTargetFromPlan(plan: PlanProfile | null): number | null {
-  const t = plan?.nutrition_targets || {};
-  return firstNumber(t.calories ?? t.target_kcal ?? t.kcal);
+  return readPlanNutritionTargets(plan?.nutrition_targets).nominalKcal;
 }
 
 function proteinTargetFromPlan(plan: PlanProfile | null): number | null {
-  const t = plan?.nutrition_targets || {};
-  return firstNumber(t.protein_g ?? t.target_protein_g ?? t.protein);
+  return readPlanNutritionTargets(plan?.nutrition_targets).proteinMinimumG;
 }
 
 async function fetchJson(url: string, init?: RequestInit) {
@@ -324,6 +313,7 @@ export default function NutritionAnalyzePage() {
   }, [loggedDays, rangeDays]);
 
   const nutritionTargets = plan?.nutrition_targets || {};
+  const canonicalTargets = readPlanNutritionTargets(nutritionTargets);
 
   const calorieSeries = React.useMemo(() => dayMetricSeries(filteredDays, "kcal"), [filteredDays]);
   const proteinSeries = React.useMemo(() => dayMetricSeries(filteredDays, "protein_g"), [filteredDays]);
@@ -392,8 +382,8 @@ export default function NutritionAnalyzePage() {
         <div className="text-sm font-semibold">Current Plan targets</div>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <Info label="Phase" value={plan?.phase || "—"} />
-          <Info label="Calories" value={String(nutritionTargets.calories ?? nutritionTargets.target_kcal ?? nutritionTargets.kcal ?? "—")} />
-          <Info label="Protein" value={String(nutritionTargets.protein_g ?? nutritionTargets.target_protein_g ?? nutritionTargets.protein ?? "—")} />
+          <Info label="Calories" value={canonicalTargets.nominalKcal == null ? "—" : String(canonicalTargets.nominalKcal)} />
+          <Info label="Protein" value={canonicalTargets.proteinMinimumG == null ? "—" : String(canonicalTargets.proteinMinimumG)} />
           <Info label="Macros" value={String(nutritionTargets.macro_notes ?? nutritionTargets.carbs_fat ?? nutritionTargets.macros ?? "—")} />
           <Info label="Meal structure" value={String(nutritionTargets.meal_structure ?? nutritionTargets.meals ?? nutritionTargets.meal_timing ?? "—")} />
           <Info label="Adherence target" value={String(nutritionTargets.adherence_target ?? nutritionTargets.adherence ?? "—")} />

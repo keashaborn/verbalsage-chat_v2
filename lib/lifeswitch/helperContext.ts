@@ -1,4 +1,5 @@
 import { injectOwnerUserId, lifeSwitchUpstreamHeaders } from "@/app/api/lifeswitch/_owner";
+import { readPlanNutritionTargets } from "@/lib/lifeswitch/planNutritionTargets";
 
 const BRAINS_URL = (process.env.BRAINS_URL || "http://172.31.32.171:8088").replace(/\/+$/, "");
 
@@ -61,21 +62,12 @@ function safeNum(x: any, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function firstNumber(value: any): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  const raw = String(value ?? "").replace(/,/g, " ").trim();
-  if (!raw) return null;
-  const m = raw.match(/-?\d+(\.\d+)?/);
-  if (!m) return null;
-  const n = Number(m[0]);
-  return Number.isFinite(n) ? n : null;
-}
-
 function extractNutritionTargets(plan: any) {
   const t = plan?.nutrition_targets || {};
+  const targets = readPlanNutritionTargets(t);
   return {
-    calories: firstNumber(t.calories ?? t.target_kcal ?? t.kcal),
-    protein_g: firstNumber(t.protein_g ?? t.target_protein_g ?? t.protein),
+    calories: targets.nominalKcal,
+    protein_g: targets.proteinMinimumG,
     raw: t,
   };
 }
