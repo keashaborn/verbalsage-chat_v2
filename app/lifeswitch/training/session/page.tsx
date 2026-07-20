@@ -27,7 +27,9 @@ type TrainingSetLogRow = {
   exercise_name: string;
   exercise_sort_order: number;
   set_index: number;
-    set_type?: string | null;
+  set_type?: string | null;
+  exercise_role_snapshot?: "strength" | "rehab" | null;
+  exercise_role?: "strength" | "rehab";
   weight: number;
   reps: number;
   volume: number;
@@ -73,6 +75,12 @@ function safeNum(x: any, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function setExerciseRole(row: TrainingSetLogRow): "strength" | "rehab" {
+  return row.exercise_role === "rehab" || row.exercise_role_snapshot === "rehab"
+    ? "rehab"
+    : "strength";
+}
+
 function groupByExercise(sets: TrainingSetLogRow[]) {
   const map = new Map<string, TrainingSetLogRow[]>();
 
@@ -87,7 +95,9 @@ function groupByExercise(sets: TrainingSetLogRow[]) {
     .sort((a, b) => safeNum(a[1]?.[0]?.exercise_sort_order, 0) - safeNum(b[1]?.[0]?.exercise_sort_order, 0))
     .map(([key, rows]) => {
       rows.sort((a, b) => safeNum(a.set_index, 0) - safeNum(b.set_index, 0));
-      return { key, exerciseName: rows[0]?.exercise_name || "Exercise", rows };
+      const roles = new Set(rows.map(setExerciseRole));
+      const role = roles.size > 1 ? "mixed" : rows[0] ? setExerciseRole(rows[0]) : "strength";
+      return { key, exerciseName: rows[0]?.exercise_name || "Exercise", role, rows };
     });
 }
 
@@ -167,18 +177,29 @@ export default function TrainingSessionPage() {
   }, [sessionId, targetUserId]);
 
   const summary = React.useMemo(() => {
-    const exercises = new Set<string>();
-    let volume = 0;
+    const strengthExercises = new Set<string>();
+    const rehabExercises = new Set<string>();
+    let strengthVolume = 0;
+    let strengthSetCount = 0;
+    let rehabSetCount = 0;
 
     for (const r of sets) {
-      exercises.add(r.exercise_id);
-      volume += safeNum(r.volume, safeNum(r.weight, 0) * safeNum(r.reps, 0));
+      if (setExerciseRole(r) === "rehab") {
+        rehabExercises.add(r.exercise_id);
+        rehabSetCount += 1;
+      } else {
+        strengthExercises.add(r.exercise_id);
+        strengthSetCount += 1;
+        strengthVolume += safeNum(r.volume, safeNum(r.weight, 0) * safeNum(r.reps, 0));
+      }
     }
 
     return {
-      setCount: sets.length,
-      exerciseCount: exercises.size,
-      volume,
+      strengthSetCount,
+      strengthExerciseCount: strengthExercises.size,
+      strengthVolume,
+      rehabSetCount,
+      rehabExerciseCount: rehabExercises.size,
     };
   }, [sets]);
 
@@ -205,8 +226,18 @@ export default function TrainingSessionPage() {
         <div>
           <div className="text-lg font-semibold">{session?.name || "Training Session"}</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            {session?.day || "—"} · {summary.exerciseCount} exercises · {summary.setCount} sets · volume{" "}
-            {Math.round(summary.volume)}
+            {session?.day || "—"}
+            {summary.strengthSetCount ? (
+              <>
+                {" "}· {summary.strengthExerciseCount} strength exercises · {summary.strengthSetCount} strength sets · volume{" "}
+                {Math.round(summary.strengthVolume)}
+              </>
+            ) : null}
+            {summary.rehabSetCount ? (
+              <>
+                {" "}· {summary.rehabExerciseCount} rehab exercises · {summary.rehabSetCount} rehab sets
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -246,8 +277,23 @@ export default function TrainingSessionPage() {
             {byExercise.map((block) => (
               <section key={block.key} className="rounded-xl border p-4">
                 <div className="flex items-baseline justify-between gap-3">
-                  <div className="text-base font-semibold">{block.exerciseName}</div>
-                  <div className="text-xs text-muted-foreground">{block.rows.length} sets</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="text-base font-semibold">{block.exerciseName}</div>
+                    {block.role === "strength" || block.role === "mixed" ? (
+                      <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-blue-400">
+                        Strength
+                      </span>
+                    ) : null}
+                    {block.role === "rehab" || block.role === "mixed" ? (
+                      <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-purple-400">
+                        Rehab
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {block.rows.length} sets
+                    {block.role === "rehab" ? " · excluded from strength totals" : ""}
+                  </div>
                 </div>
 
                 <div className="mt-3 divide-y divide-muted/20">

@@ -19,6 +19,14 @@ type TrainingSessionRow = {
   set_count: number;
   exercise_count: number;
   volume: number;
+  strength_set_count?: number;
+  strength_exercise_count?: number;
+  strength_volume?: number;
+  rehab_set_count?: number;
+  rehab_exercise_count?: number;
+  rehab_volume?: number;
+  session_role?: "strength" | "rehab" | "mixed" | "unclassified";
+  counts_toward_strength?: boolean;
 };
 
 type ConditioningSessionRow = {
@@ -46,6 +54,44 @@ type RangeDays = 10 | 30 | 90 | 180 | 365;
 function safeNum(x: any, fallback = 0) {
   const n = Number(x);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function trainingSessionRole(
+  row: TrainingSessionRow,
+): "strength" | "rehab" | "mixed" | "unclassified" {
+  if (["strength", "rehab", "mixed", "unclassified"].includes(String(row.session_role))) {
+    return row.session_role as "strength" | "rehab" | "mixed" | "unclassified";
+  }
+
+  const strengthSets = safeNum(row.strength_set_count, 0);
+  const rehabSets = safeNum(row.rehab_set_count, 0);
+  if (strengthSets > 0 && rehabSets > 0) return "mixed";
+  if (rehabSets > 0) return "rehab";
+  if (strengthSets > 0) return "strength";
+  return "strength";
+}
+
+function countsTowardStrength(row: TrainingSessionRow) {
+  if (typeof row.counts_toward_strength === "boolean") {
+    return row.counts_toward_strength;
+  }
+  const role = trainingSessionRole(row);
+  return role === "strength" || role === "mixed";
+}
+
+function hasRehabWork(row: TrainingSessionRow) {
+  const role = trainingSessionRole(row);
+  return role === "rehab" || role === "mixed" || safeNum(row.rehab_set_count, 0) > 0;
+}
+
+function strengthMetric(row: TrainingSessionRow, summaryKey: "strength_set_count" | "strength_exercise_count" | "strength_volume", fallbackKey: "set_count" | "exercise_count" | "volume") {
+  if (row[summaryKey] != null) return safeNum(row[summaryKey], 0);
+  return countsTowardStrength(row) ? safeNum(row[fallbackKey], 0) : 0;
+}
+
+function rehabMetric(row: TrainingSessionRow, summaryKey: "rehab_set_count" | "rehab_exercise_count" | "rehab_volume", fallbackKey: "set_count" | "exercise_count" | "volume") {
+  if (row[summaryKey] != null) return safeNum(row[summaryKey], 0);
+  return trainingSessionRole(row) === "rehab" ? safeNum(row[fallbackKey], 0) : 0;
 }
 
 function pad2(n: number) {
@@ -103,8 +149,8 @@ function dailyStrengthSeries(
       metric === "sessions"
         ? 1
         : metric === "sets"
-          ? safeNum(s.set_count, 0)
-          : safeNum(s.volume, 0);
+          ? strengthMetric(s, "strength_set_count", "set_count")
+          : strengthMetric(s, "strength_volume", "volume");
 
     byDay.set(day, safeNum(byDay.get(day), 0) + value);
   }
@@ -139,6 +185,28 @@ function dailyConditioningSeries(sessions: ConditioningSessionRow[]): XYPoint[] 
       occurred_at: day,
       sort_ts: day,
       data: { day, metric: "conditioning_minutes" },
+    }))
+    .sort((a, b) => String(a.sort_ts || a.x).localeCompare(String(b.sort_ts || b.x)));
+}
+
+function dailyRehabSetSeries(sessions: TrainingSessionRow[]): XYPoint[] {
+  const byDay = new Map<string, number>();
+
+  for (const session of sessions) {
+    const day = String(session.day || "").slice(0, 10);
+    if (!day || !hasRehabWork(session)) continue;
+    const sets = rehabMetric(session, "rehab_set_count", "set_count");
+    byDay.set(day, safeNum(byDay.get(day), 0) + sets);
+  }
+
+  return Array.from(byDay.entries())
+    .map(([day, y]) => ({
+      x: day,
+      y,
+      id: day,
+      occurred_at: day,
+      sort_ts: day,
+      data: { day, metric: "rehab_sets" },
     }))
     .sort((a, b) => String(a.sort_ts || a.x).localeCompare(String(b.sort_ts || b.x)));
 }
@@ -202,7 +270,7 @@ export default function TrainingAnalyzePage() {
 
       setStrengthSessions(strengthArr);
       setConditioningSessions(conditioningArr);
-      setStatus(`loaded ${strengthArr.length} strength sessions and ${conditioningArr.length} conditioning sessions`);
+      setStatus(`loaded ${strengthArr.length} resistance sessions and ${conditioningArr.length} conditioning sessions`);
     } catch (e: any) {
       setStrengthSessions([]);
       setConditioningSessions([]);
@@ -216,12 +284,22 @@ export default function TrainingAnalyzePage() {
     void loadRows();
   }, []);
 
-  const filteredStrength = React.useMemo(() => {
+  const filteredResistance = React.useMemo(() => {
     return strengthSessions.filter((s) => {
       const day = String(s.day || "");
       return day >= startDay && day <= today;
     });
   }, [strengthSessions, startDay, today]);
+
+  const filteredStrength = React.useMemo(
+    () => filteredResistance.filter(countsTowardStrength),
+    [filteredResistance],
+  );
+
+  const filteredRehab = React.useMemo(
+    () => filteredResistance.filter(hasRehabWork),
+    [filteredResistance],
+  );
 
   const filteredConditioning = React.useMemo(() => {
     return conditioningSessions.filter((s) => {
@@ -232,35 +310,60 @@ export default function TrainingAnalyzePage() {
 
   const summary = React.useMemo(() => {
     const strengthDays = new Set<string>();
+    const rehabDays = new Set<string>();
     const conditioningDays = new Set<string>();
 
     for (const s of filteredStrength) {
       if (s.day) strengthDays.add(String(s.day));
     }
 
+    for (const s of filteredRehab) {
+      if (s.day) rehabDays.add(String(s.day));
+    }
+
     for (const c of filteredConditioning) {
       if (c.day) conditioningDays.add(String(c.day));
     }
 
-    const allTrainingDays = new Set<string>([...Array.from(strengthDays), ...Array.from(conditioningDays)]);
+    const allTrainingDays = new Set<string>([
+      ...Array.from(strengthDays),
+      ...Array.from(rehabDays),
+      ...Array.from(conditioningDays),
+    ]);
 
-    const sets = filteredStrength.reduce((acc, x) => acc + safeNum(x.set_count, 0), 0);
-    const volume = filteredStrength.reduce((acc, x) => acc + safeNum(x.volume, 0), 0);
-    const exercises = filteredStrength.reduce((acc, x) => acc + safeNum(x.exercise_count, 0), 0);
+    const sets = filteredStrength.reduce(
+      (acc, x) => acc + strengthMetric(x, "strength_set_count", "set_count"),
+      0,
+    );
+    const volume = filteredStrength.reduce(
+      (acc, x) => acc + strengthMetric(x, "strength_volume", "volume"),
+      0,
+    );
+    const exercises = filteredStrength.reduce(
+      (acc, x) => acc + strengthMetric(x, "strength_exercise_count", "exercise_count"),
+      0,
+    );
+    const rehabSets = filteredRehab.reduce(
+      (acc, x) => acc + rehabMetric(x, "rehab_set_count", "set_count"),
+      0,
+    );
     const conditioningMinutes = filteredConditioning.reduce((acc, x) => acc + safeNum(x.duration_min, 0), 0);
 
     return {
       strengthSessions: filteredStrength.length,
       conditioningSessions: filteredConditioning.length,
+      rehabSessions: filteredRehab.length,
       strengthDays: strengthDays.size,
+      rehabDays: rehabDays.size,
       conditioningDays: conditioningDays.size,
       trainingDays: allTrainingDays.size,
       sets,
       volume,
       exercises,
+      rehabSets,
       conditioningMinutes,
     };
-  }, [filteredStrength, filteredConditioning]);
+  }, [filteredStrength, filteredRehab, filteredConditioning]);
 
   const strengthSessionsSeries = React.useMemo(
     () => dailyStrengthSeries(filteredStrength, "sessions"),
@@ -282,16 +385,36 @@ export default function TrainingAnalyzePage() {
     [filteredConditioning]
   );
 
+  const rehabSetsSeries = React.useMemo(
+    () => dailyRehabSetSeries(filteredRehab),
+    [filteredRehab],
+  );
+
   const recentItems = React.useMemo(() => {
-    const strength = filteredStrength.map((s) => ({
-      id: `strength:${s.training_session_id}`,
-      day: s.day,
-      created_at: s.created_at,
-      kind: "Strength",
-      name: s.name,
-      detail: `${safeNum(s.exercise_count, 0)} exercises · ${safeNum(s.set_count, 0)} sets · volume ${formatK(safeNum(s.volume, 0))}`,
-      notes: s.notes || "",
-    }));
+    const resistance = filteredResistance.map((s) => {
+      const role = trainingSessionRole(s);
+      const strengthSets = strengthMetric(s, "strength_set_count", "set_count");
+      const strengthExercises = strengthMetric(s, "strength_exercise_count", "exercise_count");
+      const strengthVolume = strengthMetric(s, "strength_volume", "volume");
+      const rehabSets = rehabMetric(s, "rehab_set_count", "set_count");
+      const rehabExercises = rehabMetric(s, "rehab_exercise_count", "exercise_count");
+      const strengthDetail = strengthSets
+        ? `${strengthExercises} strength exercises · ${strengthSets} strength sets · volume ${formatK(strengthVolume)}`
+        : "";
+      const rehabDetail = rehabSets
+        ? `${rehabExercises} rehab exercises · ${rehabSets} rehab sets`
+        : "";
+
+      return {
+        id: `resistance:${s.training_session_id}`,
+        day: s.day,
+        created_at: s.created_at,
+        kind: role === "mixed" ? "Strength + rehab" : role === "rehab" ? "Rehab" : role === "unclassified" ? "Unclassified" : "Strength",
+        name: s.name,
+        detail: [strengthDetail, rehabDetail].filter(Boolean).join(" · ") || `${safeNum(s.set_count, 0)} sets`,
+        notes: s.notes || "",
+      };
+    });
 
     const conditioning = filteredConditioning.map((c) => ({
       id: `conditioning:${c.conditioning_session_log_id}`,
@@ -303,14 +426,14 @@ export default function TrainingAnalyzePage() {
       notes: c.notes || "",
     }));
 
-    return [...strength, ...conditioning]
+    return [...resistance, ...conditioning]
       .sort((a, b) => {
         const c = String(b.day || "").localeCompare(String(a.day || ""));
         if (c !== 0) return c;
         return String(b.created_at || "").localeCompare(String(a.created_at || ""));
       })
       .slice(0, 20);
-  }, [filteredStrength, filteredConditioning]);
+  }, [filteredResistance, filteredConditioning]);
 
   return (
     <div className="mx-auto max-w-6xl p-4 overflow-x-hidden">
@@ -318,7 +441,7 @@ export default function TrainingAnalyzePage() {
         <div>
           <div className="text-lg font-semibold">Training · Analyze</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Read-only training dashboard from completed strength and conditioning logs.
+            Read-only training dashboard from completed strength, rehab, and conditioning logs.
           </div>
           <div className="mt-2 text-xs text-muted-foreground">
             Range: {startDay} → {today}
@@ -361,10 +484,11 @@ export default function TrainingAnalyzePage() {
         </details>
       ) : null}
 
-      <section className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Training days" value={summary.trainingDays} sub={`${summary.strengthDays} strength · ${summary.conditioningDays} conditioning`} />
+      <section className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <MetricCard label="Training days" value={summary.trainingDays} sub={`${summary.strengthDays} strength · ${summary.rehabDays} rehab · ${summary.conditioningDays} conditioning`} />
         <MetricCard label="Strength sessions" value={summary.strengthSessions} sub={`${summary.sets} sets · ${summary.exercises} exercises`} />
         <MetricCard label="Strength volume" value={formatK(summary.volume)} sub="logged load × reps" />
+        <MetricCard label="Rehab" value={`${summary.rehabDays} days`} sub={`${summary.rehabSessions} sessions · ${summary.rehabSets} sets`} />
         <MetricCard label="Conditioning" value={formatDuration(summary.conditioningMinutes)} sub={`${summary.conditioningSessions} sessions`} />
       </section>
 
@@ -375,11 +499,12 @@ export default function TrainingAnalyzePage() {
             <>
               In the selected range, training occurred on {summary.trainingDays} day{summary.trainingDays === 1 ? "" : "s"}.
               Strength work produced {summary.sets} logged sets and {formatK(summary.volume)} total volume.
+              Rehab/prehab occurred on {summary.rehabDays} day{summary.rehabDays === 1 ? "" : "s"} with {summary.rehabSets} logged sets and is excluded from strength totals.
               Conditioning added {formatDuration(summary.conditioningMinutes)} across {summary.conditioningSessions} session
               {summary.conditioningSessions === 1 ? "" : "s"}.
             </>
           ) : (
-            <>No completed strength or conditioning sessions were found in this range.</>
+            <>No completed strength, rehab, or conditioning sessions were found in this range.</>
           )}
         </div>
       </section>
@@ -387,7 +512,7 @@ export default function TrainingAnalyzePage() {
         <div>
           <div className="text-sm font-semibold">Training trends</div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Strength and conditioning patterns across completed training days.
+            Strength, rehab, and conditioning patterns across completed training days.
           </p>
         </div>
 
@@ -419,6 +544,15 @@ export default function TrainingAnalyzePage() {
         />
 
         <MiniLineChart
+          title="Rehab sets per day"
+          series={rehabSetsSeries}
+          xMode="date"
+          yLabel="Sets"
+          includeZero={false}
+          heightPx={260}
+        />
+
+        <MiniLineChart
           title="Conditioning minutes per day"
           series={conditioningMinutesSeries}
           xMode="date"
@@ -431,7 +565,7 @@ export default function TrainingAnalyzePage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-semibold">Recent training events</div>
-            <div className="mt-1 text-xs text-muted-foreground">Strength and conditioning logs in this range.</div>
+            <div className="mt-1 text-xs text-muted-foreground">Strength, rehab, and conditioning logs in this range.</div>
           </div>
           <div className="text-xs text-muted-foreground">
             {recentItems.length} event{recentItems.length === 1 ? "" : "s"}
