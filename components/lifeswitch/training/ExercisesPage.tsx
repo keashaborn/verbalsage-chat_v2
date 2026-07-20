@@ -43,24 +43,27 @@ async function fetchJson(url: string, init?: RequestInit) {
     // ignore
   }
   if (!r.ok) {
-    const detail = j?.detail ?? j?.error ?? t?.slice(0, 300) ?? `HTTP ${r.status}`;
+    const detail =
+      j?.detail ?? j?.error ?? t?.slice(0, 300) ?? `HTTP ${r.status}`;
     const detailStr =
       typeof detail === "string"
         ? detail
         : (() => {
-          try {
-            return JSON.stringify(detail);
-          } catch {
-            return String(detail);
-          }
-        })();
+            try {
+              return JSON.stringify(detail);
+            } catch {
+              return String(detail);
+            }
+          })();
     throw new Error(detailStr || `HTTP ${r.status}`);
   }
   return j;
 }
 
 function norm(s: string) {
-  return String(s || "").trim().toLowerCase();
+  return String(s || "")
+    .trim()
+    .toLowerCase();
 }
 
 export default function TrainingExercisesPage() {
@@ -71,7 +74,9 @@ export default function TrainingExercisesPage() {
   const loadMyExercises = React.useCallback(async () => {
     setMyLoading(true);
     try {
-      const j = (await fetchJson("/api/lifeswitch/training/my_exercises")) as MyExerciseRow[];
+      const j = (await fetchJson(
+        "/api/lifeswitch/training/my_exercises",
+      )) as MyExerciseRow[];
       setMyExercises(Array.isArray(j) ? j : []);
     } catch {
       setMyExercises([]);
@@ -80,11 +85,9 @@ export default function TrainingExercisesPage() {
     }
   }, []);
 
-
   React.useEffect(() => {
     void loadMyExercises();
   }, [loadMyExercises]);
-
 
   // Catalog search (global)
   const [q, setQ] = React.useState("");
@@ -95,6 +98,10 @@ export default function TrainingExercisesPage() {
   const [newExerciseRole, setNewExerciseRole] = React.useState<
     "strength" | "rehab"
   >("strength");
+  const [exerciseRoleFilter, setExerciseRoleFilter] = React.useState<
+    "all" | "strength" | "rehab"
+  >("all");
+  const [roleSavingId, setRoleSavingId] = React.useState("");
 
   React.useEffect(() => {
     const qq = q.trim();
@@ -107,7 +114,10 @@ export default function TrainingExercisesPage() {
       setHitsLoading(true);
       setHitsStatus("");
       try {
-        const u = new URL("/api/catalog/exercises/search", window.location.origin);
+        const u = new URL(
+          "/api/catalog/exercises/search",
+          window.location.origin,
+        );
         u.searchParams.set("q", qq);
         u.searchParams.set("limit", "25");
         const j = (await fetchJson(u.toString())) as ExerciseSearchHit[];
@@ -131,6 +141,24 @@ export default function TrainingExercisesPage() {
     }
     return s;
   }, [myExercises]);
+
+  const roleCounts = React.useMemo(
+    () => ({
+      all: myExercises.length,
+      strength: myExercises.filter((row) => row.exercise_role === "strength")
+        .length,
+      rehab: myExercises.filter((row) => row.exercise_role === "rehab").length,
+    }),
+    [myExercises],
+  );
+
+  const visibleMyExercises = React.useMemo(
+    () =>
+      exerciseRoleFilter === "all"
+        ? myExercises
+        : myExercises.filter((row) => row.exercise_role === exerciseRoleFilter),
+    [exerciseRoleFilter, myExercises],
+  );
 
   const [openExerciseActionsId, setOpenExerciseActionsId] = React.useState("");
 
@@ -157,12 +185,17 @@ export default function TrainingExercisesPage() {
     // If we later want it, we’ll change backend to accept JSON body.
 
     try {
-      await fetchJson(`/api/lifeswitch/training/my_exercises/upsert?${qs.toString()}`, {
-        method: "POST",
-      });
+      await fetchJson(
+        `/api/lifeswitch/training/my_exercises/upsert?${qs.toString()}`,
+        {
+          method: "POST",
+        },
+      );
       await loadMyExercises();
+      return true;
     } catch (e: any) {
       setSaveErr(String(e?.message || e));
+      return false;
     }
   }
 
@@ -171,22 +204,27 @@ export default function TrainingExercisesPage() {
     exerciseRole: "strength" | "rehab",
   ) {
     if (row.exercise_role === exerciseRole) return;
-    await saveExercise(row, exerciseRole);
+    setRoleSavingId(row.my_exercise_id);
+    try {
+      await saveExercise(row, exerciseRole);
+    } finally {
+      setRoleSavingId("");
+    }
   }
 
   async function removeExercise(row: MyExerciseRow) {
-    const ok = window.confirm(`Remove exercise "${row.display_name}" from your exercise library?`);
+    const ok = window.confirm(
+      `Remove exercise "${row.display_name}" from your exercise library?`,
+    );
     if (!ok) return;
 
     await fetchJson(
       `/api/lifeswitch/training/my_exercises/${encodeURIComponent(row.my_exercise_id)}/deactivate`,
-      { method: "POST" }
+      { method: "POST" },
     );
     setOpenExerciseActionsId("");
     await loadMyExercises();
   }
-
-
 
   return (
     <div className="mx-auto max-w-3xl p-4">
@@ -215,7 +253,6 @@ export default function TrainingExercisesPage() {
         />
         <div className="text-xs text-muted-foreground">
           {hitsLoading ? "searching…" : hitsStatus}
-
         </div>
         {saveErr ? (
           <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs">
@@ -231,18 +268,20 @@ export default function TrainingExercisesPage() {
               return (
                 <div
                   key={h.exercise_id}
-                  className="py-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3 min-w-0"
+                  className="flex min-w-0 flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
                 >
                   <div className="min-w-0 sm:flex-1">
-                    <div className="text-sm font-medium truncate">{h.display_name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal">
+                    <div className="truncate text-sm font-medium">
+                      {h.display_name}
+                    </div>
+                    <div className="mt-1 text-xs break-words whitespace-normal text-muted-foreground">
                       {h.modality}
                       {h.kind ? ` · ${h.kind}` : ""}
                       {h.brand_name ? ` · ${h.brand_name}` : ""}
                       {h.matched_source ? ` · ${h.matched_source}` : ""}
                     </div>
                     {h.matched_text ? (
-                      <div className="mt-1 text-xs opacity-80 break-words whitespace-normal">
+                      <div className="mt-1 text-xs break-words whitespace-normal opacity-80">
                         {h.matched_text}
                       </div>
                     ) : null}
@@ -251,10 +290,12 @@ export default function TrainingExercisesPage() {
                   <div className="flex justify-end sm:ml-3 sm:shrink-0">
                     <button
                       type="button"
-                      className="w-full sm:w-auto rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                      className="w-full rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50 sm:w-auto"
                       onClick={() => void saveExercise(h)}
                       disabled={saved}
-                      title={saved ? "Already saved" : "Save to My Training Library"}
+                      title={
+                        saved ? "Already saved" : "Save to My Training Library"
+                      }
                     >
                       {saved ? "Saved" : "Save"}
                     </button>
@@ -268,40 +309,109 @@ export default function TrainingExercisesPage() {
 
       {/* Current exercises */}
       <div className="mt-10">
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-sm font-semibold">My exercise library</div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-sm font-semibold">My exercise library</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Roles affect future logged sets. Existing history is unchanged.
+            </div>
+          </div>
           {myLoading ? (
             <div className="text-xs text-muted-foreground">Loading…</div>
           ) : null}
         </div>
 
+        <div
+          className="mt-3 inline-flex max-w-full flex-wrap gap-1 rounded-xl border p-1"
+          role="group"
+          aria-label="Filter exercise library by role"
+        >
+          {(
+            [
+              ["all", "All"],
+              ["strength", "Strength"],
+              ["rehab", "Rehab"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+                exerciseRoleFilter === value
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted/40"
+              }`}
+              aria-pressed={exerciseRoleFilter === value}
+              onClick={() => setExerciseRoleFilter(value)}
+            >
+              {label} {roleCounts[value]}
+            </button>
+          ))}
+        </div>
+
         {myExercises.length ? (
           <div className="mt-2 divide-y divide-muted/20">
-            {myExercises.map((x) => (
-              <div key={x.my_exercise_id} className="py-3 flex items-start justify-between gap-3 min-w-0">
-                <div className="flex-1 min-w-0">
+            {visibleMyExercises.map((x) => (
+              <div
+                key={x.my_exercise_id}
+                className="flex min-w-0 flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between"
+              >
+                <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold text-blue-400">
                     {x.display_name}
                   </div>
-                  <div className="mt-1 text-xs text-muted-foreground break-words whitespace-normal">
+                  <div className="mt-1 text-xs break-words whitespace-normal text-muted-foreground">
                     {x.modality}
                     {x.kind ? ` · ${x.kind}` : ""}
                     {x.brand_name ? ` · ${x.brand_name}` : ""}
                   </div>
-                  {x.exercise_role === "rehab" ? (
-                    <div className="mt-1 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                      Rehab · excluded from strength analysis
-                    </div>
-                  ) : null}
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    {x.exercise_role === "rehab"
+                      ? "Rehab/prehab · excluded from strength analysis"
+                      : "Counts toward strength analysis"}
+                  </div>
                 </div>
 
-                <div className="grid shrink-0 justify-items-end gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                  <div
+                    className="inline-flex rounded-lg border p-0.5"
+                    role="group"
+                    aria-label={`Analysis role for ${x.display_name}`}
+                  >
+                    <button
+                      type="button"
+                      className={`rounded-md px-2 py-1 text-xs font-medium ${
+                        x.exercise_role === "strength"
+                          ? "bg-muted text-foreground"
+                          : "text-muted-foreground hover:bg-muted/40"
+                      }`}
+                      aria-pressed={x.exercise_role === "strength"}
+                      disabled={roleSavingId === x.my_exercise_id}
+                      onClick={() => void updateExerciseRole(x, "strength")}
+                    >
+                      Strength
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-md px-2 py-1 text-xs font-medium ${
+                        x.exercise_role === "rehab"
+                          ? "bg-muted text-foreground"
+                          : "text-muted-foreground hover:bg-muted/40"
+                      }`}
+                      aria-pressed={x.exercise_role === "rehab"}
+                      disabled={roleSavingId === x.my_exercise_id}
+                      onClick={() => void updateExerciseRole(x, "rehab")}
+                    >
+                      Rehab
+                    </button>
+                  </div>
+
                   <button
                     type="button"
                     className="inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/30"
                     onClick={() =>
                       setOpenExerciseActionsId((prev) =>
-                        prev === x.my_exercise_id ? "" : x.my_exercise_id
+                        prev === x.my_exercise_id ? "" : x.my_exercise_id,
                       )
                     }
                     aria-expanded={openExerciseActionsId === x.my_exercise_id}
@@ -316,24 +426,8 @@ export default function TrainingExercisesPage() {
 
                   {openExerciseActionsId === x.my_exercise_id ? (
                     <div className="grid w-56 gap-2 rounded-lg border bg-background p-2 shadow-lg">
-                      <label className="grid gap-1 text-xs">
-                        <span className="font-medium">Use in analysis as</span>
-                        <select
-                          value={x.exercise_role || "strength"}
-                          onChange={(event) =>
-                            void updateExerciseRole(
-                              x,
-                              event.target.value as "strength" | "rehab",
-                            )
-                          }
-                          className="rounded-md border bg-background px-2 py-1.5"
-                        >
-                          <option value="strength">Strength training</option>
-                          <option value="rehab">Rehab / prehab</option>
-                        </select>
-                      </label>
                       <div className="rounded-md border border-red-500/20 bg-red-500/5 p-2">
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                        <div className="text-[11px] font-semibold tracking-wide text-red-500 uppercase">
                           Danger zone
                         </div>
                         <button
@@ -350,10 +444,17 @@ export default function TrainingExercisesPage() {
                 </div>
               </div>
             ))}
+            {!visibleMyExercises.length ? (
+              <div className="py-6 text-sm text-muted-foreground">
+                No {exerciseRoleFilter === "rehab" ? "rehab" : "strength"}{" "}
+                exercises yet.
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="mt-2 text-sm text-muted-foreground">
-            Empty. Search above and click <span className="font-mono">Save</span>.
+            Empty. Search above and click{" "}
+            <span className="font-mono">Save</span>.
           </div>
         )}
       </div>
