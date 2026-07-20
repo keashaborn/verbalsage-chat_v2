@@ -703,6 +703,340 @@ function NumberTargetField({
   );
 }
 
+function numbersFromText(value: unknown): number[] {
+  if (typeof value === "number" && Number.isFinite(value)) return [value];
+  if (typeof value !== "string") return [];
+  return (value.match(/\d+(?:\.\d+)?/g) || [])
+    .map(Number)
+    .filter(Number.isFinite);
+}
+
+function textValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+const STRUCTURED_ACTIVITY_KEYS = new Set([
+  "baseline_steps_per_day",
+  "target_steps_per_day",
+  "tracking_source",
+  "tracking_notes",
+  "steps_per_day",
+  "step_target",
+  "neat",
+  "wearable_source",
+  "source",
+]);
+
+function ActivityTargetsEditor({
+  value,
+  onChange,
+}: {
+  value: JsonObject;
+  onChange: (value: JsonObject) => void;
+}) {
+  const legacySteps =
+    value.steps_per_day ?? value.step_target ?? value.neat ?? null;
+  const legacyStepNumbers = numbersFromText(legacySteps);
+  const legacyStepsAreBaseline = /baseline/i.test(textValue(legacySteps));
+  const baselineSteps =
+    value.baseline_steps_per_day ??
+    (legacyStepsAreBaseline ? legacyStepNumbers[0] : null);
+  const targetSteps =
+    value.target_steps_per_day ??
+    (!legacyStepsAreBaseline ? legacyStepNumbers[0] : null);
+  const legacySource = textValue(value.wearable_source ?? value.source);
+  const explicitSource = textValue(value.tracking_source);
+  const trackingSource =
+    explicitSource ||
+    (/manual/i.test(legacySource)
+      ? "manual"
+      : /apple/i.test(legacySource)
+        ? "apple_health"
+        : /health connect|android/i.test(legacySource)
+          ? "health_connect"
+          : legacySource
+            ? "other_wearable"
+            : "not_connected");
+  const trackingNotes =
+    textValue(value.tracking_notes) ||
+    (legacySource && !/^manual$/i.test(legacySource) ? legacySource : "");
+
+  function normalizedValue(): JsonObject {
+    const next = JSON.parse(JSON.stringify(value)) as JsonObject;
+    [
+      "steps_per_day",
+      "step_target",
+      "neat",
+      "wearable_source",
+      "source",
+    ].forEach((key) => delete next[key]);
+    next.baseline_steps_per_day = optionalNumber(baselineSteps);
+    next.target_steps_per_day = optionalNumber(targetSteps);
+    next.tracking_source = trackingSource;
+    next.tracking_notes = trackingNotes;
+    return next;
+  }
+
+  function setKnown(key: string, nextValue: unknown) {
+    onChange({ ...normalizedValue(), [key]: nextValue });
+  }
+
+  const remaining = Object.fromEntries(
+    Object.entries(value).filter(([key]) => !STRUCTURED_ACTIVITY_KEYS.has(key)),
+  );
+
+  return (
+    <div className="grid min-w-0 gap-4">
+      <fieldset className="grid min-w-0 gap-3 rounded-2xl border p-3">
+        <legend className="px-1 text-sm font-semibold">Daily steps</legend>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <NumberTargetField
+            label="Current baseline"
+            value={baselineSteps}
+            unit="steps/day"
+            onChange={(next) => setKnown("baseline_steps_per_day", next)}
+          />
+          <NumberTargetField
+            label="Daily target"
+            value={targetSteps}
+            unit="steps/day"
+            onChange={(next) => setKnown("target_steps_per_day", next)}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Baseline describes the starting point. The target is the value used
+          for adherence and later analysis.
+        </p>
+      </fieldset>
+
+      <fieldset className="grid min-w-0 gap-3 rounded-2xl border p-3">
+        <legend className="px-1 text-sm font-semibold">Tracking</legend>
+        <label className="grid gap-1.5 text-sm">
+          <span className="font-medium">Source</span>
+          <select
+            value={trackingSource}
+            onChange={(event) =>
+              setKnown("tracking_source", event.target.value)
+            }
+            className="rounded-xl border bg-background px-3 py-3"
+          >
+            <option value="not_connected">Not connected</option>
+            <option value="manual">Manual entry</option>
+            <option value="apple_health">Apple Health</option>
+            <option value="health_connect">Android Health Connect</option>
+            <option value="other_wearable">Other wearable</option>
+          </select>
+        </label>
+        <label className="grid gap-1.5 text-sm">
+          <span className="font-medium">Tracking notes</span>
+          <input
+            value={trackingNotes}
+            onChange={(event) => setKnown("tracking_notes", event.target.value)}
+            placeholder="Optional setup or device note"
+            className="rounded-xl border bg-background px-3 py-3"
+          />
+        </label>
+      </fieldset>
+
+      {Object.keys(remaining).length ? (
+        <fieldset className="grid gap-3 rounded-2xl border p-3">
+          <legend className="px-1 text-sm font-semibold">
+            Additional activity fields
+          </legend>
+          <ObjectFields
+            value={remaining}
+            onChange={(path, nextValue) =>
+              onChange(updateNestedValue(value, path, nextValue))
+            }
+          />
+        </fieldset>
+      ) : null}
+    </div>
+  );
+}
+
+const STRUCTURED_RECOVERY_KEYS = new Set([
+  "sleep_minimum_hours",
+  "sleep_maximum_hours",
+  "sleep_notes",
+  "lower_stress_days_minimum_per_week",
+  "lower_stress_days_maximum_per_week",
+  "warning_signs",
+  "mobility_notes",
+  "sleep_hours",
+  "sleep_target",
+  "rest_days",
+  "rest",
+  "fatigue_watch",
+  "fatigue",
+  "mobility_goal",
+  "mobility",
+]);
+
+function RecoveryTargetsEditor({
+  value,
+  onChange,
+}: {
+  value: JsonObject;
+  onChange: (value: JsonObject) => void;
+}) {
+  const legacySleep = value.sleep_hours ?? value.sleep_target ?? null;
+  const legacySleepNumbers = numbersFromText(legacySleep);
+  const legacyRest = value.rest_days ?? value.rest ?? null;
+  const legacyRestNumbers = numbersFromText(legacyRest);
+  const sleepMinimum =
+    value.sleep_minimum_hours ?? legacySleepNumbers[0] ?? null;
+  const sleepMaximum =
+    value.sleep_maximum_hours ??
+    legacySleepNumbers[1] ??
+    legacySleepNumbers[0] ??
+    null;
+  const lowerStressMinimum =
+    value.lower_stress_days_minimum_per_week ?? legacyRestNumbers[0] ?? null;
+  const lowerStressMaximum =
+    value.lower_stress_days_maximum_per_week ??
+    legacyRestNumbers[1] ??
+    legacyRestNumbers[0] ??
+    null;
+  const legacySleepText = textValue(legacySleep);
+  const sleepNotes =
+    textValue(value.sleep_notes) ||
+    (legacySleepText.includes(",")
+      ? legacySleepText.slice(legacySleepText.indexOf(",") + 1).trim()
+      : "");
+  const warningSigns = textValue(
+    value.warning_signs ?? value.fatigue_watch ?? value.fatigue,
+  );
+  const mobilityNotes = textValue(
+    value.mobility_notes ?? value.mobility_goal ?? value.mobility,
+  );
+
+  function normalizedValue(): JsonObject {
+    const next = JSON.parse(JSON.stringify(value)) as JsonObject;
+    [
+      "sleep_hours",
+      "sleep_target",
+      "rest_days",
+      "rest",
+      "fatigue_watch",
+      "fatigue",
+      "mobility_goal",
+      "mobility",
+    ].forEach((key) => delete next[key]);
+    next.sleep_minimum_hours = optionalNumber(sleepMinimum);
+    next.sleep_maximum_hours = optionalNumber(sleepMaximum);
+    next.sleep_notes = sleepNotes;
+    next.lower_stress_days_minimum_per_week =
+      optionalNumber(lowerStressMinimum);
+    next.lower_stress_days_maximum_per_week =
+      optionalNumber(lowerStressMaximum);
+    next.warning_signs = warningSigns;
+    next.mobility_notes = mobilityNotes;
+    return next;
+  }
+
+  function setKnown(key: string, nextValue: unknown) {
+    onChange({ ...normalizedValue(), [key]: nextValue });
+  }
+
+  const remaining = Object.fromEntries(
+    Object.entries(value).filter(([key]) => !STRUCTURED_RECOVERY_KEYS.has(key)),
+  );
+
+  return (
+    <div className="grid min-w-0 gap-4">
+      <fieldset className="grid min-w-0 gap-3 rounded-2xl border p-3">
+        <legend className="px-1 text-sm font-semibold">Sleep target</legend>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <NumberTargetField
+            label="Minimum"
+            value={sleepMinimum}
+            unit="hours/night"
+            step={0.25}
+            onChange={(next) => setKnown("sleep_minimum_hours", next)}
+          />
+          <NumberTargetField
+            label="Maximum"
+            value={sleepMaximum}
+            unit="hours/night"
+            step={0.25}
+            onChange={(next) => setKnown("sleep_maximum_hours", next)}
+          />
+        </div>
+        <label className="grid gap-1.5 text-sm">
+          <span className="font-medium">Sleep notes</span>
+          <input
+            value={sleepNotes}
+            onChange={(event) => setKnown("sleep_notes", event.target.value)}
+            placeholder="Optional consistency, quality, or wakeup goal"
+            className="rounded-xl border bg-background px-3 py-3"
+          />
+        </label>
+      </fieldset>
+
+      <fieldset className="grid min-w-0 gap-3 rounded-2xl border p-3">
+        <legend className="px-1 text-sm font-semibold">
+          Lower-stress days
+        </legend>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <NumberTargetField
+            label="Minimum per week"
+            value={lowerStressMinimum}
+            unit="days"
+            onChange={(next) =>
+              setKnown("lower_stress_days_minimum_per_week", next)
+            }
+          />
+          <NumberTargetField
+            label="Maximum per week"
+            value={lowerStressMaximum}
+            unit="days"
+            onChange={(next) =>
+              setKnown("lower_stress_days_maximum_per_week", next)
+            }
+          />
+        </div>
+      </fieldset>
+
+      <label className="grid gap-1.5 text-sm">
+        <span className="font-medium">Warning signs</span>
+        <textarea
+          value={warningSigns}
+          onChange={(event) => setKnown("warning_signs", event.target.value)}
+          rows={3}
+          placeholder="Pain, persistent soreness, disrupted sleep, or performance decline"
+          className="rounded-xl border bg-background px-3 py-3"
+        />
+      </label>
+
+      <label className="grid gap-1.5 text-sm">
+        <span className="font-medium">Mobility and recovery notes</span>
+        <textarea
+          value={mobilityNotes}
+          onChange={(event) => setKnown("mobility_notes", event.target.value)}
+          rows={3}
+          placeholder="Individual mobility, rehab, or movement-preparation guidance"
+          className="rounded-xl border bg-background px-3 py-3"
+        />
+      </label>
+
+      {Object.keys(remaining).length ? (
+        <fieldset className="grid gap-3 rounded-2xl border p-3">
+          <legend className="px-1 text-sm font-semibold">
+            Additional recovery fields
+          </legend>
+          <ObjectFields
+            value={remaining}
+            onChange={(path, nextValue) =>
+              onChange(updateNestedValue(value, path, nextValue))
+            }
+          />
+        </fieldset>
+      ) : null}
+    </div>
+  );
+}
+
 const STRUCTURED_NUTRITION_KEYS = new Set([
   "calories",
   "target_kcal",
@@ -2426,6 +2760,26 @@ export function PlanDraftWorkspace({
                         setDraft((current) => ({
                           ...current,
                           conditioning_targets: value,
+                        }))
+                      }
+                    />
+                  ) : section.key === "activity_targets" ? (
+                    <ActivityTargetsEditor
+                      value={draft.activity_targets}
+                      onChange={(value) =>
+                        setDraft((current) => ({
+                          ...current,
+                          activity_targets: value,
+                        }))
+                      }
+                    />
+                  ) : section.key === "recovery_targets" ? (
+                    <RecoveryTargetsEditor
+                      value={draft.recovery_targets}
+                      onChange={(value) =>
+                        setDraft((current) => ({
+                          ...current,
+                          recovery_targets: value,
                         }))
                       }
                     />

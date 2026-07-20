@@ -647,6 +647,12 @@ export function PlanRevisionWorkflow() {
     void loadWorkspace();
   }, [loadWorkspace]);
 
+  React.useEffect(() => {
+    if (!message) return;
+    const timeout = window.setTimeout(() => setMessage(""), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [message]);
+
   async function runAction(
     path: string,
     actionKey: string,
@@ -725,8 +731,11 @@ export function PlanRevisionWorkflow() {
   const revision = workspace?.open_revision || null;
   const activePlan = workspace?.active_plan || null;
   const canEdit = workspace?.capabilities?.can_edit ?? !delegated;
+  const viewingDraft = Boolean(
+    revision && (planView === "draft" || !activePlan || draftEditorOpen),
+  );
   const headerDocument =
-    planView === "draft" && revision
+    viewingDraft && revision
       ? revision.proposed_document
       : activePlan?.document || revision?.proposed_document || null;
 
@@ -746,7 +755,12 @@ export function PlanRevisionWorkflow() {
             <h1 className="mt-1 text-xl font-semibold">
               {headerDocument?.phase_label || "Your Plan"}
             </h1>
-            {activePlan ? (
+            {viewingDraft && revision ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Draft based on active version{" "}
+                {activePlan?.version_number ?? "—"}
+              </p>
+            ) : activePlan ? (
               <p className="mt-1 text-sm text-muted-foreground">
                 Active version {activePlan.version_number}
                 {headerDocument?.review_date
@@ -759,7 +773,7 @@ export function PlanRevisionWorkflow() {
               </p>
             ) : null}
           </div>
-          {revision ? (
+          {viewingDraft && revision ? (
             <span className="rounded-full border px-3 py-1 text-xs font-medium">
               {humanize(revision.state)}
             </span>
@@ -858,7 +872,10 @@ export function PlanRevisionWorkflow() {
                     <button
                       className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
                       type="button"
-                      onClick={() => setDraftEditorOpen((current) => !current)}
+                      onClick={() => {
+                        setPlanView("draft");
+                        setDraftEditorOpen((current) => !current);
+                      }}
                     >
                       {draftEditorOpen ? "Close editor" : "Edit Plan"}
                     </button>
@@ -993,7 +1010,7 @@ export function PlanRevisionWorkflow() {
                     void runAction(
                       "revisions",
                       `direct-revision:${activePlan.plan_version_id}`,
-                      "Inactive draft created from the active Plan.",
+                      `Draft ready. Active version ${activePlan.version_number} remains unchanged.`,
                       {
                         document: activePlan.document,
                         base_plan_version_id: activePlan.plan_version_id,
