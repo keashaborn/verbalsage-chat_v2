@@ -298,6 +298,27 @@ function LinkedConditioningPlanSummary({ value }: { value: unknown }) {
   );
 }
 
+function PlanFieldList({
+  entries,
+  className = "",
+}: {
+  entries: Array<[string, unknown]>;
+  className?: string;
+}) {
+  return (
+    <dl className={`grid gap-3 sm:grid-cols-2 ${className}`}>
+      {entries.map(([key, value]) => (
+        <div key={key}>
+          <dt className="text-xs font-medium text-muted-foreground">
+            {humanize(key)}
+          </dt>
+          <dd className="mt-1 text-sm break-words">{formatValue(value)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function PlanSummary({
   document,
   title = "Plan overview",
@@ -416,6 +437,17 @@ function PlanSummary({
         const entries = Object.entries(values || {}).filter(
           ([key]) => key !== "linked_workouts" && key !== "linked_conditioning",
         );
+        const hasLinkedWorkouts =
+          Array.isArray(linkedWorkouts) && linkedWorkouts.length > 0;
+        const hasLinkedConditioning =
+          Array.isArray(linkedConditioning) && linkedConditioning.length > 0;
+        const hasPinnedPrescription =
+          hasLinkedWorkouts || hasLinkedConditioning;
+        const additionalLabel = hasLinkedWorkouts
+          ? "Additional strength guidance"
+          : hasLinkedConditioning
+            ? "Additional conditioning guidance"
+            : "Additional guidance";
         const expanded = expandedSections.has(String(field));
         return (
           <section key={field} className="rounded-xl border bg-background">
@@ -431,33 +463,28 @@ function PlanSummary({
               </span>
             </button>
             {expanded ? (
-              <dl className="grid gap-3 border-t px-3 py-3 sm:grid-cols-2">
-                {entries.length ? (
-                  entries.map(([key, value]) => (
-                    <div key={key}>
-                      <dt className="text-xs font-medium text-muted-foreground">
-                        {humanize(key)}
-                      </dt>
-                      <dd className="mt-1 text-sm break-words">
-                        {formatValue(value)}
-                      </dd>
-                    </div>
-                  ))
-                ) : (!Array.isArray(linkedWorkouts) ||
-                    !linkedWorkouts.length) &&
-                  (!Array.isArray(linkedConditioning) ||
-                    !linkedConditioning.length) ? (
-                  <div className="text-sm text-muted-foreground">
-                    No targets defined.
-                  </div>
-                ) : null}
+              <div className="grid gap-3 border-t px-3 py-3 sm:grid-cols-2">
                 {field === "training_targets" ? (
                   <LinkedWorkoutPlanSummary value={linkedWorkouts} />
                 ) : null}
                 {field === "conditioning_targets" ? (
                   <LinkedConditioningPlanSummary value={linkedConditioning} />
                 ) : null}
-              </dl>
+                {entries.length && hasPinnedPrescription ? (
+                  <details className="rounded-xl border bg-muted/20 sm:col-span-2">
+                    <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground">
+                      {additionalLabel}
+                    </summary>
+                    <PlanFieldList entries={entries} className="border-t p-3" />
+                  </details>
+                ) : entries.length ? (
+                  <PlanFieldList entries={entries} className="sm:col-span-2" />
+                ) : !hasPinnedPrescription ? (
+                  <div className="text-sm text-muted-foreground">
+                    No targets defined.
+                  </div>
+                ) : null}
+              </div>
             ) : null}
           </section>
         );
