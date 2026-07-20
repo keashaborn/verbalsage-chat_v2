@@ -116,9 +116,49 @@ function friendlyError(payload: unknown, status: number): string {
   return `Plan request failed (HTTP ${status}).`;
 }
 
-function PlanSummary({ document }: { document: PlanDocument }) {
+function PlanSummary({
+  document,
+  title = "Plan overview",
+}: {
+  document: PlanDocument;
+  title?: string;
+}) {
+  const [expandedSections, setExpandedSections] = React.useState<Set<string>>(
+    new Set(),
+  );
+  const sectionKeys = SECTION_LABELS.map(([field]) => String(field));
+  if (document.coach_notes) sectionKeys.push("coach_notes");
+
+  function toggleSection(section: string) {
+    setExpandedSections((current) => {
+      const next = new Set(current);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  }
+
   return (
     <div className="grid gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-semibold">{title}</h2>
+        <div className="flex gap-2">
+          <button
+            className="rounded-lg border px-3 py-2 text-xs font-medium"
+            type="button"
+            onClick={() => setExpandedSections(new Set(sectionKeys))}
+          >
+            Expand all
+          </button>
+          <button
+            className="rounded-lg border px-3 py-2 text-xs font-medium"
+            type="button"
+            onClick={() => setExpandedSections(new Set())}
+          >
+            Collapse all
+          </button>
+        </div>
+      </div>
       <dl className="grid gap-3 rounded-xl bg-muted/40 p-3 sm:grid-cols-2">
         <div>
           <dt className="text-xs font-medium text-muted-foreground">
@@ -150,7 +190,7 @@ function PlanSummary({ document }: { document: PlanDocument }) {
         </div>
         <div>
           <dt className="text-xs font-medium text-muted-foreground">
-            Next review
+            Next Plan check-in
           </dt>
           <dd className="mt-1 text-sm">{document.review_date || "Not set"}</dd>
         </div>
@@ -159,42 +199,63 @@ function PlanSummary({ document }: { document: PlanDocument }) {
       {SECTION_LABELS.map(([field, label]) => {
         const values = document[field] as JsonObject;
         const entries = Object.entries(values || {});
+        const expanded = expandedSections.has(String(field));
         return (
-          <details key={field} className="rounded-xl border bg-background">
-            <summary className="cursor-pointer px-3 py-3 text-sm font-medium">
-              {label}
-            </summary>
-            <dl className="grid gap-3 border-t px-3 py-3 sm:grid-cols-2">
-              {entries.length ? (
-                entries.map(([key, value]) => (
-                  <div key={key}>
-                    <dt className="text-xs font-medium text-muted-foreground">
-                      {humanize(key)}
-                    </dt>
-                    <dd className="mt-1 text-sm break-words">
-                      {formatValue(value)}
-                    </dd>
+          <section key={field} className="rounded-xl border bg-background">
+            <button
+              className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm font-medium"
+              type="button"
+              aria-expanded={expanded}
+              onClick={() => toggleSection(String(field))}
+            >
+              <span>{label}</span>
+              <span aria-hidden="true" className="text-lg leading-none">
+                {expanded ? "−" : "+"}
+              </span>
+            </button>
+            {expanded ? (
+              <dl className="grid gap-3 border-t px-3 py-3 sm:grid-cols-2">
+                {entries.length ? (
+                  entries.map(([key, value]) => (
+                    <div key={key}>
+                      <dt className="text-xs font-medium text-muted-foreground">
+                        {humanize(key)}
+                      </dt>
+                      <dd className="mt-1 text-sm break-words">
+                        {formatValue(value)}
+                      </dd>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    No targets defined.
                   </div>
-                ))
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  No targets defined.
-                </div>
-              )}
-            </dl>
-          </details>
+                )}
+              </dl>
+            ) : null}
+          </section>
         );
       })}
 
       {document.coach_notes ? (
-        <details className="rounded-xl border bg-background">
-          <summary className="cursor-pointer px-3 py-3 text-sm font-medium">
-            Coach notes
-          </summary>
-          <p className="border-t px-3 py-3 text-sm whitespace-pre-wrap">
-            {document.coach_notes}
-          </p>
-        </details>
+        <section className="rounded-xl border bg-background">
+          <button
+            className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm font-medium"
+            type="button"
+            aria-expanded={expandedSections.has("coach_notes")}
+            onClick={() => toggleSection("coach_notes")}
+          >
+            <span>Coach notes</span>
+            <span aria-hidden="true" className="text-lg leading-none">
+              {expandedSections.has("coach_notes") ? "−" : "+"}
+            </span>
+          </button>
+          {expandedSections.has("coach_notes") ? (
+            <p className="border-t px-3 py-3 text-sm whitespace-pre-wrap">
+              {document.coach_notes}
+            </p>
+          ) : null}
+        </section>
       ) : null}
     </div>
   );
@@ -290,6 +351,8 @@ export function PlanRevisionWorkflow() {
   const [pendingAction, setPendingAction] = React.useState("");
   const [draftHasUnsavedChanges, setDraftHasUnsavedChanges] =
     React.useState(false);
+  const [draftEditorOpen, setDraftEditorOpen] = React.useState(false);
+  const [planView, setPlanView] = React.useState<"active" | "draft">("active");
   const idempotencyKeys = React.useRef<Record<string, string>>({});
 
   const apiUrl = React.useCallback(
@@ -409,7 +472,15 @@ export function PlanRevisionWorkflow() {
   const revision = workspace?.open_revision || null;
   const activePlan = workspace?.active_plan || null;
   const canEdit = workspace?.capabilities?.can_edit ?? !delegated;
-  const isInitialAdoption = Boolean(revision && !revision.base_plan_version_id);
+  const headerDocument =
+    planView === "draft" && revision
+      ? revision.proposed_document
+      : activePlan?.document || revision?.proposed_document || null;
+
+  React.useEffect(() => {
+    setDraftEditorOpen(false);
+    setPlanView(activePlan ? "active" : "draft");
+  }, [activePlan?.plan_version_id, revision?.revision_id]);
 
   return (
     <section className="mx-auto grid max-w-6xl gap-4 px-4 pt-4 md:px-6 md:pt-6">
@@ -417,15 +488,23 @@ export function PlanRevisionWorkflow() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Controlled plan workflow
+              LifeSwitch Plan
             </div>
             <h1 className="mt-1 text-xl font-semibold">
-              Plan review and activation
+              {headerDocument?.phase_label || "Your Plan"}
             </h1>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Build an inactive draft, review the evidence and changes, then
-              activate it only after the owner approves.
-            </p>
+            {activePlan ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Active version {activePlan.version_number}
+                {headerDocument?.review_date
+                  ? ` · Next check-in ${headerDocument.review_date}`
+                  : ""}
+              </p>
+            ) : revision ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Saved draft · Not active
+              </p>
+            ) : null}
           </div>
           {revision ? (
             <span className="rounded-full border px-3 py-1 text-xs font-medium">
@@ -498,32 +577,73 @@ export function PlanRevisionWorkflow() {
 
         {status === "ready" && revision ? (
           <div className="mt-4 grid gap-4">
-            {revision.source?.legacy_profile_updated_at ? (
-              <p className="text-xs text-muted-foreground">
-                Draft originally copied from the legacy plan editor at{" "}
-                {new Date(
-                  revision.source.legacy_profile_updated_at,
-                ).toLocaleString()}
-                .
-              </p>
-            ) : null}
             {revision.state === "draft" && canEdit ? (
-              <PlanDraftWorkspace
-                revisionId={revision.revision_id}
-                document={revision.proposed_document}
-                saving={pendingAction === `save:${revision.revision_id}`}
-                onDirtyChange={setDraftHasUnsavedChanges}
-                onSave={(document) =>
-                  runAction(
-                    `revisions/${revision.revision_id}/draft`,
-                    `save:${revision.revision_id}`,
-                    "Draft saved. The active Plan has not changed.",
-                    { document },
-                    "PUT",
-                  )
-                }
-                onSageReview={requestSageReview}
-              />
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/30 p-3">
+                  <div>
+                    <div className="text-sm font-semibold">Draft saved</div>
+                    <div className="text-xs text-muted-foreground">
+                      This draft is not active yet.
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {activePlan && !draftEditorOpen ? (
+                      <button
+                        className="rounded-lg border px-3 py-2 text-sm font-medium"
+                        type="button"
+                        onClick={() =>
+                          setPlanView((current) =>
+                            current === "active" ? "draft" : "active",
+                          )
+                        }
+                      >
+                        {planView === "active"
+                          ? "Preview draft"
+                          : "View active Plan"}
+                      </button>
+                    ) : null}
+                    <button
+                      className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+                      type="button"
+                      onClick={() => setDraftEditorOpen((current) => !current)}
+                    >
+                      {draftEditorOpen ? "Close editor" : "Edit Plan"}
+                    </button>
+                  </div>
+                </div>
+
+                {draftEditorOpen ? (
+                  <PlanDraftWorkspace
+                    revisionId={revision.revision_id}
+                    document={revision.proposed_document}
+                    saving={pendingAction === `save:${revision.revision_id}`}
+                    onDirtyChange={setDraftHasUnsavedChanges}
+                    onSave={(document) =>
+                      runAction(
+                        `revisions/${revision.revision_id}/draft`,
+                        `save:${revision.revision_id}`,
+                        "Draft saved. The active Plan has not changed.",
+                        { document },
+                        "PUT",
+                      )
+                    }
+                    onSageReview={requestSageReview}
+                  />
+                ) : (
+                  <PlanSummary
+                    document={
+                      planView === "draft" || !activePlan
+                        ? revision.proposed_document
+                        : activePlan.document
+                    }
+                    title={
+                      planView === "draft" || !activePlan
+                        ? "Draft Plan preview"
+                        : "Active Plan"
+                    }
+                  />
+                )}
+              </>
             ) : null}
             {revision.state !== "draft" || !canEdit ? (
               <>
@@ -533,64 +653,44 @@ export function PlanRevisionWorkflow() {
               </>
             ) : null}
 
-            {revision.state === "draft" ? (
+            {revision.state === "draft" && canEdit && draftEditorOpen ? (
               <div className="grid gap-2 sm:flex sm:flex-wrap">
-                {canEdit &&
-                revision.source &&
-                (!isInitialAdoption || !delegated) ? (
-                  <button
-                    className="rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
-                    type="button"
-                    disabled={Boolean(pendingAction)}
-                    onClick={() =>
-                      void runAction(
-                        isInitialAdoption
-                          ? "revisions/adopt-current-profile/refresh"
-                          : `revisions/${revision.revision_id}/refresh-current-profile`,
-                        `refresh:${revision.revision_id}`,
-                        "Draft refreshed from the plan editor.",
-                      )
-                    }
-                  >
-                    {pendingAction === `refresh:${revision.revision_id}`
-                      ? "Refreshing…"
-                      : "Refresh draft from editor below"}
-                  </button>
-                ) : null}
-                {canEdit ? (
-                  <button
-                    className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-                    type="button"
-                    disabled={Boolean(pendingAction) || draftHasUnsavedChanges}
-                    title={
-                      draftHasUnsavedChanges
-                        ? "Save the draft before submitting it for approval."
-                        : undefined
-                    }
-                    onClick={() =>
-                      void runAction(
-                        `revisions/${revision.revision_id}/propose`,
-                        `propose:${revision.revision_id}`,
-                        "Revision submitted for owner approval. The active plan has not changed.",
-                      )
-                    }
-                  >
-                    {pendingAction === `propose:${revision.revision_id}`
-                      ? "Submitting…"
-                      : draftHasUnsavedChanges
-                        ? "Save draft before submitting"
-                        : "Submit for approval"}
-                  </button>
-                ) : null}
+                <button
+                  className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                  type="button"
+                  disabled={Boolean(pendingAction) || draftHasUnsavedChanges}
+                  title={
+                    draftHasUnsavedChanges
+                      ? "Save the draft before continuing."
+                      : undefined
+                  }
+                  onClick={() =>
+                    void runAction(
+                      `revisions/${revision.revision_id}/propose`,
+                      `propose:${revision.revision_id}`,
+                      delegated
+                        ? "Plan submitted to the owner for review. The active Plan has not changed."
+                        : "Plan is ready for your final activation review. The active Plan has not changed.",
+                    )
+                  }
+                >
+                  {pendingAction === `propose:${revision.revision_id}`
+                    ? "Preparing…"
+                    : draftHasUnsavedChanges
+                      ? "Save draft before continuing"
+                      : delegated
+                        ? "Submit to owner"
+                        : "Review for activation"}
+                </button>
               </div>
             ) : null}
 
             {revision.state === "proposed" && revision.can_approve ? (
               <div className="grid gap-2 rounded-xl border p-4">
-                <p className="text-sm font-medium">Owner approval required</p>
+                <p className="text-sm font-medium">Ready to activate</p>
                 <p className="text-sm text-muted-foreground">
-                  Approval activates this exact revision and preserves the
-                  previous plan version.
+                  Activation makes this exact revision the current Plan and
+                  preserves the previous version in history.
                 </p>
                 <button
                   className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50 sm:w-auto"
@@ -610,7 +710,7 @@ export function PlanRevisionWorkflow() {
                 >
                   {pendingAction === `activate:${revision.revision_id}`
                     ? "Activating…"
-                    : "Approve and activate"}
+                    : "Activate this Plan"}
                 </button>
               </div>
             ) : null}
@@ -626,76 +726,35 @@ export function PlanRevisionWorkflow() {
 
         {status === "ready" && !revision && activePlan ? (
           <div className="mt-4 grid gap-4">
-            <div className="grid gap-3 rounded-xl border p-4">
-              <p className="text-sm text-muted-foreground">
-                Activated {new Date(activePlan.activated_at).toLocaleString()}.
-                Version {activePlan.version_number} remains authoritative until
-                the owner approves a replacement.
-              </p>
-              {canEdit ? (
-                <div className="grid gap-3">
-                  <p className="text-sm">
-                    Start an inactive copy of the active Plan, then edit it
-                    directly or use the guided setup. Nothing changes in the
-                    active version while you work.
-                  </p>
-                  <button
-                    className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50 sm:w-auto"
-                    type="button"
-                    disabled={Boolean(pendingAction)}
-                    onClick={() =>
-                      void runAction(
-                        "revisions",
-                        `direct-revision:${activePlan.plan_version_id}`,
-                        "Inactive draft created from the active Plan.",
-                        {
-                          document: activePlan.document,
-                          base_plan_version_id: activePlan.plan_version_id,
-                        },
-                      )
-                    }
-                  >
-                    {pendingAction ===
-                    `direct-revision:${activePlan.plan_version_id}`
-                      ? "Creating draft…"
-                      : "Start a new draft"}
-                  </button>
-                  <details className="rounded-xl border bg-background">
-                    <summary className="cursor-pointer px-3 py-3 text-sm font-medium">
-                      Import from the legacy editor below
-                    </summary>
-                    <div className="grid gap-3 border-t p-3">
-                      <p className="text-sm text-muted-foreground">
-                        Use this only when you already changed the older Plan
-                        editor and want those values copied into a draft.
-                      </p>
-                      <button
-                        className="rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
-                        type="button"
-                        disabled={Boolean(pendingAction)}
-                        onClick={() =>
-                          void runAction(
-                            "revisions/from-current-profile",
-                            `profile-revision:${activePlan.plan_version_id}`,
-                            "Legacy editor changes imported as an inactive draft.",
-                          )
-                        }
-                      >
-                        {pendingAction ===
-                        `profile-revision:${activePlan.plan_version_id}`
-                          ? "Importing…"
-                          : "Import editor changes"}
-                      </button>
-                    </div>
-                  </details>
-                </div>
-              ) : (
-                <p className="text-sm">
-                  There is no revision waiting for your review.
+            {canEdit ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
+                <p className="text-xs text-muted-foreground">
+                  Activated {new Date(activePlan.activated_at).toLocaleString()}
                 </p>
-              )}
-            </div>
-            <PlanSummary document={activePlan.document} />
+                <button
+                  className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                  type="button"
+                  disabled={Boolean(pendingAction)}
+                  onClick={() =>
+                    void runAction(
+                      "revisions",
+                      `direct-revision:${activePlan.plan_version_id}`,
+                      "Inactive draft created from the active Plan.",
+                      {
+                        document: activePlan.document,
+                        base_plan_version_id: activePlan.plan_version_id,
+                      },
+                    )
+                  }
+                >
+                  {pendingAction ===
+                  `direct-revision:${activePlan.plan_version_id}`
+                    ? "Opening…"
+                    : "Edit Plan"}
+                </button>
+              </div>
+            ) : null}
+            <PlanSummary document={activePlan.document} title="Active Plan" />
           </div>
         ) : null}
       </div>
