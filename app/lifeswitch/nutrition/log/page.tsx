@@ -2,6 +2,10 @@
 
 import { authFetch } from "@/lib/authFetch";
 import { readPlanNutritionTargets } from "@/lib/lifeswitch/planNutritionTargets";
+import {
+  scoreNutritionDay,
+  scoreNutritionRollingWindow,
+} from "@/lib/lifeswitch/nutritionScoring";
 import * as React from "react";
 import {
   FoodQuantityControl,
@@ -323,9 +327,12 @@ function MonthCalendar(props: {
 }
 
 export default function NutritionLogPage() {
-  const [targetProteinG, setTargetProteinG] = React.useState<number | null>(null);
-  const [targetKcal, setTargetKcal] = React.useState<number | null>(null);
+  const [nutritionTargets, setNutritionTargets] = React.useState(() =>
+    readPlanNutritionTargets(null),
+  );
   const [targetStatus, setTargetStatus] = React.useState<string>("loading Plan targets…");
+  const targetProteinG = nutritionTargets.proteinMinimumG;
+  const targetKcal = nutritionTargets.nominalKcal;
 
   const [targetUserId, setTargetUserId] = React.useState<string>("");
   const [targetName, setTargetName] = React.useState<string>("");
@@ -340,16 +347,16 @@ export default function NutritionLogPage() {
   const [savedEntryId, setSavedEntryId] = React.useState<string>("");
   const [entrySaveError, setEntrySaveError] = React.useState<Record<string, string>>({});
 
-  function targetHit(any: boolean, t: { kcal: number | null; protein_g: number | null }, kcalTarget = targetKcal, proteinTarget = targetProteinG) {
-    return (
-      any &&
-      proteinTarget != null &&
-      kcalTarget != null &&
-      t.protein_g != null &&
-      t.kcal != null &&
-      t.protein_g >= proteinTarget &&
-      t.kcal <= kcalTarget
-    );
+  function targetHit(
+    day: string,
+    any: boolean,
+    t: { kcal: number | null; protein_g: number | null },
+    targets = nutritionTargets,
+  ) {
+    return scoreNutritionDay(
+      { day, logged: any, kcal: t.kcal, proteinG: t.protein_g },
+      targets,
+    ).status === "hit";
   }
 
   async function refreshOneDay(day: string, targetUid = targetUserId) {
@@ -361,7 +368,7 @@ export default function NutritionLogPage() {
     const t = extractTotals(raw);
     const any = hasAnyData(raw, t);
 
-    const hit = targetHit(any, t);
+    const hit = targetHit(day, any, t);
 
     setDays((prev) =>
       (prev || []).map((x) => (x.day === day ? ({ ...x, raw, any, ...t, hit } as any) : x))
@@ -392,29 +399,25 @@ export default function NutritionLogPage() {
         planUrl.searchParams.set("create_if_missing", targetUid ? "0" : "1");
         if (targetUid) planUrl.searchParams.set("target_user_id", targetUid);
 
-        let nextTargetKcal: number | null = null;
-        let nextTargetProteinG: number | null = null;
+        let nextNutritionTargets = readPlanNutritionTargets(null);
 
         try {
           const planJson = await fetchJson(planUrl.toString());
           const nt = planJson?.nutrition_targets || {};
           const targets = readPlanNutritionTargets(nt);
-          nextTargetKcal = targets.nominalKcal;
-          nextTargetProteinG = targets.proteinMinimumG;
+          nextNutritionTargets = targets;
 
           if (!cancelled) {
-            setTargetKcal(nextTargetKcal);
-            setTargetProteinG(nextTargetProteinG);
+            setNutritionTargets(targets);
             setTargetStatus(
-              nextTargetKcal != null || nextTargetProteinG != null
+              targets.nominalKcal != null || targets.proteinMinimumG != null
                 ? "loaded from Plan"
                 : "no calorie/protein targets found in Plan"
             );
           }
         } catch (e: any) {
           if (!cancelled) {
-            setTargetKcal(null);
-            setTargetProteinG(null);
+            setNutritionTargets(readPlanNutritionTargets(null));
             setTargetStatus(`Plan target error: ${e?.message || String(e)}`);
           }
         }
@@ -439,7 +442,7 @@ export default function NutritionLogPage() {
             };
             const t = extractTotals(raw);
             const any = hasAnyData(raw, t);
-            const hit = targetHit(any, t, nextTargetKcal, nextTargetProteinG);
+            const hit = targetHit(day, any, t, nextNutritionTargets);
             return { day, raw, any, ...t, hit };
           })
           .filter((summary: DaySummary) => /^\d{4}-\d{2}-\d{2}$/.test(summary.day));
@@ -509,6 +512,38 @@ export default function NutritionLogPage() {
     out.sort((a, b) => b.ym.localeCompare(a.ym));
     return out;
   }, [days]);
+
+  const rollingScore = React.useMemo(
+    () => scoreNutritionRollingWindow(
+      days.map((day) => ({
+        day: day.day,
+        logged: day.any,
+        kcal: day.kcal,
+        proteinG: day.protein_g,
+      })),
+      today,
+      nutritionTargets,
+    ),
+    [days, nutritionTargets, today],
+  );
+
+  const calorieTargetLabel = nutritionTargets.dailyRangeKcal
+    ? `${targetKcal != null ? `${targetKcal} kcal target` : "Calories"} · ${nutritionTargets.dailyRangeKcal.lower}–${nutritionTargets.dailyRangeKcal.upper} daily`
+    : targetKcal != null
+      ? `${targetKcal} kcal target · daily range not set`
+      : "no calorie target";
+  const proteinTargetLabel = targetProteinG != null
+    ? `${targetProteinG}g protein minimum${nutritionTargets.proteinWeeklyAdherence
+      ? ` · ${nutritionTargets.proteinWeeklyAdherence.requiredHitDays}/${nutritionTargets.proteinWeeklyAdherence.windowDays} days`
+      : ""}`
+    : "no protein target";
+  const rollingStatusLabel = rollingScore.status === "hit"
+    ? "Hit"
+    : rollingScore.status === "not_hit"
+      ? "Not hit"
+      : rollingScore.status === "insufficient_data"
+        ? "Needs more logged days"
+        : "Not configured";
 
   async function loadEntryServings(entry: any) {
     const foodId = String(entry?.my_food_id || "").trim();
@@ -611,7 +646,7 @@ export default function NutritionLogPage() {
       <div>
         <div className="text-lg font-semibold">Nutrition · Log</div>
         <div className="mt-1 text-xs text-muted-foreground">
-          Targets: {targetKcal != null ? `${targetKcal} kcal` : "no calorie target"} · {targetProteinG != null ? `${targetProteinG}g protein` : "no protein target"} · {targetStatus}
+          {calorieTargetLabel} · {proteinTargetLabel} · {targetStatus}
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
@@ -631,6 +666,39 @@ export default function NutritionLogPage() {
             </span>
           </div>
         </div>
+
+        {rollingScore.windowDays ? (
+          <details className="mt-3 rounded-xl border bg-muted/10 px-3 py-2 text-xs">
+            <summary className="cursor-pointer font-medium">
+              {rollingScore.windowDays}-day Plan check · {rollingStatusLabel}
+            </summary>
+            <div className="mt-3 grid gap-3 text-muted-foreground sm:grid-cols-3">
+              <div>
+                <div className="font-medium text-foreground">Data</div>
+                <div>{rollingScore.loggedDays}/{rollingScore.windowDays} days logged</div>
+              </div>
+              {nutritionTargets.rollingAverageKcal ? (
+                <div>
+                  <div className="font-medium text-foreground">Calories</div>
+                  <div>
+                    {rollingScore.calorieAverage == null
+                      ? "No average yet"
+                      : `${fmt1tight(rollingScore.calorieAverage)} kcal average`}
+                    {` · goal ${nutritionTargets.rollingAverageKcal.lower}–${nutritionTargets.rollingAverageKcal.upper}`}
+                  </div>
+                </div>
+              ) : null}
+              {nutritionTargets.proteinWeeklyAdherence ? (
+                <div>
+                  <div className="font-medium text-foreground">Protein</div>
+                  <div>
+                    {rollingScore.proteinDaysMeetingMinimum ?? 0}/{nutritionTargets.proteinWeeklyAdherence.windowDays} days met · required {nutritionTargets.proteinWeeklyAdherence.requiredHitDays}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </details>
+        ) : null}
       </div>
 
       {isDelegatedView ? (
