@@ -116,6 +116,95 @@ function friendlyError(payload: unknown, status: number): string {
   return `Plan request failed (HTTP ${status}).`;
 }
 
+function LinkedWorkoutPlanSummary({ value }: { value: unknown }) {
+  const entries = Array.isArray(value)
+    ? value.filter(
+        (item): item is JsonObject =>
+          Boolean(item) && typeof item === "object" && !Array.isArray(item),
+      )
+    : [];
+  if (!entries.length) return null;
+  return (
+    <div className="grid gap-2 sm:col-span-2">
+      <div className="text-xs font-medium text-muted-foreground">
+        Linked workout schedule
+      </div>
+      {entries.map((entry, index) => {
+        const snapshot =
+          entry.prescription_snapshot &&
+          typeof entry.prescription_snapshot === "object" &&
+          !Array.isArray(entry.prescription_snapshot)
+            ? (entry.prescription_snapshot as JsonObject)
+            : {};
+        const exercises = Array.isArray(snapshot.exercises)
+          ? snapshot.exercises.filter(
+              (item): item is JsonObject =>
+                Boolean(item) &&
+                typeof item === "object" &&
+                !Array.isArray(item),
+            )
+          : [];
+        const role = String(snapshot.role || "strength");
+        return (
+          <article
+            key={String(entry.workout_template_id || index)}
+            className="rounded-xl bg-muted/35 p-3"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div className="text-sm font-semibold">
+                  {String(snapshot.name || "Saved workout")}
+                </div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  {Number(entry.sessions_per_week || 0)} session(s)/week ·{" "}
+                  {humanize(role)}
+                  {role === "rehab" ? " · excluded from strength totals" : ""}
+                </div>
+              </div>
+              <span className="rounded-full border px-2 py-1 text-[11px] text-muted-foreground">
+                Pinned prescription
+              </span>
+            </div>
+            {entry.schedule_notes ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {String(entry.schedule_notes)}
+              </p>
+            ) : null}
+            {exercises.length ? (
+              <details className="mt-2 rounded-lg border bg-background">
+                <summary className="cursor-pointer px-3 py-2 text-xs font-medium">
+                  View {exercises.length} prescribed exercises
+                </summary>
+                <div className="grid gap-1.5 border-t p-3 text-xs">
+                  {exercises.map((exercise, exerciseIndex) => (
+                    <div
+                      key={`${String(exercise.name || "exercise")}:${exerciseIndex}`}
+                    >
+                      <span className="font-medium">
+                        {String(exercise.name || "Exercise")}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {` · ${Number(exercise.planned_sets || 0)} sets`}
+                        {Number(exercise.default_reps || 0)
+                          ? ` · ${Number(exercise.default_reps)} reps`
+                          : ""}
+                        {Number(exercise.default_weight || 0)
+                          ? ` · ${Number(exercise.default_weight)} lb`
+                          : ""}
+                        {exercise.role === "rehab" ? " · Rehab" : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 function PlanSummary({
   document,
   title = "Plan overview",
@@ -227,7 +316,11 @@ function PlanSummary({
 
       {SECTION_LABELS.map(([field, label]) => {
         const values = document[field] as JsonObject;
-        const entries = Object.entries(values || {});
+        const linkedWorkouts =
+          field === "training_targets" ? values?.linked_workouts : null;
+        const entries = Object.entries(values || {}).filter(
+          ([key]) => key !== "linked_workouts",
+        );
         const expanded = expandedSections.has(String(field));
         return (
           <section key={field} className="rounded-xl border bg-background">
@@ -255,11 +348,14 @@ function PlanSummary({
                       </dd>
                     </div>
                   ))
-                ) : (
+                ) : !Array.isArray(linkedWorkouts) || !linkedWorkouts.length ? (
                   <div className="text-sm text-muted-foreground">
                     No targets defined.
                   </div>
-                )}
+                ) : null}
+                {field === "training_targets" ? (
+                  <LinkedWorkoutPlanSummary value={linkedWorkouts} />
+                ) : null}
               </dl>
             ) : null}
           </section>
@@ -644,6 +740,7 @@ export function PlanRevisionWorkflow() {
                 {draftEditorOpen ? (
                   <PlanDraftWorkspace
                     revisionId={revision.revision_id}
+                    targetUserId={targetUserId}
                     document={revision.proposed_document}
                     saving={pendingAction === `save:${revision.revision_id}`}
                     onDirtyChange={setDraftHasUnsavedChanges}

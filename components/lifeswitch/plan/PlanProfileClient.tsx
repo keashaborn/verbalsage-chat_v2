@@ -172,7 +172,9 @@ function draftFromNutritionTargets(plan: PlanProfile | null): NutritionDraft {
     calories: valueToDisplay(t.calories ?? t.target_kcal ?? t.kcal),
     protein_g: valueToDisplay(t.protein_g ?? t.target_protein_g ?? t.protein),
     macro_notes: valueToDisplay(t.macro_notes ?? t.carbs_fat ?? t.macros),
-    meal_structure: valueToDisplay(t.meal_structure ?? t.meals ?? t.meal_timing),
+    meal_structure: valueToDisplay(
+      t.meal_structure ?? t.meals ?? t.meal_timing,
+    ),
     adherence_target: valueToDisplay(t.adherence_target ?? t.adherence),
   };
 }
@@ -195,7 +197,9 @@ function draftFromTrainingTargets(plan: PlanProfile | null): TrainingDraft {
     workouts_per_week: valueToDisplay(t.workouts_per_week ?? t.frequency),
     priority_areas: valueToDisplay(t.priority_areas ?? t.weak_points),
     progression_rule: valueToDisplay(t.progression_rule ?? t.progression),
-    recovery_constraints: valueToDisplay(t.recovery_constraints ?? t.constraints),
+    recovery_constraints: valueToDisplay(
+      t.recovery_constraints ?? t.constraints,
+    ),
   };
 }
 
@@ -255,12 +259,16 @@ function emptyConditioningActivityDraft(): ConditioningActivityDraft {
   };
 }
 
-function draftFromConditioningActivity(plan: PlanProfile | null): ConditioningActivityDraft {
+function draftFromConditioningActivity(
+  plan: PlanProfile | null,
+): ConditioningActivityDraft {
   const c = asObject(plan?.conditioning_targets);
   const a = asObject(plan?.activity_targets);
 
   return {
-    cardio_target: valueToDisplay(c.cardio_target ?? c.cardio_sessions_per_week ?? c.minutes_per_week),
+    cardio_target: valueToDisplay(
+      c.cardio_target ?? c.cardio_sessions_per_week ?? c.minutes_per_week,
+    ),
     preferred_mode: valueToDisplay(c.preferred_mode ?? c.mode),
     intensity: valueToDisplay(c.intensity ?? c.zone ?? c.rpe),
     steps_per_day: valueToDisplay(a.steps_per_day ?? a.step_target ?? a.neat),
@@ -285,10 +293,16 @@ function draftFromMonitoringRules(plan: PlanProfile | null): MonitoringDraft {
   return {
     summary: valueToDisplay(m.summary ?? m.adjustment_rule ?? m.rules),
     weight_trend_rule: valueToDisplay(m.weight_trend_rule ?? m.weight_trend),
-    nutrition_adherence_rule: valueToDisplay(m.nutrition_adherence_rule ?? m.nutrition_adherence),
-    training_performance_rule: valueToDisplay(m.training_performance_rule ?? m.training_performance),
+    nutrition_adherence_rule: valueToDisplay(
+      m.nutrition_adherence_rule ?? m.nutrition_adherence,
+    ),
+    training_performance_rule: valueToDisplay(
+      m.training_performance_rule ?? m.training_performance,
+    ),
     recovery_rule: valueToDisplay(m.recovery_rule ?? m.recovery),
-    lab_flags_rule: valueToDisplay(m.lab_flags_rule ?? m.lab_flags ?? m.biomarkers),
+    lab_flags_rule: valueToDisplay(
+      m.lab_flags_rule ?? m.lab_flags ?? m.biomarkers,
+    ),
   };
 }
 
@@ -339,7 +353,7 @@ function SectionCard({
       <details className="group">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
           <div className="min-w-0">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
               {eyebrow}
             </div>
             <div className="mt-0.5 text-base font-semibold">{title}</div>
@@ -365,13 +379,7 @@ function SectionCard({
   );
 }
 
-function PlanRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) {
+function PlanRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-3 border-b border-muted/40 py-2 last:border-0">
       <div className="text-xs font-medium text-muted-foreground">{label}</div>
@@ -381,7 +389,9 @@ function PlanRow({
 }
 
 function asObject(v: unknown): JsonObject {
-  return v && typeof v === "object" && !Array.isArray(v) ? (v as JsonObject) : {};
+  return v && typeof v === "object" && !Array.isArray(v)
+    ? (v as JsonObject)
+    : {};
 }
 
 function valueToDisplay(value: unknown): string {
@@ -409,7 +419,11 @@ function valueToDisplay(value: unknown): string {
   return "";
 }
 
-function readValue(obj: JsonObject, keys: string[], fallback: string): React.ReactNode {
+function readValue(
+  obj: JsonObject,
+  keys: string[],
+  fallback: string,
+): React.ReactNode {
   for (const key of keys) {
     const rendered = valueToDisplay(obj[key]);
     if (rendered) return rendered;
@@ -430,7 +444,11 @@ function dateRange(plan: PlanProfile | null): React.ReactNode {
   if (start && review) return `${start} → ${review}`;
   if (start) return `Started ${start}`;
   if (review) return `Review ${review}`;
-  return <span className="text-muted-foreground">Plan start date and next check-in</span>;
+  return (
+    <span className="text-muted-foreground">
+      Plan start date and next check-in
+    </span>
+  );
 }
 
 function updatedLabel(plan: PlanProfile | null): string {
@@ -518,55 +536,76 @@ function FieldSelect({
   );
 }
 
-
 export function PlanProfileClient() {
   const searchParams = useSearchParams();
   const targetUserId = searchParams.get("target_user_id") || "";
   const targetName = searchParams.get("target_name") || "";
 
   const [plan, setPlan] = React.useState<PlanProfile | null>(null);
-  const [status, setStatus] = React.useState<"loading" | "ready" | "unauthorized" | "error">("loading");
+  const [status, setStatus] = React.useState<
+    "loading" | "ready" | "unauthorized" | "error"
+  >("loading");
   const [error, setError] = React.useState<string>("");
 
   const [editingPhase, setEditingPhase] = React.useState(false);
   const [savingPhase, setSavingPhase] = React.useState(false);
   const [saveMessage, setSaveMessage] = React.useState("");
-  const [phaseDraft, setPhaseDraft] = React.useState<PhaseDraft>(() => emptyPhaseDraft());
+  const [phaseDraft, setPhaseDraft] = React.useState<PhaseDraft>(() =>
+    emptyPhaseDraft(),
+  );
 
   const [editingNutrition, setEditingNutrition] = React.useState(false);
   const [savingNutrition, setSavingNutrition] = React.useState(false);
-  const [nutritionDraft, setNutritionDraft] = React.useState<NutritionDraft>(() => emptyNutritionDraft());
+  const [nutritionDraft, setNutritionDraft] = React.useState<NutritionDraft>(
+    () => emptyNutritionDraft(),
+  );
 
   const [editingTraining, setEditingTraining] = React.useState(false);
   const [savingTraining, setSavingTraining] = React.useState(false);
-  const [trainingDraft, setTrainingDraft] = React.useState<TrainingDraft>(() => emptyTrainingDraft());
+  const [trainingDraft, setTrainingDraft] = React.useState<TrainingDraft>(() =>
+    emptyTrainingDraft(),
+  );
 
   const [editingBodyState, setEditingBodyState] = React.useState(false);
   const [savingBodyState, setSavingBodyState] = React.useState(false);
-  const [bodyStateDraft, setBodyStateDraft] = React.useState<BodyStateDraft>(() => emptyBodyStateDraft());
+  const [bodyStateDraft, setBodyStateDraft] = React.useState<BodyStateDraft>(
+    () => emptyBodyStateDraft(),
+  );
 
   const [editingRecovery, setEditingRecovery] = React.useState(false);
   const [savingRecovery, setSavingRecovery] = React.useState(false);
-  const [recoveryDraft, setRecoveryDraft] = React.useState<RecoveryDraft>(() => emptyRecoveryDraft());
+  const [recoveryDraft, setRecoveryDraft] = React.useState<RecoveryDraft>(() =>
+    emptyRecoveryDraft(),
+  );
 
-  const [editingConditioningActivity, setEditingConditioningActivity] = React.useState(false);
-  const [savingConditioningActivity, setSavingConditioningActivity] = React.useState(false);
-  const [conditioningActivityDraft, setConditioningActivityDraft] = React.useState<ConditioningActivityDraft>(() => emptyConditioningActivityDraft());
+  const [editingConditioningActivity, setEditingConditioningActivity] =
+    React.useState(false);
+  const [savingConditioningActivity, setSavingConditioningActivity] =
+    React.useState(false);
+  const [conditioningActivityDraft, setConditioningActivityDraft] =
+    React.useState<ConditioningActivityDraft>(() =>
+      emptyConditioningActivityDraft(),
+    );
 
   const [editingMonitoring, setEditingMonitoring] = React.useState(false);
   const [savingMonitoring, setSavingMonitoring] = React.useState(false);
-  const [monitoringDraft, setMonitoringDraft] = React.useState<MonitoringDraft>(() => emptyMonitoringDraft());
+  const [monitoringDraft, setMonitoringDraft] = React.useState<MonitoringDraft>(
+    () => emptyMonitoringDraft(),
+  );
 
   const [editingBiomarkers, setEditingBiomarkers] = React.useState(false);
   const [savingBiomarkers, setSavingBiomarkers] = React.useState(false);
-  const [biomarkersDraft, setBiomarkersDraft] = React.useState<BiomarkersDraft>(() => emptyBiomarkersDraft());
+  const [biomarkersDraft, setBiomarkersDraft] = React.useState<BiomarkersDraft>(
+    () => emptyBiomarkersDraft(),
+  );
 
   const [editingCoachNotes, setEditingCoachNotes] = React.useState(false);
   const [savingCoachNotes, setSavingCoachNotes] = React.useState(false);
   const [coachNotesDraft, setCoachNotesDraft] = React.useState("");
 
   const [canEditDelegatedPlan, setCanEditDelegatedPlan] = React.useState(false);
-  const [canCommentDelegatedPlan, setCanCommentDelegatedPlan] = React.useState(false);
+  const [canCommentDelegatedPlan, setCanCommentDelegatedPlan] =
+    React.useState(false);
   const [comments, setComments] = React.useState<PlanComment[]>([]);
   const [commentDraft, setCommentDraft] = React.useState("");
   const [savingComment, setSavingComment] = React.useState(false);
@@ -620,18 +659,32 @@ export function PlanProfileClient() {
 
           if (targetUserId) {
             try {
-              const permsResp = await authFetch("/api/lifeswitch/people/permissions/granted-to-me", {
-                cache: "no-store",
-              });
+              const permsResp = await authFetch(
+                "/api/lifeswitch/people/permissions/granted-to-me",
+                {
+                  cache: "no-store",
+                },
+              );
               const permsText = await permsResp.text();
               const perms = permsText ? JSON.parse(permsText) : [];
               const targetPerms = Array.isArray(perms)
-                ? perms.filter((p: GrantedPermission) => p.grantor_user_id === targetUserId && p.is_enabled)
+                ? perms.filter(
+                    (p: GrantedPermission) =>
+                      p.grantor_user_id === targetUserId && p.is_enabled,
+                  )
                 : [];
 
-              setCanEditDelegatedPlan(targetPerms.some((p: GrantedPermission) => p.permission_scope === "plan:edit"));
+              setCanEditDelegatedPlan(
+                targetPerms.some(
+                  (p: GrantedPermission) => p.permission_scope === "plan:edit",
+                ),
+              );
               setCanCommentDelegatedPlan(
-                targetPerms.some((p: GrantedPermission) => p.permission_scope === "plan:comment" || p.permission_scope === "plan:edit")
+                targetPerms.some(
+                  (p: GrantedPermission) =>
+                    p.permission_scope === "plan:comment" ||
+                    p.permission_scope === "plan:edit",
+                ),
               );
             } catch {
               setCanEditDelegatedPlan(false);
@@ -646,7 +699,9 @@ export function PlanProfileClient() {
             const commentsUrl = targetUserId
               ? `/api/lifeswitch/plan/profile/comments?target_user_id=${encodeURIComponent(targetUserId)}`
               : "/api/lifeswitch/plan/profile/comments";
-            const commentsResp = await authFetch(commentsUrl, { cache: "no-store" });
+            const commentsResp = await authFetch(commentsUrl, {
+              cache: "no-store",
+            });
             const commentsText = await commentsResp.text();
             const commentsData = commentsText ? JSON.parse(commentsText) : [];
             setComments(Array.isArray(commentsData) ? commentsData : []);
@@ -672,7 +727,10 @@ export function PlanProfileClient() {
   }, [targetUserId]);
 
   function planUpsertUrl(reason: string) {
-    const u = new URL("/api/lifeswitch/plan/profile/upsert", window.location.origin);
+    const u = new URL(
+      "/api/lifeswitch/plan/profile/upsert",
+      window.location.origin,
+    );
     u.searchParams.set("snapshot_reason", reason);
     if (targetUserId) u.searchParams.set("target_user_id", targetUserId);
     return u.toString();
@@ -696,7 +754,10 @@ export function PlanProfileClient() {
     setError("");
 
     try {
-      const u = new URL("/api/lifeswitch/plan/profile/comments/create", window.location.origin);
+      const u = new URL(
+        "/api/lifeswitch/plan/profile/comments/create",
+        window.location.origin,
+      );
       if (targetUserId) u.searchParams.set("target_user_id", targetUserId);
 
       const r = await authFetch(u.toString(), {
@@ -717,7 +778,8 @@ export function PlanProfileClient() {
         throw new Error(responseText || `HTTP ${r.status}`);
       }
 
-      if (!r.ok) throw new Error(data?.detail || data?.error || `HTTP ${r.status}`);
+      if (!r.ok)
+        throw new Error(data?.detail || data?.error || `HTTP ${r.status}`);
 
       setCommentDraft("");
       await refreshPlanComments();
@@ -880,6 +942,7 @@ export function PlanProfileClient() {
         body_state: asObject(plan?.body_state),
         nutrition_targets: asObject(plan?.nutrition_targets),
         training_targets: {
+          ...asObject(plan?.training_targets),
           split: trainingDraft.split,
           workouts_per_week: trainingDraft.workouts_per_week,
           priority_areas: trainingDraft.priority_areas,
@@ -1373,11 +1436,14 @@ export function PlanProfileClient() {
   const recoveryTargets = asObject(plan?.recovery_targets);
   const monitoringRules = asObject(plan?.monitoring_rules);
 
-  const phase = plan?.phase ? PHASE_LABELS[plan.phase] || plan.phase : "Maintenance";
+  const phase = plan?.phase
+    ? PHASE_LABELS[plan.phase] || plan.phase
+    : "Maintenance";
   const phaseLabel = plan?.phase_label?.trim();
   const delegatedView = Boolean(plan?._delegated_view || targetUserId);
   const canEditPlan = !delegatedView || canEditDelegatedPlan;
-  const canCommentPlan = !delegatedView || canCommentDelegatedPlan || canEditDelegatedPlan;
+  const canCommentPlan =
+    !delegatedView || canCommentDelegatedPlan || canEditDelegatedPlan;
   const readOnly = delegatedView && !canEditPlan;
 
   return (
@@ -1386,11 +1452,16 @@ export function PlanProfileClient() {
         id="plan-overview"
         eyebrow="LifeSwitch"
         title="Physique Plan"
-        summary={status === "ready" && plan ? `Updated ${updatedLabel(plan)}` : "Integrated physique plan"}
+        summary={
+          status === "ready" && plan
+            ? `Updated ${updatedLabel(plan)}`
+            : "Integrated physique plan"
+        }
       >
         <p className="max-w-3xl text-sm text-muted-foreground">
-          One integrated plan for body composition, nutrition, strength training,
-          conditioning, daily activity, recovery, monitoring, and weekly adjustment.
+          One integrated plan for body composition, nutrition, strength
+          training, conditioning, daily activity, recovery, monitoring, and
+          weekly adjustment.
         </p>
 
         <div className="mt-3 text-xs text-muted-foreground">
@@ -1398,947 +1469,1474 @@ export function PlanProfileClient() {
           {status === "ready" && plan
             ? `${delegatedView ? (canEditPlan ? "Delegated editable view" : "Delegated read-only view") : "Loaded from backend"} · Updated ${updatedLabel(plan)}`
             : null}
-          {status === "unauthorized" ? "Sign in required to load your saved LifeSwitch plan." : null}
+          {status === "unauthorized"
+            ? "Sign in required to load your saved LifeSwitch plan."
+            : null}
           {status === "error" ? `Could not load plan: ${error}` : null}
         </div>
 
         {delegatedView ? (
           <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
-            You are viewing {targetName ? `${targetName}’s` : "another person’s"} LifeSwitch plan. This delegated view is {canEditPlan ? "editable because plan edit access is granted" : "read-only"}.
+            You are viewing{" "}
+            {targetName ? `${targetName}’s` : "another person’s"} LifeSwitch
+            plan. This delegated view is{" "}
+            {canEditPlan
+              ? "editable because plan edit access is granted"
+              : "read-only"}
+            .
           </div>
         ) : null}
 
         <div className="mt-4 flex flex-wrap gap-2 text-xs">
-          <a href="#current-phase" className="rounded-full border px-3 py-1 hover:bg-muted/40">Phase</a>
-          <a href="#body-state" className="rounded-full border px-3 py-1 hover:bg-muted/40">Body State</a>
-          <a href="#biomarkers-labs" className="rounded-full border px-3 py-1 hover:bg-muted/40">Labs</a>
-          <a href="#nutrition-targets" className="rounded-full border px-3 py-1 hover:bg-muted/40">Nutrition</a>
-          <a href="#training-targets" className="rounded-full border px-3 py-1 hover:bg-muted/40">Training</a>
-          <a href="#conditioning-targets" className="rounded-full border px-3 py-1 hover:bg-muted/40">Conditioning</a>
-          <a href="#recovery-targets" className="rounded-full border px-3 py-1 hover:bg-muted/40">Recovery</a>
-          <a href="#monitoring-rules" className="rounded-full border px-3 py-1 hover:bg-muted/40">Adjustments</a>
-          <a href="#coach-notes" className="rounded-full border px-3 py-1 hover:bg-muted/40">Notes</a>
+          <a
+            href="#current-phase"
+            className="rounded-full border px-3 py-1 hover:bg-muted/40"
+          >
+            Phase
+          </a>
+          <a
+            href="#body-state"
+            className="rounded-full border px-3 py-1 hover:bg-muted/40"
+          >
+            Body State
+          </a>
+          <a
+            href="#biomarkers-labs"
+            className="rounded-full border px-3 py-1 hover:bg-muted/40"
+          >
+            Labs
+          </a>
+          <a
+            href="#nutrition-targets"
+            className="rounded-full border px-3 py-1 hover:bg-muted/40"
+          >
+            Nutrition
+          </a>
+          <a
+            href="#training-targets"
+            className="rounded-full border px-3 py-1 hover:bg-muted/40"
+          >
+            Training
+          </a>
+          <a
+            href="#conditioning-targets"
+            className="rounded-full border px-3 py-1 hover:bg-muted/40"
+          >
+            Conditioning
+          </a>
+          <a
+            href="#recovery-targets"
+            className="rounded-full border px-3 py-1 hover:bg-muted/40"
+          >
+            Recovery
+          </a>
+          <a
+            href="#monitoring-rules"
+            className="rounded-full border px-3 py-1 hover:bg-muted/40"
+          >
+            Adjustments
+          </a>
+          <a
+            href="#coach-notes"
+            className="rounded-full border px-3 py-1 hover:bg-muted/40"
+          >
+            Notes
+          </a>
         </div>
       </SectionCard>
 
       <SectionCard
-              id="current-phase"
-              eyebrow="Current intervention"
-              title="Current Phase"
-              summary={phaseLabel ? `${phase} · ${phaseLabel}` : phase}
-            >
-            {editingPhase ? (
-              <div className="grid gap-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <FieldSelect
-                    label="Phase"
-                    value={phaseDraft.phase}
-                    onChange={(value) => setPhaseDraft((d) => ({ ...d, phase: value }))}
-                  >
-                    <option value="cut">Cut</option>
-                    <option value="maintenance">Maintenance</option>
-                    <option value="lean_gain">Lean gain</option>
-                    <option value="recomp">Recomp</option>
-                    <option value="other">Other</option>
-                  </FieldSelect>
-
-                  <FieldInput
-                    label="Phase label"
-                    value={phaseDraft.phase_label}
-                    placeholder="Optional short description"
-                    onChange={(value) => setPhaseDraft((d) => ({ ...d, phase_label: value }))}
-                  />
-
-                  <FieldInput
-                    label="Start date"
-                    type="date"
-                    value={phaseDraft.start_date}
-                    onChange={(value) => setPhaseDraft((d) => ({ ...d, start_date: value }))}
-                  />
-
-                  <FieldInput
-                    label="Review date"
-                    type="date"
-                    value={phaseDraft.review_date}
-                    onChange={(value) => setPhaseDraft((d) => ({ ...d, review_date: value }))}
-                  />
-
-                  <FieldInput
-                    label="Review cadence"
-                    value={phaseDraft.review_cadence}
-                    placeholder="weekly"
-                    onChange={(value) => setPhaseDraft((d) => ({ ...d, review_cadence: value }))}
-                  />
-                </div>
-
-                <FieldTextArea
-                  label="Primary goal"
-                  value={phaseDraft.primary_goal}
-                  placeholder="What is this plan trying to accomplish?"
-                  onChange={(value) => setPhaseDraft((d) => ({ ...d, primary_goal: value }))}
-                />
-
-                <FieldTextArea
-                  label="Coach notes"
-                  value={phaseDraft.coach_notes}
-                  placeholder="Weekly focus, risks, adjustment notes."
-                  onChange={(value) => setPhaseDraft((d) => ({ ...d, coach_notes: value }))}
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => void saveCurrentPhase()}
-                    disabled={readOnly || savingPhase || status === "unauthorized"}
-                  >
-                    {savingPhase ? "Saving…" : "Save current phase"}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
-                    onClick={() => {
-                      setPhaseDraft(draftFromPlan(plan));
-                      setEditingPhase(false);
-                      setSaveMessage("");
-                    }}
-                    disabled={savingPhase}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-1">
-                <PlanRow label="Phase" value={phaseLabel ? `${phase} · ${phaseLabel}` : phase} />
-                <PlanRow label="Primary goal" value={textValue(plan?.primary_goal, "Body-composition outcome and performance priority")} />
-                <PlanRow label="Start / review dates" value={dateRange(plan)} />
-                <PlanRow label="Review cadence" value={textValue(plan?.review_cadence, "Weekly")} />
-                <div className="pt-3">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => {
-                      setPhaseDraft(draftFromPlan(plan));
-                      setEditingPhase(true);
-                      setSaveMessage("");
-                    }}
-                    disabled={readOnly || status === "loading" || status === "unauthorized"}
-                  >
-                    Edit current phase
-                  </button>
-                </div>
-              </div>
-            )}
-          </SectionCard>
-
-<SectionCard
-              id="body-state"
-              eyebrow="Dependent variables"
-              title="Current Body State"
-              summary={`${readValue(bodyState, ["weight_lb", "weight", "body_weight"], "Weight not set")} · ${readValue(bodyState, ["body_fat_percent", "body_composition"], "Body fat not set")}`}
-            >
-            {editingBodyState ? (
-              <div className="grid gap-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <FieldInput
-                    label="Weight"
-                    value={bodyStateDraft.weight_lb}
-                    placeholder="Current body weight / trend"
-                    onChange={(value) => setBodyStateDraft((d) => ({ ...d, weight_lb: value }))}
-                  />
-
-                  <FieldInput
-                    label="Waist"
-                    value={bodyStateDraft.waist_in}
-                    placeholder="Waist measurement"
-                    onChange={(value) => setBodyStateDraft((d) => ({ ...d, waist_in: value }))}
-                  />
-
-                  <FieldInput
-                    label="Body fat %"
-                    value={bodyStateDraft.body_fat_percent}
-                    placeholder="Estimate or range"
-                    onChange={(value) => setBodyStateDraft((d) => ({ ...d, body_fat_percent: value }))}
-                  />
-
-                  <FieldInput
-                    label="Method"
-                    value={bodyStateDraft.measurement_method}
-                    placeholder="Scale, calipers, scan, manual"
-                    onChange={(value) => setBodyStateDraft((d) => ({ ...d, measurement_method: value }))}
-                  />
-                </div>
-
-                <FieldTextArea
-                  label="Measurements"
-                  value={bodyStateDraft.measurements}
-                  placeholder="Waist, chest, arms, thighs, hips, calves."
-                  onChange={(value) => setBodyStateDraft((d) => ({ ...d, measurements: value }))}
-                />
-
-                <FieldTextArea
-                  label="Calipers"
-                  value={bodyStateDraft.calipers}
-                  placeholder="Caliper sites, formula, or notes."
-                  onChange={(value) => setBodyStateDraft((d) => ({ ...d, calipers: value }))}
-                />
-
-                <FieldTextArea
-                  label="Body scan"
-                  value={bodyStateDraft.body_scan}
-                  placeholder="DEXA / InBody / 3D scan details or future placeholder."
-                  onChange={(value) => setBodyStateDraft((d) => ({ ...d, body_scan: value }))}
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => void saveBodyState()}
-                    disabled={readOnly || savingBodyState || status === "unauthorized"}
-                  >
-                    {savingBodyState ? "Saving…" : "Save body state"}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
-                    onClick={() => {
-                      setBodyStateDraft(draftFromBodyState(plan));
-                      setEditingBodyState(false);
-                      setSaveMessage("");
-                    }}
-                    disabled={savingBodyState}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-1">
-                <PlanRow label="Weight" value={readValue(bodyState, ["weight_lb", "weight", "body_weight"], "Current body weight and trend")} />
-                <PlanRow label="Measurements" value={readValue(bodyState, ["measurements", "waist_in", "waist"], "Waist, chest, arms, thighs, hips, calves")} />
-                <PlanRow label="Body composition" value={readValue(bodyState, ["body_fat_percent", "body_composition"], "Estimate method and confidence")} />
-                <PlanRow label="Calipers" value={readValue(bodyState, ["calipers", "caliper_sites"], "Site measurements and formula later")} />
-                <PlanRow label="Body scan" value={readValue(bodyState, ["body_scan", "scan"], "DEXA / InBody / 3D scan placeholder")} />
-                <div className="pt-3">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => {
-                      setBodyStateDraft(draftFromBodyState(plan));
-                      setEditingBodyState(true);
-                      setSaveMessage("");
-                    }}
-                    disabled={readOnly || status === "loading" || status === "unauthorized"}
-                  >
-                    Edit body state
-                  </button>
-                </div>
-              </div>
-            )}
-          </SectionCard>
-
-<SectionCard
-              id="nutrition-targets"
-              eyebrow="Nutrition prescription"
-              title="Nutrition Targets"
-              summary={`${readValue(nutritionTargets, ["calories", "target_kcal", "kcal"], "Calories not set")} · ${readValue(nutritionTargets, ["protein_g", "target_protein_g", "protein"], "Protein not set")}`}
-            >
-            {editingNutrition ? (
-              <div className="grid gap-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <FieldInput
-                    label="Calories"
-                    value={nutritionDraft.calories}
-                    placeholder="Daily target or range"
-                    onChange={(value) => setNutritionDraft((d) => ({ ...d, calories: value }))}
-                  />
-
-                  <FieldInput
-                    label="Protein"
-                    value={nutritionDraft.protein_g}
-                    placeholder="Daily grams or minimum threshold"
-                    onChange={(value) => setNutritionDraft((d) => ({ ...d, protein_g: value }))}
-                  />
-
-                  <FieldInput
-                    label="Carbs / Fat"
-                    value={nutritionDraft.macro_notes}
-                    placeholder="Macro ranges or flexible targets"
-                    onChange={(value) => setNutritionDraft((d) => ({ ...d, macro_notes: value }))}
-                  />
-
-                  <FieldInput
-                    label="Adherence target"
-                    value={nutritionDraft.adherence_target}
-                    placeholder="What counts as compliant enough?"
-                    onChange={(value) => setNutritionDraft((d) => ({ ...d, adherence_target: value }))}
-                  />
-                </div>
-
-                <FieldTextArea
-                  label="Meal structure"
-                  value={nutritionDraft.meal_structure}
-                  placeholder="Meal timing, meal count, repeat meals, pre/post-workout notes."
-                  onChange={(value) => setNutritionDraft((d) => ({ ...d, meal_structure: value }))}
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => void saveNutritionTargets()}
-                    disabled={readOnly || savingNutrition || status === "unauthorized"}
-                  >
-                    {savingNutrition ? "Saving…" : "Save nutrition targets"}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
-                    onClick={() => {
-                      setNutritionDraft(draftFromNutritionTargets(plan));
-                      setEditingNutrition(false);
-                      setSaveMessage("");
-                    }}
-                    disabled={savingNutrition}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-1">
-                <PlanRow label="Calories" value={readValue(nutritionTargets, ["calories", "target_kcal", "kcal"], "Daily target or range")} />
-                <PlanRow label="Protein" value={readValue(nutritionTargets, ["protein_g", "target_protein_g", "protein"], "Daily grams and minimum threshold")} />
-                <PlanRow label="Carbs / Fat" value={readValue(nutritionTargets, ["macro_notes", "carbs_fat", "macros"], "Macro ranges or flexible targets")} />
-                <PlanRow label="Meal structure" value={readValue(nutritionTargets, ["meal_structure", "meals", "meal_timing"], "Meal timing, meal count, repeat meals, pre/post-workout notes")} />
-                <PlanRow label="Adherence target" value={readValue(nutritionTargets, ["adherence_target", "adherence"], "What counts as compliant enough this week")} />
-                <div className="pt-2 text-xs">
-                  Related:{" "}
-                  <Link href="/lifeswitch/nutrition/meals" className="underline">Meals</Link>
-                  {" · "}
-                  <Link href="/lifeswitch/nutrition/meal-plans" className="underline">Meal Plans</Link>
-                  {" · "}
-                  <Link href="/lifeswitch/nutrition/capture" className="underline">Nutrition Capture</Link>
-                </div>
-                <div className="pt-3">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => {
-                      setNutritionDraft(draftFromNutritionTargets(plan));
-                      setEditingNutrition(true);
-                      setSaveMessage("");
-                    }}
-                    disabled={readOnly || status === "loading" || status === "unauthorized"}
-                  >
-                    Edit nutrition targets
-                  </button>
-                </div>
-              </div>
-            )}
-          </SectionCard>
-
-<SectionCard
-              id="training-targets"
-              eyebrow="Strength prescription"
-              title="Strength Training Targets"
-              summary={`${readValue(trainingTargets, ["workouts_per_week", "frequency"], "Frequency not set")} · ${readValue(trainingTargets, ["split", "weekly_split"], "Split not set")}`}
-            >
-            {editingTraining ? (
-              <div className="grid gap-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <FieldInput
-                    label="Split"
-                    value={trainingDraft.split}
-                    placeholder="Current weekly split and training days"
-                    onChange={(value) => setTrainingDraft((d) => ({ ...d, split: value }))}
-                  />
-
-                  <FieldInput
-                    label="Frequency"
-                    value={trainingDraft.workouts_per_week}
-                    placeholder="Workouts per week and expected duration"
-                    onChange={(value) => setTrainingDraft((d) => ({ ...d, workouts_per_week: value }))}
-                  />
-                </div>
-
-                <FieldTextArea
-                  label="Priority areas"
-                  value={trainingDraft.priority_areas}
-                  placeholder="Weak points, priority lifts, muscles, or movement patterns."
-                  onChange={(value) => setTrainingDraft((d) => ({ ...d, priority_areas: value }))}
-                />
-
-                <FieldTextArea
-                  label="Progression rule"
-                  value={trainingDraft.progression_rule}
-                  placeholder="How load, reps, sets, or effort should change."
-                  onChange={(value) => setTrainingDraft((d) => ({ ...d, progression_rule: value }))}
-                />
-
-                <FieldTextArea
-                  label="Recovery constraints"
-                  value={trainingDraft.recovery_constraints}
-                  placeholder="Pain, surgery limits, fatigue, soreness, deload triggers."
-                  onChange={(value) => setTrainingDraft((d) => ({ ...d, recovery_constraints: value }))}
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => void saveTrainingTargets()}
-                    disabled={readOnly || savingTraining || status === "unauthorized"}
-                  >
-                    {savingTraining ? "Saving…" : "Save training targets"}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
-                    onClick={() => {
-                      setTrainingDraft(draftFromTrainingTargets(plan));
-                      setEditingTraining(false);
-                      setSaveMessage("");
-                    }}
-                    disabled={savingTraining}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-1">
-                <PlanRow label="Split" value={readValue(trainingTargets, ["split", "weekly_split"], "Current weekly split and training days")} />
-                <PlanRow label="Frequency" value={readValue(trainingTargets, ["workouts_per_week", "frequency"], "Workouts per week and expected duration")} />
-                <PlanRow label="Priority areas" value={readValue(trainingTargets, ["priority_areas", "weak_points"], "Weak points, priority lifts, muscles, or movement patterns")} />
-                <PlanRow label="Progression rule" value={readValue(trainingTargets, ["progression_rule", "progression"], "How load, reps, sets, or effort should change")} />
-                <PlanRow label="Recovery constraints" value={readValue(trainingTargets, ["recovery_constraints", "constraints"], "Pain, surgery limits, fatigue, soreness, deload triggers")} />
-                <div className="pt-2 text-xs">
-                  Related:{" "}
-                  <Link href="/lifeswitch/training/design/workouts" className="underline">Strength Workouts</Link>
-                  {" · "}
-                  <Link href="/lifeswitch/training/capture" className="underline">Training Capture</Link>
-                  {" · "}
-                  <Link href="/lifeswitch/training/calendar" className="underline">Training Log</Link>
-                </div>
-                <div className="pt-3">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => {
-                      setTrainingDraft(draftFromTrainingTargets(plan));
-                      setEditingTraining(true);
-                      setSaveMessage("");
-                    }}
-                    disabled={readOnly || status === "loading" || status === "unauthorized"}
-                  >
-                    Edit training targets
-                  </button>
-                </div>
-              </div>
-            )}
-          </SectionCard>
-
-<SectionCard
-              id="conditioning-targets"
-              eyebrow="Cardio / conditioning"
-              title="Conditioning and Daily Activity Targets"
-              summary={`${readValue(conditioningTargets, ["cardio_target", "cardio_sessions_per_week", "minutes_per_week"], "Cardio not set")} · ${readValue(activityTargets, ["steps_per_day", "step_target", "neat"], "Steps not set")}`}
-            >
-            {editingConditioningActivity ? (
-              <div className="grid gap-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <FieldInput
-                    label="Cardio target"
-                    value={conditioningActivityDraft.cardio_target}
-                    placeholder="None / optional / sessions per week / minutes per week"
-                    onChange={(value) => setConditioningActivityDraft((d) => ({ ...d, cardio_target: value }))}
-                  />
-
-                  <FieldInput
-                    label="Preferred mode"
-                    value={conditioningActivityDraft.preferred_mode}
-                    placeholder="Incline walk, treadmill, bike, intervals, ropes, sled"
-                    onChange={(value) => setConditioningActivityDraft((d) => ({ ...d, preferred_mode: value }))}
-                  />
-
-                  <FieldInput
-                    label="Intensity"
-                    value={conditioningActivityDraft.intensity}
-                    placeholder="Zone 2, intervals, RPE, heart-rate target"
-                    onChange={(value) => setConditioningActivityDraft((d) => ({ ...d, intensity: value }))}
-                  />
-
-                  <FieldInput
-                    label="Steps / NEAT"
-                    value={conditioningActivityDraft.steps_per_day}
-                    placeholder="Daily or weekly step target"
-                    onChange={(value) => setConditioningActivityDraft((d) => ({ ...d, steps_per_day: value }))}
-                  />
-
-                  <FieldInput
-                    label="Wearable source"
-                    value={conditioningActivityDraft.wearable_source}
-                    placeholder="Apple Health, Garmin, Fitbit, manual"
-                    onChange={(value) => setConditioningActivityDraft((d) => ({ ...d, wearable_source: value }))}
-                  />
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => void saveConditioningActivity()}
-                    disabled={readOnly || savingConditioningActivity || status === "unauthorized"}
-                  >
-                    {savingConditioningActivity ? "Saving…" : "Save conditioning / activity"}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
-                    onClick={() => {
-                      setConditioningActivityDraft(draftFromConditioningActivity(plan));
-                      setEditingConditioningActivity(false);
-                      setSaveMessage("");
-                    }}
-                    disabled={savingConditioningActivity}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-1">
-                <PlanRow label="Cardio target" value={readValue(conditioningTargets, ["cardio_target", "cardio_sessions_per_week", "minutes_per_week"], "None / optional / sessions per week / minutes per week")} />
-                <PlanRow label="Preferred mode" value={readValue(conditioningTargets, ["preferred_mode", "mode"], "Incline walk, treadmill, bike, intervals, ropes, sled, outdoor walk/run")} />
-                <PlanRow label="Intensity" value={readValue(conditioningTargets, ["intensity", "zone", "rpe"], "Zone 2, intervals, RPE, heart-rate target, or simple duration target")} />
-                <PlanRow label="Steps / NEAT" value={readValue(activityTargets, ["steps_per_day", "step_target", "neat"], "Daily or weekly step target and general movement goal")} />
-                <PlanRow label="Wearables" value={readValue(activityTargets, ["wearable_source", "source"], "Future source for steps, calories, heart rate, HRV, sleep, zone minutes")} />
-                <div className="pt-3">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => {
-                      setConditioningActivityDraft(draftFromConditioningActivity(plan));
-                      setEditingConditioningActivity(true);
-                      setSaveMessage("");
-                    }}
-                    disabled={readOnly || status === "loading" || status === "unauthorized"}
-                  >
-                    Edit conditioning / activity
-                  </button>
-                </div>
-              </div>
-            )}
-          </SectionCard>
-
-<SectionCard
-              id="recovery-targets"
-              eyebrow="Recovery prescription"
-              title="Sleep and Recovery"
-              summary={`${readValue(recoveryTargets, ["sleep_hours", "sleep_target"], "Sleep not set")} · ${readValue(recoveryTargets, ["rest_days", "rest"], "Rest not set")}`}
-            >
-            {editingRecovery ? (
-              <div className="grid gap-3">
-                <FieldInput
-                  label="Sleep target"
-                  value={recoveryDraft.sleep_hours}
-                  placeholder="Hours, consistency, wakeups, quality"
-                  onChange={(value) => setRecoveryDraft((d) => ({ ...d, sleep_hours: value }))}
-                />
-
-                <FieldInput
-                  label="Rest days"
-                  value={recoveryDraft.rest_days}
-                  placeholder="Planned rest or low-stress days"
-                  onChange={(value) => setRecoveryDraft((d) => ({ ...d, rest_days: value }))}
-                />
-
-                <FieldTextArea
-                  label="Mobility"
-                  value={recoveryDraft.mobility_goal}
-                  placeholder="Flexibility, stretching, rehab, or movement-prep goal."
-                  onChange={(value) => setRecoveryDraft((d) => ({ ...d, mobility_goal: value }))}
-                />
-
-                <FieldTextArea
-                  label="Fatigue watch"
-                  value={recoveryDraft.fatigue_watch}
-                  placeholder="Soreness, joint pain, motivation, performance drop."
-                  onChange={(value) => setRecoveryDraft((d) => ({ ...d, fatigue_watch: value }))}
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => void saveRecoveryTargets()}
-                    disabled={readOnly || savingRecovery || status === "unauthorized"}
-                  >
-                    {savingRecovery ? "Saving…" : "Save recovery targets"}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
-                    onClick={() => {
-                      setRecoveryDraft(draftFromRecoveryTargets(plan));
-                      setEditingRecovery(false);
-                      setSaveMessage("");
-                    }}
-                    disabled={savingRecovery}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-1">
-                <PlanRow label="Sleep target" value={readValue(recoveryTargets, ["sleep_hours", "sleep_target"], "Hours, consistency, wakeups, and quality")} />
-                <PlanRow label="Rest days" value={readValue(recoveryTargets, ["rest_days", "rest"], "Planned rest or low-stress activity days")} />
-                <PlanRow label="Mobility" value={readValue(recoveryTargets, ["mobility_goal", "mobility"], "Flexibility, stretching, rehab, or movement-prep goal")} />
-                <PlanRow label="Fatigue watch" value={readValue(recoveryTargets, ["fatigue_watch", "fatigue"], "Soreness, joint pain, motivation, performance drop")} />
-                <div className="pt-3">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => {
-                      setRecoveryDraft(draftFromRecoveryTargets(plan));
-                      setEditingRecovery(true);
-                      setSaveMessage("");
-                    }}
-                    disabled={readOnly || status === "loading" || status === "unauthorized"}
-                  >
-                    Edit recovery targets
-                  </button>
-                </div>
-              </div>
-            )}
-          </SectionCard>
-
-<SectionCard
-              id="biomarkers-labs"
-              eyebrow="Biomarkers / labs"
-              title="Blood Work and Health Markers"
-              summary={readValue(asObject(asObject(monitoringRules).biomarkers), ["next_lab_date"], "No next lab date")}
-            >
-            {editingBiomarkers ? (
-              <div className="grid gap-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <FieldInput
-                    label="Last lab date"
-                    type="date"
-                    value={biomarkersDraft.last_lab_date}
-                    onChange={(value) => setBiomarkersDraft((d) => ({ ...d, last_lab_date: value }))}
-                  />
-
-                  <FieldInput
-                    label="Next lab date"
-                    type="date"
-                    value={biomarkersDraft.next_lab_date}
-                    onChange={(value) => setBiomarkersDraft((d) => ({ ...d, next_lab_date: value }))}
-                  />
-
-                  <FieldInput
-                    label="Provider / source"
-                    value={biomarkersDraft.provider_source}
-                    placeholder="Functional medicine, PCP, lab system, etc."
-                    onChange={(value) => setBiomarkersDraft((d) => ({ ...d, provider_source: value }))}
-                  />
-                </div>
-
-                <FieldTextArea
-                  label="Key flags / watch items"
-                  value={biomarkersDraft.key_flags}
-                  placeholder="CBC, glucose/A1c, lipids, liver/kidney markers, hormones, thyroid, nutrients, inflammatory markers."
-                  onChange={(value) => setBiomarkersDraft((d) => ({ ...d, key_flags: value }))}
-                />
-
-                <FieldTextArea
-                  label="Training relevance"
-                  value={biomarkersDraft.training_relevance}
-                  placeholder="How labs may affect training load, recovery, fatigue, performance, or exercise selection."
-                  onChange={(value) => setBiomarkersDraft((d) => ({ ...d, training_relevance: value }))}
-                />
-
-                <FieldTextArea
-                  label="Nutrition relevance"
-                  value={biomarkersDraft.nutrition_relevance}
-                  placeholder="How labs may affect calorie strategy, carb tolerance, protein context, fat intake, or supplements."
-                  onChange={(value) => setBiomarkersDraft((d) => ({ ...d, nutrition_relevance: value }))}
-                />
-
-                <FieldTextArea
-                  label="Recovery relevance"
-                  value={biomarkersDraft.recovery_relevance}
-                  placeholder="How labs may affect sleep, fatigue, soreness, stress tolerance, or recovery expectations."
-                  onChange={(value) => setBiomarkersDraft((d) => ({ ...d, recovery_relevance: value }))}
-                />
-
-                <FieldTextArea
-                  label="Clinical review notes"
-                  value={biomarkersDraft.clinical_review_notes}
-                  placeholder="What should be reviewed with physician / functional medicine specialist."
-                  onChange={(value) => setBiomarkersDraft((d) => ({ ...d, clinical_review_notes: value }))}
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => void saveBiomarkers()}
-                    disabled={readOnly || savingBiomarkers || status === "unauthorized"}
-                  >
-                    {savingBiomarkers ? "Saving…" : "Save biomarkers summary"}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
-                    onClick={() => {
-                      setBiomarkersDraft(draftFromBiomarkers(plan));
-                      setEditingBiomarkers(false);
-                      setSaveMessage("");
-                    }}
-                    disabled={savingBiomarkers}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-2">
-                <div className="text-sm text-muted-foreground">
-                  Summary of lab context relevant to nutrition, training, recovery, cardio/activity,
-                  and clinician review. Full marker-level lab tracking can be added later.
-                </div>
-
-                <div className="grid gap-1 border-t border-muted/40 pt-2">
-                  <PlanRow label="Last lab date" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["last_lab_date"], "Not set")} />
-                  <PlanRow label="Next lab date" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["next_lab_date"], "Not set")} />
-                  <PlanRow label="Provider/source" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["provider_source"], "Functional medicine / PCP / lab source")} />
-                  <PlanRow label="Key flags" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["key_flags"], "CBC, glucose/A1c, lipids, liver/kidney markers, hormones, thyroid, nutrients, inflammatory markers")} />
-                  <PlanRow label="Training relevance" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["training_relevance"], "How labs may affect training load, recovery, fatigue, performance, or exercise selection")} />
-                  <PlanRow label="Nutrition relevance" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["nutrition_relevance"], "How labs may affect calories, carbs, protein context, fat intake, or supplements")} />
-                  <PlanRow label="Recovery relevance" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["recovery_relevance"], "How labs may affect sleep, soreness, fatigue, stress tolerance, or recovery expectations")} />
-                  <PlanRow label="Clinical review" value={readValue(asObject(asObject(monitoringRules).biomarkers), ["clinical_review_notes"], "Review concerning markers with clinician before changing medical variables")} />
-                </div>
-
-                <div className="pt-3">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => {
-                      setBiomarkersDraft(draftFromBiomarkers(plan));
-                      setEditingBiomarkers(true);
-                      setSaveMessage("");
-                    }}
-                    disabled={readOnly || status === "loading" || status === "unauthorized"}
-                  >
-                    Edit biomarkers summary
-                  </button>
-                </div>
-              </div>
-            )}
-          </SectionCard>
-
-<SectionCard
-              id="monitoring-rules"
-              eyebrow="Adjustment logic"
-              title="Monitoring and Adjustment Rules"
-              summary={readValue(monitoringRules, ["weekly_review", "review_rule", "adjustment_rule"], "Weekly adjustment rules")}
-            >
-            {editingMonitoring ? (
-              <div className="grid gap-3">
-                <FieldTextArea
-                  label="Summary"
-                  value={monitoringDraft.summary}
-                  placeholder="Overall rule for when the plan should change."
-                  onChange={(value) => setMonitoringDraft((d) => ({ ...d, summary: value }))}
-                />
-
-                <FieldTextArea
-                  label="Weight trend rule"
-                  value={monitoringDraft.weight_trend_rule}
-                  placeholder="What weight trend is expected, and when should calories/activity change?"
-                  onChange={(value) => setMonitoringDraft((d) => ({ ...d, weight_trend_rule: value }))}
-                />
-
-                <FieldTextArea
-                  label="Nutrition adherence rule"
-                  value={monitoringDraft.nutrition_adherence_rule}
-                  placeholder="How many days/week must calories and protein be hit before changing the plan?"
-                  onChange={(value) => setMonitoringDraft((d) => ({ ...d, nutrition_adherence_rule: value }))}
-                />
-
-                <FieldTextArea
-                  label="Training performance rule"
-                  value={monitoringDraft.training_performance_rule}
-                  placeholder="How should strength, volume, pain, or performance affect the plan?"
-                  onChange={(value) => setMonitoringDraft((d) => ({ ...d, training_performance_rule: value }))}
-                />
-
-                <FieldTextArea
-                  label="Recovery rule"
-                  value={monitoringDraft.recovery_rule}
-                  placeholder="How should sleep, fatigue, soreness, and joint pain affect the plan?"
-                  onChange={(value) => setMonitoringDraft((d) => ({ ...d, recovery_rule: value }))}
-                />
-
-                <FieldTextArea
-                  label="Lab / biomarker flags"
-                  value={monitoringDraft.lab_flags_rule}
-                  placeholder="Future: markers that should prompt review with clinician or plan caution."
-                  onChange={(value) => setMonitoringDraft((d) => ({ ...d, lab_flags_rule: value }))}
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => void saveMonitoringRules()}
-                    disabled={readOnly || savingMonitoring || status === "unauthorized"}
-                  >
-                    {savingMonitoring ? "Saving…" : "Save monitoring rules"}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
-                    onClick={() => {
-                      setMonitoringDraft(draftFromMonitoringRules(plan));
-                      setEditingMonitoring(false);
-                      setSaveMessage("");
-                    }}
-                    disabled={savingMonitoring}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-2">
-                <div>
-                  {readValue(
-                    monitoringRules,
-                    ["summary", "adjustment_rule", "rules"],
-                    "Define what changes the plan: weight trend, waist change, training performance, adherence, hunger, sleep, fatigue, and recovery."
-                  )}
-                </div>
-                <div className="grid gap-1 border-t border-muted/40 pt-2">
-                  <PlanRow label="Weight trend" value={readValue(monitoringRules, ["weight_trend_rule", "weight_trend"], "Expected body-weight trend and adjustment trigger")} />
-                  <PlanRow label="Nutrition" value={readValue(monitoringRules, ["nutrition_adherence_rule", "nutrition_adherence"], "Adherence threshold before changing targets")} />
-                  <PlanRow label="Training" value={readValue(monitoringRules, ["training_performance_rule", "training_performance"], "Performance/pain rule for training changes")} />
-                  <PlanRow label="Recovery" value={readValue(monitoringRules, ["recovery_rule", "recovery"], "Sleep/fatigue/soreness rule")} />
-                  <PlanRow label="Labs" value={readValue(monitoringRules, ["lab_flags_rule", "lab_flags", "biomarkers"], "Future clinician/lab review triggers")} />
-                </div>
-                <div>This is the bridge from plan → capture/log → analysis.</div>
-                <div className="pt-3">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => {
-                      setMonitoringDraft(draftFromMonitoringRules(plan));
-                      setEditingMonitoring(true);
-                      setSaveMessage("");
-                    }}
-                    disabled={readOnly || status === "loading" || status === "unauthorized"}
-                  >
-                    Edit monitoring rules
-                  </button>
-                </div>
-              </div>
-            )}
-          </SectionCard>
-
-<SectionCard
-              id="coach-notes"
-              eyebrow="Weekly frame"
-              title="Coach Notes"
-              summary={plan?.coach_notes?.trim() ? "Notes saved" : "No coach notes"}
-            >
-            {editingCoachNotes ? (
-              <div className="grid gap-3">
-                <FieldTextArea
-                  label="Coach notes"
-                  value={coachNotesDraft}
-                  placeholder={`What is the plan trying to accomplish this week?
-
-What are the risks?
-
-What should be adjusted next if the trend is wrong?`}
-                  onChange={setCoachNotesDraft}
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => void saveCoachNotes()}
-                    disabled={readOnly || savingCoachNotes || status === "unauthorized"}
-                  >
-                    {savingCoachNotes ? "Saving…" : "Save coach notes"}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
-                    onClick={() => {
-                      setCoachNotesDraft(plan?.coach_notes || "");
-                      setEditingCoachNotes(false);
-                      setSaveMessage("");
-                    }}
-                    disabled={savingCoachNotes}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {plan?.coach_notes?.trim() ? (
-                  <div className="whitespace-pre-wrap text-foreground">{plan.coach_notes}</div>
-                ) : (
-                  <div className="whitespace-pre-wrap">
-                    {`What is the plan trying to accomplish this week?
-
-What are the risks?
-
-What should be adjusted next if the trend is wrong?`}
-                  </div>
+        id="current-phase"
+        eyebrow="Current intervention"
+        title="Current Phase"
+        summary={phaseLabel ? `${phase} · ${phaseLabel}` : phase}
+      >
+        {editingPhase ? (
+          <div className="grid gap-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <FieldSelect
+                label="Phase"
+                value={phaseDraft.phase}
+                onChange={(value) =>
+                  setPhaseDraft((d) => ({ ...d, phase: value }))
+                }
+              >
+                <option value="cut">Cut</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="lean_gain">Lean gain</option>
+                <option value="recomp">Recomp</option>
+                <option value="other">Other</option>
+              </FieldSelect>
+
+              <FieldInput
+                label="Phase label"
+                value={phaseDraft.phase_label}
+                placeholder="Optional short description"
+                onChange={(value) =>
+                  setPhaseDraft((d) => ({ ...d, phase_label: value }))
+                }
+              />
+
+              <FieldInput
+                label="Start date"
+                type="date"
+                value={phaseDraft.start_date}
+                onChange={(value) =>
+                  setPhaseDraft((d) => ({ ...d, start_date: value }))
+                }
+              />
+
+              <FieldInput
+                label="Review date"
+                type="date"
+                value={phaseDraft.review_date}
+                onChange={(value) =>
+                  setPhaseDraft((d) => ({ ...d, review_date: value }))
+                }
+              />
+
+              <FieldInput
+                label="Review cadence"
+                value={phaseDraft.review_cadence}
+                placeholder="weekly"
+                onChange={(value) =>
+                  setPhaseDraft((d) => ({ ...d, review_cadence: value }))
+                }
+              />
+            </div>
+
+            <FieldTextArea
+              label="Primary goal"
+              value={phaseDraft.primary_goal}
+              placeholder="What is this plan trying to accomplish?"
+              onChange={(value) =>
+                setPhaseDraft((d) => ({ ...d, primary_goal: value }))
+              }
+            />
+
+            <FieldTextArea
+              label="Coach notes"
+              value={phaseDraft.coach_notes}
+              placeholder="Weekly focus, risks, adjustment notes."
+              onChange={(value) =>
+                setPhaseDraft((d) => ({ ...d, coach_notes: value }))
+              }
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => void saveCurrentPhase()}
+                disabled={readOnly || savingPhase || status === "unauthorized"}
+              >
+                {savingPhase ? "Saving…" : "Save current phase"}
+              </button>
+
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                onClick={() => {
+                  setPhaseDraft(draftFromPlan(plan));
+                  setEditingPhase(false);
+                  setSaveMessage("");
+                }}
+                disabled={savingPhase}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-1">
+            <PlanRow
+              label="Phase"
+              value={phaseLabel ? `${phase} · ${phaseLabel}` : phase}
+            />
+            <PlanRow
+              label="Primary goal"
+              value={textValue(
+                plan?.primary_goal,
+                "Body-composition outcome and performance priority",
+              )}
+            />
+            <PlanRow label="Start / review dates" value={dateRange(plan)} />
+            <PlanRow
+              label="Review cadence"
+              value={textValue(plan?.review_cadence, "Weekly")}
+            />
+            <div className="pt-3">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => {
+                  setPhaseDraft(draftFromPlan(plan));
+                  setEditingPhase(true);
+                  setSaveMessage("");
+                }}
+                disabled={
+                  readOnly || status === "loading" || status === "unauthorized"
+                }
+              >
+                Edit current phase
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        id="body-state"
+        eyebrow="Dependent variables"
+        title="Current Body State"
+        summary={`${readValue(bodyState, ["weight_lb", "weight", "body_weight"], "Weight not set")} · ${readValue(bodyState, ["body_fat_percent", "body_composition"], "Body fat not set")}`}
+      >
+        {editingBodyState ? (
+          <div className="grid gap-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <FieldInput
+                label="Weight"
+                value={bodyStateDraft.weight_lb}
+                placeholder="Current body weight / trend"
+                onChange={(value) =>
+                  setBodyStateDraft((d) => ({ ...d, weight_lb: value }))
+                }
+              />
+
+              <FieldInput
+                label="Waist"
+                value={bodyStateDraft.waist_in}
+                placeholder="Waist measurement"
+                onChange={(value) =>
+                  setBodyStateDraft((d) => ({ ...d, waist_in: value }))
+                }
+              />
+
+              <FieldInput
+                label="Body fat %"
+                value={bodyStateDraft.body_fat_percent}
+                placeholder="Estimate or range"
+                onChange={(value) =>
+                  setBodyStateDraft((d) => ({ ...d, body_fat_percent: value }))
+                }
+              />
+
+              <FieldInput
+                label="Method"
+                value={bodyStateDraft.measurement_method}
+                placeholder="Scale, calipers, scan, manual"
+                onChange={(value) =>
+                  setBodyStateDraft((d) => ({
+                    ...d,
+                    measurement_method: value,
+                  }))
+                }
+              />
+            </div>
+
+            <FieldTextArea
+              label="Measurements"
+              value={bodyStateDraft.measurements}
+              placeholder="Waist, chest, arms, thighs, hips, calves."
+              onChange={(value) =>
+                setBodyStateDraft((d) => ({ ...d, measurements: value }))
+              }
+            />
+
+            <FieldTextArea
+              label="Calipers"
+              value={bodyStateDraft.calipers}
+              placeholder="Caliper sites, formula, or notes."
+              onChange={(value) =>
+                setBodyStateDraft((d) => ({ ...d, calipers: value }))
+              }
+            />
+
+            <FieldTextArea
+              label="Body scan"
+              value={bodyStateDraft.body_scan}
+              placeholder="DEXA / InBody / 3D scan details or future placeholder."
+              onChange={(value) =>
+                setBodyStateDraft((d) => ({ ...d, body_scan: value }))
+              }
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => void saveBodyState()}
+                disabled={
+                  readOnly || savingBodyState || status === "unauthorized"
+                }
+              >
+                {savingBodyState ? "Saving…" : "Save body state"}
+              </button>
+
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                onClick={() => {
+                  setBodyStateDraft(draftFromBodyState(plan));
+                  setEditingBodyState(false);
+                  setSaveMessage("");
+                }}
+                disabled={savingBodyState}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-1">
+            <PlanRow
+              label="Weight"
+              value={readValue(
+                bodyState,
+                ["weight_lb", "weight", "body_weight"],
+                "Current body weight and trend",
+              )}
+            />
+            <PlanRow
+              label="Measurements"
+              value={readValue(
+                bodyState,
+                ["measurements", "waist_in", "waist"],
+                "Waist, chest, arms, thighs, hips, calves",
+              )}
+            />
+            <PlanRow
+              label="Body composition"
+              value={readValue(
+                bodyState,
+                ["body_fat_percent", "body_composition"],
+                "Estimate method and confidence",
+              )}
+            />
+            <PlanRow
+              label="Calipers"
+              value={readValue(
+                bodyState,
+                ["calipers", "caliper_sites"],
+                "Site measurements and formula later",
+              )}
+            />
+            <PlanRow
+              label="Body scan"
+              value={readValue(
+                bodyState,
+                ["body_scan", "scan"],
+                "DEXA / InBody / 3D scan placeholder",
+              )}
+            />
+            <div className="pt-3">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => {
+                  setBodyStateDraft(draftFromBodyState(plan));
+                  setEditingBodyState(true);
+                  setSaveMessage("");
+                }}
+                disabled={
+                  readOnly || status === "loading" || status === "unauthorized"
+                }
+              >
+                Edit body state
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        id="nutrition-targets"
+        eyebrow="Nutrition prescription"
+        title="Nutrition Targets"
+        summary={`${readValue(nutritionTargets, ["calories", "target_kcal", "kcal"], "Calories not set")} · ${readValue(nutritionTargets, ["protein_g", "target_protein_g", "protein"], "Protein not set")}`}
+      >
+        {editingNutrition ? (
+          <div className="grid gap-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <FieldInput
+                label="Calories"
+                value={nutritionDraft.calories}
+                placeholder="Daily target or range"
+                onChange={(value) =>
+                  setNutritionDraft((d) => ({ ...d, calories: value }))
+                }
+              />
+
+              <FieldInput
+                label="Protein"
+                value={nutritionDraft.protein_g}
+                placeholder="Daily grams or minimum threshold"
+                onChange={(value) =>
+                  setNutritionDraft((d) => ({ ...d, protein_g: value }))
+                }
+              />
+
+              <FieldInput
+                label="Carbs / Fat"
+                value={nutritionDraft.macro_notes}
+                placeholder="Macro ranges or flexible targets"
+                onChange={(value) =>
+                  setNutritionDraft((d) => ({ ...d, macro_notes: value }))
+                }
+              />
+
+              <FieldInput
+                label="Adherence target"
+                value={nutritionDraft.adherence_target}
+                placeholder="What counts as compliant enough?"
+                onChange={(value) =>
+                  setNutritionDraft((d) => ({ ...d, adherence_target: value }))
+                }
+              />
+            </div>
+
+            <FieldTextArea
+              label="Meal structure"
+              value={nutritionDraft.meal_structure}
+              placeholder="Meal timing, meal count, repeat meals, pre/post-workout notes."
+              onChange={(value) =>
+                setNutritionDraft((d) => ({ ...d, meal_structure: value }))
+              }
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => void saveNutritionTargets()}
+                disabled={
+                  readOnly || savingNutrition || status === "unauthorized"
+                }
+              >
+                {savingNutrition ? "Saving…" : "Save nutrition targets"}
+              </button>
+
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                onClick={() => {
+                  setNutritionDraft(draftFromNutritionTargets(plan));
+                  setEditingNutrition(false);
+                  setSaveMessage("");
+                }}
+                disabled={savingNutrition}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-1">
+            <PlanRow
+              label="Calories"
+              value={readValue(
+                nutritionTargets,
+                ["calories", "target_kcal", "kcal"],
+                "Daily target or range",
+              )}
+            />
+            <PlanRow
+              label="Protein"
+              value={readValue(
+                nutritionTargets,
+                ["protein_g", "target_protein_g", "protein"],
+                "Daily grams and minimum threshold",
+              )}
+            />
+            <PlanRow
+              label="Carbs / Fat"
+              value={readValue(
+                nutritionTargets,
+                ["macro_notes", "carbs_fat", "macros"],
+                "Macro ranges or flexible targets",
+              )}
+            />
+            <PlanRow
+              label="Meal structure"
+              value={readValue(
+                nutritionTargets,
+                ["meal_structure", "meals", "meal_timing"],
+                "Meal timing, meal count, repeat meals, pre/post-workout notes",
+              )}
+            />
+            <PlanRow
+              label="Adherence target"
+              value={readValue(
+                nutritionTargets,
+                ["adherence_target", "adherence"],
+                "What counts as compliant enough this week",
+              )}
+            />
+            <div className="pt-2 text-xs">
+              Related:{" "}
+              <Link href="/lifeswitch/nutrition/meals" className="underline">
+                Meals
+              </Link>
+              {" · "}
+              <Link
+                href="/lifeswitch/nutrition/meal-plans"
+                className="underline"
+              >
+                Meal Plans
+              </Link>
+              {" · "}
+              <Link href="/lifeswitch/nutrition/capture" className="underline">
+                Nutrition Capture
+              </Link>
+            </div>
+            <div className="pt-3">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => {
+                  setNutritionDraft(draftFromNutritionTargets(plan));
+                  setEditingNutrition(true);
+                  setSaveMessage("");
+                }}
+                disabled={
+                  readOnly || status === "loading" || status === "unauthorized"
+                }
+              >
+                Edit nutrition targets
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        id="training-targets"
+        eyebrow="Strength prescription"
+        title="Strength Training Targets"
+        summary={`${readValue(trainingTargets, ["workouts_per_week", "frequency"], "Frequency not set")} · ${readValue(trainingTargets, ["split", "weekly_split"], "Split not set")}`}
+      >
+        {editingTraining ? (
+          <div className="grid gap-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <FieldInput
+                label="Split"
+                value={trainingDraft.split}
+                placeholder="Current weekly split and training days"
+                onChange={(value) =>
+                  setTrainingDraft((d) => ({ ...d, split: value }))
+                }
+              />
+
+              <FieldInput
+                label="Frequency"
+                value={trainingDraft.workouts_per_week}
+                placeholder="Workouts per week and expected duration"
+                onChange={(value) =>
+                  setTrainingDraft((d) => ({ ...d, workouts_per_week: value }))
+                }
+              />
+            </div>
+
+            <FieldTextArea
+              label="Priority areas"
+              value={trainingDraft.priority_areas}
+              placeholder="Weak points, priority lifts, muscles, or movement patterns."
+              onChange={(value) =>
+                setTrainingDraft((d) => ({ ...d, priority_areas: value }))
+              }
+            />
+
+            <FieldTextArea
+              label="Progression rule"
+              value={trainingDraft.progression_rule}
+              placeholder="How load, reps, sets, or effort should change."
+              onChange={(value) =>
+                setTrainingDraft((d) => ({ ...d, progression_rule: value }))
+              }
+            />
+
+            <FieldTextArea
+              label="Recovery constraints"
+              value={trainingDraft.recovery_constraints}
+              placeholder="Pain, surgery limits, fatigue, soreness, deload triggers."
+              onChange={(value) =>
+                setTrainingDraft((d) => ({ ...d, recovery_constraints: value }))
+              }
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => void saveTrainingTargets()}
+                disabled={
+                  readOnly || savingTraining || status === "unauthorized"
+                }
+              >
+                {savingTraining ? "Saving…" : "Save training targets"}
+              </button>
+
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                onClick={() => {
+                  setTrainingDraft(draftFromTrainingTargets(plan));
+                  setEditingTraining(false);
+                  setSaveMessage("");
+                }}
+                disabled={savingTraining}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-1">
+            <PlanRow
+              label="Split"
+              value={readValue(
+                trainingTargets,
+                ["split", "weekly_split"],
+                "Current weekly split and training days",
+              )}
+            />
+            <PlanRow
+              label="Frequency"
+              value={readValue(
+                trainingTargets,
+                ["workouts_per_week", "frequency"],
+                "Workouts per week and expected duration",
+              )}
+            />
+            <PlanRow
+              label="Priority areas"
+              value={readValue(
+                trainingTargets,
+                ["priority_areas", "weak_points"],
+                "Weak points, priority lifts, muscles, or movement patterns",
+              )}
+            />
+            <PlanRow
+              label="Progression rule"
+              value={readValue(
+                trainingTargets,
+                ["progression_rule", "progression"],
+                "How load, reps, sets, or effort should change",
+              )}
+            />
+            <PlanRow
+              label="Recovery constraints"
+              value={readValue(
+                trainingTargets,
+                ["recovery_constraints", "constraints"],
+                "Pain, surgery limits, fatigue, soreness, deload triggers",
+              )}
+            />
+            <div className="pt-2 text-xs">
+              Related:{" "}
+              <Link
+                href="/lifeswitch/training/design/workouts"
+                className="underline"
+              >
+                Strength Workouts
+              </Link>
+              {" · "}
+              <Link href="/lifeswitch/training/capture" className="underline">
+                Training Capture
+              </Link>
+              {" · "}
+              <Link href="/lifeswitch/training/calendar" className="underline">
+                Training Log
+              </Link>
+            </div>
+            <div className="pt-3">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => {
+                  setTrainingDraft(draftFromTrainingTargets(plan));
+                  setEditingTraining(true);
+                  setSaveMessage("");
+                }}
+                disabled={
+                  readOnly || status === "loading" || status === "unauthorized"
+                }
+              >
+                Edit training targets
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        id="conditioning-targets"
+        eyebrow="Cardio / conditioning"
+        title="Conditioning and Daily Activity Targets"
+        summary={`${readValue(conditioningTargets, ["cardio_target", "cardio_sessions_per_week", "minutes_per_week"], "Cardio not set")} · ${readValue(activityTargets, ["steps_per_day", "step_target", "neat"], "Steps not set")}`}
+      >
+        {editingConditioningActivity ? (
+          <div className="grid gap-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <FieldInput
+                label="Cardio target"
+                value={conditioningActivityDraft.cardio_target}
+                placeholder="None / optional / sessions per week / minutes per week"
+                onChange={(value) =>
+                  setConditioningActivityDraft((d) => ({
+                    ...d,
+                    cardio_target: value,
+                  }))
+                }
+              />
+
+              <FieldInput
+                label="Preferred mode"
+                value={conditioningActivityDraft.preferred_mode}
+                placeholder="Incline walk, treadmill, bike, intervals, ropes, sled"
+                onChange={(value) =>
+                  setConditioningActivityDraft((d) => ({
+                    ...d,
+                    preferred_mode: value,
+                  }))
+                }
+              />
+
+              <FieldInput
+                label="Intensity"
+                value={conditioningActivityDraft.intensity}
+                placeholder="Zone 2, intervals, RPE, heart-rate target"
+                onChange={(value) =>
+                  setConditioningActivityDraft((d) => ({
+                    ...d,
+                    intensity: value,
+                  }))
+                }
+              />
+
+              <FieldInput
+                label="Steps / NEAT"
+                value={conditioningActivityDraft.steps_per_day}
+                placeholder="Daily or weekly step target"
+                onChange={(value) =>
+                  setConditioningActivityDraft((d) => ({
+                    ...d,
+                    steps_per_day: value,
+                  }))
+                }
+              />
+
+              <FieldInput
+                label="Wearable source"
+                value={conditioningActivityDraft.wearable_source}
+                placeholder="Apple Health, Garmin, Fitbit, manual"
+                onChange={(value) =>
+                  setConditioningActivityDraft((d) => ({
+                    ...d,
+                    wearable_source: value,
+                  }))
+                }
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => void saveConditioningActivity()}
+                disabled={
+                  readOnly ||
+                  savingConditioningActivity ||
+                  status === "unauthorized"
+                }
+              >
+                {savingConditioningActivity
+                  ? "Saving…"
+                  : "Save conditioning / activity"}
+              </button>
+
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                onClick={() => {
+                  setConditioningActivityDraft(
+                    draftFromConditioningActivity(plan),
+                  );
+                  setEditingConditioningActivity(false);
+                  setSaveMessage("");
+                }}
+                disabled={savingConditioningActivity}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-1">
+            <PlanRow
+              label="Cardio target"
+              value={readValue(
+                conditioningTargets,
+                [
+                  "cardio_target",
+                  "cardio_sessions_per_week",
+                  "minutes_per_week",
+                ],
+                "None / optional / sessions per week / minutes per week",
+              )}
+            />
+            <PlanRow
+              label="Preferred mode"
+              value={readValue(
+                conditioningTargets,
+                ["preferred_mode", "mode"],
+                "Incline walk, treadmill, bike, intervals, ropes, sled, outdoor walk/run",
+              )}
+            />
+            <PlanRow
+              label="Intensity"
+              value={readValue(
+                conditioningTargets,
+                ["intensity", "zone", "rpe"],
+                "Zone 2, intervals, RPE, heart-rate target, or simple duration target",
+              )}
+            />
+            <PlanRow
+              label="Steps / NEAT"
+              value={readValue(
+                activityTargets,
+                ["steps_per_day", "step_target", "neat"],
+                "Daily or weekly step target and general movement goal",
+              )}
+            />
+            <PlanRow
+              label="Wearables"
+              value={readValue(
+                activityTargets,
+                ["wearable_source", "source"],
+                "Future source for steps, calories, heart rate, HRV, sleep, zone minutes",
+              )}
+            />
+            <div className="pt-3">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => {
+                  setConditioningActivityDraft(
+                    draftFromConditioningActivity(plan),
+                  );
+                  setEditingConditioningActivity(true);
+                  setSaveMessage("");
+                }}
+                disabled={
+                  readOnly || status === "loading" || status === "unauthorized"
+                }
+              >
+                Edit conditioning / activity
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        id="recovery-targets"
+        eyebrow="Recovery prescription"
+        title="Sleep and Recovery"
+        summary={`${readValue(recoveryTargets, ["sleep_hours", "sleep_target"], "Sleep not set")} · ${readValue(recoveryTargets, ["rest_days", "rest"], "Rest not set")}`}
+      >
+        {editingRecovery ? (
+          <div className="grid gap-3">
+            <FieldInput
+              label="Sleep target"
+              value={recoveryDraft.sleep_hours}
+              placeholder="Hours, consistency, wakeups, quality"
+              onChange={(value) =>
+                setRecoveryDraft((d) => ({ ...d, sleep_hours: value }))
+              }
+            />
+
+            <FieldInput
+              label="Rest days"
+              value={recoveryDraft.rest_days}
+              placeholder="Planned rest or low-stress days"
+              onChange={(value) =>
+                setRecoveryDraft((d) => ({ ...d, rest_days: value }))
+              }
+            />
+
+            <FieldTextArea
+              label="Mobility"
+              value={recoveryDraft.mobility_goal}
+              placeholder="Flexibility, stretching, rehab, or movement-prep goal."
+              onChange={(value) =>
+                setRecoveryDraft((d) => ({ ...d, mobility_goal: value }))
+              }
+            />
+
+            <FieldTextArea
+              label="Fatigue watch"
+              value={recoveryDraft.fatigue_watch}
+              placeholder="Soreness, joint pain, motivation, performance drop."
+              onChange={(value) =>
+                setRecoveryDraft((d) => ({ ...d, fatigue_watch: value }))
+              }
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => void saveRecoveryTargets()}
+                disabled={
+                  readOnly || savingRecovery || status === "unauthorized"
+                }
+              >
+                {savingRecovery ? "Saving…" : "Save recovery targets"}
+              </button>
+
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                onClick={() => {
+                  setRecoveryDraft(draftFromRecoveryTargets(plan));
+                  setEditingRecovery(false);
+                  setSaveMessage("");
+                }}
+                disabled={savingRecovery}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-1">
+            <PlanRow
+              label="Sleep target"
+              value={readValue(
+                recoveryTargets,
+                ["sleep_hours", "sleep_target"],
+                "Hours, consistency, wakeups, and quality",
+              )}
+            />
+            <PlanRow
+              label="Rest days"
+              value={readValue(
+                recoveryTargets,
+                ["rest_days", "rest"],
+                "Planned rest or low-stress activity days",
+              )}
+            />
+            <PlanRow
+              label="Mobility"
+              value={readValue(
+                recoveryTargets,
+                ["mobility_goal", "mobility"],
+                "Flexibility, stretching, rehab, or movement-prep goal",
+              )}
+            />
+            <PlanRow
+              label="Fatigue watch"
+              value={readValue(
+                recoveryTargets,
+                ["fatigue_watch", "fatigue"],
+                "Soreness, joint pain, motivation, performance drop",
+              )}
+            />
+            <div className="pt-3">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => {
+                  setRecoveryDraft(draftFromRecoveryTargets(plan));
+                  setEditingRecovery(true);
+                  setSaveMessage("");
+                }}
+                disabled={
+                  readOnly || status === "loading" || status === "unauthorized"
+                }
+              >
+                Edit recovery targets
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        id="biomarkers-labs"
+        eyebrow="Biomarkers / labs"
+        title="Blood Work and Health Markers"
+        summary={readValue(
+          asObject(asObject(monitoringRules).biomarkers),
+          ["next_lab_date"],
+          "No next lab date",
+        )}
+      >
+        {editingBiomarkers ? (
+          <div className="grid gap-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <FieldInput
+                label="Last lab date"
+                type="date"
+                value={biomarkersDraft.last_lab_date}
+                onChange={(value) =>
+                  setBiomarkersDraft((d) => ({ ...d, last_lab_date: value }))
+                }
+              />
+
+              <FieldInput
+                label="Next lab date"
+                type="date"
+                value={biomarkersDraft.next_lab_date}
+                onChange={(value) =>
+                  setBiomarkersDraft((d) => ({ ...d, next_lab_date: value }))
+                }
+              />
+
+              <FieldInput
+                label="Provider / source"
+                value={biomarkersDraft.provider_source}
+                placeholder="Functional medicine, PCP, lab system, etc."
+                onChange={(value) =>
+                  setBiomarkersDraft((d) => ({ ...d, provider_source: value }))
+                }
+              />
+            </div>
+
+            <FieldTextArea
+              label="Key flags / watch items"
+              value={biomarkersDraft.key_flags}
+              placeholder="CBC, glucose/A1c, lipids, liver/kidney markers, hormones, thyroid, nutrients, inflammatory markers."
+              onChange={(value) =>
+                setBiomarkersDraft((d) => ({ ...d, key_flags: value }))
+              }
+            />
+
+            <FieldTextArea
+              label="Training relevance"
+              value={biomarkersDraft.training_relevance}
+              placeholder="How labs may affect training load, recovery, fatigue, performance, or exercise selection."
+              onChange={(value) =>
+                setBiomarkersDraft((d) => ({ ...d, training_relevance: value }))
+              }
+            />
+
+            <FieldTextArea
+              label="Nutrition relevance"
+              value={biomarkersDraft.nutrition_relevance}
+              placeholder="How labs may affect calorie strategy, carb tolerance, protein context, fat intake, or supplements."
+              onChange={(value) =>
+                setBiomarkersDraft((d) => ({
+                  ...d,
+                  nutrition_relevance: value,
+                }))
+              }
+            />
+
+            <FieldTextArea
+              label="Recovery relevance"
+              value={biomarkersDraft.recovery_relevance}
+              placeholder="How labs may affect sleep, fatigue, soreness, stress tolerance, or recovery expectations."
+              onChange={(value) =>
+                setBiomarkersDraft((d) => ({ ...d, recovery_relevance: value }))
+              }
+            />
+
+            <FieldTextArea
+              label="Clinical review notes"
+              value={biomarkersDraft.clinical_review_notes}
+              placeholder="What should be reviewed with physician / functional medicine specialist."
+              onChange={(value) =>
+                setBiomarkersDraft((d) => ({
+                  ...d,
+                  clinical_review_notes: value,
+                }))
+              }
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => void saveBiomarkers()}
+                disabled={
+                  readOnly || savingBiomarkers || status === "unauthorized"
+                }
+              >
+                {savingBiomarkers ? "Saving…" : "Save biomarkers summary"}
+              </button>
+
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                onClick={() => {
+                  setBiomarkersDraft(draftFromBiomarkers(plan));
+                  setEditingBiomarkers(false);
+                  setSaveMessage("");
+                }}
+                disabled={savingBiomarkers}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            <div className="text-sm text-muted-foreground">
+              Summary of lab context relevant to nutrition, training, recovery,
+              cardio/activity, and clinician review. Full marker-level lab
+              tracking can be added later.
+            </div>
+
+            <div className="grid gap-1 border-t border-muted/40 pt-2">
+              <PlanRow
+                label="Last lab date"
+                value={readValue(
+                  asObject(asObject(monitoringRules).biomarkers),
+                  ["last_lab_date"],
+                  "Not set",
                 )}
+              />
+              <PlanRow
+                label="Next lab date"
+                value={readValue(
+                  asObject(asObject(monitoringRules).biomarkers),
+                  ["next_lab_date"],
+                  "Not set",
+                )}
+              />
+              <PlanRow
+                label="Provider/source"
+                value={readValue(
+                  asObject(asObject(monitoringRules).biomarkers),
+                  ["provider_source"],
+                  "Functional medicine / PCP / lab source",
+                )}
+              />
+              <PlanRow
+                label="Key flags"
+                value={readValue(
+                  asObject(asObject(monitoringRules).biomarkers),
+                  ["key_flags"],
+                  "CBC, glucose/A1c, lipids, liver/kidney markers, hormones, thyroid, nutrients, inflammatory markers",
+                )}
+              />
+              <PlanRow
+                label="Training relevance"
+                value={readValue(
+                  asObject(asObject(monitoringRules).biomarkers),
+                  ["training_relevance"],
+                  "How labs may affect training load, recovery, fatigue, performance, or exercise selection",
+                )}
+              />
+              <PlanRow
+                label="Nutrition relevance"
+                value={readValue(
+                  asObject(asObject(monitoringRules).biomarkers),
+                  ["nutrition_relevance"],
+                  "How labs may affect calories, carbs, protein context, fat intake, or supplements",
+                )}
+              />
+              <PlanRow
+                label="Recovery relevance"
+                value={readValue(
+                  asObject(asObject(monitoringRules).biomarkers),
+                  ["recovery_relevance"],
+                  "How labs may affect sleep, soreness, fatigue, stress tolerance, or recovery expectations",
+                )}
+              />
+              <PlanRow
+                label="Clinical review"
+                value={readValue(
+                  asObject(asObject(monitoringRules).biomarkers),
+                  ["clinical_review_notes"],
+                  "Review concerning markers with clinician before changing medical variables",
+                )}
+              />
+            </div>
 
-                <div className="pt-3">
-                  <button
-                    type="button"
-                    className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => {
-                      setCoachNotesDraft(plan?.coach_notes || "");
-                      setEditingCoachNotes(true);
-                      setSaveMessage("");
-                    }}
-                    disabled={readOnly || status === "loading" || status === "unauthorized"}
-                  >
-                    Edit coach notes
-                  </button>
-                </div>
+            <div className="pt-3">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => {
+                  setBiomarkersDraft(draftFromBiomarkers(plan));
+                  setEditingBiomarkers(true);
+                  setSaveMessage("");
+                }}
+                disabled={
+                  readOnly || status === "loading" || status === "unauthorized"
+                }
+              >
+                Edit biomarkers summary
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        id="monitoring-rules"
+        eyebrow="Adjustment logic"
+        title="Monitoring and Adjustment Rules"
+        summary={readValue(
+          monitoringRules,
+          ["weekly_review", "review_rule", "adjustment_rule"],
+          "Weekly adjustment rules",
+        )}
+      >
+        {editingMonitoring ? (
+          <div className="grid gap-3">
+            <FieldTextArea
+              label="Summary"
+              value={monitoringDraft.summary}
+              placeholder="Overall rule for when the plan should change."
+              onChange={(value) =>
+                setMonitoringDraft((d) => ({ ...d, summary: value }))
+              }
+            />
+
+            <FieldTextArea
+              label="Weight trend rule"
+              value={monitoringDraft.weight_trend_rule}
+              placeholder="What weight trend is expected, and when should calories/activity change?"
+              onChange={(value) =>
+                setMonitoringDraft((d) => ({ ...d, weight_trend_rule: value }))
+              }
+            />
+
+            <FieldTextArea
+              label="Nutrition adherence rule"
+              value={monitoringDraft.nutrition_adherence_rule}
+              placeholder="How many days/week must calories and protein be hit before changing the plan?"
+              onChange={(value) =>
+                setMonitoringDraft((d) => ({
+                  ...d,
+                  nutrition_adherence_rule: value,
+                }))
+              }
+            />
+
+            <FieldTextArea
+              label="Training performance rule"
+              value={monitoringDraft.training_performance_rule}
+              placeholder="How should strength, volume, pain, or performance affect the plan?"
+              onChange={(value) =>
+                setMonitoringDraft((d) => ({
+                  ...d,
+                  training_performance_rule: value,
+                }))
+              }
+            />
+
+            <FieldTextArea
+              label="Recovery rule"
+              value={monitoringDraft.recovery_rule}
+              placeholder="How should sleep, fatigue, soreness, and joint pain affect the plan?"
+              onChange={(value) =>
+                setMonitoringDraft((d) => ({ ...d, recovery_rule: value }))
+              }
+            />
+
+            <FieldTextArea
+              label="Lab / biomarker flags"
+              value={monitoringDraft.lab_flags_rule}
+              placeholder="Future: markers that should prompt review with clinician or plan caution."
+              onChange={(value) =>
+                setMonitoringDraft((d) => ({ ...d, lab_flags_rule: value }))
+              }
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => void saveMonitoringRules()}
+                disabled={
+                  readOnly || savingMonitoring || status === "unauthorized"
+                }
+              >
+                {savingMonitoring ? "Saving…" : "Save monitoring rules"}
+              </button>
+
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                onClick={() => {
+                  setMonitoringDraft(draftFromMonitoringRules(plan));
+                  setEditingMonitoring(false);
+                  setSaveMessage("");
+                }}
+                disabled={savingMonitoring}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            <div>
+              {readValue(
+                monitoringRules,
+                ["summary", "adjustment_rule", "rules"],
+                "Define what changes the plan: weight trend, waist change, training performance, adherence, hunger, sleep, fatigue, and recovery.",
+              )}
+            </div>
+            <div className="grid gap-1 border-t border-muted/40 pt-2">
+              <PlanRow
+                label="Weight trend"
+                value={readValue(
+                  monitoringRules,
+                  ["weight_trend_rule", "weight_trend"],
+                  "Expected body-weight trend and adjustment trigger",
+                )}
+              />
+              <PlanRow
+                label="Nutrition"
+                value={readValue(
+                  monitoringRules,
+                  ["nutrition_adherence_rule", "nutrition_adherence"],
+                  "Adherence threshold before changing targets",
+                )}
+              />
+              <PlanRow
+                label="Training"
+                value={readValue(
+                  monitoringRules,
+                  ["training_performance_rule", "training_performance"],
+                  "Performance/pain rule for training changes",
+                )}
+              />
+              <PlanRow
+                label="Recovery"
+                value={readValue(
+                  monitoringRules,
+                  ["recovery_rule", "recovery"],
+                  "Sleep/fatigue/soreness rule",
+                )}
+              />
+              <PlanRow
+                label="Labs"
+                value={readValue(
+                  monitoringRules,
+                  ["lab_flags_rule", "lab_flags", "biomarkers"],
+                  "Future clinician/lab review triggers",
+                )}
+              />
+            </div>
+            <div>This is the bridge from plan → capture/log → analysis.</div>
+            <div className="pt-3">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => {
+                  setMonitoringDraft(draftFromMonitoringRules(plan));
+                  setEditingMonitoring(true);
+                  setSaveMessage("");
+                }}
+                disabled={
+                  readOnly || status === "loading" || status === "unauthorized"
+                }
+              >
+                Edit monitoring rules
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        id="coach-notes"
+        eyebrow="Weekly frame"
+        title="Coach Notes"
+        summary={plan?.coach_notes?.trim() ? "Notes saved" : "No coach notes"}
+      >
+        {editingCoachNotes ? (
+          <div className="grid gap-3">
+            <FieldTextArea
+              label="Coach notes"
+              value={coachNotesDraft}
+              placeholder={`What is the plan trying to accomplish this week?
+
+What are the risks?
+
+What should be adjusted next if the trend is wrong?`}
+              onChange={setCoachNotesDraft}
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => void saveCoachNotes()}
+                disabled={
+                  readOnly || savingCoachNotes || status === "unauthorized"
+                }
+              >
+                {savingCoachNotes ? "Saving…" : "Save coach notes"}
+              </button>
+
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40"
+                onClick={() => {
+                  setCoachNotesDraft(plan?.coach_notes || "");
+                  setEditingCoachNotes(false);
+                  setSaveMessage("");
+                }}
+                disabled={savingCoachNotes}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {plan?.coach_notes?.trim() ? (
+              <div className="whitespace-pre-wrap text-foreground">
+                {plan.coach_notes}
+              </div>
+            ) : (
+              <div className="whitespace-pre-wrap">
+                {`What is the plan trying to accomplish this week?
+
+What are the risks?
+
+What should be adjusted next if the trend is wrong?`}
               </div>
             )}
-          </SectionCard>
 
-<SectionCard
-          id="plan-comments"
-          eyebrow="Delegated collaboration"
-          title="Plan Comments"
-          summary={comments.length ? `${comments.length} comment${comments.length === 1 ? "" : "s"}` : "No comments"}
-        >
+            <div className="pt-3">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => {
+                  setCoachNotesDraft(plan?.coach_notes || "");
+                  setEditingCoachNotes(true);
+                  setSaveMessage("");
+                }}
+                disabled={
+                  readOnly || status === "loading" || status === "unauthorized"
+                }
+              >
+                Edit coach notes
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        id="plan-comments"
+        eyebrow="Delegated collaboration"
+        title="Plan Comments"
+        summary={
+          comments.length
+            ? `${comments.length} comment${comments.length === 1 ? "" : "s"}`
+            : "No comments"
+        }
+      >
         <div className="grid gap-3">
           {canCommentPlan ? (
             <div className="grid gap-2">
@@ -2371,18 +2969,25 @@ What should be adjusted next if the trend is wrong?`}
                 <div key={c.plan_comment_id} className="rounded-xl border p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                     <div>{c.author_display_name || c.author_user_id}</div>
-                    <div>{c.created_at ? new Date(c.created_at).toLocaleString() : ""}</div>
+                    <div>
+                      {c.created_at
+                        ? new Date(c.created_at).toLocaleString()
+                        : ""}
+                    </div>
                   </div>
-                  <div className="mt-2 whitespace-pre-wrap text-sm">{c.comment_text}</div>
+                  <div className="mt-2 text-sm whitespace-pre-wrap">
+                    {c.comment_text}
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">No plan comments yet.</div>
+            <div className="text-sm text-muted-foreground">
+              No plan comments yet.
+            </div>
           )}
         </div>
       </SectionCard>
-
     </div>
   );
 }

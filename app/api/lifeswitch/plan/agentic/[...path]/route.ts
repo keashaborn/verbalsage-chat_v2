@@ -77,6 +77,20 @@ function ownerTimezone(req: NextRequest): string | null {
 function operationFor(method: string, path: string[]): Operation | null {
   const normalizedMethod = method.toUpperCase();
 
+  if (
+    normalizedMethod === "GET" &&
+    path.length === 1 &&
+    path[0] === "workout-templates"
+  ) {
+    return {
+      upstreamPath: "/lifeswitch/plan/workout-templates",
+      method: "GET",
+      bodyMode: "none",
+      requiresIdempotency: false,
+      queryFields: COMMON_QUERY_FIELDS,
+    };
+  }
+
   if (normalizedMethod === "GET" && path.length === 1 && path[0] === "active") {
     return {
       upstreamPath: "/lifeswitch/plan/active",

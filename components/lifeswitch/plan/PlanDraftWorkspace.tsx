@@ -2,6 +2,8 @@
 
 import * as React from "react";
 
+import { authFetch } from "@/lib/authFetch";
+
 export type JsonObject = Record<string, unknown>;
 
 export type PlanDocument = {
@@ -140,6 +142,7 @@ type GuideStepId =
 
 type PlanDraftWorkspaceProps = {
   revisionId: string;
+  targetUserId?: string;
   document: PlanDocument;
   saving: boolean;
   onDirtyChange: (dirty: boolean) => void;
@@ -148,6 +151,26 @@ type PlanDraftWorkspaceProps = {
     focus: SageReviewFocus;
     user_request: string;
   }) => Promise<SagePlanReview>;
+};
+
+type WorkoutExerciseOption = {
+  name: string;
+  role: "strength" | "rehab" | string;
+  planned_sets: number;
+  default_weight: number;
+  default_reps: number;
+};
+
+type WorkoutTemplateOption = {
+  workout_template_id: string;
+  name: string;
+  notes: string;
+  template_updated_at: string;
+  exercise_count: number;
+  strength_exercise_count: number;
+  rehab_exercise_count: number;
+  role: "strength" | "rehab" | "mixed" | string;
+  exercises: WorkoutExerciseOption[];
 };
 
 const SECTIONS: Array<{
@@ -957,6 +980,325 @@ function NutritionTargetsEditor({
   );
 }
 
+function linkedWorkoutEntries(value: JsonObject): JsonObject[] {
+  return Array.isArray(value.linked_workouts)
+    ? value.linked_workouts.filter(isPlainObject)
+    : [];
+}
+
+function snapshotFor(entry: JsonObject): JsonObject {
+  return isPlainObject(entry.prescription_snapshot)
+    ? entry.prescription_snapshot
+    : {};
+}
+
+function linkedWorkoutName(
+  entry: JsonObject,
+  option?: WorkoutTemplateOption,
+): string {
+  const snapshot = snapshotFor(entry);
+  return option?.name || String(snapshot.name || "Saved workout");
+}
+
+function exerciseLine(exercise: WorkoutExerciseOption): string {
+  const pieces = [`${exercise.planned_sets || 0} sets`];
+  if (exercise.default_reps) pieces.push(`${exercise.default_reps} reps`);
+  if (exercise.default_weight) pieces.push(`${exercise.default_weight} lb`);
+  return pieces.join(" · ");
+}
+
+function TrainingTargetsEditor({
+  value,
+  targetUserId = "",
+  onChange,
+}: {
+  value: JsonObject;
+  targetUserId?: string;
+  onChange: (value: JsonObject) => void;
+}) {
+  const [options, setOptions] = React.useState<WorkoutTemplateOption[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+  const linked = linkedWorkoutEntries(value);
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const url = new URL(
+          "/api/lifeswitch/plan/agentic/workout-templates",
+          window.location.origin,
+        );
+        if (targetUserId) url.searchParams.set("target_user_id", targetUserId);
+        const response = await authFetch(url.toString(), {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const text = await response.text();
+        const payload: unknown = text ? JSON.parse(text) : null;
+        if (!response.ok) {
+          const detail =
+            payload && typeof payload === "object"
+              ? (payload as { detail?: unknown }).detail
+              : null;
+          const message =
+            detail && typeof detail === "object"
+              ? (detail as { message?: unknown }).message
+              : detail;
+          throw new Error(
+            typeof message === "string"
+              ? message
+              : "Workout templates are unavailable.",
+          );
+        }
+        const items =
+          payload && typeof payload === "object"
+            ? (payload as { workout_templates?: unknown }).workout_templates
+            : null;
+        setOptions(
+          Array.isArray(items) ? (items as WorkoutTemplateOption[]) : [],
+        );
+      } catch (caught) {
+        if (controller.signal.aborted) return;
+        setError(caught instanceof Error ? caught.message : String(caught));
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, [targetUserId]);
+
+  function setLinked(next: JsonObject[]) {
+    onChange({ ...value, linked_workouts: next });
+  }
+
+  function updateEntry(index: number, patch: JsonObject) {
+    setLinked(
+      linked.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, ...patch } : entry,
+      ),
+    );
+  }
+
+  const selectedIds = new Set(
+    linked.map((entry) => String(entry.workout_template_id || "")),
+  );
+  const remaining = Object.fromEntries(
+    Object.entries(value).filter(([key]) => key !== "linked_workouts"),
+  );
+
+  return (
+    <div className="grid min-w-0 gap-4">
+      <fieldset className="grid min-w-0 gap-3 rounded-2xl border p-3">
+        <legend className="px-1 text-sm font-semibold">Workout schedule</legend>
+        <p className="text-xs text-muted-foreground">
+          Link reusable workouts instead of copying exercise text. Saving pins
+          the exact exercises, roles, sets, reps, and loads into this Plan
+          version. Rehab remains separate from strength scoring.
+        </p>
+
+        {linked.length ? (
+          <div className="grid gap-3">
+            {linked.map((entry, index) => {
+              const templateId = String(entry.workout_template_id || "");
+              const option = options.find(
+                (item) => item.workout_template_id === templateId,
+              );
+              const snapshot = snapshotFor(entry);
+              const role = String(option?.role || snapshot.role || "strength");
+              const snapshotExercises = Array.isArray(snapshot.exercises)
+                ? snapshot.exercises.filter(isPlainObject).map((exercise) => ({
+                    name: String(exercise.name || "Exercise"),
+                    role: String(exercise.role || "strength"),
+                    planned_sets: Number(exercise.planned_sets || 0),
+                    default_weight: Number(exercise.default_weight || 0),
+                    default_reps: Number(exercise.default_reps || 0),
+                  }))
+                : [];
+              const exercises = option?.exercises || snapshotExercises;
+              return (
+                <article
+                  key={templateId || index}
+                  className="grid gap-3 rounded-xl bg-muted/35 p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-medium break-words">
+                        {linkedWorkoutName(entry, option)}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {role === "rehab"
+                          ? "Rehab/prehab · excluded from strength totals"
+                          : role === "mixed"
+                            ? "Mixed strength and rehab · scored separately"
+                            : "Strength workout"}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="shrink-0 rounded-lg border px-2.5 py-1.5 text-xs font-medium"
+                      onClick={() =>
+                        setLinked(
+                          linked.filter(
+                            (_, entryIndex) => entryIndex !== index,
+                          ),
+                        )
+                      }
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <NumberTargetField
+                      label="Sessions per week"
+                      value={entry.sessions_per_week ?? 1}
+                      unit="sessions"
+                      onChange={(next) =>
+                        updateEntry(index, {
+                          sessions_per_week: Math.max(
+                            0,
+                            Math.min(14, Math.round(next ?? 0)),
+                          ),
+                        })
+                      }
+                    />
+                    <label className="grid gap-1.5 text-sm">
+                      <span className="font-medium">Schedule notes</span>
+                      <input
+                        value={String(entry.schedule_notes || "")}
+                        onChange={(event) =>
+                          updateEntry(index, {
+                            schedule_notes: event.target.value,
+                          })
+                        }
+                        placeholder="Optional days or sequence"
+                        className="rounded-xl border bg-background px-3 py-3"
+                      />
+                    </label>
+                  </div>
+                  {exercises.length ? (
+                    <details className="rounded-xl border bg-background">
+                      <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+                        View prescription · {exercises.length} exercises
+                      </summary>
+                      <div className="grid gap-2 border-t p-3">
+                        {exercises.map((exercise, exerciseIndex) => (
+                          <div
+                            key={`${exercise.name}:${exerciseIndex}`}
+                            className="text-sm"
+                          >
+                            <span className="font-medium">{exercise.name}</span>
+                            <span className="text-muted-foreground">
+                              {` · ${exerciseLine(exercise)}`}
+                              {exercise.role === "rehab" ? " · Rehab" : ""}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
+            No exact workouts are linked yet.
+          </p>
+        )}
+
+        <div className="grid gap-2">
+          <div className="text-sm font-semibold">Available saved workouts</div>
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading workouts…</p>
+          ) : error ? (
+            <p className="rounded-xl border p-3 text-sm">{error}</p>
+          ) : options.filter(
+              (option) => !selectedIds.has(option.workout_template_id),
+            ).length ? (
+            options
+              .filter((option) => !selectedIds.has(option.workout_template_id))
+              .map((option) => (
+                <article
+                  key={option.workout_template_id}
+                  className="grid gap-2 rounded-xl border p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-medium break-words">
+                        {option.name}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {option.exercise_count} exercises ·{" "}
+                        {option.strength_exercise_count} strength ·{" "}
+                        {option.rehab_exercise_count} rehab
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
+                      onClick={() =>
+                        setLinked([
+                          ...linked,
+                          {
+                            workout_template_id: option.workout_template_id,
+                            sessions_per_week: 1,
+                            schedule_notes: "",
+                          },
+                        ])
+                      }
+                    >
+                      Add
+                    </button>
+                  </div>
+                  {option.exercises.length ? (
+                    <details>
+                      <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+                        Preview prescription
+                      </summary>
+                      <div className="mt-2 grid gap-1.5 border-t pt-2">
+                        {option.exercises.map((exercise, exerciseIndex) => (
+                          <div
+                            key={`${exercise.name}:${exerciseIndex}`}
+                            className="text-xs"
+                          >
+                            {exercise.name} · {exerciseLine(exercise)}
+                            {exercise.role === "rehab" ? " · Rehab" : ""}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
+                </article>
+              ))
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              All available workouts are linked.
+            </p>
+          )}
+        </div>
+      </fieldset>
+
+      {Object.keys(remaining).length ? (
+        <fieldset className="grid gap-3 rounded-2xl border p-3">
+          <legend className="px-1 text-sm font-semibold">
+            Additional strength targets
+          </legend>
+          <ObjectFields
+            value={remaining}
+            onChange={(path, nextValue) =>
+              onChange(updateNestedValue(value, path, nextValue))
+            }
+          />
+        </fieldset>
+      ) : null}
+    </div>
+  );
+}
+
 function ProgressBadge({ value }: { value: unknown }) {
   const label = progressLabel(value);
   return (
@@ -968,6 +1310,7 @@ function ProgressBadge({ value }: { value: unknown }) {
 
 export function PlanDraftWorkspace({
   revisionId,
+  targetUserId = "",
   document,
   saving,
   onDirtyChange,
@@ -1673,6 +2016,17 @@ export function PlanDraftWorkspace({
                         setDraft((current) => ({
                           ...current,
                           nutrition_targets: value,
+                        }))
+                      }
+                    />
+                  ) : section.key === "training_targets" ? (
+                    <TrainingTargetsEditor
+                      value={draft.training_targets}
+                      targetUserId={targetUserId}
+                      onChange={(value) =>
+                        setDraft((current) => ({
+                          ...current,
+                          training_targets: value,
                         }))
                       }
                     />
