@@ -419,6 +419,32 @@ export default function TrainingCalendarPage() {
     }
   }
 
+  async function deleteConditioningSession(
+    conditioningSessionId: string,
+    name: string,
+  ) {
+    if (readOnly) {
+      setStatus("delegated read-only view: delete is not allowed");
+      return;
+    }
+
+    const ok = window.confirm(`Delete logged conditioning session "${name}"?`);
+    if (!ok) return;
+
+    try {
+      await fetchJson(
+        `/api/lifeswitch/training/conditioning_sessions/${encodeURIComponent(
+          conditioningSessionId,
+        )}/deactivate`,
+        { method: "POST" },
+      );
+      setOpenSessionActionsId("");
+      await loadSessions();
+    } catch (e: any) {
+      setStatus(`delete failed: ${String(e?.message || e)}`);
+    }
+  }
+
   const months = React.useMemo(() => {
     const strengthByMonth = new Map<string, TrainingSessionRow[]>();
     const conditioningByMonth = new Map<string, ConditioningSessionRow[]>();
@@ -697,9 +723,15 @@ export default function TrainingCalendarPage() {
                     c.distance || null,
                     c.intensity || null,
                   ].filter(Boolean);
+                  const conditioningActionsKey =
+                    `conditioning:${c.conditioning_session_log_id}`;
+                  const conditioningActionsOpen =
+                    openSessionActionsId === conditioningActionsKey;
+                  const conditioningActionsId =
+                    `conditioning-actions-${c.conditioning_session_log_id}`;
 
                   return (
-                    <div key={`conditioning:${c.conditioning_session_log_id}`} className="rounded-xl border p-4">
+                    <article key={`conditioning:${c.conditioning_session_log_id}`} className="rounded-xl border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
@@ -721,8 +753,58 @@ export default function TrainingCalendarPage() {
 
                           {c.notes ? <div className="mt-2 text-xs text-muted-foreground">{c.notes}</div> : null}
                         </div>
+
+                        {!readOnly ? (
+                          <div className="flex shrink-0 flex-col items-end gap-2 text-xs">
+                            <button
+                              type="button"
+                              className="inline-flex min-h-8 items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              onClick={() =>
+                                setOpenSessionActionsId((previous) =>
+                                  previous === conditioningActionsKey
+                                    ? ""
+                                    : conditioningActionsKey,
+                                )
+                              }
+                              aria-expanded={conditioningActionsOpen}
+                              aria-controls={conditioningActionsId}
+                              aria-label={`Actions for ${c.name}`}
+                            >
+                              Actions
+                              {conditioningActionsOpen ? (
+                                <ChevronUp className="h-3 w-3" />
+                              ) : (
+                                <ChevronDown className="h-3 w-3" />
+                              )}
+                            </button>
+
+                            {conditioningActionsOpen ? (
+                              <div
+                                id={conditioningActionsId}
+                                className="rounded-lg border border-red-500/20 bg-red-500/5 p-2"
+                              >
+                                <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                                  Danger zone
+                                </div>
+                                <button
+                                  type="button"
+                                  className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-[11px] text-red-600 hover:bg-red-500/10"
+                                  onClick={() =>
+                                    void deleteConditioningSession(
+                                      c.conditioning_session_log_id,
+                                      c.name,
+                                    )
+                                  }
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  Delete session
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
-                    </div>
+                    </article>
                   );
                 })}
               </div>

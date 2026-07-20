@@ -66,6 +66,18 @@ function norm(s: string) {
     .toLowerCase();
 }
 
+function descriptiveExerciseKind(value?: string | null) {
+  const clean = String(value || "").trim();
+  const roleLikeKinds = new Set([
+    "strength",
+    "strength_training",
+    "rehab",
+    "prehab",
+    "rehab_prehab",
+  ]);
+  return roleLikeKinds.has(norm(clean)) ? "" : clean;
+}
+
 export default function TrainingExercisesPage() {
   // My Training Library (personal exercise library)
   const [myExercises, setMyExercises] = React.useState<MyExerciseRow[]>([]);
@@ -363,7 +375,9 @@ export default function TrainingExercisesPage() {
                   </div>
                   <div className="mt-1 text-xs break-words whitespace-normal text-muted-foreground">
                     {x.modality}
-                    {x.kind ? ` · ${x.kind}` : ""}
+                    {descriptiveExerciseKind(x.kind)
+                      ? ` · ${descriptiveExerciseKind(x.kind)}`
+                      : ""}
                     {x.brand_name ? ` · ${x.brand_name}` : ""}
                   </div>
                   <div className="mt-1 text-[11px] text-muted-foreground">

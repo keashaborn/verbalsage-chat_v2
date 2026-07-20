@@ -91,6 +91,18 @@ function norm(s: string) {
   return String(s || "").trim().toLowerCase();
 }
 
+function descriptiveExerciseKind(value?: string | null) {
+  const clean = String(value || "").trim();
+  const roleLikeKinds = new Set([
+    "strength",
+    "strength_training",
+    "rehab",
+    "prehab",
+    "rehab_prehab",
+  ]);
+  return roleLikeKinds.has(norm(clean)) ? "" : clean;
+}
+
 export default function TrainingWorkoutsPage() {
 
   const [myExercises, setMyExercises] = React.useState<MyExerciseRow[]>([]);
@@ -785,7 +797,9 @@ export default function TrainingWorkoutsPage() {
                                   <div className="mt-1 text-xs text-muted-foreground">
                                     {(e.set_type || "straight") === "drop" ? "drop" : "straight"} · {e.planned_sets} sets · {e.default_weight} × {e.default_reps}
                                     {meta?.modality ? ` · ${meta.modality}` : ""}
-                                    {meta?.kind ? ` · ${meta.kind}` : ""}
+                                    {descriptiveExerciseKind(meta?.kind)
+                                      ? ` · ${descriptiveExerciseKind(meta?.kind)}`
+                                      : ""}
                                   </div>
                                 </div>
                               </div>
@@ -1021,7 +1035,9 @@ export default function TrainingWorkoutsPage() {
                                         ) : null}
                                         <div className="mt-1 text-xs text-muted-foreground">
                                           {h.modality}
-                                          {h.kind ? ` · ${h.kind}` : ""}
+                                          {descriptiveExerciseKind(h.kind)
+                                            ? ` · ${descriptiveExerciseKind(h.kind)}`
+                                            : ""}
                                           {h.brand_name ? ` · ${h.brand_name}` : ""}
                                         </div>
                                       </div>
