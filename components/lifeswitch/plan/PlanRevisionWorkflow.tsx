@@ -102,6 +102,54 @@ function formatValue(value: unknown): string {
   return String(value);
 }
 
+function errorCode(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const detail = (payload as { detail?: unknown }).detail;
+  if (!detail || typeof detail !== "object") return "";
+  const code = (detail as { code?: unknown }).code;
+  return typeof code === "string" ? code : "";
+}
+
+function canonicalJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalJsonValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as JsonObject)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, canonicalJsonValue(item)]),
+    );
+  }
+  return value;
+}
+
+function documentsMatch(left: PlanDocument, right: PlanDocument): boolean {
+  return (
+    JSON.stringify(canonicalJsonValue(left)) ===
+    JSON.stringify(canonicalJsonValue(right))
+  );
+}
+
+function goalTargetSummary(document: PlanDocument): string {
+  const target = document.goal_target;
+  if (!target || typeof target !== "object" || Array.isArray(target)) return "";
+  const measure = target.outcome_measure
+    ? humanize(String(target.outcome_measure))
+    : "Outcome";
+  const baseline = target.baseline_value;
+  const goal = target.target_value;
+  if (
+    baseline === null ||
+    baseline === undefined ||
+    goal === null ||
+    goal === undefined
+  ) {
+    return "";
+  }
+  const rawUnit = String(target.unit || "");
+  const unit = rawUnit === "percent" ? "%" : rawUnit ? ` ${rawUnit}` : "";
+  return `${measure}: ${String(baseline)}${unit} → ${String(goal)}${unit}`;
+}
+
 function friendlyError(payload: unknown, status: number): string {
   if (payload && typeof payload === "object") {
     const detail = (payload as { detail?: unknown }).detail;
@@ -408,6 +456,14 @@ function PlanSummary({
                 {document.primary_goal || "Not set"}
               </dd>
             </div>
+            {goalTargetSummary(document) ? (
+              <div className="sm:col-span-2">
+                <dt className="text-xs font-medium text-muted-foreground">
+                  Measurable outcome
+                </dt>
+                <dd className="mt-1 text-sm">{goalTargetSummary(document)}</dd>
+              </div>
+            ) : null}
             <div>
               <dt className="text-xs font-medium text-muted-foreground">
                 Start date
@@ -679,6 +735,14 @@ export function PlanRevisionWorkflow() {
       });
       const text = await response.text();
       const payload: unknown = text ? JSON.parse(text) : null;
+      if (!response.ok && errorCode(payload) === "no_plan_changes") {
+        delete idempotencyKeys.current[actionKey];
+        setMessage(
+          "No unpublished changes. This draft matches the active Plan.",
+        );
+        await loadWorkspace();
+        return false;
+      }
       if (!response.ok)
         throw new Error(friendlyError(payload, response.status));
       delete idempotencyKeys.current[actionKey];
@@ -731,6 +795,11 @@ export function PlanRevisionWorkflow() {
   const revision = workspace?.open_revision || null;
   const activePlan = workspace?.active_plan || null;
   const canEdit = workspace?.capabilities?.can_edit ?? !delegated;
+  const revisionMatchesActive = Boolean(
+    revision &&
+    activePlan &&
+    documentsMatch(revision.proposed_document, activePlan.document),
+  );
   const viewingDraft = Boolean(
     revision && (planView === "draft" || !activePlan || draftEditorOpen),
   );
@@ -848,9 +917,15 @@ export function PlanRevisionWorkflow() {
               <>
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/30 p-3">
                   <div>
-                    <div className="text-sm font-semibold">Draft saved</div>
+                    <div className="text-sm font-semibold">
+                      {revisionMatchesActive
+                        ? "No unpublished changes"
+                        : "Draft saved"}
+                    </div>
                     <div className="text-xs text-muted-foreground">
-                      This draft is not active yet.
+                      {revisionMatchesActive
+                        ? `This draft matches active version ${activePlan?.version_number ?? "—"}.`
+                        : "This draft is not active yet."}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -929,11 +1004,17 @@ export function PlanRevisionWorkflow() {
                 <button
                   className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                   type="button"
-                  disabled={Boolean(pendingAction) || draftHasUnsavedChanges}
+                  disabled={
+                    Boolean(pendingAction) ||
+                    draftHasUnsavedChanges ||
+                    revisionMatchesActive
+                  }
                   title={
                     draftHasUnsavedChanges
                       ? "Save the draft before continuing."
-                      : undefined
+                      : revisionMatchesActive
+                        ? "Make a change before reviewing a new Plan version."
+                        : undefined
                   }
                   onClick={() =>
                     void runAction(
@@ -949,9 +1030,11 @@ export function PlanRevisionWorkflow() {
                     ? "Preparing…"
                     : draftHasUnsavedChanges
                       ? "Save draft before continuing"
-                      : delegated
-                        ? "Submit to owner"
-                        : "Review for activation"}
+                      : revisionMatchesActive
+                        ? "No changes to review"
+                        : delegated
+                          ? "Submit to owner"
+                          : "Review for activation"}
                 </button>
               </div>
             ) : null}

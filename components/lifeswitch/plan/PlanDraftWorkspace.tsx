@@ -11,6 +11,7 @@ export type PlanDocument = {
   phase: string;
   phase_label: string;
   primary_goal: string;
+  goal_target?: JsonObject;
   start_date: string | null;
   review_date: string | null;
   review_cadence: string;
@@ -471,42 +472,154 @@ function isMeaningful(value: unknown): boolean {
   return true;
 }
 
-function leafCounts(value: unknown): { filled: number; total: number } {
-  if (isPlainObject(value)) {
-    const entries = Object.values(value);
-    if (!entries.length) return { filled: 0, total: 0 };
-    return entries.reduce<{ filled: number; total: number }>(
-      (sum, item) => {
-        const next = leafCounts(item);
-        return {
-          filled: sum.filled + next.filled,
-          total: sum.total + next.total,
-        };
-      },
-      { filled: 0, total: 0 },
-    );
+function finiteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (
+    typeof value === "string" &&
+    value.trim() &&
+    Number.isFinite(Number(value))
+  ) {
+    return Number(value);
   }
-  if (Array.isArray(value)) {
-    if (!value.length) return { filled: 0, total: 1 };
-    return value.reduce<{ filled: number; total: number }>(
-      (sum, item) => {
-        const next = leafCounts(item);
-        return {
-          filled: sum.filled + next.filled,
-          total: sum.total + next.total,
-        };
-      },
-      { filled: 0, total: 0 },
-    );
-  }
-  return { filled: isMeaningful(value) ? 1 : 0, total: 1 };
+  return null;
 }
 
-function progressLabel(value: unknown): string {
-  const counts = leafCounts(value);
-  if (!counts.total || !counts.filled) return "Needs information";
-  if (counts.filled < counts.total) return "In progress";
-  return "Complete";
+function linkedScheduleReady(value: unknown, field: string): boolean {
+  return (
+    Array.isArray(value) &&
+    value.some(
+      (entry) =>
+        isPlainObject(entry) &&
+        finiteNumber(entry[field]) !== null &&
+        Number(entry[field]) > 0,
+    )
+  );
+}
+
+function sectionReady(section: SectionKey, value: JsonObject): boolean {
+  if (section === "body_state") {
+    const weightReady =
+      finiteNumber(value.weight_lb ?? value.weight) !== null &&
+      isMeaningful(value.weight_method ?? value.weight_source ?? "Scale");
+    const waistReady =
+      finiteNumber(value.waist_in ?? value.waist) !== null &&
+      isMeaningful(value.circumference_method ?? value.waist_method);
+    const bodyFatReady =
+      finiteNumber(value.body_fat_percent) !== null &&
+      isMeaningful(
+        value.body_fat_method ?? value.measurement_method ?? value.calipers,
+      );
+    return weightReady || waistReady || bodyFatReady;
+  }
+  if (section === "nutrition_targets") {
+    const calories = isPlainObject(value.calorie_target)
+      ? value.calorie_target
+      : {};
+    const protein = isPlainObject(value.protein_target)
+      ? value.protein_target
+      : {};
+    const nominal =
+      calories.nominal_kcal ??
+      value.calories ??
+      value.target_kcal ??
+      (!isPlainObject(value.calorie_target) ? value.calorie_target : null);
+    const proteinMinimum =
+      protein.minimum_g ??
+      value.protein_g ??
+      value.protein_minimum_g ??
+      value.protein_grams_minimum;
+    return (
+      finiteNumber(nominal) !== null && finiteNumber(proteinMinimum) !== null
+    );
+  }
+  if (section === "training_targets") {
+    return (
+      linkedScheduleReady(value.linked_workouts, "sessions_per_week") ||
+      isMeaningful(
+        value.workouts_per_week ??
+          value.strength_sessions_per_week ??
+          value.split ??
+          value.progression_rule,
+      )
+    );
+  }
+  if (section === "conditioning_targets") {
+    return (
+      linkedScheduleReady(value.linked_conditioning, "sessions_per_week") ||
+      isMeaningful(
+        value.cardio_target ??
+          value.frequency ??
+          value.preferred_mode ??
+          value.intensity,
+      )
+    );
+  }
+  if (section === "activity_targets") {
+    const target =
+      value.target_steps_per_day ?? value.step_target ?? value.steps_per_day;
+    return finiteNumber(target) !== null;
+  }
+  if (section === "recovery_targets") {
+    return isMeaningful(
+      value.sleep_minimum_hours ??
+        value.sleep_hours ??
+        value.sleep_target ??
+        value.warning_signs ??
+        value.fatigue_watch,
+    );
+  }
+  return isMeaningful(value.summary ?? value);
+}
+
+function inferredGoalTarget(document: PlanDocument): JsonObject {
+  if (
+    isPlainObject(document.goal_target) &&
+    isMeaningful(document.goal_target)
+  ) {
+    return document.goal_target;
+  }
+  const bodyFatMatch = document.primary_goal.match(
+    /body\s*-?fat[^\d]*(\d+(?:\.\d+)?)\s*%[^\d]*(\d+(?:\.\d+)?)\s*%/i,
+  );
+  if (bodyFatMatch) {
+    return {
+      outcome_measure: "body_fat_percent",
+      baseline_value: Number(bodyFatMatch[1]),
+      target_value: Number(bodyFatMatch[2]),
+      unit: "percent",
+      direction:
+        Number(bodyFatMatch[2]) < Number(bodyFatMatch[1])
+          ? "decrease"
+          : "increase",
+      target_date: null,
+      success_notes: "",
+    };
+  }
+  return {
+    outcome_measure: "other",
+    baseline_value: null,
+    target_value: null,
+    unit: "",
+    direction: "decrease",
+    target_date: null,
+    success_notes: "",
+  };
+}
+
+function goalTargetText(target: JsonObject): string {
+  const baseline = target.baseline_value;
+  const goal = target.target_value;
+  if (
+    baseline === null ||
+    baseline === undefined ||
+    goal === null ||
+    goal === undefined
+  ) {
+    return "Not set";
+  }
+  const rawUnit = String(target.unit || "");
+  const unit = rawUnit === "percent" ? "%" : rawUnit ? ` ${rawUnit}` : "";
+  return `${humanize(String(target.outcome_measure || "outcome"))}: ${String(baseline)}${unit} → ${String(goal)}${unit}`;
 }
 
 function updateNestedValue(
@@ -2661,8 +2774,8 @@ function ConditioningTargetsEditor({
   );
 }
 
-function ProgressBadge({ value }: { value: unknown }) {
-  const label = progressLabel(value);
+function ProgressBadge({ ready }: { ready: boolean }) {
+  const label = ready ? "Ready" : "Needs information";
   return (
     <span className="rounded-full border px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
       {label}
@@ -2773,6 +2886,17 @@ export function PlanDraftWorkspace({
 
   const step = GUIDE_STEPS[stepIndex];
   const section = SECTIONS.find((item) => item.key === step?.id);
+  const goalTarget = inferredGoalTarget(draft);
+
+  function setGoalTargetField(field: string, value: unknown) {
+    setDraft((current) => ({
+      ...current,
+      goal_target: {
+        ...inferredGoalTarget(current),
+        [field]: value,
+      },
+    }));
+  }
 
   return (
     <div
@@ -2843,7 +2967,7 @@ export function PlanDraftWorkspace({
             </span>
           </span>
           <ProgressBadge
-            value={[draft.phase, draft.phase_label, draft.primary_goal]}
+            ready={Boolean(draft.phase && draft.primary_goal.trim())}
           />
         </button>
         <button
@@ -2862,7 +2986,9 @@ export function PlanDraftWorkspace({
             </span>
           </span>
           <ProgressBadge
-            value={[draft.start_date, draft.review_date, draft.review_cadence]}
+            ready={Boolean(
+              draft.start_date && draft.review_date && draft.review_cadence,
+            )}
           />
         </button>
         {SECTIONS.map((item) => (
@@ -2873,7 +2999,7 @@ export function PlanDraftWorkspace({
             className="flex items-center justify-between gap-3 rounded-xl border bg-background p-3 text-left"
           >
             <span className="text-sm font-semibold">{item.label}</span>
-            <ProgressBadge value={draft[item.key]} />
+            <ProgressBadge ready={sectionReady(item.key, draft[item.key])} />
           </button>
         ))}
         <button
@@ -2881,9 +3007,9 @@ export function PlanDraftWorkspace({
           onClick={() => openStep("coach_notes")}
           className="flex items-center justify-between gap-3 rounded-xl border bg-background p-3 text-left"
         >
-          <span className="text-sm font-semibold">Coach notes</span>
+          <span className="text-sm font-semibold">Notes and context</span>
           {draft.coach_notes ? (
-            <ProgressBadge value={draft.coach_notes} />
+            <ProgressBadge ready />
           ) : (
             <span className="rounded-full border px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
               Optional
@@ -3290,7 +3416,7 @@ export function PlanDraftWorkspace({
                     </p>
                   </div>
                   <label className="grid gap-1.5 text-sm">
-                    <span className="font-medium">Primary goal</span>
+                    <span className="font-medium">Goal statement</span>
                     <textarea
                       value={draft.primary_goal}
                       onChange={(event) =>
@@ -3299,10 +3425,134 @@ export function PlanDraftWorkspace({
                           primary_goal: event.target.value,
                         }))
                       }
-                      rows={6}
+                      rows={3}
                       className="rounded-xl border bg-background px-3 py-3"
                     />
                   </label>
+                  <fieldset className="grid gap-3 rounded-2xl border p-3">
+                    <legend className="px-1 text-sm font-semibold">
+                      Measurable outcome
+                    </legend>
+                    <p className="text-xs text-muted-foreground">
+                      These values give Sage and Analyze a deterministic target
+                      to compare with observations.
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="grid gap-1.5 text-sm">
+                        <span className="font-medium">Outcome measure</span>
+                        <select
+                          value={String(goalTarget.outcome_measure || "other")}
+                          onChange={(event) =>
+                            setGoalTargetField(
+                              "outcome_measure",
+                              event.target.value,
+                            )
+                          }
+                          className="rounded-xl border bg-background px-3 py-3"
+                        >
+                          <option value="body_fat_percent">
+                            Body fat percentage
+                          </option>
+                          <option value="body_weight">Body weight</option>
+                          <option value="waist_circumference">
+                            Waist circumference
+                          </option>
+                          <option value="training_performance">
+                            Training performance
+                          </option>
+                          <option value="other">
+                            Other measurable outcome
+                          </option>
+                        </select>
+                      </label>
+                      <label className="grid gap-1.5 text-sm">
+                        <span className="font-medium">Direction</span>
+                        <select
+                          value={String(goalTarget.direction || "decrease")}
+                          onChange={(event) =>
+                            setGoalTargetField("direction", event.target.value)
+                          }
+                          className="rounded-xl border bg-background px-3 py-3"
+                        >
+                          <option value="decrease">Decrease</option>
+                          <option value="increase">Increase</option>
+                          <option value="maintain">
+                            Maintain within range
+                          </option>
+                        </select>
+                      </label>
+                      <NumberTargetField
+                        label="Starting value"
+                        value={goalTarget.baseline_value}
+                        unit={String(goalTarget.unit || "value")}
+                        step={0.1}
+                        onChange={(value) =>
+                          setGoalTargetField("baseline_value", value)
+                        }
+                      />
+                      <NumberTargetField
+                        label="Target value"
+                        value={goalTarget.target_value}
+                        unit={String(goalTarget.unit || "value")}
+                        step={0.1}
+                        onChange={(value) =>
+                          setGoalTargetField("target_value", value)
+                        }
+                      />
+                      <label className="grid gap-1.5 text-sm">
+                        <span className="font-medium">Unit</span>
+                        <input
+                          value={String(goalTarget.unit || "")}
+                          onChange={(event) =>
+                            setGoalTargetField("unit", event.target.value)
+                          }
+                          list="goal-unit-options"
+                          placeholder="percent, lb, in, score"
+                          className="rounded-xl border bg-background px-3 py-3"
+                        />
+                        <datalist id="goal-unit-options">
+                          <option value="percent" />
+                          <option value="lb" />
+                          <option value="kg" />
+                          <option value="in" />
+                          <option value="score" />
+                        </datalist>
+                      </label>
+                      <label className="grid gap-1.5 text-sm">
+                        <span className="font-medium">
+                          Target date (optional)
+                        </span>
+                        <input
+                          type="date"
+                          value={String(goalTarget.target_date || "")}
+                          onChange={(event) =>
+                            setGoalTargetField(
+                              "target_date",
+                              event.target.value || null,
+                            )
+                          }
+                          className="rounded-xl border bg-background px-3 py-3"
+                        />
+                      </label>
+                    </div>
+                    <label className="grid gap-1.5 text-sm">
+                      <span className="font-medium">
+                        Success or constraint note (optional)
+                      </span>
+                      <textarea
+                        rows={2}
+                        value={String(goalTarget.success_notes || "")}
+                        onChange={(event) =>
+                          setGoalTargetField(
+                            "success_notes",
+                            event.target.value,
+                          )
+                        }
+                        placeholder="For example: maintain strength while reducing body fat."
+                        className="rounded-xl border bg-background px-3 py-3"
+                      />
+                    </label>
+                  </fieldset>
                 </div>
               ) : null}
 
@@ -3511,6 +3761,14 @@ export function PlanDraftWorkspace({
                       </dt>
                       <dd className="mt-1 text-sm whitespace-pre-wrap">
                         {draft.primary_goal || "Not set"}
+                      </dd>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <dt className="text-xs font-medium text-muted-foreground">
+                        Measurable outcome
+                      </dt>
+                      <dd className="mt-1 text-sm">
+                        {goalTargetText(goalTarget)}
                       </dd>
                     </div>
                   </dl>
