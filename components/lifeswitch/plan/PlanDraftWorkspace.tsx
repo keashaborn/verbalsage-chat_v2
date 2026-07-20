@@ -56,6 +56,47 @@ export type SagePlanReview = {
     confidence: "low" | "medium" | "high";
     data_sufficiency: "insufficient" | "limited" | "sufficient";
   }>;
+  observation_context: {
+    as_of_local_date?: string;
+    nutrition?: {
+      status?: string;
+      logged_days?: number;
+      data_sufficiency?: string;
+      calories?: {
+        adherence?: { status?: string; reason?: string };
+      };
+      reason?: string;
+    };
+    measurements?: {
+      status?: string;
+      weight?: { observation_days?: number };
+      waist?: { observation_days?: number };
+      body_fat_percent?: { observation_days?: number };
+      reason?: string;
+    };
+    training?: {
+      status?: string;
+      all_logged_resistance_sessions?: number;
+      strength_adherence?: {
+        status?: string;
+        reason?: string;
+        rehab_exclusion_supported?: boolean;
+      };
+      reason?: string;
+    };
+    conditioning?: {
+      status?: string;
+      session_count?: number;
+      data_sufficiency?: string;
+      reason?: string;
+    };
+    activity?: {
+      status?: string;
+      steps?: { status?: string; reason?: string };
+      reason?: string;
+    };
+    recovery?: { status?: string; reason?: string };
+  };
   provenance: {
     provider: string;
     model: string;
@@ -63,6 +104,8 @@ export type SagePlanReview = {
     draft_sha256: string;
     generated_at: string;
     writes_performed: false;
+    requested_focus?: SageReviewFocus;
+    effective_focus?: SageReviewFocus;
   };
 };
 
@@ -213,7 +256,11 @@ function applyPointerValue(
 
 function formatFieldPath(path: string): string {
   const parts = pointerParts(path);
-  return parts?.map(humanize).join(" › ") || path;
+  if (!parts) return path;
+  const readable = parts.map((part, index) =>
+    index === 0 && part === "context" ? "Logged data" : humanize(part),
+  );
+  return readable.join(" › ");
 }
 
 function formatValue(value: unknown): string {
@@ -226,6 +273,114 @@ function formatValue(value: unknown): string {
       .join(" · ");
   }
   return String(value);
+}
+
+function unavailableDataLabel(reason?: string): string {
+  if (reason === "permission_not_granted") return "Not shared with this coach";
+  if (reason?.startsWith("no_canonical_")) return "Not connected yet";
+  return "Unavailable";
+}
+
+function SageDataCoverage({
+  context,
+}: {
+  context: SagePlanReview["observation_context"];
+}) {
+  const nutritionAvailable = context.nutrition?.status === "available";
+  const measurementsAvailable = context.measurements?.status === "available";
+  const trainingAvailable = context.training?.status?.startsWith("available");
+  const conditioningAvailable = context.conditioning?.status === "available";
+  const stepsAvailable = context.activity?.steps?.status === "available";
+  const recoveryAvailable = context.recovery?.status === "available";
+  const connectedCount = [
+    nutritionAvailable,
+    measurementsAvailable,
+    trainingAvailable,
+    conditioningAvailable,
+    stepsAvailable,
+    recoveryAvailable,
+  ].filter(Boolean).length;
+  const calorieRangeNeeded =
+    context.nutrition?.calories?.adherence?.reason ===
+    "point_target_has_no_acceptable_range";
+
+  const items = [
+    {
+      label: "Nutrition",
+      available: nutritionAvailable,
+      detail: nutritionAvailable
+        ? `${context.nutrition?.logged_days ?? 0} logged days · ${humanize(context.nutrition?.data_sufficiency || "unknown")} data${calorieRangeNeeded ? " · Calorie range needed" : ""}`
+        : unavailableDataLabel(context.nutrition?.reason),
+    },
+    {
+      label: "Measurements",
+      available: measurementsAvailable,
+      detail: measurementsAvailable
+        ? `${context.measurements?.weight?.observation_days ?? 0} weight days · ${context.measurements?.waist?.observation_days ?? 0} waist days · ${context.measurements?.body_fat_percent?.observation_days ?? 0} body-fat days`
+        : unavailableDataLabel(context.measurements?.reason),
+    },
+    {
+      label: "Resistance training",
+      available: Boolean(trainingAvailable),
+      detail: trainingAvailable
+        ? `${context.training?.all_logged_resistance_sessions ?? 0} logged sessions · Rehab is not separated yet`
+        : unavailableDataLabel(context.training?.reason),
+    },
+    {
+      label: "Conditioning",
+      available: conditioningAvailable,
+      detail: conditioningAvailable
+        ? `${context.conditioning?.session_count ?? 0} logged sessions · ${humanize(context.conditioning?.data_sufficiency || "unknown")} data`
+        : unavailableDataLabel(context.conditioning?.reason),
+    },
+    {
+      label: "Steps",
+      available: stepsAvailable,
+      detail: stepsAvailable
+        ? "Connected"
+        : unavailableDataLabel(context.activity?.steps?.reason),
+    },
+    {
+      label: "Recovery",
+      available: recoveryAvailable,
+      detail: recoveryAvailable
+        ? "Connected"
+        : unavailableDataLabel(context.recovery?.reason),
+    },
+  ];
+
+  return (
+    <details className="rounded-2xl border">
+      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+        Data Sage used · {connectedCount} of {items.length} sources connected
+      </summary>
+      <div className="grid gap-2 border-t p-3">
+        {items.map((item) => (
+          <div
+            key={item.label}
+            className="flex items-start justify-between gap-3 rounded-xl bg-muted/35 p-3"
+          >
+            <div>
+              <div className="text-sm font-medium">{item.label}</div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                {item.detail}
+              </div>
+            </div>
+            <span
+              className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${item.available ? "bg-emerald-500" : "bg-muted-foreground/35"}`}
+              aria-label={item.available ? "Connected" : "Unavailable"}
+            />
+          </div>
+        ))}
+        {context.as_of_local_date ? (
+          <div className="px-1 text-[11px] text-muted-foreground">
+            Through {context.as_of_local_date}. Deterministic summaries only; no
+            raw log was given to Sage.
+          </div>
+        ) : null}
+      </div>
+    </details>
+  );
 }
 
 function isMeaningful(value: unknown): boolean {
@@ -694,8 +849,9 @@ export function PlanDraftWorkspace({
 
             <main className="grid flex-1 content-start gap-4 px-4 py-6">
               <div className="rounded-xl border bg-muted/30 p-3 text-sm text-muted-foreground">
-                Sage can read only this saved inactive draft and its
-                deterministic validation. It cannot save, submit, approve, or
+                Sage can read this saved inactive draft, deterministic
+                validation, and bounded summaries from the LifeSwitch data you
+                are allowed to view. It cannot save, submit, approve, or
                 activate a Plan. You decide whether any suggestion enters the
                 editable draft.
               </div>
@@ -772,6 +928,10 @@ export function PlanDraftWorkspace({
                       {sageReview.summary}
                     </p>
                   </section>
+
+                  <SageDataCoverage
+                    context={sageReview.observation_context || {}}
+                  />
 
                   {sageReview.questions.length ? (
                     <section className="rounded-2xl border p-4">
@@ -854,7 +1014,7 @@ export function PlanDraftWorkspace({
                             <p className="text-sm">{suggestion.rationale}</p>
                             <details className="rounded-xl border">
                               <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-                                Supporting Plan evidence
+                                Supporting evidence
                               </summary>
                               <div className="grid gap-2 border-t p-3">
                                 {suggestion.evidence.map((evidence) => (
@@ -934,8 +1094,8 @@ export function PlanDraftWorkspace({
                       Start another review
                     </button>
                     <div className="text-xs text-muted-foreground">
-                      {sageReview.provenance.model} · Saved draft only · No
-                      writes
+                      {sageReview.provenance.model} · Saved draft + bounded
+                      canonical summaries · No writes
                     </div>
                   </div>
                 </div>
