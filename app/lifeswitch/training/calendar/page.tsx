@@ -657,16 +657,16 @@ export default function TrainingCalendarPage() {
             Strength
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="h-3 w-3 rounded-full border border-purple-500/80 bg-purple-500/15" />
-            Rehab
-          </span>
-          <span className="inline-flex items-center gap-1">
             <span className="h-3 w-3 rounded-full border border-yellow-400/80 bg-yellow-500/20" />
             Conditioning
           </span>
           <span className="inline-flex items-center gap-1">
             <span className="h-3 w-3 rounded-full border border-green-500/80 bg-green-500/20" />
             Both
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-3 w-3 rounded-full border border-purple-500/80 bg-purple-500/15" />
+            Rehab
           </span>
           <span className="inline-flex items-center gap-1">
             <span className="h-3 w-3 rounded-full border border-muted/40" />
