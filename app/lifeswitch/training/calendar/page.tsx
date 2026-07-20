@@ -20,6 +20,14 @@ type TrainingSessionRow = {
   set_count: number;
   exercise_count: number;
   volume: number;
+  strength_set_count?: number;
+  strength_exercise_count?: number;
+  strength_volume?: number;
+  rehab_set_count?: number;
+  rehab_exercise_count?: number;
+  rehab_volume?: number;
+  session_role?: "strength" | "rehab" | "mixed" | "unclassified";
+  counts_toward_strength?: boolean;
 };
 
 type ConditioningSessionRow = {
@@ -55,8 +63,10 @@ type MonthSection = {
   conditioningSessions: ConditioningSessionRow[];
   events: TrainingLogEvent[];
   workoutDates: Set<string>;
+  rehabDates: Set<string>;
   conditioningDates: Set<string>;
   workouts: number;
+  rehabDays: number;
   conditioning: number;
   conditioningMinutes: number;
   volume: number;
@@ -91,6 +101,41 @@ function todayLocalYYYYMMDD() {
 function safeNum(x: any, fallback = 0) {
   const n = Number(x);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function trainingSessionRole(
+  row: TrainingSessionRow,
+): "strength" | "rehab" | "mixed" | "unclassified" {
+  if (["strength", "rehab", "mixed", "unclassified"].includes(String(row.session_role))) {
+    return row.session_role as "strength" | "rehab" | "mixed" | "unclassified";
+  }
+
+  const strengthSets = safeNum(row.strength_set_count, 0);
+  const rehabSets = safeNum(row.rehab_set_count, 0);
+  if (strengthSets > 0 && rehabSets > 0) return "mixed";
+  if (rehabSets > 0) return "rehab";
+  if (strengthSets > 0) return "strength";
+
+  // Compatibility while the backend role summary is rolling out.
+  return "strength";
+}
+
+function countsTowardStrength(row: TrainingSessionRow) {
+  if (typeof row.counts_toward_strength === "boolean") {
+    return row.counts_toward_strength;
+  }
+  const role = trainingSessionRole(row);
+  return role === "strength" || role === "mixed";
+}
+
+function hasRehabWork(row: TrainingSessionRow) {
+  const role = trainingSessionRole(row);
+  return role === "rehab" || role === "mixed" || safeNum(row.rehab_set_count, 0) > 0;
+}
+
+function strengthMetric(row: TrainingSessionRow, summaryKey: "strength_set_count" | "strength_exercise_count" | "strength_volume", fallbackKey: "set_count" | "exercise_count" | "volume") {
+  if (row[summaryKey] != null) return safeNum(row[summaryKey], 0);
+  return countsTowardStrength(row) ? safeNum(row[fallbackKey], 0) : 0;
 }
 function doseValue(
   config: Record<string, unknown>,
@@ -274,8 +319,14 @@ async function fetchJson(url: string, init?: RequestInit) {
   return j;
 }
 
-function MonthCalendar(props: { ym: string; workoutDates: Set<string>; conditioningDates: Set<string>; today: string }) {
-  const { ym, workoutDates, conditioningDates, today } = props;
+function MonthCalendar(props: {
+  ym: string;
+  workoutDates: Set<string>;
+  rehabDates: Set<string>;
+  conditioningDates: Set<string>;
+  today: string;
+}) {
+  const { ym, workoutDates, rehabDates, conditioningDates, today } = props;
 
   const mm = String(ym || "").trim().match(/^(\d{4})-(\d{2})$/);
   if (!mm) return null;
@@ -309,14 +360,29 @@ function MonthCalendar(props: { ym: string; workoutDates: Set<string>; condition
 
           const date = `${ym}-${pad2(dayNum)}`;
           const didWorkout = workoutDates.has(date);
+          const didRehab = rehabDates.has(date);
           const didConditioning = conditioningDates.has(date);
           const isToday = date === today;
           const state =
-            didWorkout && didConditioning ? "both" : didWorkout ? "strength" : didConditioning ? "conditioning" : "none";
+            didWorkout && didConditioning
+              ? "both"
+              : didWorkout
+                ? "strength"
+                : didConditioning
+                  ? "conditioning"
+                  : didRehab
+                    ? "rehab"
+                    : "none";
+          const stateLabel = [
+            didWorkout ? "strength" : "",
+            didRehab ? "rehab" : "",
+            didConditioning ? "conditioning" : "",
+          ].filter(Boolean).join(" + ") || "no log";
 
           const cls = [
-            "h-7 flex items-center justify-center rounded-md border transition-colors",
+            "relative h-7 flex items-center justify-center rounded-md border transition-colors",
             state === "strength" ? "border-blue-500/80 bg-blue-500/10 text-blue-900 dark:text-blue-100 font-semibold" : "",
+            state === "rehab" ? "border-purple-500/80 bg-purple-500/15 text-purple-900 dark:text-purple-100 font-semibold" : "",
             state === "conditioning" ? "border-yellow-400/80 bg-yellow-500/20 text-yellow-100 font-semibold" : "",
             state === "both" ? "border-green-700/80 bg-green-500/30 text-green-950 dark:border-green-400/80 dark:bg-green-500/20 dark:text-green-100 font-semibold" : "",
             state === "none" ? "border-muted/40 text-muted-foreground" : "",
@@ -326,8 +392,14 @@ function MonthCalendar(props: { ym: string; workoutDates: Set<string>; condition
             .join(" ");
 
           return (
-            <div key={date} className={cls} title={`${date}: ${state}`}>
+            <div key={date} className={cls} title={`${date}: ${stateLabel}`}>
               {dayNum}
+              {didRehab && state !== "rehab" ? (
+                <span
+                  className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-purple-400"
+                  aria-hidden="true"
+                />
+              ) : null}
             </div>
           );
         })}
@@ -383,7 +455,7 @@ export default function TrainingCalendarPage() {
       setSessions(strengthArr);
       setConditioningSessions(conditioningArr);
       setStatus(
-        `${readOnly ? "delegated read-only view · " : ""}loaded ${strengthArr.length} strength sessions and ${conditioningArr.length} conditioning sessions`
+        `${readOnly ? "delegated read-only view · " : ""}loaded ${strengthArr.length} resistance sessions and ${conditioningArr.length} conditioning sessions`
       );
     } catch (e: any) {
       setSessions([]);
@@ -490,10 +562,22 @@ export default function TrainingCalendarPage() {
         return String(b.created_at || "").localeCompare(String(a.created_at || ""));
       });
 
-      const workoutDates = new Set<string>(ss.map((x) => String(x.day || "")));
+      const strengthSessions = ss.filter(countsTowardStrength);
+      const workoutDates = new Set<string>(
+        strengthSessions.map((x) => String(x.day || "")),
+      );
+      const rehabDates = new Set<string>(
+        ss.filter(hasRehabWork).map((x) => String(x.day || "")),
+      );
       const conditioningDates = new Set<string>(cc.map((x) => String(x.day || "")));
-      const volume = ss.reduce((acc, x) => acc + safeNum(x.volume, 0), 0);
-      const sets = ss.reduce((acc, x) => acc + safeNum(x.set_count, 0), 0);
+      const volume = ss.reduce(
+        (acc, x) => acc + strengthMetric(x, "strength_volume", "volume"),
+        0,
+      );
+      const sets = ss.reduce(
+        (acc, x) => acc + strengthMetric(x, "strength_set_count", "set_count"),
+        0,
+      );
       const conditioningMinutes = cc.reduce((acc, x) => acc + safeNum(x.duration_min, 0), 0);
 
       const events: TrainingLogEvent[] = [
@@ -524,8 +608,10 @@ export default function TrainingCalendarPage() {
         conditioningSessions: cc,
         events,
         workoutDates,
+        rehabDates,
         conditioningDates,
-        workouts: ss.length,
+        workouts: strengthSessions.length,
+        rehabDays: rehabDates.size,
         conditioning: cc.length,
         conditioningMinutes,
         volume,
@@ -549,7 +635,7 @@ export default function TrainingCalendarPage() {
         <div>
           <div className="text-lg font-semibold">Training · Log</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Review completed strength and conditioning sessions from Training Capture.
+            Review completed strength, rehab, and conditioning sessions from Training Capture.
           </div>
         </div>
 
@@ -571,6 +657,10 @@ export default function TrainingCalendarPage() {
             Strength
           </span>
           <span className="inline-flex items-center gap-1">
+            <span className="h-3 w-3 rounded-full border border-purple-500/80 bg-purple-500/15" />
+            Rehab
+          </span>
+          <span className="inline-flex items-center gap-1">
             <span className="h-3 w-3 rounded-full border border-yellow-400/80 bg-yellow-500/20" />
             Conditioning
           </span>
@@ -590,7 +680,7 @@ export default function TrainingCalendarPage() {
           <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
           <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
             <div>status: {status}</div>
-            <div>strength sessions: {sessions.length}</div>
+            <div>resistance sessions: {sessions.length}</div>
             <div>conditioning sessions: {conditioningSessions.length}</div>
             <div>months: {months.length}</div>
           </div>
@@ -607,7 +697,13 @@ export default function TrainingCalendarPage() {
               <div className="text-base font-semibold">{m.label}</div>
 
               <div className="mt-4 grid grid-cols-[1fr_6.5rem] items-start gap-2">
-                <MonthCalendar ym={m.ym} workoutDates={m.workoutDates} conditioningDates={m.conditioningDates} today={today} />
+                <MonthCalendar
+                  ym={m.ym}
+                  workoutDates={m.workoutDates}
+                  rehabDates={m.rehabDates}
+                  conditioningDates={m.conditioningDates}
+                  today={today}
+                />
 
                 <div className="flex justify-center">
                   <div className="w-[6.25rem] rounded-xl border border-muted/20 px-2 py-2 text-center">
@@ -620,15 +716,18 @@ export default function TrainingCalendarPage() {
                     <div className="mt-2 text-sm font-semibold leading-none">{m.sets}</div>
                     <div className="mt-0.5 text-[9px] tracking-wide opacity-70">SETS</div>
 
-                      <div className="mt-2 text-sm font-semibold leading-none">{m.conditioning}</div>
-                      <div className="mt-0.5 text-[9px] tracking-wide opacity-70">COND</div>
+                    <div className="mt-2 text-sm font-semibold leading-none">{m.rehabDays}</div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">REHAB DAYS</div>
 
-                      <div className="mt-2 text-sm font-semibold leading-none">
-                        {m.conditioningMinutes >= 60
-                          ? `${String(Math.round((m.conditioningMinutes / 60) * 10) / 10).replace(/\.0$/, "")}h`
-                          : `${Math.round(m.conditioningMinutes)}m`}
-                      </div>
-                      <div className="mt-0.5 text-[9px] tracking-wide opacity-70">TIME</div>
+                    <div className="mt-2 text-sm font-semibold leading-none">{m.conditioning}</div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">COND</div>
+
+                    <div className="mt-2 text-sm font-semibold leading-none">
+                      {m.conditioningMinutes >= 60
+                        ? `${String(Math.round((m.conditioningMinutes / 60) * 10) / 10).replace(/\.0$/, "")}h`
+                        : `${Math.round(m.conditioningMinutes)}m`}
+                    </div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">TIME</div>
                   </div>
                 </div>
               </div>
@@ -637,6 +736,30 @@ export default function TrainingCalendarPage() {
                 {m.events.map((event) => {
                   if (event.kind === "strength") {
                     const s = event.row;
+                    const role = trainingSessionRole(s);
+                    const strengthExercises = strengthMetric(
+                      s,
+                      "strength_exercise_count",
+                      "exercise_count",
+                    );
+                    const strengthSets = strengthMetric(
+                      s,
+                      "strength_set_count",
+                      "set_count",
+                    );
+                    const strengthVolume = strengthMetric(
+                      s,
+                      "strength_volume",
+                      "volume",
+                    );
+                    const rehabExercises = safeNum(
+                      s.rehab_exercise_count,
+                      role === "rehab" ? safeNum(s.exercise_count, 0) : 0,
+                    );
+                    const rehabSets = safeNum(
+                      s.rehab_set_count,
+                      role === "rehab" ? safeNum(s.set_count, 0) : 0,
+                    );
                     const sessionHref = `/lifeswitch/training/session?session_id=${encodeURIComponent(s.training_session_id)}${targetUserId ? `&target_user_id=${encodeURIComponent(targetUserId)}&target_name=${encodeURIComponent(targetName)}` : ""}`;
                     const actionsOpen = openSessionActionsId === s.training_session_id;
                     const actionsId = `session-actions-${s.training_session_id}`;
@@ -650,13 +773,38 @@ export default function TrainingCalendarPage() {
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <div className="truncate text-sm font-semibold">{s.name}</div>
-                              <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-blue-400">
-                                Strength
-                              </span>
+                              {role === "strength" || role === "mixed" ? (
+                                <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-blue-400">
+                                  Strength
+                                </span>
+                              ) : null}
+                              {role === "rehab" || role === "mixed" ? (
+                                <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-purple-400">
+                                  Rehab
+                                </span>
+                              ) : null}
+                              {role === "unclassified" ? (
+                                <span className="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                                  Unclassified
+                                </span>
+                              ) : null}
                             </div>
                             <div className="mt-1 text-xs text-muted-foreground">
-                              {s.day} · {safeNum(s.exercise_count, 0)} exercises · {safeNum(s.set_count, 0)} sets · volume{" "}
-                              {formatK(safeNum(s.volume, 0))}
+                              {role === "rehab" ? (
+                                <>
+                                  {s.day} · {rehabExercises} rehab exercises · {rehabSets} rehab sets
+                                </>
+                              ) : role === "unclassified" ? (
+                                <>
+                                  {s.day} · {safeNum(s.exercise_count, 0)} exercises · {safeNum(s.set_count, 0)} sets
+                                </>
+                              ) : (
+                                <>
+                                  {s.day} · {strengthExercises} strength exercises · {strengthSets} strength sets · volume{" "}
+                                  {formatK(strengthVolume)}
+                                  {role === "mixed" ? ` · ${rehabSets} rehab sets` : ""}
+                                </>
+                              )}
                             </div>
                             {s.notes ? <div className="mt-2 text-xs text-muted-foreground">{s.notes}</div> : null}
                           </div>
