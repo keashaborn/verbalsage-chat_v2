@@ -192,6 +192,30 @@ type ConditioningPrescriptionOption = {
   prescription_updated_at: string | null;
 };
 
+type MeasurementEntry = {
+  measurement_entry_id: string;
+  local_date: string;
+  weight_value?: number | null;
+  weight_unit?: string | null;
+  waist_value?: number | null;
+  abdomen_value?: number | null;
+  neck_value?: number | null;
+  chest_value?: number | null;
+  hip_value?: number | null;
+  left_arm_value?: number | null;
+  right_arm_value?: number | null;
+  left_thigh_value?: number | null;
+  right_thigh_value?: number | null;
+  left_calf_value?: number | null;
+  right_calf_value?: number | null;
+  body_fat_percent?: number | null;
+  body_fat_method?: string | null;
+  measurement_unit?: string | null;
+  source?: string | null;
+  entry_kind?: string | null;
+  created_at?: string | null;
+};
+
 const SECTIONS: Array<{
   key: SectionKey;
   label: string;
@@ -715,6 +739,618 @@ function textValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+const BODY_STATE_KEYS = new Set([
+  "weight_lb",
+  "weight_unit",
+  "weight_method",
+  "weight_observed_on",
+  "weight_source",
+  "waist_in",
+  "circumference_unit",
+  "circumference_method",
+  "circumference_observed_on",
+  "circumference_source",
+  "circumferences",
+  "body_fat_percent",
+  "body_fat_method",
+  "body_fat_observed_on",
+  "body_fat_source",
+  "measurement_method",
+  "measurements",
+  "calipers",
+  "body_scan",
+]);
+
+const CIRCUMFERENCE_FIELDS = [
+  ["chest_in", "Chest"],
+  ["abdomen_in", "Abdomen"],
+  ["hip_in", "Hips"],
+  ["neck_in", "Neck"],
+  ["arm_in", "Arm (legacy combined)"],
+  ["left_arm_in", "Left arm"],
+  ["right_arm_in", "Right arm"],
+  ["thigh_in", "Thigh (legacy combined)"],
+  ["left_thigh_in", "Left thigh"],
+  ["right_thigh_in", "Right thigh"],
+  ["calf_in", "Calf (legacy combined)"],
+  ["left_calf_in", "Left calf"],
+  ["right_calf_in", "Right calf"],
+] as const;
+
+function parseLegacyCircumferences(value: unknown): JsonObject {
+  if (typeof value !== "string") return {};
+  const parsed: JsonObject = {};
+  const aliases: Record<string, string> = {
+    waist: "waist_in",
+    chest: "chest_in",
+    hip: "hip_in",
+    hips: "hip_in",
+    abdomen: "abdomen_in",
+    neck: "neck_in",
+    arm: "arm_in",
+    arms: "arm_in",
+    thigh: "thigh_in",
+    thighs: "thigh_in",
+    calf: "calf_in",
+    calves: "calf_in",
+  };
+  const pattern =
+    /(Waist|Chest|Hips?|Abdomen|Neck|Arms?|Thighs?|Calves?)\s*([0-9]+(?:\.[0-9]+)?)/gi;
+  for (const match of value.matchAll(pattern)) {
+    const key = aliases[match[1].toLowerCase()];
+    const numeric = Number(match[2]);
+    if (key && Number.isFinite(numeric)) parsed[key] = numeric;
+  }
+  return parsed;
+}
+
+function measurementTimestamp(entry: MeasurementEntry): string {
+  return `${entry.local_date || ""}T${entry.created_at || ""}`;
+}
+
+function newestMeasurement(
+  entries: MeasurementEntry[],
+  predicate: (entry: MeasurementEntry) => boolean,
+): MeasurementEntry | null {
+  return (
+    [...entries]
+      .filter(predicate)
+      .sort((left, right) =>
+        measurementTimestamp(right).localeCompare(measurementTimestamp(left)),
+      )[0] || null
+  );
+}
+
+function normalizedBodyFatMethod(value: unknown): string {
+  const method = textValue(value).toLowerCase();
+  if (!method) return "";
+  if (/skin|caliper|jackson|pollock/.test(method)) return "skinfolds";
+  if (/dexa|dual.energy/.test(method)) return "dexa";
+  if (/bia|impedance|scale/.test(method)) return "bia_scale";
+  if (/scan|bod.?pod|hydro/.test(method)) return "body_scan";
+  return "other";
+}
+
+function bodyFatMethodForEntry(entry: MeasurementEntry | null): string {
+  if (!entry) return "";
+  return (
+    normalizedBodyFatMethod(entry.body_fat_method) ||
+    (entry.entry_kind === "skinfolds"
+      ? "skinfolds"
+      : entry.entry_kind === "scan"
+        ? "body_scan"
+        : entry.entry_kind === "weight"
+          ? "bia_scale"
+          : "other")
+  );
+}
+
+function measurementMethodLabel(value: string): string {
+  const labels: Record<string, string> = {
+    scale: "Scale",
+    tape: "Tape measure",
+    skinfolds: "Skinfold calipers",
+    bia_scale: "BIA scale",
+    dexa: "DEXA",
+    body_scan: "Body scan",
+    other: "Other",
+  };
+  return labels[value] || humanize(value || "not set");
+}
+
+function BodyStateEditor({
+  value,
+  targetUserId = "",
+  onChange,
+}: {
+  value: JsonObject;
+  targetUserId?: string;
+  onChange: (value: JsonObject) => void;
+}) {
+  const [entries, setEntries] = React.useState<MeasurementEntry[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const url = new URL(
+          "/api/lifeswitch/measurements/entries?limit=50",
+          window.location.origin,
+        );
+        if (targetUserId) url.searchParams.set("target_user_id", targetUserId);
+        const response = await authFetch(url.toString(), {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const payload: unknown = await response.json();
+        if (!response.ok) throw new Error("Measurements are unavailable.");
+        setEntries(
+          Array.isArray(payload) ? (payload as MeasurementEntry[]) : [],
+        );
+      } catch (caught) {
+        if (controller.signal.aborted) return;
+        setError(caught instanceof Error ? caught.message : String(caught));
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, [targetUserId]);
+
+  const latestScaleWeight = newestMeasurement(
+    entries,
+    (entry) =>
+      entry.entry_kind === "weight" &&
+      typeof entry.weight_value === "number" &&
+      Number.isFinite(entry.weight_value),
+  );
+  const latestWeight =
+    latestScaleWeight ||
+    newestMeasurement(
+      entries,
+      (entry) =>
+        typeof entry.weight_value === "number" &&
+        Number.isFinite(entry.weight_value),
+    );
+  const latestTape = newestMeasurement(
+    entries,
+    (entry) =>
+      entry.entry_kind === "tape" &&
+      typeof entry.waist_value === "number" &&
+      Number.isFinite(entry.waist_value),
+  );
+  const latestBodyFat = newestMeasurement(
+    entries,
+    (entry) =>
+      typeof entry.body_fat_percent === "number" &&
+      Number.isFinite(entry.body_fat_percent),
+  );
+
+  const legacyMeasurements = textValue(value.measurements);
+  const legacyCircumferences = parseLegacyCircumferences(legacyMeasurements);
+  const savedCircumferences = isPlainObject(value.circumferences)
+    ? value.circumferences
+    : {};
+  const circumferences = { ...legacyCircumferences, ...savedCircumferences };
+  delete circumferences.waist_in;
+  const legacyWaist = optionalNumber(legacyCircumferences.waist_in);
+  const waist = optionalNumber(value.waist_in);
+  const hasLegacyWaistConflict =
+    legacyWaist !== null && waist !== null && legacyWaist !== waist;
+  const weightMethod =
+    textValue(value.weight_method) ||
+    (optionalNumber(value.weight_lb) !== null ? "scale" : "");
+  const circumferenceMethod =
+    textValue(value.circumference_method) ||
+    (waist !== null || Object.keys(circumferences).length ? "tape" : "");
+  const bodyFatMethod =
+    textValue(value.body_fat_method) ||
+    (isMeaningful(value.calipers)
+      ? "skinfolds"
+      : normalizedBodyFatMethod(value.measurement_method));
+
+  function normalizedValue(): JsonObject {
+    const next = JSON.parse(JSON.stringify(value)) as JsonObject;
+    delete next.measurement_method;
+    delete next.measurements;
+    next.weight_lb = optionalNumber(value.weight_lb);
+    next.weight_unit = textValue(value.weight_unit) || "lb";
+    next.weight_method = weightMethod;
+    next.waist_in = waist;
+    next.circumference_unit = textValue(value.circumference_unit) || "in";
+    next.circumference_method = circumferenceMethod;
+    next.circumferences = circumferences;
+    next.body_fat_percent = optionalNumber(value.body_fat_percent);
+    next.body_fat_method = bodyFatMethod;
+    return next;
+  }
+
+  function setKnown(key: string, nextValue: unknown) {
+    onChange({ ...normalizedValue(), [key]: nextValue });
+  }
+
+  function setCircumference(key: string, nextValue: number | null) {
+    onChange({
+      ...normalizedValue(),
+      circumferences: { ...circumferences, [key]: nextValue },
+    });
+  }
+
+  function useLatestWeight() {
+    if (!latestWeight || latestWeight.weight_value == null) return;
+    onChange({
+      ...normalizedValue(),
+      weight_lb: latestWeight.weight_value,
+      weight_unit: latestWeight.weight_unit || "lb",
+      weight_method: latestWeight.entry_kind === "scan" ? "body_scan" : "scale",
+      weight_observed_on: latestWeight.local_date,
+      weight_source: latestWeight.source || "LifeSwitch Measurements",
+    });
+  }
+
+  function useLatestTape() {
+    if (!latestTape || latestTape.waist_value == null) return;
+    const nextCircumferences: JsonObject = { ...circumferences };
+    const tapeFields: Array<[keyof MeasurementEntry, string]> = [
+      ["chest_value", "chest_in"],
+      ["abdomen_value", "abdomen_in"],
+      ["hip_value", "hip_in"],
+      ["neck_value", "neck_in"],
+      ["left_arm_value", "left_arm_in"],
+      ["right_arm_value", "right_arm_in"],
+      ["left_thigh_value", "left_thigh_in"],
+      ["right_thigh_value", "right_thigh_in"],
+      ["left_calf_value", "left_calf_in"],
+      ["right_calf_value", "right_calf_in"],
+    ];
+    tapeFields.forEach(([sourceKey, targetKey]) => {
+      const candidate = latestTape[sourceKey];
+      if (typeof candidate === "number" && Number.isFinite(candidate)) {
+        nextCircumferences[targetKey] = candidate;
+      }
+    });
+    onChange({
+      ...normalizedValue(),
+      waist_in: latestTape.waist_value,
+      circumference_unit: latestTape.measurement_unit || "in",
+      circumference_method: "tape",
+      circumference_observed_on: latestTape.local_date,
+      circumference_source: latestTape.source || "LifeSwitch Measurements",
+      circumferences: nextCircumferences,
+    });
+  }
+
+  function useLatestBodyFat() {
+    if (!latestBodyFat || latestBodyFat.body_fat_percent == null) return;
+    onChange({
+      ...normalizedValue(),
+      body_fat_percent: latestBodyFat.body_fat_percent,
+      body_fat_method: bodyFatMethodForEntry(latestBodyFat),
+      body_fat_observed_on: latestBodyFat.local_date,
+      body_fat_source: latestBodyFat.source || "LifeSwitch Measurements",
+    });
+  }
+
+  const remaining = Object.fromEntries(
+    Object.entries(value).filter(([key]) => !BODY_STATE_KEYS.has(key)),
+  );
+
+  return (
+    <div className="grid min-w-0 gap-4">
+      <fieldset className="grid min-w-0 gap-3 rounded-2xl border p-3">
+        <legend className="px-1 text-sm font-semibold">
+          Latest logged measurements
+        </legend>
+        <p className="text-xs text-muted-foreground">
+          These values come from canonical LifeSwitch observations. Nothing is
+          copied into this draft until you choose Use latest.
+        </p>
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading measurements…</p>
+        ) : error ? (
+          <p className="rounded-xl border p-3 text-sm">{error}</p>
+        ) : (
+          <div className="grid gap-2">
+            {[
+              {
+                key: "weight",
+                label: "Weight",
+                value: latestWeight?.weight_value,
+                unit: latestWeight?.weight_unit || "lb",
+                date: latestWeight?.local_date,
+                method:
+                  latestWeight?.entry_kind === "scan" ? "Body scan" : "Scale",
+                action: useLatestWeight,
+              },
+              {
+                key: "waist",
+                label: "Waist",
+                value: latestTape?.waist_value,
+                unit: latestTape?.measurement_unit || "in",
+                date: latestTape?.local_date,
+                method: "Tape measure",
+                action: useLatestTape,
+              },
+              {
+                key: "body-fat",
+                label: "Body fat",
+                value: latestBodyFat?.body_fat_percent,
+                unit: "%",
+                date: latestBodyFat?.local_date,
+                method: measurementMethodLabel(
+                  bodyFatMethodForEntry(latestBodyFat),
+                ),
+                action: useLatestBodyFat,
+              },
+            ].map((item) => (
+              <div
+                key={item.key}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/35 p-3"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">{item.label}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {typeof item.value === "number"
+                      ? `${item.value} ${item.unit} · ${item.method}${item.date ? ` · ${item.date}` : ""}`
+                      : "No logged value"}
+                  </div>
+                </div>
+                {typeof item.value === "number" ? (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-lg border px-3 py-2 text-xs font-medium"
+                    onClick={item.action}
+                  >
+                    Use latest
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+      </fieldset>
+
+      {hasLegacyWaistConflict ? (
+        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          This imported Plan contains two waist values: {waist} in and{" "}
+          {legacyWaist} in. The latest logged tape observation above is the
+          canonical source; choose Use latest to replace the stale Plan value.
+        </div>
+      ) : null}
+
+      <fieldset className="grid min-w-0 gap-3 rounded-2xl border p-3">
+        <legend className="px-1 text-sm font-semibold">Weight</legend>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <NumberTargetField
+            label="Current weight"
+            value={value.weight_lb}
+            unit="lb"
+            step={0.1}
+            onChange={(next) => setKnown("weight_lb", next)}
+          />
+          <label className="grid gap-1.5 text-sm">
+            <span className="font-medium">Weight method</span>
+            <select
+              value={weightMethod}
+              onChange={(event) =>
+                setKnown("weight_method", event.target.value)
+              }
+              className="rounded-xl border bg-background px-3 py-3"
+            >
+              <option value="">Not set</option>
+              <option value="scale">Scale</option>
+              <option value="body_scan">Body scan</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset className="grid min-w-0 gap-3 rounded-2xl border p-3">
+        <legend className="px-1 text-sm font-semibold">
+          Tape measurements
+        </legend>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <NumberTargetField
+            label="Waist"
+            value={value.waist_in}
+            unit="in"
+            step={0.1}
+            onChange={(next) => setKnown("waist_in", next)}
+          />
+          <label className="grid gap-1.5 text-sm">
+            <span className="font-medium">Circumference method</span>
+            <select
+              value={circumferenceMethod}
+              onChange={(event) =>
+                setKnown("circumference_method", event.target.value)
+              }
+              className="rounded-xl border bg-background px-3 py-3"
+            >
+              <option value="">Not set</option>
+              <option value="tape">Tape measure</option>
+              <option value="body_scan">Body scan</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+        </div>
+        <details className="rounded-xl border">
+          <summary className="cursor-pointer px-3 py-3 text-sm font-medium">
+            Additional circumferences
+          </summary>
+          <div className="grid min-w-0 gap-3 border-t p-3 sm:grid-cols-2">
+            {CIRCUMFERENCE_FIELDS.map(([key, label]) => (
+              <NumberTargetField
+                key={key}
+                label={label}
+                value={circumferences[key]}
+                unit="in"
+                step={0.1}
+                onChange={(next) => setCircumference(key, next)}
+              />
+            ))}
+          </div>
+        </details>
+      </fieldset>
+
+      <fieldset className="grid min-w-0 gap-3 rounded-2xl border p-3">
+        <legend className="px-1 text-sm font-semibold">Body fat</legend>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <NumberTargetField
+            label="Current estimate"
+            value={value.body_fat_percent}
+            unit="%"
+            step={0.1}
+            onChange={(next) => setKnown("body_fat_percent", next)}
+          />
+          <label className="grid gap-1.5 text-sm">
+            <span className="font-medium">Body-fat method</span>
+            <select
+              value={bodyFatMethod}
+              onChange={(event) =>
+                setKnown("body_fat_method", event.target.value)
+              }
+              className="rounded-xl border bg-background px-3 py-3"
+            >
+              <option value="">Not set</option>
+              <option value="skinfolds">Skinfold calipers</option>
+              <option value="bia_scale">BIA scale</option>
+              <option value="dexa">DEXA</option>
+              <option value="body_scan">Other body scan</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      {isMeaningful(value.calipers) || isMeaningful(value.body_scan) ? (
+        <details className="rounded-2xl border">
+          <summary className="cursor-pointer px-3 py-3 text-sm font-medium">
+            Imported assessment details
+          </summary>
+          <div className="grid gap-3 border-t p-3 text-sm">
+            {isMeaningful(value.calipers) ? (
+              <div>
+                <div className="font-medium">Calipers</div>
+                <div className="mt-1 whitespace-pre-wrap text-muted-foreground">
+                  {formatValue(value.calipers)}
+                </div>
+              </div>
+            ) : null}
+            {isMeaningful(value.body_scan) ? (
+              <div>
+                <div className="font-medium">Body scan</div>
+                <div className="mt-1 whitespace-pre-wrap text-muted-foreground">
+                  {formatValue(value.body_scan)}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </details>
+      ) : null}
+
+      {Object.keys(remaining).length ? (
+        <fieldset className="grid gap-3 rounded-2xl border p-3">
+          <legend className="px-1 text-sm font-semibold">
+            Additional body-state fields
+          </legend>
+          <ObjectFields
+            value={remaining}
+            onChange={(path, nextValue) =>
+              onChange(updateNestedValue(value, path, nextValue))
+            }
+          />
+        </fieldset>
+      ) : null}
+    </div>
+  );
+}
+
+const DEFERRED_MONITORING_KEY =
+  /^(biomarkers?|labs?|lab_|blood_work|bloodwork)/i;
+
+function MonitoringRulesEditor({
+  value,
+  onChange,
+}: {
+  value: JsonObject;
+  onChange: (value: JsonObject) => void;
+}) {
+  const summary = textValue(value.summary);
+  const deferredKeys = Object.keys(value).filter((key) =>
+    DEFERRED_MONITORING_KEY.test(key),
+  );
+  const remaining = Object.fromEntries(
+    Object.entries(value).filter(
+      ([key]) => key !== "summary" && !DEFERRED_MONITORING_KEY.test(key),
+    ),
+  );
+
+  function removeDeferredFields() {
+    const next = JSON.parse(JSON.stringify(value)) as JsonObject;
+    deferredKeys.forEach((key) => delete next[key]);
+    onChange(next);
+  }
+
+  return (
+    <div className="grid min-w-0 gap-4">
+      <label className="grid gap-1.5 text-sm">
+        <span className="font-medium">Adjustment approach</span>
+        <textarea
+          value={summary}
+          onChange={(event) =>
+            onChange({ ...value, summary: event.target.value })
+          }
+          rows={4}
+          placeholder="Describe the evidence that should be reviewed before changing the Plan."
+          className="rounded-xl border bg-background px-3 py-3"
+        />
+      </label>
+
+      {deferredKeys.length ? (
+        <div className="grid gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3">
+          <div>
+            <div className="text-sm font-semibold">
+              Lab tracking is deferred
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Lab and biomarker content remains in the active Plan history. It
+              is outside the current LifeSwitch workflow and can be removed from
+              this draft explicitly.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={removeDeferredFields}
+            className="justify-self-start rounded-xl border bg-background px-3 py-2 text-sm font-medium"
+          >
+            Remove deferred lab fields from this draft
+          </button>
+        </div>
+      ) : null}
+
+      {Object.keys(remaining).length ? (
+        <fieldset className="grid gap-3 rounded-2xl border p-3">
+          <legend className="px-1 text-sm font-semibold">
+            Current monitoring guidance
+          </legend>
+          <ObjectFields
+            value={remaining}
+            onChange={(path, nextValue) =>
+              onChange(updateNestedValue(value, path, nextValue))
+            }
+          />
+        </fieldset>
+      ) : null}
+    </div>
+  );
+}
+
 const STRUCTURED_ACTIVITY_KEYS = new Set([
   "baseline_steps_per_day",
   "target_steps_per_day",
@@ -822,8 +1458,12 @@ function ActivityTargetsEditor({
           >
             <option value="not_connected">Not connected</option>
             <option value="manual">Manual entry</option>
-            <option value="apple_health">Apple Health</option>
-            <option value="health_connect">Android Health Connect</option>
+            <option value="apple_health">
+              Apple Health (future native app)
+            </option>
+            <option value="health_connect">
+              Android Health Connect (future native app)
+            </option>
             <option value="other_wearable">Other wearable</option>
           </select>
         </label>
@@ -2731,7 +3371,18 @@ export function PlanDraftWorkspace({
                       {section.prompt}
                     </p>
                   </div>
-                  {section.key === "nutrition_targets" ? (
+                  {section.key === "body_state" ? (
+                    <BodyStateEditor
+                      value={draft.body_state}
+                      targetUserId={targetUserId}
+                      onChange={(value) =>
+                        setDraft((current) => ({
+                          ...current,
+                          body_state: value,
+                        }))
+                      }
+                    />
+                  ) : section.key === "nutrition_targets" ? (
                     <NutritionTargetsEditor
                       value={draft.nutrition_targets}
                       onChange={(value) =>
@@ -2780,6 +3431,16 @@ export function PlanDraftWorkspace({
                         setDraft((current) => ({
                           ...current,
                           recovery_targets: value,
+                        }))
+                      }
+                    />
+                  ) : section.key === "monitoring_rules" ? (
+                    <MonitoringRulesEditor
+                      value={draft.monitoring_rules}
+                      onChange={(value) =>
+                        setDraft((current) => ({
+                          ...current,
+                          monitoring_rules: value,
                         }))
                       }
                     />

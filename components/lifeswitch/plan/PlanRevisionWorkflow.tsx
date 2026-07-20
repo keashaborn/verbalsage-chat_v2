@@ -498,7 +498,7 @@ function PlanSummary({
             aria-expanded={expandedSections.has("coach_notes")}
             onClick={() => toggleSection("coach_notes")}
           >
-            <span>Coach notes</span>
+            <span>Notes and context</span>
             <span aria-hidden="true" className="text-lg leading-none">
               {expandedSections.has("coach_notes") ? "−" : "+"}
             </span>
