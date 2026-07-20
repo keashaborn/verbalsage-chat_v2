@@ -350,19 +350,19 @@ function SageDataCoverage({
   ];
 
   return (
-    <details className="rounded-2xl border">
-      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+    <details className="max-w-full min-w-0 overflow-hidden rounded-2xl border">
+      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold break-words">
         Data Sage used · {connectedCount} of {items.length} sources connected
       </summary>
       <div className="grid gap-2 border-t p-3">
         {items.map((item) => (
           <div
             key={item.label}
-            className="flex items-start justify-between gap-3 rounded-xl bg-muted/35 p-3"
+            className="flex min-w-0 items-start justify-between gap-3 rounded-xl bg-muted/35 p-3"
           >
-            <div>
+            <div className="min-w-0">
               <div className="text-sm font-medium">{item.label}</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
+              <div className="mt-0.5 text-xs [overflow-wrap:anywhere] text-muted-foreground">
                 {item.detail}
               </div>
             </div>
@@ -373,7 +373,7 @@ function SageDataCoverage({
           </div>
         ))}
         {context.as_of_local_date ? (
-          <div className="px-1 text-[11px] text-muted-foreground">
+          <div className="min-w-0 px-1 text-[11px] [overflow-wrap:anywhere] text-muted-foreground">
             Through {context.as_of_local_date}. Deterministic summaries only; no
             raw log was given to Sage.
           </div>
@@ -823,15 +823,15 @@ export function PlanDraftWorkspace({
 
       {sageOpen ? (
         <div
-          className="fixed inset-0 z-[90] overflow-y-auto bg-background"
+          className="fixed inset-0 z-[90] overflow-x-hidden overflow-y-auto bg-background"
           role="dialog"
           aria-modal="true"
           aria-label="Sage Plan review"
         >
-          <div className="mx-auto flex min-h-full max-w-3xl flex-col">
-            <header className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur">
-              <div className="flex items-center justify-between gap-3">
-                <div>
+          <div className="mx-auto flex min-h-full w-full max-w-3xl min-w-0 flex-col overflow-x-hidden">
+            <header className="sticky top-0 z-10 w-full min-w-0 border-b bg-background/95 px-4 py-3 backdrop-blur">
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <div className="min-w-0">
                   <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                     Bounded Plan assistance
                   </div>
@@ -847,8 +847,8 @@ export function PlanDraftWorkspace({
               </div>
             </header>
 
-            <main className="grid flex-1 content-start gap-4 px-4 py-6">
-              <div className="rounded-xl border bg-muted/30 p-3 text-sm text-muted-foreground">
+            <main className="grid w-full min-w-0 flex-1 content-start gap-4 overflow-x-hidden px-4 py-6">
+              <div className="max-w-full min-w-0 rounded-xl border bg-muted/30 p-3 text-sm [overflow-wrap:anywhere] text-muted-foreground">
                 Sage can read this saved inactive draft, deterministic
                 validation, and bounded summaries from the LifeSwitch data you
                 are allowed to view. It cannot save, submit, approve, or
@@ -863,7 +863,7 @@ export function PlanDraftWorkspace({
               ) : null}
 
               {!sageReview ? (
-                <div className="grid gap-4 rounded-2xl border p-4">
+                <div className="grid max-w-full min-w-0 gap-4 overflow-hidden rounded-2xl border p-4">
                   <div>
                     <h3 className="text-lg font-semibold">
                       What should Sage review?
@@ -921,10 +921,10 @@ export function PlanDraftWorkspace({
                   ) : null}
                 </div>
               ) : (
-                <div className="grid gap-4">
-                  <section className="rounded-2xl border p-4">
+                <div className="grid max-w-full min-w-0 gap-4 overflow-hidden">
+                  <section className="max-w-full min-w-0 overflow-hidden rounded-2xl border p-4">
                     <h3 className="text-sm font-semibold">Sage summary</h3>
-                    <p className="mt-2 text-sm whitespace-pre-wrap">
+                    <p className="mt-2 text-sm [overflow-wrap:anywhere] whitespace-pre-wrap">
                       {sageReview.summary}
                     </p>
                   </section>
@@ -934,7 +934,7 @@ export function PlanDraftWorkspace({
                   />
 
                   {sageReview.questions.length ? (
-                    <section className="rounded-2xl border p-4">
+                    <section className="max-w-full min-w-0 overflow-hidden rounded-2xl border p-4">
                       <h3 className="font-semibold">
                         Information Sage still needs
                       </h3>
@@ -946,7 +946,7 @@ export function PlanDraftWorkspace({
                         {sageReview.questions.map((question) => (
                           <div
                             key={`${question.field_path}:${question.question}`}
-                            className="rounded-xl bg-muted/40 p-3"
+                            className="max-w-full min-w-0 overflow-hidden rounded-xl bg-muted/40 p-3 [overflow-wrap:anywhere]"
                           >
                             <div className="text-xs font-medium text-muted-foreground">
                               {formatFieldPath(question.field_path)}
@@ -963,8 +963,8 @@ export function PlanDraftWorkspace({
                     </section>
                   ) : null}
 
-                  <section className="grid gap-3">
-                    <div>
+                  <section className="grid max-w-full min-w-0 gap-3 overflow-hidden">
+                    <div className="min-w-0 [overflow-wrap:anywhere]">
                       <h3 className="font-semibold">Proposed draft edits</h3>
                       <p className="mt-1 text-sm text-muted-foreground">
                         Applying an edit changes only the local inactive draft.
@@ -978,13 +978,13 @@ export function PlanDraftWorkspace({
                         return (
                           <article
                             key={suggestion.field_path}
-                            className="grid gap-3 rounded-2xl border p-4"
+                            className="grid max-w-full min-w-0 gap-3 overflow-hidden rounded-2xl border p-4"
                           >
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div className="font-semibold">
+                            <div className="flex max-w-full min-w-0 flex-wrap items-start justify-between gap-2">
+                              <div className="min-w-0 font-semibold [overflow-wrap:anywhere]">
                                 {formatFieldPath(suggestion.field_path)}
                               </div>
-                              <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                              <div className="flex max-w-full min-w-0 flex-wrap gap-2 text-[11px] text-muted-foreground">
                                 <span className="rounded-full border px-2 py-1">
                                   {humanize(suggestion.confidence)} confidence
                                 </span>
@@ -1011,8 +1011,10 @@ export function PlanDraftWorkspace({
                                 </div>
                               </div>
                             </div>
-                            <p className="text-sm">{suggestion.rationale}</p>
-                            <details className="rounded-xl border">
+                            <p className="min-w-0 text-sm [overflow-wrap:anywhere]">
+                              {suggestion.rationale}
+                            </p>
+                            <details className="max-w-full min-w-0 overflow-hidden rounded-xl border">
                               <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
                                 Supporting evidence
                               </summary>
@@ -1020,7 +1022,7 @@ export function PlanDraftWorkspace({
                                 {suggestion.evidence.map((evidence) => (
                                   <div
                                     key={`${suggestion.field_path}:${evidence.field_path}`}
-                                    className="text-sm"
+                                    className="min-w-0 text-sm [overflow-wrap:anywhere]"
                                   >
                                     <span className="font-medium">
                                       {formatFieldPath(evidence.field_path)}:
@@ -1033,7 +1035,7 @@ export function PlanDraftWorkspace({
                                 ))}
                               </div>
                             </details>
-                            <div className="grid gap-2 sm:flex">
+                            <div className="grid max-w-full min-w-0 gap-2 sm:flex">
                               <button
                                 type="button"
                                 disabled={Boolean(suggestionState)}
@@ -1043,7 +1045,7 @@ export function PlanDraftWorkspace({
                                     suggestion.proposed_value,
                                   )
                                 }
-                                className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                                className="w-full min-w-0 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50 sm:w-auto"
                               >
                                 {suggestionState === "applied"
                                   ? "Applied to draft"
@@ -1058,7 +1060,7 @@ export function PlanDraftWorkspace({
                                     [suggestion.field_path]: "dismissed",
                                   }))
                                 }
-                                className="rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
+                                className="w-full min-w-0 rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50 sm:w-auto"
                               >
                                 {suggestionState === "dismissed"
                                   ? "Dismissed"
@@ -1075,7 +1077,7 @@ export function PlanDraftWorkspace({
                     )}
                   </section>
 
-                  <div className="grid gap-2 sm:flex sm:items-center sm:justify-between">
+                  <div className="grid max-w-full min-w-0 gap-2 overflow-hidden sm:flex sm:items-center sm:justify-between">
                     <button
                       type="button"
                       disabled={dirty}
@@ -1089,11 +1091,11 @@ export function PlanDraftWorkspace({
                         setSageError("");
                         setSuggestionStates({});
                       }}
-                      className="rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
+                      className="w-full min-w-0 rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50 sm:w-auto"
                     >
                       Start another review
                     </button>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="min-w-0 text-xs [overflow-wrap:anywhere] text-muted-foreground">
                       {sageReview.provenance.model} · Saved draft + bounded
                       canonical summaries · No writes
                     </div>
