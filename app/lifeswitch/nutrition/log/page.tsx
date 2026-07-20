@@ -395,15 +395,43 @@ export default function NutritionLogPage() {
         setTargetName(targetLabel);
         setStatus(targetUid ? `loading ${targetLabel || "delegated"} nutrition…` : "loading days…");
 
-        const planUrl = new URL("/api/lifeswitch/plan/profile", window.location.origin);
-        planUrl.searchParams.set("create_if_missing", targetUid ? "0" : "1");
-        if (targetUid) planUrl.searchParams.set("target_user_id", targetUid);
-
         let nextNutritionTargets = readPlanNutritionTargets(null);
 
         try {
-          const planJson = await fetchJson(planUrl.toString());
-          const nt = planJson?.nutrition_targets || {};
+          const activePlanUrl = new URL(
+            "/api/lifeswitch/plan/agentic/active",
+            window.location.origin,
+          );
+          if (targetUid) {
+            activePlanUrl.searchParams.set("target_user_id", targetUid);
+          }
+
+          const activePlanJson = await fetchJson(activePlanUrl.toString());
+          const activeDocument = activePlanJson?.active_plan?.document;
+          let nt: unknown;
+          let targetSource: string;
+
+          if (
+            activeDocument &&
+            typeof activeDocument === "object" &&
+            !Array.isArray(activeDocument)
+          ) {
+            nt = activeDocument.nutrition_targets || {};
+            targetSource = "active Plan";
+          } else {
+            const legacyPlanUrl = new URL(
+              "/api/lifeswitch/plan/profile",
+              window.location.origin,
+            );
+            legacyPlanUrl.searchParams.set("create_if_missing", "0");
+            if (targetUid) {
+              legacyPlanUrl.searchParams.set("target_user_id", targetUid);
+            }
+            const legacyPlanJson = await fetchJson(legacyPlanUrl.toString());
+            nt = legacyPlanJson?.nutrition_targets || {};
+            targetSource = "legacy Plan profile";
+          }
+
           const targets = readPlanNutritionTargets(nt);
           nextNutritionTargets = targets;
 
@@ -411,8 +439,8 @@ export default function NutritionLogPage() {
             setNutritionTargets(targets);
             setTargetStatus(
               targets.nominalKcal != null || targets.proteinMinimumG != null
-                ? "loaded from Plan"
-                : "no calorie/protein targets found in Plan"
+                ? `loaded from ${targetSource}`
+                : `no calorie/protein targets found in ${targetSource}`
             );
           }
         } catch (e: any) {

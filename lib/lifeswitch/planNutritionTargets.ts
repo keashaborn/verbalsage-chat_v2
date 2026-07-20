@@ -55,7 +55,9 @@ export function readPlanNutritionTargets(value: unknown) {
   const rollingCalories = asRecord(calorieTarget.rolling_average_kcal);
   const weeklyProtein = asRecord(proteinTarget.weekly_adherence);
   const adherenceRule = asRecord(targets.adherence_rule);
-  const dailyRangeKcal = numericRange(calorieTarget.daily_range_kcal);
+  const dailyRangeKcal =
+    numericRange(calorieTarget.daily_range_kcal) ??
+    numericRange(calorieTarget);
   const rollingRange = numericRange(rollingCalories);
   const rollingWindowDays = positiveInteger(rollingCalories.window_days);
   const proteinWeeklyWindowDays = positiveInteger(weeklyProtein.window_days);
