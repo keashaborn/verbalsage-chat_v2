@@ -2887,6 +2887,8 @@ export function PlanDraftWorkspace({
   const step = GUIDE_STEPS[stepIndex];
   const section = SECTIONS.find((item) => item.key === step?.id);
   const goalTarget = inferredGoalTarget(draft);
+  const goalTargetPersisted =
+    isPlainObject(draft.goal_target) && isMeaningful(draft.goal_target);
 
   function setGoalTargetField(field: string, value: unknown) {
     setDraft((current) => ({
@@ -3437,6 +3439,26 @@ export function PlanDraftWorkspace({
                       These values give Sage and Analyze a deterministic target
                       to compare with observations.
                     </p>
+                    {!goalTargetPersisted ? (
+                      <div className="grid gap-2 rounded-xl bg-muted/40 p-3 sm:flex sm:items-center sm:justify-between">
+                        <p className="text-xs text-muted-foreground">
+                          These values were inferred from the current goal
+                          statement and are not stored yet.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDraft((current) => ({
+                              ...current,
+                              goal_target: { ...inferredGoalTarget(current) },
+                            }))
+                          }
+                          className="rounded-lg border bg-background px-3 py-2 text-xs font-semibold"
+                        >
+                          Use this measurable goal
+                        </button>
+                      </div>
+                    ) : null}
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="grid gap-1.5 text-sm">
                         <span className="font-medium">Outcome measure</span>
