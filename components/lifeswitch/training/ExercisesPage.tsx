@@ -313,7 +313,8 @@ export default function TrainingExercisesPage() {
           <div>
             <div className="text-sm font-semibold">My exercise library</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Roles affect future logged sets. Existing history is unchanged.
+              New sets save this role. Older sets without a saved role may use
+              the current classification during analysis.
             </div>
           </div>
           {myLoading ? (
