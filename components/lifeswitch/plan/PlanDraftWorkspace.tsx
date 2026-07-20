@@ -97,6 +97,16 @@ export type SagePlanReview = {
     };
     recovery?: { status?: string; reason?: string };
   };
+  policy?: {
+    ambiguity_routes?: Array<{
+      code: string;
+      route: string;
+      detail: string;
+    }>;
+    rejected_suggestion_count?: number;
+    rejected_reason_codes?: string[];
+    research_gateway_status?: string;
+  };
   provenance: {
     provider: string;
     model: string;
@@ -591,6 +601,358 @@ function ObjectFields({
   );
 }
 
+function numericFieldValue(value: unknown): string | number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (
+    typeof value === "string" &&
+    value.trim() &&
+    Number.isFinite(Number(value))
+  ) {
+    return value;
+  }
+  return "";
+}
+
+function optionalNumber(value: unknown): number | null {
+  const numeric = numericFieldValue(value);
+  return numeric === "" ? null : Number(numeric);
+}
+
+function NumberTargetField({
+  label,
+  value,
+  unit,
+  onChange,
+}: {
+  label: string;
+  value: unknown;
+  unit: string;
+  onChange: (value: number | null) => void;
+}) {
+  const id = React.useId();
+  return (
+    <label htmlFor={id} className="grid min-w-0 gap-1.5 text-sm">
+      <span className="font-medium">{label}</span>
+      <div className="flex min-w-0 items-center rounded-xl border bg-background focus-within:ring-2 focus-within:ring-ring/50">
+        <input
+          id={id}
+          type="number"
+          inputMode="decimal"
+          value={numericFieldValue(value)}
+          onChange={(event) =>
+            onChange(
+              event.target.value === "" ? null : Number(event.target.value),
+            )
+          }
+          className="min-w-0 flex-1 bg-transparent px-3 py-3 outline-none"
+        />
+        <span className="shrink-0 pr-3 text-xs text-muted-foreground">
+          {unit}
+        </span>
+      </div>
+    </label>
+  );
+}
+
+const STRUCTURED_NUTRITION_KEYS = new Set([
+  "calories",
+  "target_kcal",
+  "calorie_target",
+  "calorie_range",
+  "protein",
+  "protein_g",
+  "protein_minimum_g",
+  "protein_grams_minimum",
+  "protein_target",
+  "adherence_rule",
+]);
+
+function NutritionTargetsEditor({
+  value,
+  onChange,
+}: {
+  value: JsonObject;
+  onChange: (value: JsonObject) => void;
+}) {
+  const calorieRaw = value.calorie_target;
+  const calorieObject = isPlainObject(calorieRaw) ? calorieRaw : {};
+  const structuredCalories =
+    "nominal_kcal" in calorieObject ||
+    "daily_range_kcal" in calorieObject ||
+    "rolling_average_kcal" in calorieObject;
+  const dailyObject = isPlainObject(calorieObject.daily_range_kcal)
+    ? calorieObject.daily_range_kcal
+    : !structuredCalories
+      ? calorieObject
+      : {};
+  const rollingObject = isPlainObject(calorieObject.rolling_average_kcal)
+    ? calorieObject.rolling_average_kcal
+    : {};
+  const proteinObject = isPlainObject(value.protein_target)
+    ? value.protein_target
+    : {};
+  const proteinWeekly = isPlainObject(proteinObject.weekly_adherence)
+    ? proteinObject.weekly_adherence
+    : {};
+  const adherenceRule = isPlainObject(value.adherence_rule)
+    ? value.adherence_rule
+    : {};
+
+  const nominalCalories = structuredCalories
+    ? calorieObject.nominal_kcal
+    : (value.calories ??
+      value.target_kcal ??
+      (!isPlainObject(calorieRaw) ? calorieRaw : null));
+  const proteinMinimum =
+    proteinObject.minimum_g ??
+    value.protein_grams_minimum ??
+    value.protein_minimum_g ??
+    value.protein_g ??
+    value.protein;
+
+  function normalizedValue(): JsonObject {
+    const next = JSON.parse(JSON.stringify(value)) as JsonObject;
+    next.calorie_target = {
+      ...(structuredCalories ? calorieObject : {}),
+      nominal_kcal: optionalNumber(nominalCalories),
+      daily_range_kcal: {
+        lower: optionalNumber(dailyObject.lower),
+        upper: optionalNumber(dailyObject.upper),
+      },
+      rolling_average_kcal: {
+        window_days: optionalNumber(rollingObject.window_days),
+        lower: optionalNumber(rollingObject.lower),
+        upper: optionalNumber(rollingObject.upper),
+      },
+    };
+    next.protein_target = {
+      ...proteinObject,
+      minimum_g: optionalNumber(proteinMinimum),
+      weekly_adherence: {
+        mode: typeof proteinWeekly.mode === "string" ? proteinWeekly.mode : "",
+        window_days: optionalNumber(proteinWeekly.window_days),
+        required_hit_days: optionalNumber(proteinWeekly.required_hit_days),
+      },
+    };
+    next.adherence_rule = {
+      daily_requires_both_calorie_and_protein:
+        typeof adherenceRule.daily_requires_both_calorie_and_protein ===
+        "boolean"
+          ? adherenceRule.daily_requires_both_calorie_and_protein
+          : null,
+      weekly_requires_both_calorie_and_protein:
+        typeof adherenceRule.weekly_requires_both_calorie_and_protein ===
+        "boolean"
+          ? adherenceRule.weekly_requires_both_calorie_and_protein
+          : null,
+    };
+    return next;
+  }
+
+  function setKnown(path: string[], nextValue: unknown) {
+    const next = updateNestedValue(normalizedValue(), path, nextValue);
+    if (path.join("/") === "calorie_target/nominal_kcal") {
+      next.calories = nextValue === null ? "" : String(nextValue);
+    }
+    if (path.join("/") === "protein_target/minimum_g") {
+      next.protein_g = nextValue === null ? "" : String(nextValue);
+    }
+    onChange(next);
+  }
+
+  const remaining = Object.fromEntries(
+    Object.entries(value).filter(
+      ([key]) => !STRUCTURED_NUTRITION_KEYS.has(key),
+    ),
+  );
+  const dailyCombined =
+    typeof adherenceRule.daily_requires_both_calorie_and_protein === "boolean"
+      ? String(adherenceRule.daily_requires_both_calorie_and_protein)
+      : "";
+  const weeklyCombined =
+    typeof adherenceRule.weekly_requires_both_calorie_and_protein === "boolean"
+      ? String(adherenceRule.weekly_requires_both_calorie_and_protein)
+      : "";
+
+  return (
+    <div className="grid min-w-0 gap-4">
+      <fieldset className="grid min-w-0 gap-3 rounded-2xl border p-3">
+        <legend className="px-1 text-sm font-semibold">Calories</legend>
+        <NumberTargetField
+          label="Nominal daily target"
+          value={nominalCalories}
+          unit="kcal"
+          onChange={(next) =>
+            setKnown(["calorie_target", "nominal_kcal"], next)
+          }
+        />
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <NumberTargetField
+            label="Daily acceptable minimum"
+            value={dailyObject.lower}
+            unit="kcal"
+            onChange={(next) =>
+              setKnown(["calorie_target", "daily_range_kcal", "lower"], next)
+            }
+          />
+          <NumberTargetField
+            label="Daily acceptable maximum"
+            value={dailyObject.upper}
+            unit="kcal"
+            onChange={(next) =>
+              setKnown(["calorie_target", "daily_range_kcal", "upper"], next)
+            }
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          A day is not scored hit or miss until both daily bounds are set.
+        </p>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-3">
+          <NumberTargetField
+            label="Average window"
+            value={rollingObject.window_days}
+            unit="days"
+            onChange={(next) =>
+              setKnown(
+                ["calorie_target", "rolling_average_kcal", "window_days"],
+                next,
+              )
+            }
+          />
+          <NumberTargetField
+            label="Average minimum"
+            value={rollingObject.lower}
+            unit="kcal"
+            onChange={(next) =>
+              setKnown(
+                ["calorie_target", "rolling_average_kcal", "lower"],
+                next,
+              )
+            }
+          />
+          <NumberTargetField
+            label="Average maximum"
+            value={rollingObject.upper}
+            unit="kcal"
+            onChange={(next) =>
+              setKnown(
+                ["calorie_target", "rolling_average_kcal", "upper"],
+                next,
+              )
+            }
+          />
+        </div>
+      </fieldset>
+
+      <fieldset className="grid min-w-0 gap-3 rounded-2xl border p-3">
+        <legend className="px-1 text-sm font-semibold">Protein</legend>
+        <NumberTargetField
+          label="Daily minimum"
+          value={proteinMinimum}
+          unit="g"
+          onChange={(next) => setKnown(["protein_target", "minimum_g"], next)}
+        />
+        <label className="grid gap-1.5 text-sm">
+          <span className="font-medium">Weekly scoring method</span>
+          <select
+            value={
+              typeof proteinWeekly.mode === "string" ? proteinWeekly.mode : ""
+            }
+            onChange={(event) =>
+              setKnown(
+                ["protein_target", "weekly_adherence", "mode"],
+                event.target.value,
+              )
+            }
+            className="rounded-xl border bg-background px-3 py-3"
+          >
+            <option value="">Not set</option>
+            <option value="days_hit">Days meeting minimum</option>
+          </select>
+        </label>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <NumberTargetField
+            label="Weekly window"
+            value={proteinWeekly.window_days}
+            unit="days"
+            onChange={(next) =>
+              setKnown(
+                ["protein_target", "weekly_adherence", "window_days"],
+                next,
+              )
+            }
+          />
+          <NumberTargetField
+            label="Required hit days"
+            value={proteinWeekly.required_hit_days}
+            unit="days"
+            onChange={(next) =>
+              setKnown(
+                ["protein_target", "weekly_adherence", "required_hit_days"],
+                next,
+              )
+            }
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Days hit is the primary adherence measure. Weekly average remains
+          supporting context and cannot hide low-protein days.
+        </p>
+      </fieldset>
+
+      <fieldset className="grid min-w-0 gap-3 rounded-2xl border p-3">
+        <legend className="px-1 text-sm font-semibold">Combined scoring</legend>
+        {[
+          [
+            "Daily hit requires calories and protein",
+            dailyCombined,
+            "daily_requires_both_calorie_and_protein",
+          ],
+          [
+            "Weekly success requires calories and protein",
+            weeklyCombined,
+            "weekly_requires_both_calorie_and_protein",
+          ],
+        ].map(([label, selected, key]) => (
+          <label key={key} className="grid gap-1.5 text-sm">
+            <span className="font-medium">{label}</span>
+            <select
+              value={selected}
+              onChange={(event) =>
+                setKnown(
+                  ["adherence_rule", key],
+                  event.target.value === ""
+                    ? null
+                    : event.target.value === "true",
+                )
+              }
+              className="rounded-xl border bg-background px-3 py-3"
+            >
+              <option value="">Not set</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+        ))}
+      </fieldset>
+
+      {Object.keys(remaining).length ? (
+        <fieldset className="grid gap-3 rounded-2xl border p-3">
+          <legend className="px-1 text-sm font-semibold">
+            Additional nutrition fields
+          </legend>
+          <ObjectFields
+            value={remaining}
+            onChange={(path, nextValue) =>
+              onChange(updateNestedValue(value, path, nextValue))
+            }
+          />
+        </fieldset>
+      ) : null}
+    </div>
+  );
+}
+
 function ProgressBadge({ value }: { value: unknown }) {
   const label = progressLabel(value);
   return (
@@ -932,6 +1294,18 @@ export function PlanDraftWorkspace({
                   <SageDataCoverage
                     context={sageReview.observation_context || {}}
                   />
+
+                  {(sageReview.policy?.rejected_suggestion_count || 0) > 0 ? (
+                    <div className="rounded-xl border bg-muted/30 p-3 text-sm text-muted-foreground">
+                      Sage withheld{" "}
+                      {sageReview.policy?.rejected_suggestion_count} unsupported
+                      or contradictory recommendation
+                      {sageReview.policy?.rejected_suggestion_count === 1
+                        ? ""
+                        : "s"}
+                      .
+                    </div>
+                  ) : null}
 
                   {sageReview.questions.length ? (
                     <section className="max-w-full min-w-0 overflow-hidden rounded-2xl border p-4">
@@ -1288,12 +1662,24 @@ export function PlanDraftWorkspace({
                       {section.prompt}
                     </p>
                   </div>
-                  <ObjectFields
-                    value={draft[section.key]}
-                    onChange={(path, value) =>
-                      updateSection(section.key, path, value)
-                    }
-                  />
+                  {section.key === "nutrition_targets" ? (
+                    <NutritionTargetsEditor
+                      value={draft.nutrition_targets}
+                      onChange={(value) =>
+                        setDraft((current) => ({
+                          ...current,
+                          nutrition_targets: value,
+                        }))
+                      }
+                    />
+                  ) : (
+                    <ObjectFields
+                      value={draft[section.key]}
+                      onChange={(path, value) =>
+                        updateSection(section.key, path, value)
+                      }
+                    />
+                  )}
                 </div>
               ) : null}
 
