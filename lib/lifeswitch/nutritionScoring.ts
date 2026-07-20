@@ -3,6 +3,7 @@ import type { PlanNutritionTargetConfig } from "./planNutritionTargets";
 export type NutritionObservation = {
   day: string;
   logged: boolean;
+  finalized?: boolean;
   kcal: number | null;
   proteinG: number | null;
 };
@@ -10,7 +11,7 @@ export type NutritionObservation = {
 type ComponentStatus = "hit" | "not_hit" | "not_evaluable";
 
 export type DailyNutritionScore = {
-  status: "hit" | "not_hit" | "no_log" | "not_evaluable";
+  status: "hit" | "not_hit" | "no_log" | "in_progress" | "not_evaluable";
   calorieStatus: ComponentStatus;
   proteinStatus: ComponentStatus;
 };
@@ -44,6 +45,14 @@ export function scoreNutritionDay(
   if (!observation.logged) {
     return {
       status: "no_log",
+      calorieStatus: "not_evaluable",
+      proteinStatus: "not_evaluable",
+    };
+  }
+
+  if (observation.finalized === false) {
+    return {
+      status: "in_progress",
       calorieStatus: "not_evaluable",
       proteinStatus: "not_evaluable",
     };
@@ -126,7 +135,9 @@ export function scoreNutritionRollingWindow(
   }
 
   const byDay = new Map(
-    observations.filter((item) => item.logged).map((item) => [item.day, item]),
+    observations
+      .filter((item) => item.logged && item.finalized !== false)
+      .map((item) => [item.day, item]),
   );
   const period = Array.from({ length: windowDays }, (_, index) =>
     dayAtOffset(asOfDay, index - windowDays + 1),

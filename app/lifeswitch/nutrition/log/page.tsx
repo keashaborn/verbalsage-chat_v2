@@ -110,6 +110,8 @@ type DaySummary = {
   protein_g: number | null;
   carbs_g: number | null;
   fat_g: number | null;
+  completedAt: string | null;
+  finalized: boolean;
   hit: boolean;
 };
 
@@ -258,11 +260,12 @@ function MonthCalendar(props: {
   ym: string;
   hitDates: Set<string>;
   anyDates: Set<string>;
+  inProgressDates: Set<string>;
   today: string;
   selectedDate: string;
   onSelectDate: (date: string) => void;
 }) {
-  const { ym, hitDates, anyDates, today, selectedDate, onSelectDate } = props;
+  const { ym, hitDates, anyDates, inProgressDates, today, selectedDate, onSelectDate } = props;
   const mm = String(ym || "").trim().match(/^(\d{4})-(\d{2})$/);
   if (!mm) return null;
 
@@ -291,11 +294,14 @@ function MonthCalendar(props: {
           const date = `${ym}-${pad2(dayNum)}`;
           const hit = hitDates.has(date);
           const hasAny = anyDates.has(date);
+          const inProgress = inProgressDates.has(date);
           const isToday = date === today;
 
           const cls = [
             "h-7 flex items-center justify-center rounded-md border text-xs",
-            hit
+            inProgress
+              ? "border-sky-500/30 bg-sky-500/10 font-semibold"
+              : hit
               ? "border-emerald-500/30 bg-emerald-500/10 font-semibold"
               : hasAny
                 ? "border-amber-500/30 bg-amber-500/10"
@@ -346,15 +352,18 @@ export default function NutritionLogPage() {
   const [savingEntryId, setSavingEntryId] = React.useState<string>("");
   const [savedEntryId, setSavedEntryId] = React.useState<string>("");
   const [entrySaveError, setEntrySaveError] = React.useState<Record<string, string>>({});
+  const [savingCompletionDay, setSavingCompletionDay] = React.useState<string>("");
+  const [completionError, setCompletionError] = React.useState<string>("");
 
   function targetHit(
     day: string,
     any: boolean,
+    finalized: boolean,
     t: { kcal: number | null; protein_g: number | null },
     targets = nutritionTargets,
   ) {
     return scoreNutritionDay(
-      { day, logged: any, kcal: t.kcal, proteinG: t.protein_g },
+      { day, logged: any, finalized, kcal: t.kcal, proteinG: t.protein_g },
       targets,
     ).status === "hit";
   }
@@ -367,11 +376,16 @@ export default function NutritionLogPage() {
     const raw = await fetchJson(u.toString());
     const t = extractTotals(raw);
     const any = hasAnyData(raw, t);
-
-    const hit = targetHit(day, any, t);
+    const completedAt = raw?.day?.completed_at ? String(raw.day.completed_at) : null;
+    const finalized = day < today || Boolean(completedAt);
+    const hit = targetHit(day, any, finalized, t);
 
     setDays((prev) =>
-      (prev || []).map((x) => (x.day === day ? ({ ...x, raw, any, ...t, hit } as any) : x))
+      (prev || []).map((x) => (
+        x.day === day
+          ? ({ ...x, raw, any, ...t, completedAt, finalized, hit } as DaySummary)
+          : x
+      ))
     );
   }
 
@@ -470,8 +484,12 @@ export default function NutritionLogPage() {
             };
             const t = extractTotals(raw);
             const any = hasAnyData(raw, t);
-            const hit = targetHit(day, any, t, nextNutritionTargets);
-            return { day, raw, any, ...t, hit };
+            const completedAt = raw?.day?.completed_at
+              ? String(raw.day.completed_at)
+              : null;
+            const finalized = day < today || Boolean(completedAt);
+            const hit = targetHit(day, any, finalized, t, nextNutritionTargets);
+            return { day, raw, any, ...t, completedAt, finalized, hit };
           })
           .filter((summary: DaySummary) => /^\d{4}-\d{2}-\d{2}$/.test(summary.day));
 
@@ -506,6 +524,7 @@ export default function NutritionLogPage() {
       days: DaySummary[];
       hitDates: Set<string>;
       anyDates: Set<string>;
+      inProgressDates: Set<string>;
       hitCount: number;
       anyCount: number;
       kcalAvg: number;
@@ -516,13 +535,17 @@ export default function NutritionLogPage() {
       ds.sort((a, b) => b.day.localeCompare(a.day));
       const hitDates = new Set(ds.filter((x) => x.hit).map((x) => x.day));
       const anyDates = new Set(ds.filter((x: any) => x.any).map((x) => x.day));
+      const inProgressDates = new Set(
+        ds.filter((x) => x.any && !x.finalized).map((x) => x.day),
+      );
       if (anyDates.size === 0) continue;
       const hitCount = ds.filter((x) => x.hit).length;
       const anyDays = ds.filter((x: any) => x.any);
-      const denom = Math.max(1, anyDays.length);
+      const finalizedDays = anyDays.filter((x) => x.finalized);
+      const denom = Math.max(1, finalizedDays.length);
 
-      const kcalAvg = anyDays.reduce((acc, x) => acc + safeNum(x.kcal, 0), 0) / denom;
-      const proteinAvg = anyDays.reduce((acc, x) => acc + safeNum(x.protein_g, 0), 0) / denom;
+      const kcalAvg = finalizedDays.reduce((acc, x) => acc + safeNum(x.kcal, 0), 0) / denom;
+      const proteinAvg = finalizedDays.reduce((acc, x) => acc + safeNum(x.protein_g, 0), 0) / denom;
 
       out.push({
         ym,
@@ -530,6 +553,7 @@ export default function NutritionLogPage() {
         days: ds,
         hitDates,
         anyDates,
+        inProgressDates,
         hitCount,
         kcalAvg,
         proteinAvg,
@@ -541,18 +565,25 @@ export default function NutritionLogPage() {
     return out;
   }, [days]);
 
+  const currentDay = React.useMemo(
+    () => days.find((day) => day.day === today) || null,
+    [days, today],
+  );
+  const rollingAsOfDay = currentDay?.completedAt ? today : daysAgoYYYYMMDD(1);
+
   const rollingScore = React.useMemo(
     () => scoreNutritionRollingWindow(
       days.map((day) => ({
         day: day.day,
         logged: day.any,
+        finalized: day.finalized,
         kcal: day.kcal,
         proteinG: day.protein_g,
       })),
-      today,
+      rollingAsOfDay,
       nutritionTargets,
     ),
-    [days, nutritionTargets, today],
+    [days, nutritionTargets, rollingAsOfDay],
   );
 
   const calorieTargetLabel = nutritionTargets.dailyRangeKcal
@@ -601,6 +632,25 @@ export default function NutritionLogPage() {
       }));
     } finally {
       setServingsLoadingByFoodId((previous) => ({ ...previous, [foodId]: false }));
+    }
+  }
+
+  async function setDayCompletion(day: string, completed: boolean) {
+    setSavingCompletionDay(day);
+    setCompletionError("");
+    try {
+      const url = new URL("/api/lifeswitch/nutrition/log/day", window.location.origin);
+      url.searchParams.set("day", day);
+      await fetchJson(url.toString(), {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ completed }),
+      });
+      await refreshOneDay(day, "");
+    } catch (error: any) {
+      setCompletionError(String(error?.message || error));
+    } finally {
+      setSavingCompletionDay("");
     }
   }
 
@@ -681,6 +731,10 @@ export default function NutritionLogPage() {
           <div className="font-medium text-foreground">Status</div>
           <div className="flex flex-wrap gap-3">
             <span className="inline-flex items-center gap-1">
+              <span className="h-3 w-3 rounded-full border border-sky-500/30 bg-sky-500/10" />
+              In progress
+            </span>
+            <span className="inline-flex items-center gap-1">
               <span className="h-3 w-3 rounded-full border border-emerald-500/30 bg-emerald-500/10" />
               Hit
             </span>
@@ -698,7 +752,7 @@ export default function NutritionLogPage() {
         {rollingScore.windowDays ? (
           <details className="mt-3 rounded-xl border bg-muted/10 px-3 py-2 text-xs">
             <summary className="cursor-pointer font-medium">
-              {rollingScore.windowDays}-day Plan check · {rollingStatusLabel}
+              {rollingScore.windowDays}-day Plan check through {rollingAsOfDay} · {rollingStatusLabel}
             </summary>
             <div className="mt-3 grid gap-3 text-muted-foreground sm:grid-cols-3">
               <div>
@@ -761,6 +815,7 @@ export default function NutritionLogPage() {
                   ym={m.ym}
                   hitDates={m.hitDates}
                   anyDates={m.anyDates}
+                  inProgressDates={m.inProgressDates}
                   today={today}
                   selectedDate={expandedDay}
                   onSelectDate={openCalendarDay}
@@ -795,11 +850,13 @@ export default function NutritionLogPage() {
                     >
                       <span className="flex flex-wrap items-center gap-2">
                         <span className="text-lg font-semibold">{d.day}</span>
-                        <span className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-wide ${d.hit
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-wide ${!d.finalized
+                          ? "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+                          : d.hit
                           ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
                           : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
                           }`}>
-                          {d.hit ? "Hit" : "Logged"}
+                          {!d.finalized ? "In progress" : d.hit ? "Hit" : "Not hit"}
                         </span>
                       </span>
                       <span className="shrink-0 text-sm text-muted-foreground" aria-hidden="true">
@@ -824,6 +881,30 @@ export default function NutritionLogPage() {
                         <div className="font-semibold">{fmt1tight(safeNum(d.fat_g, 0))}g</div>
                       </div>
                     </div>
+                    {d.day === today && !isDelegatedView ? (
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/10 px-3 py-2">
+                        <div className="text-xs text-muted-foreground">
+                          {d.completedAt
+                            ? "Day finished. It is included in Plan scoring."
+                            : "Still logging. Today is excluded from Plan scoring."}
+                        </div>
+                        <button
+                          type="button"
+                          className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted/30 disabled:opacity-50"
+                          disabled={savingCompletionDay === d.day}
+                          onClick={() => void setDayCompletion(d.day, !d.completedAt)}
+                        >
+                          {savingCompletionDay === d.day
+                            ? "Saving…"
+                            : d.completedAt
+                              ? "Reopen day"
+                              : "Finish day"}
+                        </button>
+                        {completionError ? (
+                          <div className="w-full text-xs text-red-600">{completionError}</div>
+                        ) : null}
+                      </div>
+                    ) : null}
                     {expandedDay === d.day ? (
                       Array.isArray(d.raw?.entries) && d.raw.entries.length ? (
                       <div id={`nutrition-day-${d.day}`} className="mt-4 rounded-xl border border-muted/20 overflow-hidden">
