@@ -15,7 +15,7 @@ import {
 const MODES = ["log", "design", "capture", "plan", "analyze"] as const;
 const ACTIVE_DOMAINS = new Set(["nutrition", "training", "measurements"]);
 
-type Mode = typeof MODES[number];
+type Mode = (typeof MODES)[number];
 
 function normalizeDomainFromPath(pathname: string): string {
   const m = String(pathname || "").match(/^\/lifeswitch\/([^\/?#]+)/);
@@ -29,7 +29,8 @@ function normalizeDomainFromPath(pathname: string): string {
 }
 
 function normalizeModeFromPath(pathname: string): Mode {
-  if (String(pathname || "").match(/^\/lifeswitch\/plan(?:[\/?#]|$)/)) return "plan";
+  if (String(pathname || "").match(/^\/lifeswitch\/plan(?:[\/?#]|$)/))
+    return "plan";
 
   const m = String(pathname || "").match(/^\/lifeswitch\/[^\/?#]+\/([^\/?#]+)/);
   const mode = (m?.[1] || "").toLowerCase() as Mode;
@@ -76,9 +77,12 @@ function Tab({
 }
 
 function planHrefForDomain(domain: string) {
-  if (domain === "training") return "/lifeswitch/plan?section=training#training-targets";
-  if (domain === "nutrition") return "/lifeswitch/plan?section=nutrition#nutrition-targets";
-  if (domain === "measurements") return "/lifeswitch/plan?section=measurements#body-state";
+  if (domain === "training")
+    return "/lifeswitch/plan?section=training#training-targets";
+  if (domain === "nutrition")
+    return "/lifeswitch/plan?section=nutrition#nutrition-targets";
+  if (domain === "measurements")
+    return "/lifeswitch/plan?section=measurements#body-state";
   return "/lifeswitch/plan";
 }
 
@@ -110,14 +114,21 @@ export function LifeSwitchModeNav() {
   const mode = rawDomain === "plan" ? "plan" : normalizeModeFromPath(pathname);
 
   React.useEffect(() => {
-    if (domain && typeof window !== "undefined") {
+    if (
+      domain &&
+      rawDomain !== "measurements" &&
+      typeof window !== "undefined"
+    ) {
       window.localStorage.setItem("lifeswitch:lastDomain", domain);
     }
-  }, [domain]);
+  }, [domain, rawDomain]);
 
-  if (!domain) return null;
+  if (!domain || rawDomain === "measurements") return null;
 
-  const logHref = domain === "training" ? "/lifeswitch/training/calendar" : `/lifeswitch/${domain}/log`;
+  const logHref =
+    domain === "training"
+      ? "/lifeswitch/training/calendar"
+      : `/lifeswitch/${domain}/log`;
   const captureHref = `/lifeswitch/${domain}/capture`;
   const designHref = designHrefForDomain(domain);
   const designLabel = designLabelForDomain(domain);
@@ -130,7 +141,7 @@ export function LifeSwitchModeNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/90 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed right-0 bottom-0 left-0 z-50 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
       <div className="mx-auto grid max-w-5xl grid-cols-5 px-2 pt-2">
         <Tab
           href={logHref}

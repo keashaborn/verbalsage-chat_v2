@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/authFetch";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
 
-type LifeSwitchDomain = "plan" | "nutrition" | "training" | "measurements" | "unknown";
+type LifeSwitchDomain =
+  | "plan"
+  | "nutrition"
+  | "training"
+  | "measurements"
+  | "unknown";
 type LifeSwitchMode =
   | "plan"
   | "log"
@@ -17,6 +22,7 @@ type LifeSwitchMode =
   | "library"
   | "session"
   | "calendar"
+  | "workspace"
   | "unknown";
 
 type HelperMessage = {
@@ -45,12 +51,21 @@ function classifyMode(pathname: string): LifeSwitchMode {
 
   if (!ACTIVE_DOMAINS.has(domain)) return "unknown";
 
+  if (domain === "measurements" && !mode) return "workspace";
+
   if (mode === "plan") return "plan";
   if (mode === "log") return "log";
   if (mode === "capture") return "capture";
   if (mode === "design") return "design";
   if (mode === "analyze") return "analyze";
-  if (mode === "foods" || mode === "meals" || mode === "meal-plans" || mode === "exercises" || mode === "workouts") return "library";
+  if (
+    mode === "foods" ||
+    mode === "meals" ||
+    mode === "meal-plans" ||
+    mode === "exercises" ||
+    mode === "workouts"
+  )
+    return "library";
   if (mode === "session") return "session";
   if (mode === "calendar") return "calendar";
 
@@ -62,24 +77,37 @@ function pagePurpose(domain: LifeSwitchDomain, mode: LifeSwitchMode): string {
     return "Universal LifeSwitch plan page for nutrition, training, activity, recovery, measurements, and monitoring rules.";
   }
 
-  if (domain === "nutrition" && mode === "capture") return "Nutrition capture page for logging food intake.";
-  if (domain === "nutrition" && mode === "log") return "Nutrition log page for reviewing food entries and daily totals.";
-  if (domain === "nutrition" && mode === "design") return "Nutrition design/library page for foods, meals, and meal plans.";
-  if (domain === "nutrition" && mode === "analyze") return "Nutrition analysis page for calorie, protein, adherence, and trend interpretation.";
+  if (domain === "nutrition" && mode === "capture")
+    return "Nutrition capture page for logging food intake.";
+  if (domain === "nutrition" && mode === "log")
+    return "Nutrition log page for reviewing food entries and daily totals.";
+  if (domain === "nutrition" && mode === "design")
+    return "Nutrition design/library page for foods, meals, and meal plans.";
+  if (domain === "nutrition" && mode === "analyze")
+    return "Nutrition analysis page for calorie, protein, adherence, and trend interpretation.";
 
-  if (domain === "training" && mode === "capture") return "Training capture page for logging workouts, sets, reps, loads, and conditioning.";
-  if (domain === "training" && mode === "log") return "Training log page for reviewing recent sessions.";
-  if (domain === "training" && mode === "design") return "Training design page for exercises, workout templates, and conditioning prescriptions.";
-  if (domain === "training" && mode === "analyze") return "Training analysis page for volume, performance, progression, and recovery interpretation.";
+  if (domain === "training" && mode === "capture")
+    return "Training capture page for logging workouts, sets, reps, loads, and conditioning.";
+  if (domain === "training" && mode === "log")
+    return "Training log page for reviewing recent sessions.";
+  if (domain === "training" && mode === "design")
+    return "Training design page for exercises, workout templates, and conditioning prescriptions.";
+  if (domain === "training" && mode === "analyze")
+    return "Training analysis page for volume, performance, progression, and recovery interpretation.";
 
-  if (domain === "measurements" && mode === "capture") return "Measurement capture page for body weight, tape, skinfold, DEXA, and related entries.";
-  if (domain === "measurements" && mode === "log") return "Measurement log page for reviewing body state entries.";
-  if (domain === "measurements" && mode === "design") return "Measurement method page for defining tracking methods.";
-  if (domain === "measurements" && mode === "analyze") return "Measurement analysis page for body weight, circumference, composition, and trend interpretation.";
+  if (domain === "measurements" && mode === "workspace")
+    return "Consolidated measurement workspace for recording body-state observations, reviewing history, and comparing method-consistent progress over real dates.";
+  if (domain === "measurements" && mode === "capture")
+    return "Measurement capture page for body weight, tape, skinfold, DEXA, and related entries.";
+  if (domain === "measurements" && mode === "log")
+    return "Measurement log page for reviewing body state entries.";
+  if (domain === "measurements" && mode === "design")
+    return "Measurement method page for defining tracking methods.";
+  if (domain === "measurements" && mode === "analyze")
+    return "Measurement analysis page for body weight, circumference, composition, and trend interpretation.";
 
   return "LifeSwitch page. Current product scope is nutrition, training, and measurements.";
 }
-
 
 function compactContextForPrompt(raw: any) {
   if (!raw || typeof raw !== "object") return null;
@@ -95,65 +123,67 @@ function compactContextForPrompt(raw: any) {
     window: raw.window || null,
     currentPlan: plan
       ? {
-        phase: plan.phase ?? null,
-        phase_label: plan.phase_label ?? null,
-        primary_goal: plan.primary_goal ?? null,
-        review_cadence: plan.review_cadence ?? null,
-        nutrition_targets: plan.nutrition_targets ?? null,
-        training_targets: plan.training_targets ?? null,
-        conditioning_targets: plan.conditioning_targets ?? null,
-        activity_targets: plan.activity_targets ?? null,
-        recovery_targets: plan.recovery_targets ?? null,
-        body_state: plan.body_state ?? null,
-        monitoring_rules: plan.monitoring_rules ?? null,
-        coach_notes: plan.coach_notes ?? null,
-      }
+          phase: plan.phase ?? null,
+          phase_label: plan.phase_label ?? null,
+          primary_goal: plan.primary_goal ?? null,
+          review_cadence: plan.review_cadence ?? null,
+          nutrition_targets: plan.nutrition_targets ?? null,
+          training_targets: plan.training_targets ?? null,
+          conditioning_targets: plan.conditioning_targets ?? null,
+          activity_targets: plan.activity_targets ?? null,
+          recovery_targets: plan.recovery_targets ?? null,
+          body_state: plan.body_state ?? null,
+          monitoring_rules: plan.monitoring_rules ?? null,
+          coach_notes: plan.coach_notes ?? null,
+        }
       : null,
     recent: {
       nutrition: recent.nutrition
         ? {
-          windowDays: recent.nutrition.windowDays,
-          loggedDays: recent.nutrition.loggedDays,
-          averageCalories: recent.nutrition.averageCalories,
-          averageProteinG: recent.nutrition.averageProteinG,
-          daysHitCalories: recent.nutrition.daysHitCalories,
-          daysHitProtein: recent.nutrition.daysHitProtein,
-          daysFullHit: recent.nutrition.daysFullHit,
-          targets: recent.nutrition.targets,
-          days: Array.isArray(recent.nutrition.days)
-            ? recent.nutrition.days.slice(0, 14)
-            : [],
-        }
+            windowDays: recent.nutrition.windowDays,
+            loggedDays: recent.nutrition.loggedDays,
+            averageCalories: recent.nutrition.averageCalories,
+            averageProteinG: recent.nutrition.averageProteinG,
+            daysHitCalories: recent.nutrition.daysHitCalories,
+            daysHitProtein: recent.nutrition.daysHitProtein,
+            daysFullHit: recent.nutrition.daysFullHit,
+            targets: recent.nutrition.targets,
+            days: Array.isArray(recent.nutrition.days)
+              ? recent.nutrition.days.slice(0, 14)
+              : [],
+          }
         : null,
       training: recent.training
         ? {
-          windowDays: recent.training.windowDays,
-          strengthSessions: recent.training.strengthSessions,
-          conditioningSessions: recent.training.conditioningSessions,
-          strengthDays: recent.training.strengthDays,
-          conditioningDays: recent.training.conditioningDays,
-          trainingDays: recent.training.trainingDays,
-          sets: recent.training.sets,
-          volume: recent.training.volume,
-          exercises: recent.training.exercises,
-          conditioningMinutes: recent.training.conditioningMinutes,
-          recentStrength: Array.isArray(recent.training.recentStrength)
-            ? recent.training.recentStrength.slice(0, 8)
-            : [],
-          recentConditioning: Array.isArray(recent.training.recentConditioning)
-            ? recent.training.recentConditioning.slice(0, 8)
-            : [],
-        }
+            windowDays: recent.training.windowDays,
+            strengthSessions: recent.training.strengthSessions,
+            conditioningSessions: recent.training.conditioningSessions,
+            strengthDays: recent.training.strengthDays,
+            conditioningDays: recent.training.conditioningDays,
+            trainingDays: recent.training.trainingDays,
+            sets: recent.training.sets,
+            volume: recent.training.volume,
+            exercises: recent.training.exercises,
+            conditioningMinutes: recent.training.conditioningMinutes,
+            recentStrength: Array.isArray(recent.training.recentStrength)
+              ? recent.training.recentStrength.slice(0, 8)
+              : [],
+            recentConditioning: Array.isArray(
+              recent.training.recentConditioning,
+            )
+              ? recent.training.recentConditioning.slice(0, 8)
+              : [],
+          }
         : null,
       measurements: recent.measurements
         ? {
-          entryCount: recent.measurements.entryCount,
-          current: recent.measurements.current,
-          latestWeight: recent.measurements.latestWeight,
-          latestTape: recent.measurements.latestTape,
-          latestSkinfolds: recent.measurements.latestSkinfolds,
-          latestScan: recent.measurements.latestScan,
-        }
+            entryCount: recent.measurements.entryCount,
+            current: recent.measurements.current,
+            latestWeight: recent.measurements.latestWeight,
+            latestTape: recent.measurements.latestTape,
+            latestSkinfolds: recent.measurements.latestSkinfolds,
+            latestScan: recent.measurements.latestScan,
+          }
         : null,
     },
     missing: Array.isArray(raw.missing) ? raw.missing : [],
@@ -163,12 +193,13 @@ function compactContextForPrompt(raw: any) {
 
 async function fetchLifeSwitchContext(
   pathname: string,
-  opts?: { targetUserId?: string; targetName?: string }
+  opts?: { targetUserId?: string; targetName?: string },
 ) {
   const u = new URL("/api/lifeswitch/helper/context", window.location.origin);
   u.searchParams.set("route", pathname);
   u.searchParams.set("days", "14");
-  if (opts?.targetUserId) u.searchParams.set("target_user_id", opts.targetUserId);
+  if (opts?.targetUserId)
+    u.searchParams.set("target_user_id", opts.targetUserId);
   if (opts?.targetName) u.searchParams.set("target_name", opts.targetName);
 
   const r = await authFetch(u.toString(), {
@@ -188,7 +219,8 @@ async function fetchLifeSwitchContext(
   if (!r.ok) {
     return {
       ok: false,
-      error: json?.detail || json?.error || text.slice(0, 500) || `HTTP ${r.status}`,
+      error:
+        json?.detail || json?.error || text.slice(0, 500) || `HTTP ${r.status}`,
     };
   }
 
@@ -198,7 +230,11 @@ async function fetchLifeSwitchContext(
   };
 }
 
-function buildHelperPrompt(pathname: string, userText: string, contextBundle: any): string {
+function buildHelperPrompt(
+  pathname: string,
+  userText: string,
+  contextBundle: any,
+): string {
   const domain = classifyDomain(pathname);
   const mode = classifyMode(pathname);
   const purpose = pagePurpose(domain, mode);
@@ -241,7 +277,6 @@ function buildHelperPrompt(pathname: string, userText: string, contextBundle: an
     userText,
   ].join("\n");
 }
-
 
 function getLocalString(key: string, fallback: string): string {
   if (typeof window === "undefined") return fallback;
@@ -317,8 +352,6 @@ export function LifeSwitchHelper() {
     scrollRef.current?.scrollIntoView({ block: "end" });
   }, [messages, busy, open]);
 
-
-
   function revokePreparedSpeechUrl() {
     if (audioUrlRef.current) {
       try {
@@ -373,7 +406,8 @@ export function LifeSwitchHelper() {
     const textToSpeak = speechTextFromMarkdown(replyText);
     if (!textToSpeak) return;
 
-    if (preparedSpeechTextRef.current === textToSpeak && audioUrlRef.current) return;
+    if (preparedSpeechTextRef.current === textToSpeak && audioUrlRef.current)
+      return;
 
     stopHelperTTS();
     revokePreparedSpeechUrl();
@@ -381,7 +415,9 @@ export function LifeSwitchHelper() {
     setTtsPreparing(true);
 
     const voice = getLocalString("vs_voice", "sage").trim() || "sage";
-    const model = getLocalString("vs_voice_model", "gpt-4o-mini-tts").trim() || "gpt-4o-mini-tts";
+    const model =
+      getLocalString("vs_voice_model", "gpt-4o-mini-tts").trim() ||
+      "gpt-4o-mini-tts";
     const speed = getLocalNumber("vs_voice_speed", 1.0) || 1.0;
 
     const ac = new AbortController();
@@ -465,14 +501,16 @@ export function LifeSwitchHelper() {
 
     try {
       const params = new URLSearchParams(
-        typeof window !== "undefined" ? window.location.search : ""
+        typeof window !== "undefined" ? window.location.search : "",
       );
 
       const contextResult = await fetchLifeSwitchContext(pathname, {
         targetUserId: String(params.get("target_user_id") || "").trim(),
         targetName: String(params.get("target_name") || "").trim(),
       });
-      const contextBundle = contextResult.ok ? contextResult.context : { context_error: contextResult.error };
+      const contextBundle = contextResult.ok
+        ? contextResult.context
+        : { context_error: contextResult.error };
 
       const r = await authFetch("/api/chat", {
         method: "POST",
@@ -485,7 +523,9 @@ export function LifeSwitchHelper() {
       });
 
       const reply = await r.text();
-      const assistantText = r.ok ? reply : `Helper error: ${reply.slice(0, 1200)}`;
+      const assistantText = r.ok
+        ? reply
+        : `Helper error: ${reply.slice(0, 1200)}`;
 
       setMessages((prev) => [
         ...prev,
@@ -498,7 +538,6 @@ export function LifeSwitchHelper() {
       if (r.ok) {
         void prepareHelperSpeech(assistantText);
       }
-
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
@@ -513,7 +552,13 @@ export function LifeSwitchHelper() {
   }
 
   return (
-    <div className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-4 z-[60]">
+    <div
+      className={`fixed right-4 z-[60] ${
+        domain === "measurements"
+          ? "bottom-[calc(1rem+env(safe-area-inset-bottom))]"
+          : "bottom-[calc(5.75rem+env(safe-area-inset-bottom))]"
+      }`}
+    >
       {open ? (
         <section className="w-[min(calc(100vw-2rem),24rem)] overflow-hidden rounded-2xl border bg-background shadow-xl">
           <header className="flex items-center justify-between border-b px-3 py-2">
@@ -528,14 +573,28 @@ export function LifeSwitchHelper() {
                 type="button"
                 variant={ttsBusy ? "default" : "ghost"}
                 size="sm"
-                aria-label={ttsBusy ? "Stop helper speech" : "Speak latest helper answer"}
-                title={ttsBusy ? "Stop" : ttsPreparing ? "Preparing voice" : "Speak latest answer"}
+                aria-label={
+                  ttsBusy ? "Stop helper speech" : "Speak latest helper answer"
+                }
+                title={
+                  ttsBusy
+                    ? "Stop"
+                    : ttsPreparing
+                      ? "Preparing voice"
+                      : "Speak latest answer"
+                }
                 onClick={speakLatestAssistant}
                 disabled={ttsPreparing}
                 className="gap-1 px-2"
               >
-                {ttsBusy ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                <span className="hidden text-xs sm:inline">{ttsBusy ? "Stop" : ttsPreparing ? "Prep" : "Speak"}</span>
+                {ttsBusy ? (
+                  <VolumeX className="h-4 w-4" />
+                ) : (
+                  <Volume2 className="h-4 w-4" />
+                )}
+                <span className="hidden text-xs sm:inline">
+                  {ttsBusy ? "Stop" : ttsPreparing ? "Prep" : "Speak"}
+                </span>
               </Button>
 
               <Button
@@ -567,7 +626,11 @@ export function LifeSwitchHelper() {
                     : "mr-8 bg-muted",
                 ].join(" ")}
               >
-                {m.role === "assistant" ? <MarkdownMessage>{m.text}</MarkdownMessage> : m.text}
+                {m.role === "assistant" ? (
+                  <MarkdownMessage>{m.text}</MarkdownMessage>
+                ) : (
+                  m.text
+                )}
               </div>
             ))}
             {busy ? (
@@ -612,20 +675,20 @@ export function LifeSwitchHelper() {
           aria-label="Open LifeSwitch helper"
           onClick={() => setOpen(true)}
         >
-            <>
-              <img
-                src="/brand/lifeswitch/symbol-dark-64.png"
-                alt=""
-                aria-hidden="true"
-                className="h-full w-full object-contain dark:hidden"
-              />
-              <img
-                src="/brand/lifeswitch/symbol-light-128.png"
-                alt=""
-                aria-hidden="true"
-                className="hidden h-full w-full object-contain dark:block"
-              />
-            </>
+          <>
+            <img
+              src="/brand/lifeswitch/symbol-dark-64.png"
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-contain dark:hidden"
+            />
+            <img
+              src="/brand/lifeswitch/symbol-light-128.png"
+              alt=""
+              aria-hidden="true"
+              className="hidden h-full w-full object-contain dark:block"
+            />
+          </>
         </Button>
       )}
     </div>
