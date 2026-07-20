@@ -53,8 +53,20 @@ type ConditioningSessionRow = {
 };
 
 type TrainingLogEvent =
-  | { kind: "strength"; id: string; day: string; created_at: string; row: TrainingSessionRow }
-  | { kind: "conditioning"; id: string; day: string; created_at: string; row: ConditioningSessionRow };
+  | {
+      kind: "strength";
+      id: string;
+      day: string;
+      created_at: string;
+      row: TrainingSessionRow;
+    }
+  | {
+      kind: "conditioning";
+      id: string;
+      day: string;
+      created_at: string;
+      row: ConditioningSessionRow;
+    };
 
 type MonthSection = {
   ym: string;
@@ -106,7 +118,11 @@ function safeNum(x: any, fallback = 0) {
 function trainingSessionRole(
   row: TrainingSessionRow,
 ): "strength" | "rehab" | "mixed" | "unclassified" {
-  if (["strength", "rehab", "mixed", "unclassified"].includes(String(row.session_role))) {
+  if (
+    ["strength", "rehab", "mixed", "unclassified"].includes(
+      String(row.session_role),
+    )
+  ) {
     return row.session_role as "strength" | "rehab" | "mixed" | "unclassified";
   }
 
@@ -130,24 +146,28 @@ function countsTowardStrength(row: TrainingSessionRow) {
 
 function hasRehabWork(row: TrainingSessionRow) {
   const role = trainingSessionRole(row);
-  return role === "rehab" || role === "mixed" || safeNum(row.rehab_set_count, 0) > 0;
+  return (
+    role === "rehab" || role === "mixed" || safeNum(row.rehab_set_count, 0) > 0
+  );
 }
 
-function strengthMetric(row: TrainingSessionRow, summaryKey: "strength_set_count" | "strength_exercise_count" | "strength_volume", fallbackKey: "set_count" | "exercise_count" | "volume") {
+function strengthMetric(
+  row: TrainingSessionRow,
+  summaryKey:
+    | "strength_set_count"
+    | "strength_exercise_count"
+    | "strength_volume",
+  fallbackKey: "set_count" | "exercise_count" | "volume",
+) {
   if (row[summaryKey] != null) return safeNum(row[summaryKey], 0);
   return countsTowardStrength(row) ? safeNum(row[fallbackKey], 0) : 0;
 }
-function doseValue(
-  config: Record<string, unknown>,
-  key: string
-): string {
+function doseValue(config: Record<string, unknown>, key: string): string {
   const value = config?.[key];
   return value == null || value === "" ? "" : String(value);
 }
 
-function formatConditioningDose(
-  row: ConditioningSessionRow
-): string {
+function formatConditioningDose(row: ConditioningSessionRow): string {
   const type = row.dose_type || "open";
   const config =
     row.dose_config &&
@@ -171,12 +191,8 @@ function formatConditioningDose(
         ? `${left || "—"} / ${right || "—"}${loadUnit ? ` ${loadUnit}` : ""}`
         : "",
       laps ? `${laps} ${laps === "1" ? "lap" : "laps"}` : "",
-      distance
-        ? `${distance}${distanceUnit ? ` ${distanceUnit}` : ""}`
-        : "",
-      rounds
-        ? `${rounds} ${rounds === "1" ? "round" : "rounds"}`
-        : "",
+      distance ? `${distance}${distanceUnit ? ` ${distanceUnit}` : ""}` : "",
+      rounds ? `${rounds} ${rounds === "1" ? "round" : "rounds"}` : "",
       rest && rest !== "0" ? `${rest} sec rest` : "",
     ]
       .filter(Boolean)
@@ -205,9 +221,7 @@ function formatConditioningDose(
     const rest = doseValue(config, "rest_seconds");
 
     return [
-      rounds
-        ? `${rounds} ${rounds === "1" ? "round" : "rounds"}`
-        : "",
+      rounds ? `${rounds} ${rounds === "1" ? "round" : "rounds"}` : "",
       work ? `${work} sec work` : "",
       rest && rest !== "0" ? `${rest} sec rest` : "",
     ]
@@ -237,9 +251,7 @@ function formatConditioningDose(
 
     return [
       laps ? `${laps} ${laps === "1" ? "lap" : "laps"}` : "",
-      perLap
-        ? `${perLap}${unit ? ` ${unit}` : ""} per lap`
-        : "",
+      perLap ? `${perLap}${unit ? ` ${unit}` : ""} per lap` : "",
     ]
       .filter(Boolean)
       .join(" · ");
@@ -263,7 +275,6 @@ function formatConditioningDose(
 
   return "";
 }
-
 
 function monthLabel(ym: string) {
   const m = String(ym || "").trim();
@@ -312,7 +323,8 @@ async function fetchJson(url: string, init?: RequestInit) {
   }
 
   if (!r.ok) {
-    const detail = j?.detail || j?.error || t?.slice(0, 300) || `HTTP ${r.status}`;
+    const detail =
+      j?.detail || j?.error || t?.slice(0, 300) || `HTTP ${r.status}`;
     throw new Error(String(detail));
   }
 
@@ -328,7 +340,9 @@ function MonthCalendar(props: {
 }) {
   const { ym, workoutDates, rehabDates, conditioningDates, today } = props;
 
-  const mm = String(ym || "").trim().match(/^(\d{4})-(\d{2})$/);
+  const mm = String(ym || "")
+    .trim()
+    .match(/^(\d{4})-(\d{2})$/);
   if (!mm) return null;
 
   const year = Number(mm[1]);
@@ -373,18 +387,29 @@ function MonthCalendar(props: {
                   : didRehab
                     ? "rehab"
                     : "none";
-          const stateLabel = [
-            didWorkout ? "strength" : "",
-            didRehab ? "rehab" : "",
-            didConditioning ? "conditioning" : "",
-          ].filter(Boolean).join(" + ") || "no log";
+          const stateLabel =
+            [
+              didWorkout ? "strength" : "",
+              didRehab ? "rehab" : "",
+              didConditioning ? "conditioning" : "",
+            ]
+              .filter(Boolean)
+              .join(" + ") || "no log";
 
           const cls = [
             "relative h-7 flex items-center justify-center rounded-md border transition-colors",
-            state === "strength" ? "border-blue-500/80 bg-blue-500/10 text-blue-900 dark:text-blue-100 font-semibold" : "",
-            state === "rehab" ? "border-purple-500/80 bg-purple-500/15 text-purple-900 dark:text-purple-100 font-semibold" : "",
-            state === "conditioning" ? "border-yellow-400/80 bg-yellow-500/20 text-yellow-100 font-semibold" : "",
-            state === "both" ? "border-green-700/80 bg-green-500/30 text-green-950 dark:border-green-400/80 dark:bg-green-500/20 dark:text-green-100 font-semibold" : "",
+            state === "strength"
+              ? "border-blue-500/80 bg-blue-500/10 text-blue-900 dark:text-blue-100 font-semibold"
+              : "",
+            state === "rehab"
+              ? "border-purple-500/80 bg-purple-500/15 text-purple-900 dark:text-purple-100 font-semibold"
+              : "",
+            state === "conditioning"
+              ? "border-yellow-400/80 bg-yellow-500/20 text-yellow-100 font-semibold"
+              : "",
+            state === "both"
+              ? "border-green-700/80 bg-green-500/30 text-green-950 dark:border-green-400/80 dark:bg-green-500/20 dark:text-green-100 font-semibold"
+              : "",
             state === "none" ? "border-muted/40 text-muted-foreground" : "",
             isToday ? "underline underline-offset-4" : "",
           ]
@@ -396,7 +421,7 @@ function MonthCalendar(props: {
               {dayNum}
               {didRehab && state !== "rehab" ? (
                 <span
-                  className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-purple-400"
+                  className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-purple-400"
                   aria-hidden="true"
                 />
               ) : null}
@@ -412,11 +437,15 @@ export default function TrainingCalendarPage() {
   const [status, setStatus] = React.useState("loading sessions...");
   const [openSessionActionsId, setOpenSessionActionsId] = React.useState("");
   const [sessions, setSessions] = React.useState<TrainingSessionRow[]>([]);
-  const [conditioningSessions, setConditioningSessions] = React.useState<ConditioningSessionRow[]>([]);
+  const [conditioningSessions, setConditioningSessions] = React.useState<
+    ConditioningSessionRow[]
+  >([]);
   const [loading, setLoading] = React.useState(true);
 
   const searchParams =
-    typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search)
+      : new URLSearchParams();
 
   const targetUserId = String(searchParams.get("target_user_id") || "").trim();
   const targetName = String(searchParams.get("target_name") || "").trim();
@@ -430,32 +459,44 @@ export default function TrainingCalendarPage() {
     setStatus("loading training sessions...");
 
     try {
-      const targetParam = targetUserId ? `&target_user_id=${encodeURIComponent(targetUserId)}` : "";
+      const targetParam = targetUserId
+        ? `&target_user_id=${encodeURIComponent(targetUserId)}`
+        : "";
 
       const [strengthJson, conditioningJson] = await Promise.all([
         fetchJson(`/api/lifeswitch/training/sessions?limit=250${targetParam}`),
-        fetchJson(`/api/lifeswitch/training/conditioning_sessions?limit=250${targetParam}`),
+        fetchJson(
+          `/api/lifeswitch/training/conditioning_sessions?limit=250${targetParam}`,
+        ),
       ]);
 
-      const strengthArr = Array.isArray(strengthJson) ? (strengthJson as TrainingSessionRow[]) : [];
-      const conditioningArr = Array.isArray(conditioningJson) ? (conditioningJson as ConditioningSessionRow[]) : [];
+      const strengthArr = Array.isArray(strengthJson)
+        ? (strengthJson as TrainingSessionRow[])
+        : [];
+      const conditioningArr = Array.isArray(conditioningJson)
+        ? (conditioningJson as ConditioningSessionRow[])
+        : [];
 
       strengthArr.sort((a, b) => {
         const c = String(b.day || "").localeCompare(String(a.day || ""));
         if (c !== 0) return c;
-        return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+        return String(b.created_at || "").localeCompare(
+          String(a.created_at || ""),
+        );
       });
 
       conditioningArr.sort((a, b) => {
         const c = String(b.day || "").localeCompare(String(a.day || ""));
         if (c !== 0) return c;
-        return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+        return String(b.created_at || "").localeCompare(
+          String(a.created_at || ""),
+        );
       });
 
       setSessions(strengthArr);
       setConditioningSessions(conditioningArr);
       setStatus(
-        `${readOnly ? "delegated read-only view · " : ""}loaded ${strengthArr.length} resistance sessions and ${conditioningArr.length} conditioning sessions`
+        `${readOnly ? "delegated read-only view · " : ""}loaded ${strengthArr.length} resistance sessions and ${conditioningArr.length} conditioning sessions`,
       );
     } catch (e: any) {
       setSessions([]);
@@ -481,9 +522,12 @@ export default function TrainingCalendarPage() {
     if (!ok) return;
 
     try {
-      await fetchJson(`/api/lifeswitch/training/sessions/${encodeURIComponent(trainingSessionId)}/deactivate`, {
-        method: "POST",
-      });
+      await fetchJson(
+        `/api/lifeswitch/training/sessions/${encodeURIComponent(trainingSessionId)}/deactivate`,
+        {
+          method: "POST",
+        },
+      );
       setOpenSessionActionsId("");
       await loadSessions();
     } catch (e: any) {
@@ -553,13 +597,17 @@ export default function TrainingCalendarPage() {
       ss.sort((a, b) => {
         const c = String(b.day || "").localeCompare(String(a.day || ""));
         if (c !== 0) return c;
-        return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+        return String(b.created_at || "").localeCompare(
+          String(a.created_at || ""),
+        );
       });
 
       cc.sort((a, b) => {
         const c = String(b.day || "").localeCompare(String(a.day || ""));
         if (c !== 0) return c;
-        return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+        return String(b.created_at || "").localeCompare(
+          String(a.created_at || ""),
+        );
       });
 
       const strengthSessions = ss.filter(countsTowardStrength);
@@ -569,7 +617,9 @@ export default function TrainingCalendarPage() {
       const rehabDates = new Set<string>(
         ss.filter(hasRehabWork).map((x) => String(x.day || "")),
       );
-      const conditioningDates = new Set<string>(cc.map((x) => String(x.day || "")));
+      const conditioningDates = new Set<string>(
+        cc.map((x) => String(x.day || "")),
+      );
       const volume = ss.reduce(
         (acc, x) => acc + strengthMetric(x, "strength_volume", "volume"),
         0,
@@ -578,7 +628,10 @@ export default function TrainingCalendarPage() {
         (acc, x) => acc + strengthMetric(x, "strength_set_count", "set_count"),
         0,
       );
-      const conditioningMinutes = cc.reduce((acc, x) => acc + safeNum(x.duration_min, 0), 0);
+      const conditioningMinutes = cc.reduce(
+        (acc, x) => acc + safeNum(x.duration_min, 0),
+        0,
+      );
 
       const events: TrainingLogEvent[] = [
         ...ss.map((row) => ({
@@ -598,7 +651,9 @@ export default function TrainingCalendarPage() {
       ].sort((a, b) => {
         const d = String(b.day || "").localeCompare(String(a.day || ""));
         if (d !== 0) return d;
-        return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+        return String(b.created_at || "").localeCompare(
+          String(a.created_at || ""),
+        );
       });
 
       out.push({
@@ -627,7 +682,8 @@ export default function TrainingCalendarPage() {
     <div className="mx-auto max-w-5xl p-4">
       {readOnly ? (
         <div className="mb-4 rounded-xl border bg-muted/20 p-3 text-sm">
-          You are viewing {targetName ? `${targetName}’s` : "another person’s"} training log. This delegated view is read-only.
+          You are viewing {targetName ? `${targetName}’s` : "another person’s"}{" "}
+          training log. This delegated view is read-only.
         </div>
       ) : null}
 
@@ -635,7 +691,8 @@ export default function TrainingCalendarPage() {
         <div>
           <div className="text-lg font-semibold">Training · Log</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Review completed strength, rehab, and conditioning sessions from Training Capture.
+            Review completed strength, rehab, and conditioning sessions from
+            Training Capture.
           </div>
         </div>
 
@@ -657,16 +714,16 @@ export default function TrainingCalendarPage() {
             Strength
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="h-3 w-3 rounded-full border border-purple-500/80 bg-purple-500/15" />
-            Rehab
-          </span>
-          <span className="inline-flex items-center gap-1">
             <span className="h-3 w-3 rounded-full border border-yellow-400/80 bg-yellow-500/20" />
             Conditioning
           </span>
           <span className="inline-flex items-center gap-1">
             <span className="h-3 w-3 rounded-full border border-green-500/80 bg-green-500/20" />
             Both
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-3 w-3 rounded-full border border-purple-500/80 bg-purple-500/15" />
+            Rehab
           </span>
           <span className="inline-flex items-center gap-1">
             <span className="h-3 w-3 rounded-full border border-muted/40" />
@@ -677,8 +734,10 @@ export default function TrainingCalendarPage() {
 
       {showDebug ? (
         <details className="mt-4">
-          <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
-          <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
+          <summary className="cursor-pointer text-sm text-muted-foreground">
+            Debug
+          </summary>
+          <div className="mt-2 space-y-1 font-mono text-xs text-muted-foreground">
             <div>status: {status}</div>
             <div>resistance sessions: {sessions.length}</div>
             <div>conditioning sessions: {conditioningSessions.length}</div>
@@ -687,13 +746,15 @@ export default function TrainingCalendarPage() {
         </details>
       ) : null}
 
-
       <div className="mt-8">
         {loading ? (
           <div className="text-sm text-muted-foreground">Loading…</div>
         ) : months.length ? (
           months.map((m, idx) => (
-            <section key={m.ym} className={idx ? "mt-10 border-t border-muted/20 pt-10" : ""}>
+            <section
+              key={m.ym}
+              className={idx ? "mt-10 border-t border-muted/20 pt-10" : ""}
+            >
               <div className="text-base font-semibold">{m.label}</div>
 
               <div className="mt-4 grid grid-cols-[1fr_6.5rem] items-start gap-2">
@@ -707,27 +768,49 @@ export default function TrainingCalendarPage() {
 
                 <div className="flex justify-center">
                   <div className="w-[6.25rem] rounded-xl border border-muted/20 px-2 py-2 text-center">
-                    <div className="text-sm font-semibold leading-none">{m.workouts}</div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">WORKOUTS</div>
+                    <div className="text-sm leading-none font-semibold">
+                      {m.workouts}
+                    </div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">
+                      WORKOUTS
+                    </div>
 
-                    <div className="mt-2 text-sm font-semibold leading-none">{formatK(m.volume)}</div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">VOLUME</div>
+                    <div className="mt-2 text-sm leading-none font-semibold">
+                      {formatK(m.volume)}
+                    </div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">
+                      VOLUME
+                    </div>
 
-                    <div className="mt-2 text-sm font-semibold leading-none">{m.sets}</div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">SETS</div>
+                    <div className="mt-2 text-sm leading-none font-semibold">
+                      {m.sets}
+                    </div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">
+                      SETS
+                    </div>
 
-                    <div className="mt-2 text-sm font-semibold leading-none">{m.rehabDays}</div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">REHAB DAYS</div>
+                    <div className="mt-2 text-sm leading-none font-semibold">
+                      {m.rehabDays}
+                    </div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">
+                      REHAB DAYS
+                    </div>
 
-                    <div className="mt-2 text-sm font-semibold leading-none">{m.conditioning}</div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">COND</div>
+                    <div className="mt-2 text-sm leading-none font-semibold">
+                      {m.conditioning}
+                    </div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">
+                      COND
+                    </div>
 
-                    <div className="mt-2 text-sm font-semibold leading-none">
+                    <div className="mt-2 text-sm leading-none font-semibold">
                       {m.conditioningMinutes >= 60
                         ? `${String(Math.round((m.conditioningMinutes / 60) * 10) / 10).replace(/\.0$/, "")}h`
                         : `${Math.round(m.conditioningMinutes)}m`}
                     </div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">TIME</div>
+                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">
+                      TIME
+                    </div>
                   </div>
                 </div>
               </div>
@@ -761,7 +844,8 @@ export default function TrainingCalendarPage() {
                       role === "rehab" ? safeNum(s.set_count, 0) : 0,
                     );
                     const sessionHref = `/lifeswitch/training/session?session_id=${encodeURIComponent(s.training_session_id)}${targetUserId ? `&target_user_id=${encodeURIComponent(targetUserId)}&target_name=${encodeURIComponent(targetName)}` : ""}`;
-                    const actionsOpen = openSessionActionsId === s.training_session_id;
+                    const actionsOpen =
+                      openSessionActionsId === s.training_session_id;
                     const actionsId = `session-actions-${s.training_session_id}`;
 
                     return (
@@ -772,19 +856,21 @@ export default function TrainingCalendarPage() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <div className="truncate text-sm font-semibold">{s.name}</div>
+                              <div className="truncate text-sm font-semibold">
+                                {s.name}
+                              </div>
                               {role === "strength" || role === "mixed" ? (
-                                <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-blue-400">
+                                <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] tracking-wide text-blue-400 uppercase">
                                   Strength
                                 </span>
                               ) : null}
                               {role === "rehab" || role === "mixed" ? (
-                                <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-purple-400">
+                                <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] tracking-wide text-purple-400 uppercase">
                                   Rehab
                                 </span>
                               ) : null}
                               {role === "unclassified" ? (
-                                <span className="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                                <span className="rounded-full border px-2 py-0.5 text-[10px] tracking-wide text-muted-foreground uppercase">
                                   Unclassified
                                 </span>
                               ) : null}
@@ -792,27 +878,36 @@ export default function TrainingCalendarPage() {
                             <div className="mt-1 text-xs text-muted-foreground">
                               {role === "rehab" ? (
                                 <>
-                                  {s.day} · {rehabExercises} rehab exercises · {rehabSets} rehab sets
+                                  {s.day} · {rehabExercises} rehab exercises ·{" "}
+                                  {rehabSets} rehab sets
                                 </>
                               ) : role === "unclassified" ? (
                                 <>
-                                  {s.day} · {safeNum(s.exercise_count, 0)} exercises · {safeNum(s.set_count, 0)} sets
+                                  {s.day} · {safeNum(s.exercise_count, 0)}{" "}
+                                  exercises · {safeNum(s.set_count, 0)} sets
                                 </>
                               ) : (
                                 <>
-                                  {s.day} · {strengthExercises} strength exercises · {strengthSets} strength sets · volume{" "}
-                                  {formatK(strengthVolume)}
-                                  {role === "mixed" ? ` · ${rehabSets} rehab sets` : ""}
+                                  {s.day} · {strengthExercises} strength
+                                  exercises · {strengthSets} strength sets ·
+                                  volume {formatK(strengthVolume)}
+                                  {role === "mixed"
+                                    ? ` · ${rehabSets} rehab sets`
+                                    : ""}
                                 </>
                               )}
                             </div>
-                            {s.notes ? <div className="mt-2 text-xs text-muted-foreground">{s.notes}</div> : null}
+                            {s.notes ? (
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                {s.notes}
+                              </div>
+                            ) : null}
                           </div>
 
                           <div className="flex shrink-0 flex-col items-end gap-2 text-xs">
                             <Link
                               href={sessionHref}
-                              className="inline-flex min-h-8 items-center rounded-md px-2 py-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="inline-flex min-h-8 items-center rounded-md px-2 py-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                               aria-label={`View ${s.name} session`}
                             >
                               View
@@ -821,10 +916,12 @@ export default function TrainingCalendarPage() {
                               <>
                                 <button
                                   type="button"
-                                  className="inline-flex min-h-8 items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  className="inline-flex min-h-8 items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                   onClick={() => {
                                     setOpenSessionActionsId((prev) =>
-                                      prev === s.training_session_id ? "" : s.training_session_id
+                                      prev === s.training_session_id
+                                        ? ""
+                                        : s.training_session_id,
                                     );
                                   }}
                                   aria-expanded={actionsOpen}
@@ -840,15 +937,21 @@ export default function TrainingCalendarPage() {
                                 </button>
 
                                 {actionsOpen ? (
-                                  <div id={actionsId} className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                                    <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                                  <div
+                                    id={actionsId}
+                                    className="rounded-lg border border-red-500/20 bg-red-500/5 p-2"
+                                  >
+                                    <div className="text-[11px] font-semibold tracking-wide text-red-500 uppercase">
                                       Danger zone
                                     </div>
                                     <button
                                       type="button"
                                       className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-[11px] text-red-600 hover:bg-red-500/10"
                                       onClick={() => {
-                                        void deleteSession(s.training_session_id, s.name);
+                                        void deleteSession(
+                                          s.training_session_id,
+                                          s.name,
+                                        );
                                       }}
                                     >
                                       <Trash2 className="h-3 w-3" />
@@ -867,24 +970,29 @@ export default function TrainingCalendarPage() {
                   const c = event.row;
                   const detailParts = [
                     c.day,
-                    safeNum(c.duration_min, 0) ? `${safeNum(c.duration_min, 0)} min` : null,
+                    safeNum(c.duration_min, 0)
+                      ? `${safeNum(c.duration_min, 0)} min`
+                      : null,
                     c.distance || null,
                     c.intensity || null,
                   ].filter(Boolean);
-                  const conditioningActionsKey =
-                    `conditioning:${c.conditioning_session_log_id}`;
+                  const conditioningActionsKey = `conditioning:${c.conditioning_session_log_id}`;
                   const conditioningActionsOpen =
                     openSessionActionsId === conditioningActionsKey;
-                  const conditioningActionsId =
-                    `conditioning-actions-${c.conditioning_session_log_id}`;
+                  const conditioningActionsId = `conditioning-actions-${c.conditioning_session_log_id}`;
 
                   return (
-                    <article key={`conditioning:${c.conditioning_session_log_id}`} className="rounded-xl border p-4">
+                    <article
+                      key={`conditioning:${c.conditioning_session_log_id}`}
+                      className="rounded-xl border p-4"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <div className="truncate text-sm font-semibold">{c.name}</div>
-                            <span className="rounded-full border border-yellow-400/30 bg-yellow-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-yellow-300">
+                            <div className="truncate text-sm font-semibold">
+                              {c.name}
+                            </div>
+                            <span className="rounded-full border border-yellow-400/30 bg-yellow-500/10 px-2 py-0.5 text-[10px] tracking-wide text-yellow-300 uppercase">
                               Conditioning
                             </span>
                           </div>
@@ -899,14 +1007,18 @@ export default function TrainingCalendarPage() {
                             </div>
                           ) : null}
 
-                          {c.notes ? <div className="mt-2 text-xs text-muted-foreground">{c.notes}</div> : null}
+                          {c.notes ? (
+                            <div className="mt-2 text-xs text-muted-foreground">
+                              {c.notes}
+                            </div>
+                          ) : null}
                         </div>
 
                         {!readOnly ? (
                           <div className="flex shrink-0 flex-col items-end gap-2 text-xs">
                             <button
                               type="button"
-                              className="inline-flex min-h-8 items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="inline-flex min-h-8 items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                               onClick={() =>
                                 setOpenSessionActionsId((previous) =>
                                   previous === conditioningActionsKey
@@ -931,7 +1043,7 @@ export default function TrainingCalendarPage() {
                                 id={conditioningActionsId}
                                 className="rounded-lg border border-red-500/20 bg-red-500/5 p-2"
                               >
-                                <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                                <div className="text-[11px] font-semibold tracking-wide text-red-500 uppercase">
                                   Danger zone
                                 </div>
                                 <button
@@ -960,7 +1072,8 @@ export default function TrainingCalendarPage() {
           ))
         ) : (
           <div className="rounded-xl border p-4 text-sm text-muted-foreground">
-            No training sessions yet. Finish a workout from Capture and it will appear here.
+            No training sessions yet. Finish a workout from Capture and it will
+            appear here.
           </div>
         )}
       </div>
