@@ -126,7 +126,10 @@ function PlanSummary({
   const [expandedSections, setExpandedSections] = React.useState<Set<string>>(
     new Set(),
   );
-  const sectionKeys = SECTION_LABELS.map(([field]) => String(field));
+  const sectionKeys = [
+    "overview",
+    ...SECTION_LABELS.map(([field]) => String(field)),
+  ];
   if (document.coach_notes) sectionKeys.push("coach_notes");
 
   function toggleSection(section: string) {
@@ -159,42 +162,68 @@ function PlanSummary({
           </button>
         </div>
       </div>
-      <dl className="grid gap-3 rounded-xl bg-muted/40 p-3 sm:grid-cols-2">
-        <div>
-          <dt className="text-xs font-medium text-muted-foreground">
-            Current phase
-          </dt>
-          <dd className="mt-1 text-sm font-semibold">
-            {document.phase_label || humanize(document.phase)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs font-medium text-muted-foreground">
-            Review cadence
-          </dt>
-          <dd className="mt-1 text-sm">{humanize(document.review_cadence)}</dd>
-        </div>
-        <div className="sm:col-span-2">
-          <dt className="text-xs font-medium text-muted-foreground">
-            Primary goal
-          </dt>
-          <dd className="mt-1 text-sm whitespace-pre-wrap">
-            {document.primary_goal || "Not set"}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs font-medium text-muted-foreground">
-            Start date
-          </dt>
-          <dd className="mt-1 text-sm">{document.start_date || "Not set"}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-medium text-muted-foreground">
-            Next Plan check-in
-          </dt>
-          <dd className="mt-1 text-sm">{document.review_date || "Not set"}</dd>
-        </div>
-      </dl>
+      <section className="rounded-xl border bg-background">
+        <button
+          className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm font-medium"
+          type="button"
+          aria-expanded={expandedSections.has("overview")}
+          onClick={() => toggleSection("overview")}
+        >
+          <span>Plan overview</span>
+          <span
+            aria-hidden="true"
+            className={`text-xl leading-none transition-transform ${
+              expandedSections.has("overview") ? "rotate-90" : ""
+            }`}
+          >
+            ›
+          </span>
+        </button>
+        {expandedSections.has("overview") ? (
+          <dl className="grid gap-3 border-t bg-muted/40 p-3 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Current phase
+              </dt>
+              <dd className="mt-1 text-sm font-semibold">
+                {document.phase_label || humanize(document.phase)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Review cadence
+              </dt>
+              <dd className="mt-1 text-sm">
+                {humanize(document.review_cadence)}
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-xs font-medium text-muted-foreground">
+                Primary goal
+              </dt>
+              <dd className="mt-1 text-sm whitespace-pre-wrap">
+                {document.primary_goal || "Not set"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Start date
+              </dt>
+              <dd className="mt-1 text-sm">
+                {document.start_date || "Not set"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">
+                Next Plan check-in
+              </dt>
+              <dd className="mt-1 text-sm">
+                {document.review_date || "Not set"}
+              </dd>
+            </div>
+          </dl>
+        ) : null}
+      </section>
 
       {SECTION_LABELS.map(([field, label]) => {
         const values = document[field] as JsonObject;
