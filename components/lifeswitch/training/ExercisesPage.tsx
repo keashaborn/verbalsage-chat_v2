@@ -27,6 +27,7 @@ type MyExerciseRow = {
   model_name?: string | null;
   matched_text?: string | null;
   matched_source?: string | null;
+  exercise_role: "strength" | "rehab";
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -91,6 +92,9 @@ export default function TrainingExercisesPage() {
   const [hitsLoading, setHitsLoading] = React.useState(false);
   const [hitsStatus, setHitsStatus] = React.useState<string>("");
   const [saveErr, setSaveErr] = React.useState<string | null>(null);
+  const [newExerciseRole, setNewExerciseRole] = React.useState<
+    "strength" | "rehab"
+  >("strength");
 
   React.useEffect(() => {
     const qq = q.trim();
@@ -130,7 +134,10 @@ export default function TrainingExercisesPage() {
 
   const [openExerciseActionsId, setOpenExerciseActionsId] = React.useState("");
 
-  async function saveExercise(h: ExerciseSearchHit) {
+  async function saveExercise(
+    h: ExerciseSearchHit | MyExerciseRow,
+    exerciseRole: "strength" | "rehab" = newExerciseRole,
+  ) {
     setSaveErr(null);
 
     // Backend expects these in query (FastAPI 422 loc=["query",...])
@@ -144,6 +151,7 @@ export default function TrainingExercisesPage() {
     if (h.brand_name) qs.set("brand_name", String(h.brand_name));
     if (h.model_name) qs.set("model_name", String(h.model_name));
     if (h.matched_source) qs.set("matched_source", String(h.matched_source));
+    qs.set("exercise_role", exerciseRole);
 
     // DO NOT send matched_text in query (can be long and blow URL)
     // If we later want it, we’ll change backend to accept JSON body.
@@ -156,6 +164,14 @@ export default function TrainingExercisesPage() {
     } catch (e: any) {
       setSaveErr(String(e?.message || e));
     }
+  }
+
+  async function updateExerciseRole(
+    row: MyExerciseRow,
+    exerciseRole: "strength" | "rehab",
+  ) {
+    if (row.exercise_role === exerciseRole) return;
+    await saveExercise(row, exerciseRole);
   }
 
   async function removeExercise(row: MyExerciseRow) {
@@ -178,6 +194,19 @@ export default function TrainingExercisesPage() {
 
       {/* Search */}
       <div className="mt-3 grid gap-2">
+        <label className="grid gap-1.5 text-sm sm:max-w-xs">
+          <span className="font-medium">New exercises count as</span>
+          <select
+            value={newExerciseRole}
+            onChange={(event) =>
+              setNewExerciseRole(event.target.value as "strength" | "rehab")
+            }
+            className="rounded-xl border bg-background px-3 py-2"
+          >
+            <option value="strength">Strength training</option>
+            <option value="rehab">Rehab / prehab</option>
+          </select>
+        </label>
         <input
           className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
           value={q}
@@ -259,6 +288,11 @@ export default function TrainingExercisesPage() {
                     {x.kind ? ` · ${x.kind}` : ""}
                     {x.brand_name ? ` · ${x.brand_name}` : ""}
                   </div>
+                  {x.exercise_role === "rehab" ? (
+                    <div className="mt-1 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      Rehab · excluded from strength analysis
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="grid shrink-0 justify-items-end gap-2">
@@ -281,18 +315,36 @@ export default function TrainingExercisesPage() {
                   </button>
 
                   {openExerciseActionsId === x.my_exercise_id ? (
-                    <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                      <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
-                        Danger zone
+                    <div className="grid w-56 gap-2 rounded-lg border bg-background p-2 shadow-lg">
+                      <label className="grid gap-1 text-xs">
+                        <span className="font-medium">Use in analysis as</span>
+                        <select
+                          value={x.exercise_role || "strength"}
+                          onChange={(event) =>
+                            void updateExerciseRole(
+                              x,
+                              event.target.value as "strength" | "rehab",
+                            )
+                          }
+                          className="rounded-md border bg-background px-2 py-1.5"
+                        >
+                          <option value="strength">Strength training</option>
+                          <option value="rehab">Rehab / prehab</option>
+                        </select>
+                      </label>
+                      <div className="rounded-md border border-red-500/20 bg-red-500/5 p-2">
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                          Danger zone
+                        </div>
+                        <button
+                          type="button"
+                          className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                          onClick={() => void removeExercise(x)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Remove exercise
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
-                        onClick={() => void removeExercise(x)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                        Remove exercise
-                      </button>
                     </div>
                   ) : null}
                 </div>

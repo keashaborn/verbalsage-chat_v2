@@ -17,6 +17,7 @@ type MyExerciseRow = {
   model_name?: string | null;
   matched_text?: string | null;
   matched_source?: string | null;
+  exercise_role: "strength" | "rehab";
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -776,6 +777,11 @@ export default function TrainingWorkoutsPage() {
                                 {open ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
                                 <div className="min-w-0">
                                   <div className="truncate text-sm font-semibold text-blue-400">{title}</div>
+                                  {meta?.exercise_role === "rehab" ? (
+                                    <span className="mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                      Rehab · not a strength session
+                                    </span>
+                                  ) : null}
                                   <div className="mt-1 text-xs text-muted-foreground">
                                     {(e.set_type || "straight") === "drop" ? "drop" : "straight"} · {e.planned_sets} sets · {e.default_weight} × {e.default_reps}
                                     {meta?.modality ? ` · ${meta.modality}` : ""}
@@ -1008,6 +1014,11 @@ export default function TrainingWorkoutsPage() {
                                     <div key={h.exercise_id} className="flex items-center justify-between gap-3 py-3">
                                       <div className="min-w-0">
                                         <div className="truncate text-sm font-medium">{h.display_name}</div>
+                                        {h.exercise_role === "rehab" ? (
+                                          <div className="mt-1 text-[11px] font-medium text-muted-foreground">
+                                            Rehab · excluded from strength analysis
+                                          </div>
+                                        ) : null}
                                         <div className="mt-1 text-xs text-muted-foreground">
                                           {h.modality}
                                           {h.kind ? ` · ${h.kind}` : ""}

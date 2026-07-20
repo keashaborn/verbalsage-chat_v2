@@ -50,6 +50,7 @@ type MyExerciseRow = {
   modality: string;
   brand_name?: string | null;
   model_name?: string | null;
+  exercise_role: "strength" | "rehab";
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -945,6 +946,12 @@ export default function TrainingCapturePage() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <div className="text-sm font-semibold">{first.exercise_name}</div>
+                          {myExercisesById.get(first.exercise_id)?.exercise_role ===
+                          "rehab" ? (
+                            <span className="rounded-full border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              Rehab
+                            </span>
+                          ) : null}
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
                           {block.rows.filter((r) => r.done).length} completed sets
@@ -1034,6 +1041,7 @@ export default function TrainingCapturePage() {
                                           modality: hit.modality,
                                           brand_name: hit.brand_name,
                                           model_name: hit.model_name,
+                                          exercise_role: "strength",
                                           is_active: true,
                                           created_at: "",
                                           updated_at: "",

@@ -77,6 +77,8 @@ export type SagePlanReview = {
     training?: {
       status?: string;
       all_logged_resistance_sessions?: number;
+      strength_sessions?: number;
+      rehab_sessions?: number;
       strength_adherence?: {
         status?: string;
         reason?: string;
@@ -333,7 +335,9 @@ function SageDataCoverage({
       label: "Resistance training",
       available: Boolean(trainingAvailable),
       detail: trainingAvailable
-        ? `${context.training?.all_logged_resistance_sessions ?? 0} logged sessions · Rehab is not separated yet`
+        ? context.training?.strength_adherence?.rehab_exclusion_supported
+          ? `${context.training?.strength_sessions ?? 0} strength sessions · ${context.training?.rehab_sessions ?? 0} sessions containing rehab`
+          : `${context.training?.all_logged_resistance_sessions ?? 0} logged sessions · Rehab is not separated yet`
         : unavailableDataLabel(context.training?.reason),
     },
     {
