@@ -80,6 +80,20 @@ function operationFor(method: string, path: string[]): Operation | null {
   if (
     normalizedMethod === "GET" &&
     path.length === 1 &&
+    path[0] === "conditioning-prescriptions"
+  ) {
+    return {
+      upstreamPath: "/lifeswitch/plan/conditioning-prescriptions",
+      method: "GET",
+      bodyMode: "none",
+      requiresIdempotency: false,
+      queryFields: COMMON_QUERY_FIELDS,
+    };
+  }
+
+  if (
+    normalizedMethod === "GET" &&
+    path.length === 1 &&
     path[0] === "workout-templates"
   ) {
     return {

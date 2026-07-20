@@ -173,6 +173,25 @@ type WorkoutTemplateOption = {
   exercises: WorkoutExerciseOption[];
 };
 
+type ConditioningPrescriptionOption = {
+  my_conditioning_prescription_id: string;
+  name: string;
+  category: string;
+  modality: string;
+  purpose: string;
+  target_duration_min: number | null;
+  target_frequency_per_week: number | null;
+  target_intensity: string;
+  preferred_timing: string;
+  recovery_constraints: string;
+  notes: string;
+  dose_type: string;
+  dose_config: JsonObject;
+  library_slug: string;
+  library_name: string;
+  prescription_updated_at: string | null;
+};
+
 const SECTIONS: Array<{
   key: SectionKey;
   label: string;
@@ -649,11 +668,13 @@ function NumberTargetField({
   label,
   value,
   unit,
+  step,
   onChange,
 }: {
   label: string;
   value: unknown;
   unit: string;
+  step?: number;
   onChange: (value: number | null) => void;
 }) {
   const id = React.useId();
@@ -665,6 +686,7 @@ function NumberTargetField({
           id={id}
           type="number"
           inputMode="decimal"
+          step={step}
           value={numericFieldValue(value)}
           onChange={(event) =>
             onChange(
@@ -1286,6 +1308,372 @@ function TrainingTargetsEditor({
         <fieldset className="grid gap-3 rounded-2xl border p-3">
           <legend className="px-1 text-sm font-semibold">
             Additional strength targets
+          </legend>
+          <ObjectFields
+            value={remaining}
+            onChange={(path, nextValue) =>
+              onChange(updateNestedValue(value, path, nextValue))
+            }
+          />
+        </fieldset>
+      ) : null}
+    </div>
+  );
+}
+
+function linkedConditioningEntries(value: JsonObject): JsonObject[] {
+  return Array.isArray(value.linked_conditioning)
+    ? value.linked_conditioning.filter(isPlainObject)
+    : [];
+}
+
+function conditioningOptionFromSnapshot(
+  entry: JsonObject,
+): ConditioningPrescriptionOption {
+  const snapshot = snapshotFor(entry);
+  return {
+    my_conditioning_prescription_id: String(
+      entry.my_conditioning_prescription_id || "",
+    ),
+    name: String(snapshot.name || "Saved conditioning plan"),
+    category: String(snapshot.category || ""),
+    modality: String(snapshot.modality || ""),
+    purpose: String(snapshot.purpose || ""),
+    target_duration_min:
+      snapshot.target_duration_min === null ||
+      snapshot.target_duration_min === undefined
+        ? null
+        : Number(snapshot.target_duration_min),
+    target_frequency_per_week:
+      snapshot.target_frequency_per_week === null ||
+      snapshot.target_frequency_per_week === undefined
+        ? null
+        : Number(snapshot.target_frequency_per_week),
+    target_intensity: String(snapshot.target_intensity || ""),
+    preferred_timing: String(snapshot.preferred_timing || ""),
+    recovery_constraints: String(snapshot.recovery_constraints || ""),
+    notes: String(snapshot.notes || ""),
+    dose_type: String(snapshot.dose_type || "open"),
+    dose_config: isPlainObject(snapshot.dose_config)
+      ? snapshot.dose_config
+      : {},
+    library_slug: String(snapshot.library_slug || ""),
+    library_name: String(snapshot.library_name || ""),
+    prescription_updated_at: snapshot.prescription_updated_at
+      ? String(snapshot.prescription_updated_at)
+      : null,
+  };
+}
+
+function conditioningFacts(option: ConditioningPrescriptionOption): string {
+  return [
+    option.target_duration_min
+      ? `${option.target_duration_min} min`
+      : "Duration not set",
+    option.modality ? humanize(option.modality) : "Mode not set",
+    option.target_intensity
+      ? humanize(option.target_intensity)
+      : "Intensity not set",
+  ].join(" · ");
+}
+
+function ConditioningPrescriptionDetails({
+  option,
+}: {
+  option: ConditioningPrescriptionOption;
+}) {
+  const doseEntries = Object.entries(option.dose_config || {});
+  return (
+    <div className="grid gap-2 border-t p-3 text-xs">
+      <div>{conditioningFacts(option)}</div>
+      {option.purpose ? (
+        <div>
+          <span className="font-medium">Purpose:</span> {option.purpose}
+        </div>
+      ) : null}
+      {option.preferred_timing ? (
+        <div>
+          <span className="font-medium">Timing:</span> {option.preferred_timing}
+        </div>
+      ) : null}
+      <div>
+        <span className="font-medium">Dose:</span> {humanize(option.dose_type)}
+        {doseEntries.length
+          ? ` · ${doseEntries
+              .map(([key, value]) =>
+                `${humanize(key)} ${
+                  value && typeof value === "object"
+                    ? JSON.stringify(value)
+                    : String(value)
+                }`.trim(),
+              )
+              .join(" · ")}`
+          : ""}
+      </div>
+      {option.recovery_constraints ? (
+        <div>
+          <span className="font-medium">Recovery constraints:</span>{" "}
+          {option.recovery_constraints}
+        </div>
+      ) : null}
+      {option.notes ? (
+        <div>
+          <span className="font-medium">Notes:</span> {option.notes}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ConditioningTargetsEditor({
+  value,
+  targetUserId = "",
+  onChange,
+}: {
+  value: JsonObject;
+  targetUserId?: string;
+  onChange: (value: JsonObject) => void;
+}) {
+  const [options, setOptions] = React.useState<
+    ConditioningPrescriptionOption[]
+  >([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+  const linked = linkedConditioningEntries(value);
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const url = new URL(
+          "/api/lifeswitch/plan/agentic/conditioning-prescriptions",
+          window.location.origin,
+        );
+        if (targetUserId) url.searchParams.set("target_user_id", targetUserId);
+        const response = await authFetch(url.toString(), {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const text = await response.text();
+        const payload: unknown = text ? JSON.parse(text) : null;
+        if (!response.ok) {
+          const detail =
+            payload && typeof payload === "object"
+              ? (payload as { detail?: unknown }).detail
+              : null;
+          const message =
+            detail && typeof detail === "object"
+              ? (detail as { message?: unknown }).message
+              : detail;
+          throw new Error(
+            typeof message === "string"
+              ? message
+              : "Conditioning plans are unavailable.",
+          );
+        }
+        const items =
+          payload && typeof payload === "object"
+            ? (payload as { conditioning_prescriptions?: unknown })
+                .conditioning_prescriptions
+            : null;
+        setOptions(
+          Array.isArray(items)
+            ? (items as ConditioningPrescriptionOption[])
+            : [],
+        );
+      } catch (caught) {
+        if (controller.signal.aborted) return;
+        setError(caught instanceof Error ? caught.message : String(caught));
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, [targetUserId]);
+
+  function setLinked(next: JsonObject[]) {
+    onChange({ ...value, linked_conditioning: next });
+  }
+
+  function updateEntry(index: number, patch: JsonObject) {
+    setLinked(
+      linked.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, ...patch } : entry,
+      ),
+    );
+  }
+
+  const selectedIds = new Set(
+    linked.map((entry) => String(entry.my_conditioning_prescription_id || "")),
+  );
+  const remaining = Object.fromEntries(
+    Object.entries(value).filter(([key]) => key !== "linked_conditioning"),
+  );
+  const available = options.filter(
+    (option) => !selectedIds.has(option.my_conditioning_prescription_id),
+  );
+
+  return (
+    <div className="grid min-w-0 gap-4">
+      <fieldset className="grid min-w-0 gap-3 rounded-2xl border p-3">
+        <legend className="px-1 text-sm font-semibold">
+          Conditioning schedule
+        </legend>
+        <p className="text-xs text-muted-foreground">
+          Link saved conditioning plans and set their weekly frequency. Saving
+          pins the exact duration, intensity, timing, dose, and constraints into
+          this Plan version.
+        </p>
+
+        {linked.length ? (
+          <div className="grid gap-3">
+            {linked.map((entry, index) => {
+              const prescriptionId = String(
+                entry.my_conditioning_prescription_id || "",
+              );
+              const option =
+                options.find(
+                  (item) =>
+                    item.my_conditioning_prescription_id === prescriptionId,
+                ) || conditioningOptionFromSnapshot(entry);
+              return (
+                <article
+                  key={prescriptionId || index}
+                  className="grid gap-3 rounded-xl bg-muted/35 p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-medium break-words">
+                        {option.name}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {conditioningFacts(option)}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="shrink-0 rounded-lg border px-2.5 py-1.5 text-xs font-medium"
+                      onClick={() =>
+                        setLinked(
+                          linked.filter(
+                            (_, entryIndex) => entryIndex !== index,
+                          ),
+                        )
+                      }
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <NumberTargetField
+                      label="Sessions per week"
+                      value={entry.sessions_per_week ?? 1}
+                      unit="sessions"
+                      step={0.5}
+                      onChange={(next) =>
+                        updateEntry(index, {
+                          sessions_per_week: Math.max(
+                            0,
+                            Math.min(21, next ?? 0),
+                          ),
+                        })
+                      }
+                    />
+                    <label className="grid gap-1.5 text-sm">
+                      <span className="font-medium">Schedule notes</span>
+                      <input
+                        value={String(entry.schedule_notes || "")}
+                        onChange={(event) =>
+                          updateEntry(index, {
+                            schedule_notes: event.target.value,
+                          })
+                        }
+                        placeholder="Optional days or timing"
+                        className="rounded-xl border bg-background px-3 py-3"
+                      />
+                    </label>
+                  </div>
+                  <details className="rounded-xl border bg-background">
+                    <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+                      View prescribed dose
+                    </summary>
+                    <ConditioningPrescriptionDetails option={option} />
+                  </details>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
+            No exact conditioning plans are linked yet.
+          </p>
+        )}
+
+        <div className="grid gap-2">
+          <div className="text-sm font-semibold">
+            Available saved conditioning plans
+          </div>
+          {loading ? (
+            <p className="text-sm text-muted-foreground">
+              Loading conditioning plans…
+            </p>
+          ) : error ? (
+            <p className="rounded-xl border p-3 text-sm">{error}</p>
+          ) : available.length ? (
+            available.map((option) => (
+              <article
+                key={option.my_conditioning_prescription_id}
+                className="grid gap-2 rounded-xl border p-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-medium break-words">{option.name}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {conditioningFacts(option)}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
+                    onClick={() =>
+                      setLinked([
+                        ...linked,
+                        {
+                          my_conditioning_prescription_id:
+                            option.my_conditioning_prescription_id,
+                          sessions_per_week:
+                            option.target_frequency_per_week ?? 1,
+                          schedule_notes: "",
+                        },
+                      ])
+                    }
+                  >
+                    Add
+                  </button>
+                </div>
+                <details>
+                  <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+                    Preview prescribed dose
+                  </summary>
+                  <ConditioningPrescriptionDetails option={option} />
+                </details>
+              </article>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              All available conditioning plans are linked.
+            </p>
+          )}
+        </div>
+      </fieldset>
+
+      {Object.keys(remaining).length ? (
+        <fieldset className="grid gap-3 rounded-2xl border p-3">
+          <legend className="px-1 text-sm font-semibold">
+            Additional conditioning targets
           </legend>
           <ObjectFields
             value={remaining}
@@ -2027,6 +2415,17 @@ export function PlanDraftWorkspace({
                         setDraft((current) => ({
                           ...current,
                           training_targets: value,
+                        }))
+                      }
+                    />
+                  ) : section.key === "conditioning_targets" ? (
+                    <ConditioningTargetsEditor
+                      value={draft.conditioning_targets}
+                      targetUserId={targetUserId}
+                      onChange={(value) =>
+                        setDraft((current) => ({
+                          ...current,
+                          conditioning_targets: value,
                         }))
                       }
                     />

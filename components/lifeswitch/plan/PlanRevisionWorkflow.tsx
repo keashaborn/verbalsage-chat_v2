@@ -205,6 +205,99 @@ function LinkedWorkoutPlanSummary({ value }: { value: unknown }) {
   );
 }
 
+function LinkedConditioningPlanSummary({ value }: { value: unknown }) {
+  const entries = Array.isArray(value)
+    ? value.filter(
+        (item): item is JsonObject =>
+          Boolean(item) && typeof item === "object" && !Array.isArray(item),
+      )
+    : [];
+  if (!entries.length) return null;
+  return (
+    <div className="grid gap-2 sm:col-span-2">
+      <div className="text-xs font-medium text-muted-foreground">
+        Linked conditioning schedule
+      </div>
+      {entries.map((entry, index) => {
+        const snapshot =
+          entry.prescription_snapshot &&
+          typeof entry.prescription_snapshot === "object" &&
+          !Array.isArray(entry.prescription_snapshot)
+            ? (entry.prescription_snapshot as JsonObject)
+            : {};
+        const doseConfig =
+          snapshot.dose_config &&
+          typeof snapshot.dose_config === "object" &&
+          !Array.isArray(snapshot.dose_config)
+            ? (snapshot.dose_config as JsonObject)
+            : {};
+        const facts = [
+          snapshot.target_duration_min
+            ? `${Number(snapshot.target_duration_min)} min`
+            : null,
+          snapshot.modality ? humanize(String(snapshot.modality)) : null,
+          snapshot.target_intensity
+            ? humanize(String(snapshot.target_intensity))
+            : null,
+        ].filter(Boolean);
+        return (
+          <article
+            key={String(entry.my_conditioning_prescription_id || index)}
+            className="rounded-xl bg-muted/35 p-3"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div className="text-sm font-semibold">
+                  {String(snapshot.name || "Saved conditioning plan")}
+                </div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  {Number(entry.sessions_per_week || 0)} session(s)/week
+                  {facts.length ? ` · ${facts.join(" · ")}` : ""}
+                </div>
+              </div>
+              <span className="rounded-full border px-2 py-1 text-[11px] text-muted-foreground">
+                Pinned prescription
+              </span>
+            </div>
+            {entry.schedule_notes ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {String(entry.schedule_notes)}
+              </p>
+            ) : null}
+            <details className="mt-2 rounded-lg border bg-background">
+              <summary className="cursor-pointer px-3 py-2 text-xs font-medium">
+                View prescribed dose
+              </summary>
+              <dl className="grid gap-2 border-t p-3 text-xs sm:grid-cols-2">
+                {[
+                  ["Purpose", snapshot.purpose],
+                  ["Preferred timing", snapshot.preferred_timing],
+                  ["Dose type", snapshot.dose_type],
+                  ["Dose", doseConfig],
+                  ["Recovery constraints", snapshot.recovery_constraints],
+                  ["Notes", snapshot.notes],
+                ].map(([label, item]) =>
+                  item &&
+                  (typeof item !== "object" || Object.keys(item).length) ? (
+                    <div key={String(label)}>
+                      <dt className="font-medium text-muted-foreground">
+                        {String(label)}
+                      </dt>
+                      <dd className="mt-0.5 break-words">
+                        {formatValue(item)}
+                      </dd>
+                    </div>
+                  ) : null,
+                )}
+              </dl>
+            </details>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 function PlanSummary({
   document,
   title = "Plan overview",
@@ -318,8 +411,10 @@ function PlanSummary({
         const values = document[field] as JsonObject;
         const linkedWorkouts =
           field === "training_targets" ? values?.linked_workouts : null;
+        const linkedConditioning =
+          field === "conditioning_targets" ? values?.linked_conditioning : null;
         const entries = Object.entries(values || {}).filter(
-          ([key]) => key !== "linked_workouts",
+          ([key]) => key !== "linked_workouts" && key !== "linked_conditioning",
         );
         const expanded = expandedSections.has(String(field));
         return (
@@ -348,13 +443,19 @@ function PlanSummary({
                       </dd>
                     </div>
                   ))
-                ) : !Array.isArray(linkedWorkouts) || !linkedWorkouts.length ? (
+                ) : (!Array.isArray(linkedWorkouts) ||
+                    !linkedWorkouts.length) &&
+                  (!Array.isArray(linkedConditioning) ||
+                    !linkedConditioning.length) ? (
                   <div className="text-sm text-muted-foreground">
                     No targets defined.
                   </div>
                 ) : null}
                 {field === "training_targets" ? (
                   <LinkedWorkoutPlanSummary value={linkedWorkouts} />
+                ) : null}
+                {field === "conditioning_targets" ? (
+                  <LinkedConditioningPlanSummary value={linkedConditioning} />
                 ) : null}
               </dl>
             ) : null}

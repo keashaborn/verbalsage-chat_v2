@@ -1161,6 +1161,7 @@ export function PlanProfileClient() {
         nutrition_targets: asObject(plan?.nutrition_targets),
         training_targets: asObject(plan?.training_targets),
         conditioning_targets: {
+          ...asObject(plan?.conditioning_targets),
           cardio_target: conditioningActivityDraft.cardio_target,
           preferred_mode: conditioningActivityDraft.preferred_mode,
           intensity: conditioningActivityDraft.intensity,
