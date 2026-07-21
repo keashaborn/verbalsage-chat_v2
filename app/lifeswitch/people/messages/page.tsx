@@ -132,10 +132,20 @@ export default function LifeSwitchPeopleMessagesPage() {
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [draft, setDraft] = React.useState("");
   const [currentUserId, setCurrentUserId] = React.useState("");
+  const currentUserIdRef = React.useRef("");
+  const [authResolved, setAuthResolved] = React.useState(false);
   const [loadingConversations, setLoadingConversations] = React.useState(false);
   const [loadingMessages, setLoadingMessages] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const savingRef = React.useRef(false);
+  const connectionsRequestRef = React.useRef(0);
+  const conversationsRequestRef = React.useRef(0);
+  const messagesRequestRef = React.useRef(0);
+  const mutationRequestRef = React.useRef(0);
+  const selectedIdRef = React.useRef("");
+  const selectedPersonIdRef = React.useRef("");
+  const conversationSelectionVersionRef = React.useRef(0);
+  const connectionContextVersionRef = React.useRef(0);
   const [error, setError] = React.useState("");
 
   const selectedConversation =
@@ -159,7 +169,50 @@ export default function LifeSwitchPeopleMessagesPage() {
   );
   const canSend = selectedConversation?.can_send === true;
 
-  async function loadConnections() {
+  function changeSelectedConversation(conversationId: string) {
+    const changed = selectedIdRef.current !== conversationId;
+    selectedIdRef.current = conversationId;
+    setSelectedId(conversationId);
+
+    if (changed) {
+      conversationSelectionVersionRef.current += 1;
+      messagesRequestRef.current += 1;
+      setMessages([]);
+      setDraft("");
+      setLoadingMessages(false);
+    }
+  }
+
+  function changeSelectedPerson(personId: string) {
+    selectedPersonIdRef.current = personId;
+    setSelectedPersonId(personId);
+  }
+
+  function clearUserScopedState() {
+    connectionContextVersionRef.current += 1;
+    connectionsRequestRef.current += 1;
+    conversationsRequestRef.current += 1;
+    messagesRequestRef.current += 1;
+    mutationRequestRef.current += 1;
+    savingRef.current = false;
+    setSaving(false);
+    setPeople([]);
+    setRelationships([]);
+    setConversations([]);
+    changeSelectedConversation("");
+    changeSelectedPerson("");
+    setMessages([]);
+    setDraft("");
+    setShowNewMessage(false);
+    setLoadingMessages(false);
+    setLoadingPeople(false);
+    setLoadingConversations(false);
+    setError("");
+  }
+
+  async function loadConnections(): Promise<boolean> {
+    if (!authResolved || !currentUserIdRef.current) return false;
+    const requestId = ++connectionsRequestRef.current;
     setLoadingPeople(true);
     setError("");
     try {
@@ -179,51 +232,107 @@ export default function LifeSwitchPeopleMessagesPage() {
           )
         : [];
 
+      if (requestId !== connectionsRequestRef.current) return false;
       setRelationships(relationshipRows);
       setPeople(profileRows);
+      if (
+        selectedPersonIdRef.current &&
+        !acceptedIds.includes(selectedPersonIdRef.current)
+      ) {
+        changeSelectedPerson("");
+      }
+      return true;
     } catch (e) {
-      setError(String(e instanceof Error ? e.message : e));
+      if (requestId === connectionsRequestRef.current) {
+        clearUserScopedState();
+        setError(String(e instanceof Error ? e.message : e));
+      }
+      return false;
     } finally {
-      setLoadingPeople(false);
+      if (requestId === connectionsRequestRef.current) {
+        setLoadingPeople(false);
+      }
     }
   }
 
   async function loadConversations(selectId?: string) {
+    const requestId = ++conversationsRequestRef.current;
+    const selectionVersionAtStart = conversationSelectionVersionRef.current;
     setLoadingConversations(true);
     setError("");
     try {
       const rows = await fetchJson<Conversation[]>(
         "/api/lifeswitch/people/conversations",
       );
+      if (requestId !== conversationsRequestRef.current) return;
       setConversations(rows);
-      if (selectId) {
-        setSelectedId(selectId);
+      const selectionChanged =
+        conversationSelectionVersionRef.current !== selectionVersionAtStart;
+      if (!selectionChanged && selectId) {
+        changeSelectedConversation(
+          rows.some((row) => row.conversation_id === selectId) ? selectId : "",
+        );
+      } else if (
+        selectedIdRef.current &&
+        !rows.some((row) => row.conversation_id === selectedIdRef.current)
+      ) {
+        changeSelectedConversation("");
       }
     } catch (e) {
-      setError(String(e instanceof Error ? e.message : e));
+      if (requestId === conversationsRequestRef.current) {
+        setConversations([]);
+        changeSelectedConversation("");
+        setError(String(e instanceof Error ? e.message : e));
+      }
     } finally {
-      setLoadingConversations(false);
+      if (requestId === conversationsRequestRef.current) {
+        setLoadingConversations(false);
+      }
     }
   }
 
   async function loadMessages(conversationId: string) {
     if (!conversationId) return;
+    const requestId = ++messagesRequestRef.current;
     setLoadingMessages(true);
     setError("");
     try {
       const rows = await fetchJson<Message[]>(
         `/api/lifeswitch/people/conversations/${encodeURIComponent(conversationId)}/messages`,
       );
+      if (
+        requestId !== messagesRequestRef.current ||
+        selectedIdRef.current !== conversationId
+      ) {
+        return;
+      }
       setMessages(rows);
     } catch (e) {
-      setError(String(e instanceof Error ? e.message : e));
+      if (
+        requestId === messagesRequestRef.current &&
+        selectedIdRef.current === conversationId
+      ) {
+        setMessages([]);
+        setError(String(e instanceof Error ? e.message : e));
+      }
     } finally {
-      setLoadingMessages(false);
+      if (
+        requestId === messagesRequestRef.current &&
+        selectedIdRef.current === conversationId
+      ) {
+        setLoadingMessages(false);
+      }
     }
   }
 
   async function startConversation() {
     if (savingRef.current) return;
+    if (!authResolved || !currentUserId) {
+      setError("Your signed-in session is not ready.");
+      return;
+    }
+    const contextVersionAtStart = connectionContextVersionRef.current;
+    const selectionVersionAtStart = conversationSelectionVersionRef.current;
 
     const relationship = relationships.find(
       (row) =>
@@ -235,6 +344,7 @@ export default function LifeSwitchPeopleMessagesPage() {
     }
 
     savingRef.current = true;
+    const mutationRequestId = ++mutationRequestRef.current;
     setSaving(true);
     setError("");
     try {
@@ -246,20 +356,33 @@ export default function LifeSwitchPeopleMessagesPage() {
           body: JSON.stringify({ other_user_id: relationship.other_user_id }),
         },
       );
-      setSelectedPersonId("");
+      if (connectionContextVersionRef.current !== contextVersionAtStart) return;
+      changeSelectedPerson("");
       setShowNewMessage(false);
-      await loadConversations(c.conversation_id);
-      await loadMessages(c.conversation_id);
+      await loadConversations(
+        conversationSelectionVersionRef.current === selectionVersionAtStart
+          ? c.conversation_id
+          : undefined,
+      );
     } catch (e) {
-      setError(String(e instanceof Error ? e.message : e));
+      if (connectionContextVersionRef.current === contextVersionAtStart) {
+        setError(String(e instanceof Error ? e.message : e));
+      }
     } finally {
-      savingRef.current = false;
-      setSaving(false);
+      if (mutationRequestId === mutationRequestRef.current) {
+        savingRef.current = false;
+        setSaving(false);
+      }
     }
   }
 
   async function sendMessage() {
     if (savingRef.current) return;
+    if (!authResolved || !currentUserId) {
+      setError("Your signed-in session is not ready.");
+      return;
+    }
+    const contextVersionAtStart = connectionContextVersionRef.current;
 
     if (!canSend) {
       setError(
@@ -270,13 +393,15 @@ export default function LifeSwitchPeopleMessagesPage() {
 
     const body = draft.trim();
     if (!selectedId || !body) return;
+    const conversationId = selectedId;
 
     savingRef.current = true;
+    const mutationRequestId = ++mutationRequestRef.current;
     setSaving(true);
     setError("");
     try {
       await fetchJson<Message>(
-        `/api/lifeswitch/people/conversations/${encodeURIComponent(selectedId)}/messages`,
+        `/api/lifeswitch/people/conversations/${encodeURIComponent(conversationId)}/messages`,
         {
           method: "POST",
           headers: { "content-type": "application/json; charset=utf-8" },
@@ -287,35 +412,90 @@ export default function LifeSwitchPeopleMessagesPage() {
           }),
         },
       );
-      setDraft("");
-      await loadMessages(selectedId);
-      await loadConversations(selectedId);
+      if (connectionContextVersionRef.current !== contextVersionAtStart) return;
+      if (selectedIdRef.current === conversationId) {
+        setDraft("");
+        await loadMessages(conversationId);
+      }
+      await loadConversations();
     } catch (e) {
-      setError(String(e instanceof Error ? e.message : e));
+      if (
+        connectionContextVersionRef.current === contextVersionAtStart &&
+        selectedIdRef.current === conversationId
+      ) {
+        setError(String(e instanceof Error ? e.message : e));
+      }
     } finally {
-      savingRef.current = false;
-      setSaving(false);
+      if (mutationRequestId === mutationRequestRef.current) {
+        savingRef.current = false;
+        setSaving(false);
+      }
     }
   }
 
   React.useEffect(() => {
     let cancelled = false;
+    let authGeneration = 0;
 
     void (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!cancelled) setCurrentUserId(data?.user?.id || "");
+      const generation = authGeneration;
+      try {
+        const { data, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        if (!cancelled && generation === authGeneration) {
+          const userId = data?.user?.id || "";
+          currentUserIdRef.current = userId;
+          setCurrentUserId(userId);
+        }
+      } catch (e) {
+        if (!cancelled && generation === authGeneration) {
+          clearUserScopedState();
+          currentUserIdRef.current = "";
+          setCurrentUserId("");
+        }
+      } finally {
+        if (!cancelled && generation === authGeneration) {
+          setAuthResolved(true);
+        }
+      }
     })();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled || event === "INITIAL_SESSION") return;
+      authGeneration += 1;
+      const nextUserId = session?.user?.id || "";
+      if (currentUserIdRef.current === nextUserId) {
+        setAuthResolved(true);
+        return;
+      }
+      clearUserScopedState();
+      currentUserIdRef.current = nextUserId;
+      setCurrentUserId(nextUserId);
+      setAuthResolved(true);
+    });
 
     return () => {
       cancelled = true;
+      subscription.unsubscribe();
     };
   }, []);
 
   React.useEffect(() => {
-    void loadConnections();
-    void loadConversations();
+    if (!authResolved) return;
+    if (!currentUserId) {
+      clearUserScopedState();
+      return;
+    }
+
+    void (async () => {
+      if (await loadConnections()) {
+        await loadConversations();
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authResolved, currentUserId]);
 
   React.useEffect(() => {
     if (selectedId) void loadMessages(selectedId);
@@ -347,6 +527,7 @@ export default function LifeSwitchPeopleMessagesPage() {
           <button
             type="button"
             onClick={() => setShowNewMessage((v) => !v)}
+            disabled={!authResolved || !currentUserId}
             className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
           >
             {showNewMessage ? "Close" : "New message"}
@@ -362,8 +543,8 @@ export default function LifeSwitchPeopleMessagesPage() {
           <div className="mt-2 grid max-w-full min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
             <select
               value={selectedPersonId}
-              onChange={(e) => setSelectedPersonId(e.target.value)}
-              disabled={loadingPeople}
+              onChange={(e) => changeSelectedPerson(e.target.value)}
+              disabled={loadingPeople || !authResolved || !currentUserId}
               className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
             >
               <option value="">
@@ -383,7 +564,9 @@ export default function LifeSwitchPeopleMessagesPage() {
             <button
               type="button"
               onClick={() => void startConversation()}
-              disabled={saving || !selectedPersonId}
+              disabled={
+                saving || !selectedPersonId || !authResolved || !currentUserId
+              }
               className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
             >
               Start
@@ -413,11 +596,18 @@ export default function LifeSwitchPeopleMessagesPage() {
               type="button"
               onClick={() =>
                 void (async () => {
-                  await loadConnections();
-                  await loadConversations(selectedId);
+                  if (await loadConnections()) {
+                    await loadConversations(selectedIdRef.current);
+                  }
                 })()
               }
-              disabled={loadingConversations || loadingPeople}
+              disabled={
+                loadingConversations ||
+                loadingPeople ||
+                saving ||
+                !authResolved ||
+                !currentUserId
+              }
               className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30 disabled:opacity-50"
             >
               Refresh
@@ -438,7 +628,7 @@ export default function LifeSwitchPeopleMessagesPage() {
                     key={c.conversation_id}
                     type="button"
                     onClick={() => {
-                      setSelectedId(c.conversation_id);
+                      changeSelectedConversation(c.conversation_id);
                       setShowNewMessage(false);
                     }}
                     className={[
@@ -486,9 +676,7 @@ export default function LifeSwitchPeopleMessagesPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedId("");
-                  setMessages([]);
-                  setDraft("");
+                  changeSelectedConversation("");
                 }}
                 className="mb-2 rounded-md border px-2 py-1 text-xs hover:bg-muted/30 lg:hidden"
               >

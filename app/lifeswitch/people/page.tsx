@@ -180,6 +180,8 @@ function kindLabel(kind?: string): string {
 
 export default function LifeSwitchPeoplePage() {
   const [currentUserId, setCurrentUserId] = React.useState("");
+  const currentUserIdRef = React.useRef("");
+  const [authResolved, setAuthResolved] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<NetworkTab>("connections");
   const [people, setPeople] = React.useState<PersonProfile[]>([]);
   const [relationships, setRelationships] = React.useState<Relationship[]>([]);
@@ -199,6 +201,7 @@ export default function LifeSwitchPeoplePage() {
   const [lastInviteLink, setLastInviteLink] = React.useState("");
   const [copyMessage, setCopyMessage] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [loadingPermissions, setLoadingPermissions] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [openInviteActionsId, setOpenInviteActionsId] = React.useState("");
   const [relationshipActionsOpen, setRelationshipActionsOpen] =
@@ -206,6 +209,13 @@ export default function LifeSwitchPeoplePage() {
   const [removingRelationshipId, setRemovingRelationshipId] =
     React.useState("");
   const [error, setError] = React.useState("");
+  const loadAllRequestRef = React.useRef(0);
+  const permissionsRequestRef = React.useRef(0);
+  const selectedUserIdRef = React.useRef("");
+  const selectedRelationshipIdRef = React.useRef("");
+  const contactSelectionVersionRef = React.useRef(0);
+  const authContextVersionRef = React.useRef(0);
+  const mutationRequestRef = React.useRef(0);
 
   const currentPerson = people.find((p) => p.user_id === currentUserId) || null;
   const acceptedContacts = React.useMemo(
@@ -230,12 +240,10 @@ export default function LifeSwitchPeoplePage() {
     null;
   const selectedPerson = selectedContact?.person || null;
   const selectedRelationship = selectedContact?.relationship || null;
+  const canMutate = authResolved && Boolean(currentUserId);
 
   const permissionsIGive = React.useMemo(
-    () =>
-      permissions.filter(
-        (p) => !currentUserId || p.grantor_user_id === currentUserId,
-      ),
+    () => permissions.filter((p) => p.grantor_user_id === currentUserId),
     [permissions, currentUserId],
   );
 
@@ -245,7 +253,51 @@ export default function LifeSwitchPeoplePage() {
     return m;
   }, [permissionsIGive]);
 
+  function clearSelectedContact() {
+    contactSelectionVersionRef.current += 1;
+    permissionsRequestRef.current += 1;
+    selectedUserIdRef.current = "";
+    selectedRelationshipIdRef.current = "";
+    setSelectedUserId("");
+    setSelectedKind("friend");
+    setPermissions([]);
+    setLoadingPermissions(false);
+    setRelationshipActionsOpen(false);
+  }
+
+  function clearSensitiveInviteState() {
+    setLastInviteLink("");
+    setCopyMessage("");
+    setOpenInviteActionsId("");
+  }
+
+  function clearUserScopedState() {
+    authContextVersionRef.current += 1;
+    loadAllRequestRef.current += 1;
+    permissionsRequestRef.current += 1;
+    mutationRequestRef.current += 1;
+    setPeople([]);
+    setRelationships([]);
+    setInvitations([]);
+    setWorkoutShares([]);
+    clearSelectedContact();
+    clearSensitiveInviteState();
+    setInviteLabel("");
+    setSaving(false);
+    setRemovingRelationshipId("");
+    setLoading(false);
+    setLoadingPermissions(false);
+    setError("");
+  }
+
   async function loadAll(nextSelectedUserId?: string) {
+    const requestId = ++loadAllRequestRef.current;
+    const selectionVersionAtStart = contactSelectionVersionRef.current;
+    if (!currentUserId) {
+      clearUserScopedState();
+      return;
+    }
+
     setLoading(true);
     setError("");
     try {
@@ -273,13 +325,19 @@ export default function LifeSwitchPeoplePage() {
           )
         : [];
 
+      if (requestId !== loadAllRequestRef.current) return;
+
       setPeople(profileRows);
       setRelationships(relationshipRows);
       setInvitations(Array.isArray(inviteRows) ? inviteRows : []);
       setWorkoutShares(Array.isArray(shareRows) ? shareRows : []);
 
+      const selectionChanged =
+        contactSelectionVersionRef.current !== selectionVersionAtStart;
       const requestedNext =
-        nextSelectedUserId !== undefined ? nextSelectedUserId : selectedUserId;
+        !selectionChanged && nextSelectedUserId !== undefined
+          ? nextSelectedUserId
+          : selectedUserIdRef.current;
       const rel = requestedNext
         ? relationshipRows.find(
             (relationship) =>
@@ -289,48 +347,87 @@ export default function LifeSwitchPeoplePage() {
         : null;
       const next = rel ? requestedNext : "";
 
+      selectedUserIdRef.current = next;
       setSelectedUserId(next);
       if (rel) {
+        selectedRelationshipIdRef.current = rel.relationship_id;
         setSelectedKind(rel.relationship_kind);
+        setPermissions([]);
         await loadPermissions(rel.relationship_id);
       } else {
-        setSelectedKind("friend");
-        setPermissions([]);
+        clearSelectedContact();
       }
     } catch (e) {
+      if (requestId !== loadAllRequestRef.current) return;
+      clearUserScopedState();
       setError(String(e instanceof Error ? e.message : e));
     } finally {
-      setLoading(false);
+      if (requestId === loadAllRequestRef.current) setLoading(false);
     }
   }
 
   async function loadPermissions(relationshipId: string) {
-    if (!relationshipId) {
-      setPermissions([]);
+    const requestId = ++permissionsRequestRef.current;
+    setPermissions([]);
+
+    if (
+      !relationshipId ||
+      selectedRelationshipIdRef.current !== relationshipId
+    ) {
+      setLoadingPermissions(false);
       return;
     }
 
-    const rows = await fetchJson<RelationshipPermission[]>(
-      `/api/lifeswitch/people/relationships/${encodeURIComponent(relationshipId)}/permissions`,
-    );
-    setPermissions(rows);
+    setLoadingPermissions(true);
+    try {
+      const rows = await fetchJson<RelationshipPermission[]>(
+        `/api/lifeswitch/people/relationships/${encodeURIComponent(relationshipId)}/permissions`,
+      );
+      if (
+        requestId !== permissionsRequestRef.current ||
+        selectedRelationshipIdRef.current !== relationshipId
+      ) {
+        return;
+      }
+      setPermissions(rows);
+    } catch (e) {
+      if (
+        requestId !== permissionsRequestRef.current ||
+        selectedRelationshipIdRef.current !== relationshipId
+      ) {
+        return;
+      }
+      setPermissions([]);
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      if (
+        requestId === permissionsRequestRef.current &&
+        selectedRelationshipIdRef.current === relationshipId
+      ) {
+        setLoadingPermissions(false);
+      }
+    }
   }
 
   async function selectPerson(userId: string) {
-    setRelationshipActionsOpen(false);
-    setSelectedUserId(userId);
     const rel = relationships.find(
       (relationship) =>
         relationship.other_user_id === userId &&
         relationship.status === "accepted",
     );
-    if (rel) {
-      setSelectedKind(rel.relationship_kind);
-      await loadPermissions(rel.relationship_id);
-    } else {
-      setSelectedKind("friend");
-      setPermissions([]);
+    if (!rel) {
+      clearSelectedContact();
+      return;
     }
+
+    setRelationshipActionsOpen(false);
+    contactSelectionVersionRef.current += 1;
+    selectedUserIdRef.current = userId;
+    selectedRelationshipIdRef.current = rel.relationship_id;
+    setSelectedUserId(userId);
+    setSelectedKind(rel.relationship_kind);
+    setPermissions([]);
+    await loadPermissions(rel.relationship_id);
   }
 
   function buildInviteLink(token: string): string {
@@ -340,6 +437,12 @@ export default function LifeSwitchPeoplePage() {
   }
 
   async function createInviteLink() {
+    if (!canMutate) {
+      setError("Your signed-in session is not ready.");
+      return;
+    }
+    const authContextAtStart = authContextVersionRef.current;
+    const mutationRequestId = ++mutationRequestRef.current;
     setSaving(true);
     setError("");
     setCopyMessage("");
@@ -358,35 +461,58 @@ export default function LifeSwitchPeoplePage() {
         },
       );
 
+      if (authContextVersionRef.current !== authContextAtStart) return;
+
       const link = buildInviteLink(created.token);
       setLastInviteLink(link);
       setInviteLabel("");
-      await loadAll(selectedUserId);
+      await loadAll(selectedUserIdRef.current);
+
+      if (authContextVersionRef.current !== authContextAtStart) return;
 
       try {
         await navigator.clipboard.writeText(link);
-        setCopyMessage("Invite link created and copied.");
+        if (authContextVersionRef.current === authContextAtStart) {
+          setCopyMessage("Invite link created and copied.");
+        }
       } catch {
-        setCopyMessage("Invite link created. Copy it below.");
+        if (authContextVersionRef.current === authContextAtStart) {
+          setCopyMessage("Invite link created. Copy it below.");
+        }
       }
     } catch (e) {
-      setError(String(e instanceof Error ? e.message : e));
+      if (authContextVersionRef.current === authContextAtStart) {
+        setError(String(e instanceof Error ? e.message : e));
+      }
     } finally {
-      setSaving(false);
+      if (mutationRequestId === mutationRequestRef.current) {
+        setSaving(false);
+      }
     }
   }
 
   async function copyInviteLink(link: string) {
+    if (!canMutate) return;
+    const authContextAtStart = authContextVersionRef.current;
     setCopyMessage("");
     try {
       await navigator.clipboard.writeText(link);
-      setCopyMessage("Copied.");
+      if (authContextVersionRef.current === authContextAtStart) {
+        setCopyMessage("Copied.");
+      }
     } catch {
-      setCopyMessage("Could not copy automatically.");
+      if (authContextVersionRef.current === authContextAtStart) {
+        setCopyMessage("Could not copy automatically.");
+      }
     }
   }
 
   async function revokeInvite(invitationId: string) {
+    if (!canMutate) {
+      setError("Your signed-in session is not ready.");
+      return;
+    }
+    const authContextAtStart = authContextVersionRef.current;
     const invite = invitations.find(
       (inv) => inv.invitation_id === invitationId,
     );
@@ -396,6 +522,7 @@ export default function LifeSwitchPeoplePage() {
       `Revoke invite "${label}"? The link will stop working immediately.`,
     );
     if (!ok) return;
+    const mutationRequestId = ++mutationRequestRef.current;
 
     setSaving(true);
     setError("");
@@ -406,16 +533,25 @@ export default function LifeSwitchPeoplePage() {
           method: "POST",
         },
       );
+      if (authContextVersionRef.current !== authContextAtStart) return;
       setOpenInviteActionsId("");
-      await loadAll(selectedUserId);
+      await loadAll(selectedUserIdRef.current);
     } catch (e) {
-      setError(String(e instanceof Error ? e.message : e));
+      if (authContextVersionRef.current === authContextAtStart) {
+        setError(String(e instanceof Error ? e.message : e));
+      }
     } finally {
-      setSaving(false);
+      if (mutationRequestId === mutationRequestRef.current) {
+        setSaving(false);
+      }
     }
   }
 
   async function saveRelationship() {
+    if (!canMutate) {
+      setError("Your signed-in session is not ready.");
+      return;
+    }
     if (
       !selectedRelationship ||
       selectedRelationship.status !== "accepted" ||
@@ -425,17 +561,21 @@ export default function LifeSwitchPeoplePage() {
       return;
     }
 
+    const targetUserId = selectedUserId;
+    const targetRelationshipId = selectedRelationship.relationship_id;
+    const authContextAtStart = authContextVersionRef.current;
+    const mutationRequestId = ++mutationRequestRef.current;
     setSaving(true);
     setError("");
     try {
-      const person = people.find((p) => p.user_id === selectedUserId);
-      const rel = await fetchJson<Relationship>(
+      const person = people.find((p) => p.user_id === targetUserId);
+      await fetchJson<Relationship>(
         "/api/lifeswitch/people/relationships/upsert",
         {
           method: "POST",
           headers: { "content-type": "application/json; charset=utf-8" },
           body: JSON.stringify({
-            other_user_id: selectedUserId,
+            other_user_id: targetUserId,
             status: "accepted",
             relationship_kind: selectedKind,
             label: person?.display_name || "",
@@ -444,42 +584,65 @@ export default function LifeSwitchPeoplePage() {
         },
       );
 
-      await loadAll(rel.other_user_id);
-      await loadPermissions(rel.relationship_id);
+      if (authContextVersionRef.current !== authContextAtStart) return;
+
+      if (
+        selectedUserIdRef.current === targetUserId &&
+        selectedRelationshipIdRef.current === targetRelationshipId
+      ) {
+        await loadAll(targetUserId);
+      } else {
+        await loadAll(selectedUserIdRef.current);
+      }
     } catch (e) {
-      setError(String(e instanceof Error ? e.message : e));
+      if (authContextVersionRef.current === authContextAtStart) {
+        setError(String(e instanceof Error ? e.message : e));
+      }
     } finally {
-      setSaving(false);
+      if (mutationRequestId === mutationRequestRef.current) {
+        setSaving(false);
+      }
     }
   }
 
   async function disconnect() {
+    if (!canMutate) {
+      setError("Your signed-in session is not ready.");
+      return;
+    }
     if (!selectedRelationship || !selectedPerson) return;
 
+    const relationshipId = selectedRelationship.relationship_id;
+    const authContextAtStart = authContextVersionRef.current;
     const name = displayName(selectedPerson, selectedUserId);
     const ok = window.confirm(
       `Disconnect from "${name}"? New messages and shared access will stop. Existing messages remain available as read-only history.`,
     );
     if (!ok) return;
+    const mutationRequestId = ++mutationRequestRef.current;
 
     setRemovingRelationshipId(selectedRelationship.relationship_id);
     setError("");
     try {
       await fetchJson<Relationship>(
         `/api/lifeswitch/people/relationships/${encodeURIComponent(
-          selectedRelationship.relationship_id,
+          relationshipId,
         )}/revoke`,
         { method: "POST" },
       );
-      setRelationshipActionsOpen(false);
-      setSelectedUserId("");
-      setSelectedKind("friend");
-      setPermissions([]);
-      await loadAll("");
+      if (authContextVersionRef.current !== authContextAtStart) return;
+      if (selectedRelationshipIdRef.current === relationshipId) {
+        clearSelectedContact();
+      }
+      await loadAll(selectedUserIdRef.current);
     } catch (e) {
-      setError(String(e instanceof Error ? e.message : e));
+      if (authContextVersionRef.current === authContextAtStart) {
+        setError(String(e instanceof Error ? e.message : e));
+      }
     } finally {
-      setRemovingRelationshipId("");
+      if (mutationRequestId === mutationRequestRef.current) {
+        setRemovingRelationshipId("");
+      }
     }
   }
 
@@ -488,14 +651,23 @@ export default function LifeSwitchPeoplePage() {
     level: PermissionLevel,
     enabled: boolean,
   ) {
-    if (!selectedRelationship) return;
+    if (!canMutate) {
+      setError("Your signed-in session is not ready.");
+      return;
+    }
+    if (!selectedRelationship || loadingPermissions) return;
+
+    const relationshipId = selectedRelationship.relationship_id;
+    const authContextAtStart = authContextVersionRef.current;
+    if (selectedRelationshipIdRef.current !== relationshipId) return;
+    const mutationRequestId = ++mutationRequestRef.current;
 
     setSaving(true);
     setError("");
     try {
       await fetchJson<RelationshipPermission>(
         `/api/lifeswitch/people/relationships/${encodeURIComponent(
-          selectedRelationship.relationship_id,
+          relationshipId,
         )}/permissions/upsert`,
         {
           method: "POST",
@@ -509,31 +681,80 @@ export default function LifeSwitchPeoplePage() {
         },
       );
 
-      await loadPermissions(selectedRelationship.relationship_id);
+      if (authContextVersionRef.current !== authContextAtStart) return;
+
+      if (selectedRelationshipIdRef.current === relationshipId) {
+        await loadPermissions(relationshipId);
+      }
     } catch (e) {
-      setError(String(e instanceof Error ? e.message : e));
+      if (authContextVersionRef.current === authContextAtStart) {
+        setError(String(e instanceof Error ? e.message : e));
+      }
     } finally {
-      setSaving(false);
+      if (mutationRequestId === mutationRequestRef.current) {
+        setSaving(false);
+      }
     }
   }
 
   React.useEffect(() => {
     let cancelled = false;
+    let authGeneration = 0;
 
     void (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!cancelled) setCurrentUserId(data?.user?.id || "");
+      const generation = authGeneration;
+      try {
+        const { data, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        if (!cancelled && generation === authGeneration) {
+          const userId = data?.user?.id || "";
+          currentUserIdRef.current = userId;
+          setCurrentUserId(userId);
+        }
+      } catch (e) {
+        if (!cancelled && generation === authGeneration) {
+          clearUserScopedState();
+          currentUserIdRef.current = "";
+          setCurrentUserId("");
+        }
+      } finally {
+        if (!cancelled && generation === authGeneration) {
+          setAuthResolved(true);
+        }
+      }
     })();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled || event === "INITIAL_SESSION") return;
+      authGeneration += 1;
+      const nextUserId = session?.user?.id || "";
+      if (currentUserIdRef.current === nextUserId) {
+        setAuthResolved(true);
+        return;
+      }
+      clearUserScopedState();
+      currentUserIdRef.current = nextUserId;
+      setCurrentUserId(nextUserId);
+      setAuthResolved(true);
+    });
 
     return () => {
       cancelled = true;
+      subscription.unsubscribe();
     };
   }, []);
 
   React.useEffect(() => {
+    if (!authResolved) return;
+    if (!currentUserId) {
+      clearUserScopedState();
+      return;
+    }
     void loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUserId]);
+  }, [authResolved, currentUserId]);
 
   return (
     <div className="grid gap-4">
@@ -643,7 +864,7 @@ export default function LifeSwitchPeoplePage() {
             <button
               type="button"
               onClick={() => void createInviteLink()}
-              disabled={saving}
+              disabled={saving || !canMutate}
               className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
             >
               Create link
@@ -739,7 +960,7 @@ export default function LifeSwitchPeoplePage() {
                         <button
                           type="button"
                           onClick={() => void revokeInvite(inv.invitation_id)}
-                          disabled={saving}
+                          disabled={saving || !canMutate}
                           className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
                         >
                           <Trash2 className="h-3 w-3" />
@@ -903,12 +1124,7 @@ export default function LifeSwitchPeoplePage() {
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setRelationshipActionsOpen(false);
-                      setSelectedUserId("");
-                      setSelectedKind("friend");
-                      setPermissions([]);
-                    }}
+                    onClick={clearSelectedContact}
                     className="rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
                   >
                     <span className="lg:hidden">← Contacts</span>
@@ -948,7 +1164,7 @@ export default function LifeSwitchPeoplePage() {
                 <button
                   type="button"
                   onClick={() => void disconnect()}
-                  disabled={Boolean(removingRelationshipId)}
+                  disabled={Boolean(removingRelationshipId) || !canMutate}
                   className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 disabled:opacity-50"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -987,7 +1203,7 @@ export default function LifeSwitchPeoplePage() {
                     <button
                       type="button"
                       onClick={() => void saveRelationship()}
-                      disabled={saving || !selectedRelationship}
+                      disabled={saving || !selectedRelationship || !canMutate}
                       className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
                     >
                       Update
@@ -1023,6 +1239,10 @@ export default function LifeSwitchPeoplePage() {
                 <div className="text-sm text-muted-foreground">
                   Select an accepted connection.
                 </div>
+              ) : loadingPermissions ? (
+                <div className="text-sm text-muted-foreground">
+                  Loading permissions…
+                </div>
               ) : (
                 <>
                   {PERMISSIONS.map((p) => {
@@ -1052,7 +1272,7 @@ export default function LifeSwitchPeoplePage() {
                           onClick={() =>
                             void setPermission(p.scope, p.level, !enabled)
                           }
-                          disabled={saving}
+                          disabled={saving || loadingPermissions || !canMutate}
                           className={[
                             "rounded-md border px-3 py-2 text-sm disabled:opacity-50",
                             enabled ? "bg-muted/30" : "hover:bg-muted/30",
