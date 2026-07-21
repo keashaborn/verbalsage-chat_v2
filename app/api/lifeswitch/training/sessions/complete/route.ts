@@ -27,6 +27,13 @@ export async function POST(req: NextRequest) {
       headers: { "content-type": "application/json; charset=utf-8", "x-request-id": rid },
     });
   }
+  const idempotencyKey = req.headers.get("idempotency-key")?.trim();
+  if (!idempotencyKey) {
+    return new Response(JSON.stringify({ detail: "Idempotency-Key header required" }), {
+      status: 400,
+      headers: { "content-type": "application/json; charset=utf-8", "x-request-id": rid },
+    });
+  }
 
   try {
     const response = await fetch(upstream.toString(), {
@@ -34,6 +41,7 @@ export async function POST(req: NextRequest) {
       headers: {
         ...lifeSwitchUpstreamHeaders(rid, owner_user_id),
         "content-type": "application/json",
+        "Idempotency-Key": idempotencyKey,
       },
       body: raw,
       cache: "no-store",

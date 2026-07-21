@@ -12,6 +12,13 @@ export async function POST(req: NextRequest) {
 
   const owner_user_id = await getLifeSwitchOwnerUserId(req);
   if (!owner_user_id) return unauthorizedLifeSwitch(rid);
+  const idempotencyKey = req.headers.get("idempotency-key")?.trim();
+  if (!idempotencyKey) {
+    return new Response(JSON.stringify({ detail: "Idempotency-Key header required" }), {
+      status: 400,
+      headers: { "content-type": "application/json; charset=utf-8", "x-request-id": rid },
+    });
+  }
 
   const inUrl = new URL(req.url);
   const upstream = new URL(`${BRAINS_URL}/lifeswitch/training/conditioning_sessions/create`);
@@ -22,7 +29,10 @@ export async function POST(req: NextRequest) {
     const bodyIn = await req.text().catch(() => "");
     const r = await fetch(upstream.toString(), {
       method: "POST",
-      headers: lifeSwitchUpstreamHeaders(rid, owner_user_id, { "content-type": "application/json; charset=utf-8" }),
+      headers: lifeSwitchUpstreamHeaders(rid, owner_user_id, {
+        "content-type": "application/json; charset=utf-8",
+        "Idempotency-Key": idempotencyKey,
+      }),
       body: bodyIn,
       cache: "no-store",
     });

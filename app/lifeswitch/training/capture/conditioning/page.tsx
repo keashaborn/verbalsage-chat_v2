@@ -4,6 +4,10 @@ import * as React from "react";
 import Link from "next/link";
 import { authFetch } from "@/lib/authFetch";
 import { NumericInput } from "@/components/lifeswitch/NumericInput";
+import {
+  clearPendingSubmission,
+  getOrCreateSubmission,
+} from "@/lib/lifeswitchSubmission";
 
 type MyConditioningPrescriptionRow = {
   my_conditioning_prescription_id: string;
@@ -58,6 +62,53 @@ function safeNum(x: any, fallback = 0) {
   const n = Number(x);
   return Number.isFinite(n) ? n : fallback;
 }
+
+const DISTANCE_UNITS = ["mi", "km", "m", "yd", "ft"] as const;
+type DistanceUnit = (typeof DISTANCE_UNITS)[number];
+
+function normalizeDistanceUnit(value: unknown): DistanceUnit | "" {
+  const normalized = String(value || "").trim().toLowerCase();
+  const aliases: Record<string, DistanceUnit> = {
+    mi: "mi",
+    mile: "mi",
+    miles: "mi",
+    km: "km",
+    kilometer: "km",
+    kilometers: "km",
+    kilometre: "km",
+    kilometres: "km",
+    m: "m",
+    meter: "m",
+    meters: "m",
+    metre: "m",
+    metres: "m",
+    yd: "yd",
+    yard: "yd",
+    yards: "yd",
+    ft: "ft",
+    foot: "ft",
+    feet: "ft",
+  };
+  return aliases[normalized] || "";
+}
+
+function completedDistance(doseType: string, config: Record<string, unknown>) {
+  const unit = normalizeDistanceUnit(config.distance_unit);
+  let value = 0;
+
+  if (doseType === "distance" || doseType === "loaded_carry") {
+    value = safeNum(config.distance, 0);
+  } else if (doseType === "laps") {
+    value = safeNum(config.laps, 0) * safeNum(config.distance_per_lap, 0);
+  }
+
+  if (!value && !unit) return { value: "", unit: "" };
+  if (!(value > 0) || !unit) {
+    throw new Error("Enter both a positive distance and a supported distance unit.");
+  }
+
+  return { value: String(value), unit };
+}
 function doseNumber(
   config: Record<string, unknown>,
   key: string
@@ -77,13 +128,14 @@ function doseString(
 
 
 const CONDITIONING_CAPTURE_DRAFT_KEY = "lifeswitch:training:conditioning_capture_draft:v1";
+const CONDITIONING_COMPLETE_PENDING_KEY = "lifeswitch:training:conditioning_complete:pending:v1";
 
 type ConditioningCaptureDraft = {
   day: string;
   selectedId: string;
   durationMin: string;
   intensity: string;
-  distance: string;
+  distance?: string;
   heartRateAvg: string;
   notes: string;
   doseType: string;
@@ -103,7 +155,6 @@ export default function ConditioningCapturePage() {
 
   const [durationMin, setDurationMin] = React.useState("");
   const [intensity, setIntensity] = React.useState("");
-  const [distance, setDistance] = React.useState("");
   const [heartRateAvg, setHeartRateAvg] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [doseType, setDoseType] = React.useState("open");
@@ -145,17 +196,24 @@ export default function ConditioningCapturePage() {
       if (draft.selectedId) setSelectedId(String(draft.selectedId));
       setDurationMin(String(draft.durationMin || ""));
       setIntensity(String(draft.intensity || ""));
-      setDistance(String(draft.distance || ""));
       setHeartRateAvg(String(draft.heartRateAvg || ""));
       setNotes(String(draft.notes || ""));
       setDoseType(String(draft.doseType || "open"));
-      setDoseConfig(
+      const restoredDoseConfig =
         draft.doseConfig &&
           typeof draft.doseConfig === "object" &&
           !Array.isArray(draft.doseConfig)
           ? draft.doseConfig
-          : {}
-      );
+          : {};
+      if (draft.distance && restoredDoseConfig.distance == null) {
+        const legacy = String(draft.distance).trim().match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?$/);
+        if (legacy) {
+          restoredDoseConfig.distance = Number(legacy[1]);
+          const legacyUnit = normalizeDistanceUnit(legacy[2]);
+          if (legacyUnit) restoredDoseConfig.distance_unit = legacyUnit;
+        }
+      }
+      setDoseConfig(restoredDoseConfig);
       setRestoredDraft(true);
       setStatus("Restored unfinished conditioning draft");
     } catch {
@@ -169,7 +227,6 @@ export default function ConditioningCapturePage() {
         !!selectedId ||
         !!durationMin.trim() ||
         !!intensity.trim() ||
-        !!distance.trim() ||
         !!heartRateAvg.trim() ||
         !!notes.trim() ||
         doseType !== "open" ||
@@ -185,7 +242,6 @@ export default function ConditioningCapturePage() {
         selectedId,
         durationMin,
         intensity,
-        distance,
         heartRateAvg,
         notes,
         doseType,
@@ -201,7 +257,6 @@ export default function ConditioningCapturePage() {
     selectedId,
     durationMin,
     intensity,
-    distance,
     heartRateAvg,
     notes,
     doseType,
@@ -238,7 +293,6 @@ export default function ConditioningCapturePage() {
 
     setDurationMin(String(selected.target_duration_min || ""));
     setIntensity(selected.target_intensity || "");
-    setDistance("");
     setHeartRateAvg("");
     setNotes(selected.notes || "");
     setDoseType(selected.dose_type || "open");
@@ -253,10 +307,10 @@ export default function ConditioningCapturePage() {
 
   function discardConditioningDraft() {
     clearConditioningDraftStorage();
+    clearPendingSubmission(CONDITIONING_COMPLETE_PENDING_KEY);
     setSelectedId("");
     setDurationMin("");
     setIntensity("");
-    setDistance("");
     setHeartRateAvg("");
     setNotes("");
     setDoseType("open");
@@ -278,6 +332,24 @@ export default function ConditioningCapturePage() {
     setStatus("Saving conditioning session...");
 
     try {
+      const distance = completedDistance(doseType, doseConfig);
+      const intent = {
+        my_conditioning_prescription_id: selected.my_conditioning_prescription_id,
+        day,
+        name: selected.name,
+        category: selected.category || "",
+        modality: selected.modality || "",
+        duration_min: duration,
+        intensity: intensity || "",
+        distance_value: distance.value,
+        distance_unit: distance.unit,
+        heart_rate_avg: heartRateAvg.trim() ? safeNum(heartRateAvg, 0) : null,
+        recovery_impact: "",
+        notes: notes || "",
+        dose_type: doseType || "open",
+        dose_config: doseConfig || {},
+      };
+      const pending = await getOrCreateSubmission(CONDITIONING_COMPLETE_PENDING_KEY, intent);
       const qs = new URLSearchParams();
       qs.set("my_conditioning_prescription_id", selected.my_conditioning_prescription_id);
       qs.set("day", day);
@@ -286,7 +358,10 @@ export default function ConditioningCapturePage() {
       qs.set("modality", selected.modality || "");
       qs.set("duration_min", String(duration));
       qs.set("intensity", intensity || "");
-      qs.set("distance", distance || "");
+      if (distance.value) {
+        qs.set("distance_value", distance.value);
+        qs.set("distance_unit", distance.unit);
+      }
       if (heartRateAvg.trim()) qs.set("heart_rate_avg", String(safeNum(heartRateAvg, 0)));
       qs.set("recovery_impact", "");
       qs.set("notes", notes || "");
@@ -295,13 +370,14 @@ export default function ConditioningCapturePage() {
 
       await fetchJson(`/api/lifeswitch/training/conditioning_sessions/create?${qs.toString()}`, {
         method: "POST",
+        headers: { "Idempotency-Key": pending.key },
       });
 
       clearConditioningDraftStorage();
+      clearPendingSubmission(CONDITIONING_COMPLETE_PENDING_KEY);
       setSelectedId("");
       setDurationMin("");
       setIntensity("");
-      setDistance("");
       setHeartRateAvg("");
       setNotes("");
       setDoseType("open");
@@ -472,13 +548,9 @@ export default function ConditioningCapturePage() {
                           setDoseField("distance", value)
                         }
                       />
-                      <DoseTextInput
+                      <DoseUnitInput
                         label="Distance unit"
-                        value={doseString(
-                          doseConfig,
-                          "distance_unit"
-                        )}
-                        placeholder="miles, km, meters"
+                        value={normalizeDistanceUnit(doseConfig.distance_unit)}
                         onChange={(value) =>
                           setDoseField("distance_unit", value)
                         }
@@ -598,13 +670,9 @@ export default function ConditioningCapturePage() {
                           )
                         }
                       />
-                      <DoseTextInput
+                      <DoseUnitInput
                         label="Distance unit"
-                        value={doseString(
-                          doseConfig,
-                          "distance_unit"
-                        )}
-                        placeholder="feet, meters, yards"
+                        value={normalizeDistanceUnit(doseConfig.distance_unit)}
                         onChange={(value) =>
                           setDoseField("distance_unit", value)
                         }
@@ -687,13 +755,9 @@ export default function ConditioningCapturePage() {
                           setDoseField("distance", value)
                         }
                       />
-                      <DoseTextInput
+                      <DoseUnitInput
                         label="Distance unit"
-                        value={doseString(
-                          doseConfig,
-                          "distance_unit"
-                        )}
-                        placeholder="feet, meters, yards"
+                        value={normalizeDistanceUnit(doseConfig.distance_unit)}
                         onChange={(value) =>
                           setDoseField("distance_unit", value)
                         }
@@ -808,6 +872,34 @@ function DoseTextInput({
           onChange(e.currentTarget.value)
         }
       />
+    </label>
+  );
+}
+
+function DoseUnitInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: DistanceUnit | "";
+  onChange: (value: DistanceUnit) => void;
+}) {
+  return (
+    <label className="text-xs">
+      <div className="text-muted-foreground">{label}</div>
+      <select
+        className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+        value={value}
+        onChange={(event) => onChange(event.currentTarget.value as DistanceUnit)}
+      >
+        <option value="">Select unit</option>
+        <option value="mi">miles (mi)</option>
+        <option value="km">kilometers (km)</option>
+        <option value="m">meters (m)</option>
+        <option value="yd">yards (yd)</option>
+        <option value="ft">feet (ft)</option>
+      </select>
     </label>
   );
 }

@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Plus } from "lucide-react";
 import { NumericInput } from "@/components/lifeswitch/NumericInput";
+import {
+  clearPendingSubmission,
+  getOrCreateSubmission,
+} from "@/lib/lifeswitchSubmission";
 
 type WorkoutTemplateRow = {
   workout_template_id: string;
@@ -151,6 +155,7 @@ function makeDraftId(exerciseId: string, setIndex: number) {
 }
 
 const TRAINING_CAPTURE_DRAFT_KEY = "lifeswitch:training:capture:draft:v1";
+const TRAINING_COMPLETE_PENDING_KEY = "lifeswitch:training:complete:pending:v1";
 
 type TrainingCaptureLocalDraft = {
   day: string;
@@ -629,6 +634,7 @@ export default function TrainingCapturePage() {
 
   function discardLocalDraft() {
     clearLocalDraftStorage();
+    clearPendingSubmission(TRAINING_COMPLETE_PENDING_KEY);
     setSelectedId("");
     setTemplateExercises([]);
     setDraftRows([]);
@@ -757,42 +763,49 @@ export default function TrainingCapturePage() {
     setFlash("");
 
     try {
-      const completedAt = new Date().toISOString();
+      const payloadBase = {
+        day,
+        workout_template_id: selected.workout_template_id,
+        name: selected.name,
+        notes: selected.notes || "",
+        load_unit: "lb",
+        sets: validRows.map((row) => {
+          const isDrop = row.set_type === "drop";
+          const segments = (row.segments || [])
+            .filter((segment) => safeNum(segment.reps, 0) > 0)
+            .map((segment) => ({
+              segment_index: segment.segment_index,
+              label: segment.label,
+              weight: safeNum(segment.weight, 0),
+              reps: safeNum(segment.reps, 0),
+              notes: segment.notes || "",
+            }));
+
+          return {
+            exercise_id: row.exercise_id,
+            exercise_name: row.exercise_name,
+            exercise_sort_order: row.exercise_sort_order,
+            set_index: row.set_index,
+            set_type: isDrop ? "drop" : "straight",
+            weight: isDrop ? safeNum(segments[0]?.weight, 0) : safeNum(row.weight, 0),
+            reps: isDrop ? safeNum(segments[0]?.reps, 0) : safeNum(row.reps, 0),
+            flags: row.flags || "",
+            notes: "",
+            segments,
+          };
+        }),
+      };
+      const pending = await getOrCreateSubmission(TRAINING_COMPLETE_PENDING_KEY, payloadBase);
       const session = await fetchJson("/api/lifeswitch/training/sessions/complete", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "Idempotency-Key": pending.key,
+        },
         body: JSON.stringify({
-          day,
-          workout_template_id: selected.workout_template_id,
-          name: selected.name,
-          notes: selected.notes || "",
-          started_at: completedAt,
-          finished_at: completedAt,
-          sets: validRows.map((row) => {
-            const isDrop = row.set_type === "drop";
-            const segments = (row.segments || [])
-              .filter((segment) => safeNum(segment.reps, 0) > 0)
-              .map((segment) => ({
-                segment_index: segment.segment_index,
-                label: segment.label,
-                weight: safeNum(segment.weight, 0),
-                reps: safeNum(segment.reps, 0),
-                notes: segment.notes || "",
-              }));
-
-            return {
-              exercise_id: row.exercise_id,
-              exercise_name: row.exercise_name,
-              exercise_sort_order: row.exercise_sort_order,
-              set_index: row.set_index,
-              set_type: isDrop ? "drop" : "straight",
-              weight: isDrop ? safeNum(segments[0]?.weight, 0) : safeNum(row.weight, 0),
-              reps: isDrop ? safeNum(segments[0]?.reps, 0) : safeNum(row.reps, 0),
-              flags: row.flags || "",
-              notes: "",
-              segments,
-            };
-          }),
+          ...payloadBase,
+          started_at: pending.createdAt,
+          finished_at: pending.createdAt,
         }),
       });
 
@@ -803,6 +816,7 @@ export default function TrainingCapturePage() {
       }
 
       clearLocalDraftStorage();
+      clearPendingSubmission(TRAINING_COMPLETE_PENDING_KEY);
       setRestoredLocalDraft(false);
       setDraftSavedAt("");
       setFlash(`Finished ${selected.name}: ${validRows.length} sets logged`);

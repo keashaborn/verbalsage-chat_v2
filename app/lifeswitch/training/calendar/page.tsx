@@ -116,8 +116,7 @@ function trainingSessionRole(
   if (rehabSets > 0) return "rehab";
   if (strengthSets > 0) return "strength";
 
-  // Compatibility while the backend role summary is rolling out.
-  return "strength";
+  return "unclassified";
 }
 
 function countsTowardStrength(row: TrainingSessionRow) {
@@ -477,17 +476,21 @@ export default function TrainingCalendarPage() {
       return;
     }
 
-    const ok = window.confirm(`Delete logged session "${name}"?`);
+    const ok = window.confirm(
+      `Remove logged session "${name}" from the current log? Its audit history will be preserved.`,
+    );
     if (!ok) return;
 
     try {
       await fetchJson(`/api/lifeswitch/training/sessions/${encodeURIComponent(trainingSessionId)}/deactivate`, {
         method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reason: "user_removed" }),
       });
       setOpenSessionActionsId("");
       await loadSessions();
     } catch (e: any) {
-      setStatus(`delete failed: ${String(e?.message || e)}`);
+      setStatus(`remove failed: ${String(e?.message || e)}`);
     }
   }
 
@@ -500,7 +503,9 @@ export default function TrainingCalendarPage() {
       return;
     }
 
-    const ok = window.confirm(`Delete logged conditioning session "${name}"?`);
+    const ok = window.confirm(
+      `Remove logged conditioning session "${name}" from the current log? Its audit history will be preserved.`,
+    );
     if (!ok) return;
 
     try {
@@ -508,12 +513,16 @@ export default function TrainingCalendarPage() {
         `/api/lifeswitch/training/conditioning_sessions/${encodeURIComponent(
           conditioningSessionId,
         )}/deactivate`,
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ reason: "user_removed" }),
+        },
       );
       setOpenSessionActionsId("");
       await loadSessions();
     } catch (e: any) {
-      setStatus(`delete failed: ${String(e?.message || e)}`);
+      setStatus(`remove failed: ${String(e?.message || e)}`);
     }
   }
 
