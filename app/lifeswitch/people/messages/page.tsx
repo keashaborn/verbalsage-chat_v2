@@ -15,6 +15,7 @@ type Conversation = {
   updated_at: string;
   other_user_id: string | null;
   other_display_name?: string | null;
+  can_send?: boolean;
   last_message_id: string | null;
   last_message_author_user_id: string | null;
   last_message_body: string | null;
@@ -41,6 +42,14 @@ type PersonProfile = {
   is_active?: boolean;
 };
 
+type Relationship = {
+  relationship_id: string;
+  other_user_id: string;
+  status: "pending" | "accepted" | "blocked" | "revoked";
+  relationship_kind: "friend" | "training_partner" | "plan_helper" | "coach";
+  label: string;
+};
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await authFetch(url, { cache: "no-store", ...(init || {}) });
   if (!r.ok) {
@@ -63,14 +72,18 @@ function formatTime(v: string | null | undefined): string {
   return d.toLocaleString();
 }
 
-function displayUserName(name: string | null | undefined, id: string | null | undefined): string {
+function displayUserName(
+  name: string | null | undefined,
+  id: string | null | undefined,
+): string {
   const clean = String(name || "").trim();
   return clean || `User ${shortId(id)}`;
 }
 
 function renderMessageBody(body: string) {
   const text = String(body || "");
-  const re = /(https?:\/\/[^\s]+|\/share\/workout\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%-]+)/g;
+  const re =
+    /(https?:\/\/[^\s]+|\/share\/workout\/[A-Za-z0-9._~:/?#[\]@!$&'()*+,;=%-]+)/g;
   const parts: React.ReactNode[] = [];
   let last = 0;
   let match: RegExpExecArray | null;
@@ -95,7 +108,7 @@ function renderMessageBody(body: string) {
         rel={raw.startsWith("http") ? "noreferrer" : undefined}
       >
         {label}
-      </a>
+      </a>,
     );
 
     last = start + raw.length;
@@ -109,10 +122,10 @@ function renderMessageBody(body: string) {
 }
 
 export default function LifeSwitchPeopleMessagesPage() {
-  const [otherUserId, setOtherUserId] = React.useState("");
   const [selectedPersonId, setSelectedPersonId] = React.useState("");
   const [showNewMessage, setShowNewMessage] = React.useState(false);
   const [people, setPeople] = React.useState<PersonProfile[]>([]);
+  const [relationships, setRelationships] = React.useState<Relationship[]>([]);
   const [loadingPeople, setLoadingPeople] = React.useState(false);
   const [conversations, setConversations] = React.useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = React.useState("");
@@ -125,14 +138,49 @@ export default function LifeSwitchPeopleMessagesPage() {
   const savingRef = React.useRef(false);
   const [error, setError] = React.useState("");
 
-  const selectedConversation = conversations.find((c) => c.conversation_id === selectedId) || null;
+  const selectedConversation =
+    conversations.find((c) => c.conversation_id === selectedId) || null;
+  const acceptedConnections = React.useMemo(
+    () =>
+      relationships
+        .filter((relationship) => relationship.status === "accepted")
+        .map((relationship) => ({
+          relationship,
+          person:
+            people.find(
+              (person) => person.user_id === relationship.other_user_id,
+            ) ||
+            ({
+              user_id: relationship.other_user_id,
+              display_name: relationship.label || "",
+            } satisfies PersonProfile),
+        })),
+    [people, relationships],
+  );
+  const canSend = selectedConversation?.can_send === true;
 
-  async function loadPeople() {
+  async function loadConnections() {
     setLoadingPeople(true);
     setError("");
     try {
-      const rows = await fetchJson<PersonProfile[]>("/api/lifeswitch/people/profiles");
-      setPeople(rows);
+      const relationshipRows = await fetchJson<Relationship[]>(
+        "/api/lifeswitch/people/relationships?include_inactive=1",
+      );
+      const acceptedIds = Array.from(
+        new Set(
+          relationshipRows
+            .filter((relationship) => relationship.status === "accepted")
+            .map((relationship) => relationship.other_user_id),
+        ),
+      );
+      const profileRows = acceptedIds.length
+        ? await fetchJson<PersonProfile[]>(
+            `/api/lifeswitch/people/profiles?user_ids=${encodeURIComponent(acceptedIds.join(","))}`,
+          )
+        : [];
+
+      setRelationships(relationshipRows);
+      setPeople(profileRows);
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     } finally {
@@ -144,7 +192,9 @@ export default function LifeSwitchPeopleMessagesPage() {
     setLoadingConversations(true);
     setError("");
     try {
-      const rows = await fetchJson<Conversation[]>("/api/lifeswitch/people/conversations");
+      const rows = await fetchJson<Conversation[]>(
+        "/api/lifeswitch/people/conversations",
+      );
       setConversations(rows);
       if (selectId) {
         setSelectedId(selectId);
@@ -162,7 +212,7 @@ export default function LifeSwitchPeopleMessagesPage() {
     setError("");
     try {
       const rows = await fetchJson<Message[]>(
-        `/api/lifeswitch/people/conversations/${encodeURIComponent(conversationId)}/messages`
+        `/api/lifeswitch/people/conversations/${encodeURIComponent(conversationId)}/messages`,
       );
       setMessages(rows);
     } catch (e) {
@@ -175,9 +225,12 @@ export default function LifeSwitchPeopleMessagesPage() {
   async function startConversation() {
     if (savingRef.current) return;
 
-    const other = (selectedPersonId || otherUserId).trim();
-    if (!other) {
-      setError("Choose a person or paste the other user's Supabase UUID first.");
+    const relationship = relationships.find(
+      (row) =>
+        row.other_user_id === selectedPersonId && row.status === "accepted",
+    );
+    if (!relationship) {
+      setError("Choose an accepted connection first.");
       return;
     }
 
@@ -185,12 +238,14 @@ export default function LifeSwitchPeopleMessagesPage() {
     setSaving(true);
     setError("");
     try {
-      const c = await fetchJson<Conversation>("/api/lifeswitch/people/conversations/direct", {
-        method: "POST",
-        headers: { "content-type": "application/json; charset=utf-8" },
-        body: JSON.stringify({ other_user_id: other }),
-      });
-      setOtherUserId("");
+      const c = await fetchJson<Conversation>(
+        "/api/lifeswitch/people/conversations/direct",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json; charset=utf-8" },
+          body: JSON.stringify({ other_user_id: relationship.other_user_id }),
+        },
+      );
       setSelectedPersonId("");
       setShowNewMessage(false);
       await loadConversations(c.conversation_id);
@@ -206,6 +261,13 @@ export default function LifeSwitchPeopleMessagesPage() {
   async function sendMessage() {
     if (savingRef.current) return;
 
+    if (!canSend) {
+      setError(
+        "This connection is no longer active. Message history is read-only.",
+      );
+      return;
+    }
+
     const body = draft.trim();
     if (!selectedId || !body) return;
 
@@ -213,15 +275,18 @@ export default function LifeSwitchPeopleMessagesPage() {
     setSaving(true);
     setError("");
     try {
-      await fetchJson<Message>(`/api/lifeswitch/people/conversations/${encodeURIComponent(selectedId)}/messages`, {
-        method: "POST",
-        headers: { "content-type": "application/json; charset=utf-8" },
-        body: JSON.stringify({
-          body,
-          body_format: "plain",
-          metadata: { source: "lifeswitch_people_messages_ui" },
-        }),
-      });
+      await fetchJson<Message>(
+        `/api/lifeswitch/people/conversations/${encodeURIComponent(selectedId)}/messages`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json; charset=utf-8" },
+          body: JSON.stringify({
+            body,
+            body_format: "plain",
+            metadata: { source: "lifeswitch_people_messages_ui" },
+          }),
+        },
+      );
       setDraft("");
       await loadMessages(selectedId);
       await loadConversations(selectedId);
@@ -247,7 +312,7 @@ export default function LifeSwitchPeopleMessagesPage() {
   }, []);
 
   React.useEffect(() => {
-    void loadPeople();
+    void loadConnections();
     void loadConversations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -257,22 +322,28 @@ export default function LifeSwitchPeopleMessagesPage() {
   }, [selectedId]);
 
   return (
-    <div className="grid min-w-0 max-w-full gap-4 overflow-x-hidden">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="text-lg font-semibold">Messages</div>
-            <div className="mt-1 break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
-              One-to-one LifeSwitch conversations with your connections.
-            </div>
+    <div className="grid max-w-full min-w-0 gap-4 overflow-x-hidden">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="text-lg font-semibold">Messages</div>
+          <div className="mt-1 text-sm [overflow-wrap:anywhere] break-words text-muted-foreground">
+            One-to-one LifeSwitch conversations with your connections.
           </div>
+        </div>
 
         <div
           className={[
             "flex flex-wrap gap-2",
             selectedConversation ? "hidden lg:flex" : "",
-          ].filter(Boolean).join(" ")}
+          ]
+            .filter(Boolean)
+            .join(" ")}
         >
-          <BackButton fallbackHref="/lifeswitch/people" label="Connections" className="rounded-md px-3 py-2 text-sm" />
+          <BackButton
+            fallbackHref="/lifeswitch/people"
+            label="Connections"
+            className="rounded-md px-3 py-2 text-sm"
+          />
           <button
             type="button"
             onClick={() => setShowNewMessage((v) => !v)}
@@ -281,52 +352,45 @@ export default function LifeSwitchPeopleMessagesPage() {
             {showNewMessage ? "Close" : "New message"}
           </button>
         </div>
-        </div>
+      </div>
 
-        {showNewMessage ? (
-          <div className="min-w-0 max-w-full overflow-hidden rounded-xl border p-4">
-            <div className="min-w-0 truncate text-sm font-semibold">New message</div>
-            <div className="mt-2 grid min-w-0 max-w-full gap-2 lg:grid-cols-[280px_minmax(0,1fr)_auto]">
-              <select
-                value={selectedPersonId}
-                onChange={(e) => {
-                  setSelectedPersonId(e.target.value);
-                  if (e.target.value) setOtherUserId("");
-                }}
-                disabled={loadingPeople}
-                className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
-              >
-                <option value="">{loadingPeople ? "Loading people…" : "Choose a person…"}</option>
-                {people
-                  .filter((p) => p.user_id !== currentUserId)
-                  .map((p) => (
-                    <option key={p.user_id} value={p.user_id}>
-                      {displayUserName(p.display_name, p.user_id)}
-                    </option>
-                  ))}
-              </select>
-
-              <input
-                value={otherUserId}
-                onChange={(e) => {
-                  setOtherUserId(e.target.value);
-                  if (e.target.value.trim()) setSelectedPersonId("");
-                }}
-                placeholder="Or paste other_user_id UUID"
-                className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm"
-              />
-
-              <button
-                type="button"
-                onClick={() => void startConversation()}
-                disabled={saving || (!selectedPersonId && !otherUserId.trim())}
-                className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-              >
-                Start
-              </button>
-            </div>
+      {showNewMessage ? (
+        <div className="max-w-full min-w-0 overflow-hidden rounded-xl border p-4">
+          <div className="min-w-0 truncate text-sm font-semibold">
+            New message
           </div>
-        ) : null}
+          <div className="mt-2 grid max-w-full min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <select
+              value={selectedPersonId}
+              onChange={(e) => setSelectedPersonId(e.target.value)}
+              disabled={loadingPeople}
+              className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
+            >
+              <option value="">
+                {loadingPeople
+                  ? "Loading connections…"
+                  : acceptedConnections.length
+                    ? "Choose an accepted connection…"
+                    : "No accepted connections"}
+              </option>
+              {acceptedConnections.map(({ person }) => (
+                <option key={person.user_id} value={person.user_id}>
+                  {displayUserName(person.display_name, person.user_id)}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={() => void startConversation()}
+              disabled={saving || !selectedPersonId}
+              className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+            >
+              Start
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
@@ -334,26 +398,33 @@ export default function LifeSwitchPeopleMessagesPage() {
         </div>
       ) : null}
 
-      <div className="grid min-w-0 max-w-full gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid max-w-full min-w-0 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
         <section
           className={[
-            "min-w-0 max-w-full overflow-hidden rounded-xl border",
-            selectedConversation ? "hidden lg:block lg:order-1" : "order-1",
+            "max-w-full min-w-0 overflow-hidden rounded-xl border",
+            selectedConversation ? "hidden lg:order-1 lg:block" : "order-1",
           ].join(" ")}
         >
           <div className="flex items-center justify-between border-b px-4 py-3">
-            <div className="min-w-0 truncate text-sm font-semibold">Conversations</div>
+            <div className="min-w-0 truncate text-sm font-semibold">
+              Conversations
+            </div>
             <button
               type="button"
-              onClick={() => void loadConversations(selectedId)}
-              disabled={loadingConversations}
+              onClick={() =>
+                void (async () => {
+                  await loadConnections();
+                  await loadConversations(selectedId);
+                })()
+              }
+              disabled={loadingConversations || loadingPeople}
               className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30 disabled:opacity-50"
             >
               Refresh
             </button>
           </div>
 
-          <div className="grid max-h-[520px] min-w-0 overflow-y-auto overflow-x-hidden">
+          <div className="grid max-h-[520px] min-w-0 overflow-x-hidden overflow-y-auto">
             {conversations.length === 0 ? (
               <div className="p-4 text-sm text-muted-foreground">
                 No conversations yet.
@@ -361,6 +432,7 @@ export default function LifeSwitchPeopleMessagesPage() {
             ) : (
               conversations.map((c) => {
                 const active = c.conversation_id === selectedId;
+                const canSendToConversation = c.can_send === true;
                 return (
                   <button
                     key={c.conversation_id}
@@ -374,8 +446,19 @@ export default function LifeSwitchPeopleMessagesPage() {
                       active ? "bg-muted/20" : "",
                     ].join(" ")}
                   >
-                    <div className="min-w-0 truncate text-sm font-semibold">
-                      {c.title || displayUserName(c.other_display_name, c.other_user_id)}
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div className="min-w-0 flex-1 truncate text-sm font-semibold">
+                        {c.title ||
+                          displayUserName(
+                            c.other_display_name,
+                            c.other_user_id,
+                          )}
+                      </div>
+                      {!canSendToConversation ? (
+                        <span className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
+                          History only
+                        </span>
+                      ) : null}
                     </div>
                     <div className="mt-1 min-w-0 truncate text-xs text-muted-foreground">
                       {c.last_message_body || "No messages yet."}
@@ -392,8 +475,10 @@ export default function LifeSwitchPeopleMessagesPage() {
 
         <section
           className={[
-            "min-w-0 max-w-full overflow-hidden rounded-xl border",
-            selectedConversation ? "order-1 lg:order-2" : "hidden lg:block lg:order-2",
+            "max-w-full min-w-0 overflow-hidden rounded-xl border",
+            selectedConversation
+              ? "order-1 lg:order-2"
+              : "hidden lg:order-2 lg:block",
           ].join(" ")}
         >
           <div className="min-w-0 border-b px-4 py-3">
@@ -411,38 +496,62 @@ export default function LifeSwitchPeopleMessagesPage() {
               </button>
             ) : null}
 
-            <div className="min-w-0 truncate text-sm font-semibold">
-              {selectedConversation
-                ? selectedConversation.title || displayUserName(selectedConversation.other_display_name, selectedConversation.other_user_id)
-                : "Select a conversation"}
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="min-w-0 flex-1 truncate text-sm font-semibold">
+                {selectedConversation
+                  ? selectedConversation.title ||
+                    displayUserName(
+                      selectedConversation.other_display_name,
+                      selectedConversation.other_user_id,
+                    )
+                  : "Select a conversation"}
+              </div>
+              {selectedConversation && !canSend ? (
+                <span className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
+                  Messaging unavailable · history only
+                </span>
+              ) : null}
             </div>
           </div>
 
-          <div className="grid min-h-[420px] min-w-0 max-w-full content-start gap-3 overflow-x-hidden p-4">
+          <div className="grid min-h-[420px] max-w-full min-w-0 content-start gap-3 overflow-x-hidden p-4">
             {!selectedConversation ? (
               <div className="text-sm text-muted-foreground">
                 Start or select a conversation.
               </div>
             ) : loadingMessages ? (
-              <div className="text-sm text-muted-foreground">Loading messages…</div>
+              <div className="text-sm text-muted-foreground">
+                Loading messages…
+              </div>
             ) : messages.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No messages yet.</div>
+              <div className="text-sm text-muted-foreground">
+                No messages yet.
+              </div>
             ) : (
               messages.map((m) => {
-                const mine = currentUserId && m.author_user_id === currentUserId;
+                const mine =
+                  currentUserId && m.author_user_id === currentUserId;
 
                 return (
                   <div
                     key={m.message_id}
                     className={[
-                      "min-w-0 max-w-[85%] overflow-hidden rounded-xl border p-3",
-                      mine ? "justify-self-end bg-muted/30" : "justify-self-start",
+                      "max-w-[85%] min-w-0 overflow-hidden rounded-xl border p-3",
+                      mine
+                        ? "justify-self-end bg-muted/30"
+                        : "justify-self-start",
                     ].join(" ")}
                   >
                     <div className="text-xs text-muted-foreground">
-                      {mine ? "You" : displayUserName(m.author_display_name, m.author_user_id)} · {formatTime(m.created_at)}
+                      {mine
+                        ? "You"
+                        : displayUserName(
+                            m.author_display_name,
+                            m.author_user_id,
+                          )}{" "}
+                      · {formatTime(m.created_at)}
                     </div>
-                    <div className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
+                    <div className="mt-2 text-sm leading-relaxed [overflow-wrap:anywhere] break-words whitespace-pre-wrap">
                       {renderMessageBody(m.body)}
                     </div>
                   </div>
@@ -455,16 +564,22 @@ export default function LifeSwitchPeopleMessagesPage() {
             <textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder={selectedConversation ? "Type a message…" : "Select a conversation first."}
-              disabled={!selectedConversation || saving}
+              placeholder={
+                !selectedConversation
+                  ? "Select a conversation first."
+                  : canSend
+                    ? "Type a message…"
+                    : "This connection is no longer active. Prior messages remain available."
+              }
+              disabled={!canSend || saving}
               rows={3}
-              className="w-full min-w-0 max-w-full rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
+              className="w-full max-w-full min-w-0 rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
             />
             <div className="mt-2 flex justify-end">
               <button
                 type="button"
                 onClick={() => void sendMessage()}
-                disabled={!selectedConversation || !draft.trim() || saving}
+                disabled={!canSend || !draft.trim() || saving}
                 className="rounded-md border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
               >
                 Send
