@@ -15,6 +15,7 @@ type WorkoutTemplateRow = {
   owner_user_id: string;
   name: string;
   notes?: string | null;
+  workout_role?: "strength" | "rehab" | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -138,7 +139,8 @@ async function fetchJson(url: string, init?: RequestInit) {
   }
 
   if (!r.ok) {
-    const detail = j?.detail || j?.error || t?.slice(0, 300) || `HTTP ${r.status}`;
+    const detail =
+      j?.detail || j?.error || t?.slice(0, 300) || `HTTP ${r.status}`;
     throw new Error(String(detail));
   }
 
@@ -166,7 +168,13 @@ type TrainingCaptureLocalDraft = {
 };
 
 function isDraftSetRows(x: any): x is DraftSetRow[] {
-  return Array.isArray(x) && x.every((row) => row && typeof row === "object" && typeof row.draft_id === "string");
+  return (
+    Array.isArray(x) &&
+    x.every(
+      (row) =>
+        row && typeof row === "object" && typeof row.draft_id === "string",
+    )
+  );
 }
 
 function formatSavedAt(savedAt: string) {
@@ -183,16 +191,21 @@ export default function TrainingCapturePage() {
   const [templates, setTemplates] = React.useState<WorkoutTemplateRow[]>([]);
   const [selectedId, setSelectedId] = React.useState("");
   const [showWorkoutSetup, setShowWorkoutSetup] = React.useState(false);
-  const [templateExercises, setTemplateExercises] = React.useState<WorkoutTemplateExerciseRow[]>([]);
+  const [templateExercises, setTemplateExercises] = React.useState<
+    WorkoutTemplateExerciseRow[]
+  >([]);
   const [myExercises, setMyExercises] = React.useState<MyExerciseRow[]>([]);
 
   const [loadingTemplates, setLoadingTemplates] = React.useState(false);
-  const [loadingTemplateExercises, setLoadingTemplateExercises] = React.useState(false);
+  const [loadingTemplateExercises, setLoadingTemplateExercises] =
+    React.useState(false);
   const [status, setStatus] = React.useState("");
   const [flash, setFlash] = React.useState("");
   const [draftRows, setDraftRows] = React.useState<DraftSetRow[]>([]);
   const [finishLoading, setFinishLoading] = React.useState(false);
-  const [prefillSource, setPrefillSource] = React.useState("Select a workout template to begin");
+  const [prefillSource, setPrefillSource] = React.useState(
+    "Select a workout template to begin",
+  );
   const [restoredLocalDraft, setRestoredLocalDraft] = React.useState(false);
   const [draftSavedAt, setDraftSavedAt] = React.useState("");
   const [openExerciseOptionsId, setOpenExerciseOptionsId] = React.useState("");
@@ -211,7 +224,10 @@ export default function TrainingCapturePage() {
     return m;
   }, [myExercises]);
 
-  const doneRows = React.useMemo(() => draftRows.filter((r) => r.done), [draftRows]);
+  const doneRows = React.useMemo(
+    () => draftRows.filter((r) => r.done),
+    [draftRows],
+  );
 
   const summary = React.useMemo(() => {
     let setCount = 0;
@@ -222,14 +238,18 @@ export default function TrainingCapturePage() {
       const valid =
         r.set_type === "drop"
           ? (r.segments || []).some(
-              (segment) => safeNum(segment.weight, 0) >= 0 && safeNum(segment.reps, 0) > 0
+              (segment) =>
+                safeNum(segment.weight, 0) >= 0 && safeNum(segment.reps, 0) > 0,
             )
           : safeNum(r.weight, 0) >= 0 && safeNum(r.reps, 0) > 0;
       if (!valid) continue;
 
       const rowVolume =
         r.set_type === "drop"
-          ? (r.segments || []).reduce((sum, seg) => sum + safeNum(seg.weight, 0) * safeNum(seg.reps, 0), 0)
+          ? (r.segments || []).reduce(
+              (sum, seg) => sum + safeNum(seg.weight, 0) * safeNum(seg.reps, 0),
+              0,
+            )
           : safeNum(r.weight, 0) * safeNum(r.reps, 0);
 
       setCount += 1;
@@ -250,12 +270,19 @@ export default function TrainingCapturePage() {
       if (!raw) return;
 
       const parsed = JSON.parse(raw) as Partial<TrainingCaptureLocalDraft>;
-      if (!parsed?.selectedId || !isDraftSetRows(parsed.draftRows) || !parsed.draftRows.length) return;
+      if (
+        !parsed?.selectedId ||
+        !isDraftSetRows(parsed.draftRows) ||
+        !parsed.draftRows.length
+      )
+        return;
 
       setDay(String(parsed.day || todayLocalYYYYMMDD()));
       setSelectedId(String(parsed.selectedId || ""));
       setDraftRows(parsed.draftRows);
-      setPrefillSource(parsed.prefillSource || "Restored unfinished workout draft");
+      setPrefillSource(
+        parsed.prefillSource || "Restored unfinished workout draft",
+      );
       setRestoredLocalDraft(true);
       setDraftSavedAt(formatSavedAt(String(parsed.savedAt || "")));
       setFlash("Restored unfinished workout draft");
@@ -277,7 +304,10 @@ export default function TrainingCapturePage() {
         savedAt,
       };
 
-      window.localStorage.setItem(TRAINING_CAPTURE_DRAFT_KEY, JSON.stringify(payload));
+      window.localStorage.setItem(
+        TRAINING_CAPTURE_DRAFT_KEY,
+        JSON.stringify(payload),
+      );
       setDraftSavedAt(formatSavedAt(savedAt));
     } catch {
       // local autosave is best-effort
@@ -296,8 +326,12 @@ export default function TrainingCapturePage() {
     setStatus("");
 
     try {
-      const list = (await fetchJson("/api/lifeswitch/training/workout_templates")) as WorkoutTemplateRow[];
-      const active = Array.isArray(list) ? list.filter((x) => x?.is_active) : [];
+      const list = (await fetchJson(
+        "/api/lifeswitch/training/workout_templates",
+      )) as WorkoutTemplateRow[];
+      const active = Array.isArray(list)
+        ? list.filter((x) => x?.is_active)
+        : [];
 
       setTemplates(active);
     } catch (e: any) {
@@ -322,7 +356,7 @@ export default function TrainingCapturePage() {
       try {
         const url = new URL(
           "/api/catalog/exercises/search",
-          window.location.origin
+          window.location.origin,
         );
 
         url.searchParams.set("q", q);
@@ -343,8 +377,12 @@ export default function TrainingCapturePage() {
 
   async function loadMyExercises() {
     try {
-      const list = (await fetchJson("/api/lifeswitch/training/my_exercises")) as MyExerciseRow[];
-      setMyExercises(Array.isArray(list) ? list.filter((x) => x?.is_active) : []);
+      const list = (await fetchJson(
+        "/api/lifeswitch/training/my_exercises",
+      )) as MyExerciseRow[];
+      setMyExercises(
+        Array.isArray(list) ? list.filter((x) => x?.is_active) : [],
+      );
     } catch {
       setMyExercises([]);
     }
@@ -362,11 +400,13 @@ export default function TrainingCapturePage() {
 
     try {
       const list = (await fetchJson(
-        `/api/lifeswitch/training/workout_templates/${encodeURIComponent(workoutTemplateId)}/exercises`
+        `/api/lifeswitch/training/workout_templates/${encodeURIComponent(workoutTemplateId)}/exercises`,
       )) as WorkoutTemplateExerciseRow[];
 
       const rows = Array.isArray(list)
-        ? [...list].sort((a, b) => safeNum(a.sort_order, 0) - safeNum(b.sort_order, 0))
+        ? [...list].sort(
+            (a, b) => safeNum(a.sort_order, 0) - safeNum(b.sort_order, 0),
+          )
         : [];
 
       setTemplateExercises(rows);
@@ -380,10 +420,12 @@ export default function TrainingCapturePage() {
     }
   }
 
-  async function loadTemplateExerciseSegments(workoutTemplateExerciseId: string): Promise<DraftSetSegmentRow[]> {
+  async function loadTemplateExerciseSegments(
+    workoutTemplateExerciseId: string,
+  ): Promise<DraftSetSegmentRow[]> {
     try {
       const rows = (await fetchJson(
-        `/api/lifeswitch/training/workout_template_exercises/${encodeURIComponent(workoutTemplateExerciseId)}/segments`
+        `/api/lifeswitch/training/workout_template_exercises/${encodeURIComponent(workoutTemplateExerciseId)}/segments`,
       )) as Array<{
         segment_index: number;
         label?: string | null;
@@ -392,11 +434,16 @@ export default function TrainingCapturePage() {
       }>;
 
       const arr = Array.isArray(rows) ? rows.slice() : [];
-      arr.sort((a, b) => safeNum(a.segment_index, 0) - safeNum(b.segment_index, 0));
+      arr.sort(
+        (a, b) => safeNum(a.segment_index, 0) - safeNum(b.segment_index, 0),
+      );
 
       return arr.map((seg) => ({
         segment_index: safeNum(seg.segment_index, 0),
-        label: safeNum(seg.segment_index, 0) === 1 ? "Start" : `Drop ${safeNum(seg.segment_index, 1) - 1}`,
+        label:
+          safeNum(seg.segment_index, 0) === 1
+            ? "Start"
+            : `Drop ${safeNum(seg.segment_index, 1) - 1}`,
         weight: String(safeNum(seg.default_weight, 0)),
         reps: String(safeNum(seg.default_reps, 0) || ""),
         notes: "",
@@ -408,27 +455,38 @@ export default function TrainingCapturePage() {
 
   async function loadLastSessionDraftRows(
     workoutTemplateId: string,
-    templateRows: WorkoutTemplateExerciseRow[]
+    templateRows: WorkoutTemplateExerciseRow[],
   ): Promise<Map<string, DraftSetRow[]>> {
     const result = new Map<string, DraftSetRow[]>();
 
     try {
-      const sessions = (await fetchJson("/api/lifeswitch/training/sessions?limit=100")) as TrainingSessionRow[];
+      const sessions = (await fetchJson(
+        "/api/lifeswitch/training/sessions?limit=100",
+      )) as TrainingSessionRow[];
       const latest = (Array.isArray(sessions) ? sessions : [])
-        .filter((session) => String(session.workout_template_id || "") === workoutTemplateId)
-        .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))[0];
+        .filter(
+          (session) =>
+            String(session.workout_template_id || "") === workoutTemplateId,
+        )
+        .sort((a, b) =>
+          String(b.created_at || "").localeCompare(String(a.created_at || "")),
+        )[0];
 
       if (!latest?.training_session_id) return result;
 
       const setRows = (await fetchJson(
-        `/api/lifeswitch/training/sessions/${encodeURIComponent(latest.training_session_id)}/sets`
+        `/api/lifeswitch/training/sessions/${encodeURIComponent(latest.training_session_id)}/sets`,
       )) as TrainingSetLogRow[];
 
-      const sortedSets = (Array.isArray(setRows) ? setRows : []).slice().sort((a, b) => {
-        const c = safeNum(a.exercise_sort_order, 0) - safeNum(b.exercise_sort_order, 0);
-        if (c !== 0) return c;
-        return safeNum(a.set_index, 0) - safeNum(b.set_index, 0);
-      });
+      const sortedSets = (Array.isArray(setRows) ? setRows : [])
+        .slice()
+        .sort((a, b) => {
+          const c =
+            safeNum(a.exercise_sort_order, 0) -
+            safeNum(b.exercise_sort_order, 0);
+          if (c !== 0) return c;
+          return safeNum(a.set_index, 0) - safeNum(b.set_index, 0);
+        });
 
       const templateByExercise = new Map<string, WorkoutTemplateExerciseRow>();
       for (const row of templateRows) {
@@ -439,21 +497,30 @@ export default function TrainingCapturePage() {
         const template = templateByExercise.get(setRow.exercise_id);
         if (!template) continue;
 
-        const setType = String(setRow.set_type || template.set_type || "straight").toLowerCase();
+        const setType = String(
+          setRow.set_type || template.set_type || "straight",
+        ).toLowerCase();
 
         let segments: DraftSetSegmentRow[] | undefined = undefined;
         if (setType === "drop") {
           const segRows = (await fetchJson(
-            `/api/lifeswitch/training/sessions/${encodeURIComponent(latest.training_session_id)}/sets/${encodeURIComponent(setRow.training_set_log_id)}/segments`
+            `/api/lifeswitch/training/sessions/${encodeURIComponent(latest.training_session_id)}/sets/${encodeURIComponent(setRow.training_set_log_id)}/segments`,
           )) as TrainingSetLogSegmentRow[];
 
-          const sortedSegs = (Array.isArray(segRows) ? segRows : []).slice().sort(
-            (a, b) => safeNum(a.segment_index, 0) - safeNum(b.segment_index, 0)
-          );
+          const sortedSegs = (Array.isArray(segRows) ? segRows : [])
+            .slice()
+            .sort(
+              (a, b) =>
+                safeNum(a.segment_index, 0) - safeNum(b.segment_index, 0),
+            );
 
           segments = sortedSegs.map((seg) => ({
             segment_index: safeNum(seg.segment_index, 0),
-            label: seg.label || (safeNum(seg.segment_index, 0) === 1 ? "Start" : `Drop ${safeNum(seg.segment_index, 1) - 1}`),
+            label:
+              seg.label ||
+              (safeNum(seg.segment_index, 0) === 1
+                ? "Start"
+                : `Drop ${safeNum(seg.segment_index, 1) - 1}`),
             weight: String(safeNum(seg.weight, 0)),
             reps: String(safeNum(seg.reps, 0) || ""),
             notes: seg.notes || "",
@@ -461,10 +528,16 @@ export default function TrainingCapturePage() {
         }
 
         const draft: DraftSetRow = {
-          draft_id: makeDraftId(setRow.exercise_id, safeNum(setRow.set_index, 0)),
+          draft_id: makeDraftId(
+            setRow.exercise_id,
+            safeNum(setRow.set_index, 0),
+          ),
           exercise_id: setRow.exercise_id,
           exercise_name: setRow.exercise_name || setRow.exercise_id,
-          exercise_sort_order: safeNum(setRow.exercise_sort_order, template.sort_order || 0),
+          exercise_sort_order: safeNum(
+            setRow.exercise_sort_order,
+            template.sort_order || 0,
+          ),
           set_index: safeNum(setRow.set_index, 0),
           set_type: setType,
           segments,
@@ -485,7 +558,10 @@ export default function TrainingCapturePage() {
     return result;
   }
 
-  async function buildDraftRows(rows: WorkoutTemplateExerciseRow[], workoutTemplateIdOverride?: string) {
+  async function buildDraftRows(
+    rows: WorkoutTemplateExerciseRow[],
+    workoutTemplateIdOverride?: string,
+  ) {
     const out: DraftSetRow[] = [];
     let usedLastSession = false;
     const workoutTemplateId = workoutTemplateIdOverride || selectedId;
@@ -495,7 +571,8 @@ export default function TrainingCapturePage() {
 
     for (const ex of rows) {
       const meta = myExercisesById.get(ex.exercise_id);
-      const exerciseName = ex.display_name_snapshot || meta?.display_name || ex.exercise_id;
+      const exerciseName =
+        ex.display_name_snapshot || meta?.display_name || ex.exercise_id;
       const plannedSets = Math.max(0, Math.floor(safeNum(ex.planned_sets, 0)));
       const setType = String(ex.set_type || "straight").toLowerCase();
       const previousRows = lastRowsByExercise.get(ex.exercise_id) || [];
@@ -505,13 +582,19 @@ export default function TrainingCapturePage() {
         usedLastSession = true;
 
         for (const prev of previousRows) {
-          if (String(prev.set_type || "").toLowerCase() === "drop" && (prev.segments || []).length) {
+          if (
+            String(prev.set_type || "").toLowerCase() === "drop" &&
+            (prev.segments || []).length
+          ) {
             for (const seg of prev.segments || []) {
               out.push({
                 draft_id: makeDraftId(prev.exercise_id, nextSetIndex),
                 exercise_id: prev.exercise_id,
                 exercise_name: exerciseName,
-                exercise_sort_order: safeNum(ex.sort_order, prev.exercise_sort_order),
+                exercise_sort_order: safeNum(
+                  ex.sort_order,
+                  prev.exercise_sort_order,
+                ),
                 set_index: nextSetIndex,
                 set_type: "straight",
                 segments: undefined,
@@ -529,7 +612,10 @@ export default function TrainingCapturePage() {
             ...prev,
             draft_id: makeDraftId(prev.exercise_id, nextSetIndex),
             exercise_name: exerciseName,
-            exercise_sort_order: safeNum(ex.sort_order, prev.exercise_sort_order),
+            exercise_sort_order: safeNum(
+              ex.sort_order,
+              prev.exercise_sort_order,
+            ),
             set_index: nextSetIndex,
             set_type: "straight",
             segments: undefined,
@@ -541,16 +627,20 @@ export default function TrainingCapturePage() {
       }
 
       if (setType === "drop") {
-        const templateSegments = await loadTemplateExerciseSegments(ex.workout_template_exercise_id);
+        const templateSegments = await loadTemplateExerciseSegments(
+          ex.workout_template_exercise_id,
+        );
         const segments = templateSegments.length
           ? templateSegments
-          : [{
-              segment_index: 1,
-              label: "Start",
-              weight: String(safeNum(ex.default_weight, 0)),
-              reps: String(safeNum(ex.default_reps, 0)),
-              notes: "",
-            }];
+          : [
+              {
+                segment_index: 1,
+                label: "Start",
+                weight: String(safeNum(ex.default_weight, 0)),
+                reps: String(safeNum(ex.default_reps, 0)),
+                notes: "",
+              },
+            ];
 
         for (let i = 1; i <= plannedSets; i++) {
           for (const seg of segments) {
@@ -592,7 +682,11 @@ export default function TrainingCapturePage() {
     }
 
     setDraftRows(out);
-    setPrefillSource(usedLastSession ? "Prefilled from last logged session" : "Using workout template defaults");
+    setPrefillSource(
+      usedLastSession
+        ? "Prefilled from last logged session"
+        : "Using workout template defaults",
+    );
   }
 
   React.useEffect(() => {
@@ -609,18 +703,24 @@ export default function TrainingCapturePage() {
   }, [selectedId, myExercisesById, restoredLocalDraft]);
 
   function updateDraftRow(draftId: string, patch: Partial<DraftSetRow>) {
-    setDraftRows((prev) => prev.map((r) => (r.draft_id === draftId ? { ...r, ...patch } : r)));
+    setDraftRows((prev) =>
+      prev.map((r) => (r.draft_id === draftId ? { ...r, ...patch } : r)),
+    );
   }
 
-  function updateDraftSegment(draftId: string, segmentIndex: number, patch: Partial<DraftSetSegmentRow>) {
+  function updateDraftSegment(
+    draftId: string,
+    segmentIndex: number,
+    patch: Partial<DraftSetSegmentRow>,
+  ) {
     setDraftRows((prev) =>
       prev.map((row) => {
         if (row.draft_id !== draftId) return row;
         const segments = (row.segments || []).map((seg) =>
-          seg.segment_index === segmentIndex ? { ...seg, ...patch } : seg
+          seg.segment_index === segmentIndex ? { ...seg, ...patch } : seg,
         );
         return { ...row, segments };
-      })
+      }),
     );
   }
 
@@ -646,7 +746,9 @@ export default function TrainingCapturePage() {
   }
 
   function removeExerciseFromDraft(exerciseId: string) {
-    setDraftRows((prev) => prev.filter((row) => row.exercise_id !== exerciseId));
+    setDraftRows((prev) =>
+      prev.filter((row) => row.exercise_id !== exerciseId),
+    );
     setOpenExerciseOptionsId("");
   }
   async function saveCatalogExerciseToMyExercises(hit: ExerciseSearchHit) {
@@ -669,24 +771,31 @@ export default function TrainingCapturePage() {
       qs.set("matched_source", hit.matched_source);
     }
 
-    await fetchJson(`/api/lifeswitch/training/my_exercises/upsert?${qs.toString()}`, {
-      method: "POST",
-    });
+    await fetchJson(
+      `/api/lifeswitch/training/my_exercises/upsert?${qs.toString()}`,
+      {
+        method: "POST",
+      },
+    );
   }
 
-
-  function addExerciseToDraft(afterExerciseId: string, exercise: MyExerciseRow) {
+  function addExerciseToDraft(
+    afterExerciseId: string,
+    exercise: MyExerciseRow,
+  ) {
     setDraftRows((prev) => {
-      const matchingRows = prev.filter((row) => row.exercise_id === afterExerciseId);
+      const matchingRows = prev.filter(
+        (row) => row.exercise_id === afterExerciseId,
+      );
 
       if (!matchingRows.length) return prev;
 
       const lastRowIndex = prev.findIndex(
-        (row) => row.draft_id === matchingRows[matchingRows.length - 1].draft_id
+        (row) =>
+          row.draft_id === matchingRows[matchingRows.length - 1].draft_id,
       );
 
-      const nextSortOrder =
-        matchingRows[0].exercise_sort_order + 0.1;
+      const nextSortOrder = matchingRows[0].exercise_sort_order + 0.1;
 
       const newRow: DraftSetRow = {
         draft_id: makeDraftId(exercise.exercise_id, 1),
@@ -705,7 +814,7 @@ export default function TrainingCapturePage() {
       copy.splice(
         prev.findIndex((row) => row.exercise_id === afterExerciseId),
         0,
-        newRow
+        newRow,
       );
 
       return copy;
@@ -717,8 +826,12 @@ export default function TrainingCapturePage() {
   }
 
   function addSetAfter(row: DraftSetRow) {
-    const sameExercise = draftRows.filter((r) => r.exercise_id === row.exercise_id);
-    const nextIndex = sameExercise.length ? Math.max(...sameExercise.map((r) => r.set_index)) + 1 : 1;
+    const sameExercise = draftRows.filter(
+      (r) => r.exercise_id === row.exercise_id,
+    );
+    const nextIndex = sameExercise.length
+      ? Math.max(...sameExercise.map((r) => r.set_index)) + 1
+      : 1;
 
     const next: DraftSetRow = {
       ...row,
@@ -743,14 +856,28 @@ export default function TrainingCapturePage() {
   async function finishSession() {
     if (!selected) return;
 
+    if (!selected.workout_role) {
+      setStatus(
+        "Classify this workout as Strength or Rehab in Workouts before finishing it.",
+      );
+      return;
+    }
+
     const validRows = doneRows.filter((r) => {
       if (r.set_type === "drop") {
-        return (r.segments || []).some((seg) => safeNum(seg.weight, 0) >= 0 && safeNum(seg.reps, 0) > 0);
+        return (r.segments || []).some(
+          (seg) => safeNum(seg.weight, 0) >= 0 && safeNum(seg.reps, 0) > 0,
+        );
       }
 
       const weight = safeNum(r.weight, 0);
       const reps = safeNum(r.reps, 0);
-      return Number.isFinite(weight) && weight >= 0 && Number.isFinite(reps) && reps > 0;
+      return (
+        Number.isFinite(weight) &&
+        weight >= 0 &&
+        Number.isFinite(reps) &&
+        reps > 0
+      );
     });
 
     if (!validRows.length) {
@@ -787,7 +914,9 @@ export default function TrainingCapturePage() {
             exercise_sort_order: row.exercise_sort_order,
             set_index: row.set_index,
             set_type: isDrop ? "drop" : "straight",
-            weight: isDrop ? safeNum(segments[0]?.weight, 0) : safeNum(row.weight, 0),
+            weight: isDrop
+              ? safeNum(segments[0]?.weight, 0)
+              : safeNum(row.weight, 0),
             reps: isDrop ? safeNum(segments[0]?.reps, 0) : safeNum(row.reps, 0),
             flags: row.flags || "",
             notes: "",
@@ -795,19 +924,25 @@ export default function TrainingCapturePage() {
           };
         }),
       };
-      const pending = await getOrCreateSubmission(TRAINING_COMPLETE_PENDING_KEY, payloadBase);
-      const session = await fetchJson("/api/lifeswitch/training/sessions/complete", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "Idempotency-Key": pending.key,
+      const pending = await getOrCreateSubmission(
+        TRAINING_COMPLETE_PENDING_KEY,
+        payloadBase,
+      );
+      const session = await fetchJson(
+        "/api/lifeswitch/training/sessions/complete",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "Idempotency-Key": pending.key,
+          },
+          body: JSON.stringify({
+            ...payloadBase,
+            started_at: pending.createdAt,
+            finished_at: pending.createdAt,
+          }),
         },
-        body: JSON.stringify({
-          ...payloadBase,
-          started_at: pending.createdAt,
-          finished_at: pending.createdAt,
-        }),
-      });
+      );
 
       const sessionId = String(session?.training_session_id || "");
       if (!sessionId) throw new Error("missing training_session_id");
@@ -843,11 +978,13 @@ export default function TrainingCapturePage() {
     }
 
     return Array.from(map.entries())
-      .sort((a, b) => safeNum(a[1]?.[0]?.exercise_sort_order, 0) - safeNum(b[1]?.[0]?.exercise_sort_order, 0))
+      .sort(
+        (a, b) =>
+          safeNum(a[1]?.[0]?.exercise_sort_order, 0) -
+          safeNum(b[1]?.[0]?.exercise_sort_order, 0),
+      )
       .map(([key, rows]) => ({ key, rows }));
   }, [draftRows]);
-
-
 
   const setupOpen = !draftRows.length;
 
@@ -867,7 +1004,9 @@ export default function TrainingCapturePage() {
       </div>
 
       <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-xl border text-sm">
-        <div className="bg-muted px-3 py-2 text-center font-semibold">Strength</div>
+        <div className="bg-muted px-3 py-2 text-center font-semibold">
+          Strength
+        </div>
         <a
           href="/lifeswitch/training/capture/conditioning"
           className="px-3 py-2 text-center hover:bg-muted/30"
@@ -876,53 +1015,72 @@ export default function TrainingCapturePage() {
         </a>
       </div>
 
-      {flash ? <div className="mt-3 text-sm text-green-600">{flash}</div> : null}
-      {status ? <div className="mt-3 text-sm text-red-600">{status}</div> : null}
+      {flash ? (
+        <div className="mt-3 text-sm text-green-600">{flash}</div>
+      ) : null}
+      {status ? (
+        <div className="mt-3 text-sm text-red-600">{status}</div>
+      ) : null}
 
       <div className="mt-6 grid gap-4">
         {setupOpen ? (
-  <aside className="rounded-xl border p-4">
-
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold">Workout template</div>
-            <button
-              type="button"
-              className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
-              onClick={() => void loadTemplates()}
-              disabled={loadingTemplates}
-            >
-              {loadingTemplates ? "Loading..." : "Refresh"}
-            </button>
-          </div>
-
-          <select
-            className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm"
-            value={selectedId}
-            onChange={(e) => {
-              setRestoredLocalDraft(false);
-              setTemplateExercises([]);
-              setDraftRows([]);
-              setSelectedId(e.target.value);
-            }}
-          >
-            <option value="">Select workout</option>
-            {templates.map((t) => (
-              <option key={t.workout_template_id} value={t.workout_template_id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-
-          {selected ? null : templates.length === 0 ? (
-            <div className="mt-4 text-sm text-muted-foreground">
-              No workout templates yet. Create one in Workouts.
+          <aside className="rounded-xl border p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-semibold">Workout template</div>
+              <button
+                type="button"
+                className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                onClick={() => void loadTemplates()}
+                disabled={loadingTemplates}
+              >
+                {loadingTemplates ? "Loading..." : "Refresh"}
+              </button>
             </div>
-          ) : null}
 
+            <select
+              className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              value={selectedId}
+              onChange={(e) => {
+                setRestoredLocalDraft(false);
+                setTemplateExercises([]);
+                setDraftRows([]);
+                setSelectedId(e.target.value);
+              }}
+            >
+              <option value="">Select workout</option>
+              {templates.map((t) => (
+                <option
+                  key={t.workout_template_id}
+                  value={t.workout_template_id}
+                >
+                  {t.name}
+                  {t.workout_role ? "" : " · Unclassified"}
+                </option>
+              ))}
+            </select>
+
+            {selected && !selected.workout_role ? (
+              <div className="mt-3 rounded-xl border border-amber-600/40 bg-amber-500/10 p-3 text-sm">
+                This workout must be classified before it can be finished. Set
+                it to Strength or Rehab on the Workouts page.
+              </div>
+            ) : null}
+
+            {selected ? null : templates.length === 0 ? (
+              <div className="mt-4 text-sm text-muted-foreground">
+                No workout templates yet. Create one in Workouts.
+              </div>
+            ) : null}
           </aside>
         ) : null}
 
-        <main className={draftRows.length || loadingTemplateExercises ? "rounded-xl border p-4" : "hidden"}>
+        <main
+          className={
+            draftRows.length || loadingTemplateExercises
+              ? "rounded-xl border p-4"
+              : "hidden"
+          }
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm font-semibold">Active session draft</div>
 
@@ -942,7 +1100,12 @@ export default function TrainingCapturePage() {
                 type="button"
                 className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
                 onClick={() => void finishSession()}
-                disabled={!selected || finishLoading || summary.setCount === 0}
+                disabled={
+                  !selected ||
+                  !selected.workout_role ||
+                  finishLoading ||
+                  summary.setCount === 0
+                }
               >
                 {finishLoading ? "Finishing..." : "Finish Session"}
               </button>
@@ -959,16 +1122,19 @@ export default function TrainingCapturePage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <div className="text-sm font-semibold">{first.exercise_name}</div>
-                          {myExercisesById.get(first.exercise_id)?.exercise_role ===
-                          "rehab" ? (
+                          <div className="text-sm font-semibold">
+                            {first.exercise_name}
+                          </div>
+                          {myExercisesById.get(first.exercise_id)
+                            ?.exercise_role === "rehab" ? (
                             <span className="rounded-full border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                               Rehab
                             </span>
                           ) : null}
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          {block.rows.filter((r) => r.done).length} completed sets
+                          {block.rows.filter((r) => r.done).length} completed
+                          sets
                         </div>
                       </div>
                       <div className="relative shrink-0">
@@ -977,11 +1143,13 @@ export default function TrainingCapturePage() {
                           className="inline-flex h-8 w-8 items-center justify-center rounded-md border text-lg hover:bg-muted/30"
                           onClick={() =>
                             setOpenExerciseOptionsId((prev) =>
-                              prev === first.exercise_id ? "" : first.exercise_id
+                              prev === first.exercise_id
+                                ? ""
+                                : first.exercise_id,
                             )
                           }
                         >
-                          + 
+                          +
                         </button>
 
                         {openExerciseOptionsId === first.exercise_id ? (
@@ -989,7 +1157,9 @@ export default function TrainingCapturePage() {
                             <button
                               type="button"
                               className="w-full rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
-                              onClick={() => addSetAfter(block.rows[block.rows.length - 1])}
+                              onClick={() =>
+                                addSetAfter(block.rows[block.rows.length - 1])
+                              }
                             >
                               + Add Set
                             </button>
@@ -1010,15 +1180,17 @@ export default function TrainingCapturePage() {
                                   className="w-full rounded-md border bg-background px-2 py-1 text-xs"
                                   placeholder="Search exercises"
                                   value={exerciseSearch}
-                                  onChange={(e) => setExerciseSearch(e.target.value)}
+                                  onChange={(e) =>
+                                    setExerciseSearch(e.target.value)
+                                  }
                                 />
 
-                                <div className="mt-2 max-h-56 overflow-y-auto space-y-1">
+                                <div className="mt-2 max-h-56 space-y-1 overflow-y-auto">
                                   {myExercises
                                     .filter((x) =>
                                       x.display_name
                                         .toLowerCase()
-                                        .includes(exerciseSearch.toLowerCase())
+                                        .includes(exerciseSearch.toLowerCase()),
                                     )
                                     .slice(0, 10)
                                     .map((exercise) => (
@@ -1027,7 +1199,10 @@ export default function TrainingCapturePage() {
                                         type="button"
                                         className="w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30"
                                         onClick={() =>
-                                          addExerciseToDraft(first.exercise_id, exercise)
+                                          addExerciseToDraft(
+                                            first.exercise_id,
+                                            exercise,
+                                          )
                                         }
                                       >
                                         {exercise.display_name}
@@ -1039,7 +1214,7 @@ export default function TrainingCapturePage() {
                                   Catalog
                                 </div>
 
-                                <div className="mt-1 max-h-56 overflow-y-auto space-y-1">
+                                <div className="mt-1 max-h-56 space-y-1 overflow-y-auto">
                                   {catalogHits.map((hit) => (
                                     <button
                                       key={hit.exercise_id}
@@ -1071,7 +1246,9 @@ export default function TrainingCapturePage() {
                             <button
                               type="button"
                               className="mt-2 w-full rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
-                              onClick={() => removeExerciseFromDraft(first.exercise_id)}
+                              onClick={() =>
+                                removeExerciseFromDraft(first.exercise_id)
+                              }
                             >
                               Remove Exercise
                             </button>
@@ -1084,14 +1261,16 @@ export default function TrainingCapturePage() {
                       {block.rows.map((row) => (
                         <div
                           key={row.draft_id}
-                            className={[
-                              "grid grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)_4.75rem] items-end gap-2 rounded-xl border p-2",
-                              row.done
-                                ? "border-muted bg-muted/10 opacity-60"
-                                : "border-blue-500/40 bg-blue-500/10",
-                            ].join(" ")}
+                          className={[
+                            "grid grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)_4.75rem] items-end gap-2 rounded-xl border p-2",
+                            row.done
+                              ? "border-muted bg-muted/10 opacity-60"
+                              : "border-blue-500/40 bg-blue-500/10",
+                          ].join(" ")}
                         >
-                          <div className="order-1 pb-2 text-xs text-muted-foreground">Set {row.set_index}</div>
+                          <div className="order-1 pb-2 text-xs text-muted-foreground">
+                            Set {row.set_index}
+                          </div>
 
                           {row.set_type === "drop" ? (
                             <div className="order-2 col-span-3 grid gap-2">
@@ -1100,10 +1279,14 @@ export default function TrainingCapturePage() {
                                   key={`${row.draft_id}:${seg.segment_index}`}
                                   className="grid grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,1fr)] items-end gap-2 rounded-xl border bg-background/30 p-2"
                                 >
-                                  <div className="pb-2 text-xs text-muted-foreground">{seg.label}</div>
+                                  <div className="pb-2 text-xs text-muted-foreground">
+                                    {seg.label}
+                                  </div>
 
                                   <label className="text-xs">
-                                    <div className="text-muted-foreground">Weight</div>
+                                    <div className="text-muted-foreground">
+                                      Weight
+                                    </div>
                                     <NumericInput
                                       className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
                                       mode="decimal"
@@ -1112,13 +1295,19 @@ export default function TrainingCapturePage() {
                                       disabled={row.done}
                                       readOnly={row.done}
                                       onValueChange={(weight) =>
-                                        updateDraftSegment(row.draft_id, seg.segment_index, { weight })
+                                        updateDraftSegment(
+                                          row.draft_id,
+                                          seg.segment_index,
+                                          { weight },
+                                        )
                                       }
                                     />
                                   </label>
 
                                   <label className="text-xs">
-                                    <div className="text-muted-foreground">Reps</div>
+                                    <div className="text-muted-foreground">
+                                      Reps
+                                    </div>
                                     <NumericInput
                                       className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
                                       mode="integer"
@@ -1127,7 +1316,11 @@ export default function TrainingCapturePage() {
                                       disabled={row.done}
                                       readOnly={row.done}
                                       onValueChange={(reps) =>
-                                        updateDraftSegment(row.draft_id, seg.segment_index, { reps })
+                                        updateDraftSegment(
+                                          row.draft_id,
+                                          seg.segment_index,
+                                          { reps },
+                                        )
                                       }
                                     />
                                   </label>
@@ -1135,60 +1328,76 @@ export default function TrainingCapturePage() {
                               ))}
                             </div>
                           ) : (
-                              <>
-                                <label className="order-2 text-xs">
-                                  <div className="text-muted-foreground">Weight</div>
-                                  <NumericInput
-                                    className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                                    mode="decimal"
-                                    min={0}
-                                    value={row.weight}
-                                    disabled={row.done}
-                                    readOnly={row.done}
-                                    onValueChange={(weight) => updateDraftRow(row.draft_id, { weight })}
-                                  />
-                                </label>
+                            <>
+                              <label className="order-2 text-xs">
+                                <div className="text-muted-foreground">
+                                  Weight
+                                </div>
+                                <NumericInput
+                                  className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
+                                  mode="decimal"
+                                  min={0}
+                                  value={row.weight}
+                                  disabled={row.done}
+                                  readOnly={row.done}
+                                  onValueChange={(weight) =>
+                                    updateDraftRow(row.draft_id, { weight })
+                                  }
+                                />
+                              </label>
 
-                                <label className="order-3 text-xs">
-                                  <div className="text-muted-foreground">Reps</div>
-                                  <NumericInput
-                                    className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                                    mode="integer"
-                                    min={0}
-                                    value={row.reps}
-                                    disabled={row.done}
-                                    readOnly={row.done}
-                                    onValueChange={(reps) => updateDraftRow(row.draft_id, { reps })}
-                                  />
-                                </label>
+                              <label className="order-3 text-xs">
+                                <div className="text-muted-foreground">
+                                  Reps
+                                </div>
+                                <NumericInput
+                                  className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
+                                  mode="integer"
+                                  min={0}
+                                  value={row.reps}
+                                  disabled={row.done}
+                                  readOnly={row.done}
+                                  onValueChange={(reps) =>
+                                    updateDraftRow(row.draft_id, { reps })
+                                  }
+                                />
+                              </label>
 
-                                <label className="order-5 col-span-4 text-xs">
-                                  <div className="text-muted-foreground">Notes</div>
-                                  <input
-                                    className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                                    value={row.flags}
-                                    disabled={row.done}
-                                    readOnly={row.done}
-                                    onChange={(e) => {
-                                      const value = e.currentTarget.value;
-                                      updateDraftRow(row.draft_id, { flags: value });
-                                    }}
-                                    placeholder="optional note"
-                                  />
-                                </label>
-                              </>
-                            )}
-                            <button
-                              type="button"
-                              className={[
-                                "order-4 self-end rounded-xl border px-3 py-2 text-sm hover:bg-muted/30",
-                                row.done ? "bg-muted/30" : "",
-                              ].filter(Boolean).join(" ")}
-                              onClick={() => updateDraftRow(row.draft_id, { done: !row.done })}
-                              title={row.done ? "Mark pending" : "Mark done"}
-                            >
-                              {row.done ? "Done ✓" : "Enter"}
-                            </button>
+                              <label className="order-5 col-span-4 text-xs">
+                                <div className="text-muted-foreground">
+                                  Notes
+                                </div>
+                                <input
+                                  className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
+                                  value={row.flags}
+                                  disabled={row.done}
+                                  readOnly={row.done}
+                                  onChange={(e) => {
+                                    const value = e.currentTarget.value;
+                                    updateDraftRow(row.draft_id, {
+                                      flags: value,
+                                    });
+                                  }}
+                                  placeholder="optional note"
+                                />
+                              </label>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            className={[
+                              "order-4 self-end rounded-xl border px-3 py-2 text-sm hover:bg-muted/30",
+                              row.done ? "bg-muted/30" : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                            onClick={() =>
+                              updateDraftRow(row.draft_id, { done: !row.done })
+                            }
+                            title={row.done ? "Mark pending" : "Mark done"}
+                          >
+                            {row.done ? "Done ✓" : "Enter"}
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -1198,7 +1407,8 @@ export default function TrainingCapturePage() {
             </div>
           ) : (
             <div className="mt-4 rounded-xl border p-4 text-sm text-muted-foreground">
-              Select a workout template to generate today’s active session draft.
+              Select a workout template to generate today’s active session
+              draft.
             </div>
           )}
         </main>

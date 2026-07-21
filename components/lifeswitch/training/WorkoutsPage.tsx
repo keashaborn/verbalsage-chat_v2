@@ -39,6 +39,8 @@ type WorkoutTemplateRow = {
   owner_user_id: string;
   name: string;
   notes?: string | null;
+  workout_role?: "strength" | "rehab" | null;
+  unclassified_session_count?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -81,14 +83,17 @@ async function fetchJson(url: string, init?: RequestInit) {
     // ignore
   }
   if (!r.ok) {
-    const detail = j?.detail || j?.error || t?.slice(0, 300) || `HTTP ${r.status}`;
+    const detail =
+      j?.detail || j?.error || t?.slice(0, 300) || `HTTP ${r.status}`;
     throw new Error(String(detail));
   }
   return j;
 }
 
 function norm(s: string) {
-  return String(s || "").trim().toLowerCase();
+  return String(s || "")
+    .trim()
+    .toLowerCase();
 }
 
 function descriptiveExerciseKind(value?: string | null) {
@@ -104,36 +109,48 @@ function descriptiveExerciseKind(value?: string | null) {
 }
 
 export default function TrainingWorkoutsPage() {
-
   const [myExercises, setMyExercises] = React.useState<MyExerciseRow[]>([]);
   const [templates, setTemplates] = React.useState<WorkoutTemplateRow[]>([]);
   const [selectedId, setSelectedId] = React.useState<string>("");
 
-  const [templateExercises, setTemplateExercises] = React.useState<WorkoutTemplateExerciseRow[]>([]);
+  const [templateExercises, setTemplateExercises] = React.useState<
+    WorkoutTemplateExerciseRow[]
+  >([]);
   const [myLoading, setMyLoading] = React.useState(false);
   const [tplLoading, setTplLoading] = React.useState(false);
   const [exLoading, setExLoading] = React.useState(false);
 
   const [newName, setNewName] = React.useState<string>("");
+  const [newRole, setNewRole] = React.useState<"strength" | "rehab">(
+    "strength",
+  );
   const [q, setQ] = React.useState<string>("");
   const [catalogHits, setCatalogHits] = React.useState<ExerciseSearchHit[]>([]);
   const [catalogLoading, setCatalogLoading] = React.useState(false);
   const [catalogStatus, setCatalogStatus] = React.useState("");
   const [addStatus, setAddStatus] = React.useState("");
   const [editingSelected, setEditingSelected] = React.useState(false);
-  const [openExerciseIds, setOpenExerciseIds] = React.useState<Record<string, boolean>>({});
-  const [templateExerciseSegments, setTemplateExerciseSegments] = React.useState<Record<string, WorkoutTemplateExerciseSegmentRow[]>>({});
-  const [segmentLoadingIds, setSegmentLoadingIds] = React.useState<Record<string, boolean>>({});
+  const [openExerciseIds, setOpenExerciseIds] = React.useState<
+    Record<string, boolean>
+  >({});
+  const [templateExerciseSegments, setTemplateExerciseSegments] =
+    React.useState<Record<string, WorkoutTemplateExerciseSegmentRow[]>>({});
+  const [segmentLoadingIds, setSegmentLoadingIds] = React.useState<
+    Record<string, boolean>
+  >({});
   const [shareUrl, setShareUrl] = React.useState("");
   const [shareStatus, setShareStatus] = React.useState("");
   const [openTemplateActionsId, setOpenTemplateActionsId] = React.useState("");
-  const [openSelectedExerciseActionsId, setOpenSelectedExerciseActionsId] = React.useState("");
-
+  const [openSelectedExerciseActionsId, setOpenSelectedExerciseActionsId] =
+    React.useState("");
+  const [workoutRoleStatus, setWorkoutRoleStatus] = React.useState("");
 
   const loadMyExercises = React.useCallback(async () => {
     setMyLoading(true);
     try {
-      const j = (await fetchJson("/api/lifeswitch/training/my_exercises")) as any;
+      const j = (await fetchJson(
+        "/api/lifeswitch/training/my_exercises",
+      )) as any;
       const arr = Array.isArray(j) ? (j as MyExerciseRow[]) : [];
       setMyExercises(arr.filter((x) => x.is_active));
     } catch {
@@ -146,10 +163,14 @@ export default function TrainingWorkoutsPage() {
   const loadTemplates = React.useCallback(async () => {
     setTplLoading(true);
     try {
-      const j = (await fetchJson("/api/lifeswitch/training/workout_templates")) as any;
+      const j = (await fetchJson(
+        "/api/lifeswitch/training/workout_templates",
+      )) as any;
       const arr = Array.isArray(j) ? (j as WorkoutTemplateRow[]) : [];
       const active = arr.filter((x) => x.is_active);
-      active.sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
+      active.sort((a, b) =>
+        String(b.updated_at || "").localeCompare(String(a.updated_at || "")),
+      );
       setTemplates(active);
     } catch {
       setTemplates([]);
@@ -167,7 +188,7 @@ export default function TrainingWorkoutsPage() {
       setExLoading(true);
       try {
         const j = (await fetchJson(
-          `/api/lifeswitch/training/workout_templates/${encodeURIComponent(workout_template_id)}/exercises`
+          `/api/lifeswitch/training/workout_templates/${encodeURIComponent(workout_template_id)}/exercises`,
         )) as any;
         const arr = Array.isArray(j) ? (j as WorkoutTemplateExerciseRow[]) : [];
         arr.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
@@ -178,7 +199,7 @@ export default function TrainingWorkoutsPage() {
         setExLoading(false);
       }
     },
-    []
+    [],
   );
   React.useEffect(() => {
     void loadMyExercises();
@@ -229,7 +250,9 @@ export default function TrainingWorkoutsPage() {
   const personalHits = React.useMemo(() => {
     const qq = norm(q);
     if (!qq) return [];
-    return myExercises.filter((x) => norm(x.display_name).includes(qq)).slice(0, 20);
+    return myExercises
+      .filter((x) => norm(x.display_name).includes(qq))
+      .slice(0, 20);
   }, [q, myExercises]);
 
   const savedExerciseIds = React.useMemo(() => {
@@ -255,7 +278,10 @@ export default function TrainingWorkoutsPage() {
       setCatalogStatus("");
 
       try {
-        const u = new URL("/api/catalog/exercises/search", window.location.origin);
+        const u = new URL(
+          "/api/catalog/exercises/search",
+          window.location.origin,
+        );
         u.searchParams.set("q", qq);
         u.searchParams.set("limit", "20");
 
@@ -278,11 +304,17 @@ export default function TrainingWorkoutsPage() {
   async function createTemplate() {
     const name = newName.trim();
     if (!name) return;
-    const created = (await fetchJson(`/api/lifeswitch/training/workout_templates/upsert`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, notes: "" }),
-    })) as WorkoutTemplateRow;
+    const created = (await fetchJson(
+      `/api/lifeswitch/training/workout_templates/upsert`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": globalThis.crypto.randomUUID(),
+        },
+        body: JSON.stringify({ name, notes: "", workout_role: newRole }),
+      },
+    )) as WorkoutTemplateRow;
 
     setNewName("");
 
@@ -300,18 +332,96 @@ export default function TrainingWorkoutsPage() {
     }
   }
 
-  async function updateSelected(patch: { name?: string; notes?: string | null }) {
+  async function updateSelected(patch: {
+    name?: string;
+    notes?: string | null;
+    workout_role?: "strength" | "rehab";
+  }) {
     if (!selected) return;
+    if (!selected.workout_role && !patch.workout_role) {
+      setWorkoutRoleStatus(
+        "Choose Strength or Rehab before editing this workout.",
+      );
+      return;
+    }
     await fetchJson(`/api/lifeswitch/training/workout_templates/upsert`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": globalThis.crypto.randomUUID(),
+      },
       body: JSON.stringify({
         workout_template_id: selected.workout_template_id,
         name: patch.name ?? selected.name,
         notes: patch.notes ?? selected.notes ?? "",
+        workout_role: patch.workout_role ?? selected.workout_role,
       }),
     });
     await loadTemplates();
+  }
+
+  async function setWorkoutRole(
+    template: WorkoutTemplateRow,
+    workout_role: "strength" | "rehab",
+  ) {
+    setWorkoutRoleStatus(`Saving ${template.name}…`);
+    try {
+      await fetchJson(`/api/lifeswitch/training/workout_templates/upsert`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": globalThis.crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          workout_template_id: template.workout_template_id,
+          name: template.name,
+          notes: template.notes ?? "",
+          workout_role,
+        }),
+      });
+      await loadTemplates();
+      setWorkoutRoleStatus(
+        `${template.name} will count as ${workout_role === "rehab" ? "rehab" : "strength"} in future sessions.`,
+      );
+    } catch (e: any) {
+      setWorkoutRoleStatus(String(e?.message || e));
+    }
+  }
+
+  async function classifyHistoricalSessions(template: WorkoutTemplateRow) {
+    const count = Math.max(0, Number(template.unclassified_session_count || 0));
+    if (!template.workout_role || count === 0) return;
+
+    const label = template.workout_role === "rehab" ? "rehab" : "strength";
+    const ok = window.confirm(
+      `Classify ${count} older unclassified session${count === 1 ? "" : "s"} for “${template.name}” as ${label}? This adds an audited classification and does not alter or delete the logged sets.`,
+    );
+    if (!ok) return;
+
+    setWorkoutRoleStatus(`Classifying older ${template.name} sessions…`);
+    try {
+      const result = await fetchJson(
+        `/api/lifeswitch/training/workout_templates/${encodeURIComponent(
+          template.workout_template_id,
+        )}/classify_historical_sessions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": globalThis.crypto.randomUUID(),
+          },
+          body: JSON.stringify({ workout_role: template.workout_role }),
+        },
+      );
+      await loadTemplates();
+      setWorkoutRoleStatus(
+        `Classified ${Number(result?.classified_session_count || 0)} older session${
+          Number(result?.classified_session_count || 0) === 1 ? "" : "s"
+        } as ${label}.`,
+      );
+    } catch (e: any) {
+      setWorkoutRoleStatus(String(e?.message || e));
+    }
   }
 
   async function createShareLink() {
@@ -325,14 +435,17 @@ export default function TrainingWorkoutsPage() {
         workout_template_id: selected.workout_template_id,
       });
 
-      const j = await fetchJson(`/api/lifeswitch/training/workout_template_shares/create?${qs.toString()}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          label: selected.name,
-          notes: "",
-        }),
-      });
+      const j = await fetchJson(
+        `/api/lifeswitch/training/workout_template_shares/create?${qs.toString()}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            label: selected.name,
+            notes: "",
+          }),
+        },
+      );
 
       const token = String(j?.token || "").trim();
       if (!token) throw new Error("share token missing");
@@ -353,14 +466,18 @@ export default function TrainingWorkoutsPage() {
   }
 
   async function deactivateTemplate(workout_template_id: string) {
-    const template = templates.find((t) => t.workout_template_id === workout_template_id);
+    const template = templates.find(
+      (t) => t.workout_template_id === workout_template_id,
+    );
     const name = template?.name || "this workout";
-    const ok = window.confirm(`Delete workout "${name}"? This removes the template from your library.`);
+    const ok = window.confirm(
+      `Delete workout "${name}"? This removes the template from your library.`,
+    );
     if (!ok) return;
 
     await fetchJson(
       `/api/lifeswitch/training/workout_templates/${encodeURIComponent(workout_template_id)}/deactivate`,
-      { method: "POST" }
+      { method: "POST" },
     );
     if (selectedId === workout_template_id) setSelectedId("");
     setOpenTemplateActionsId("");
@@ -397,11 +514,15 @@ export default function TrainingWorkoutsPage() {
 
     if (input.brand_name) qs.set("brand_name", String(input.brand_name));
     if (input.model_name) qs.set("model_name", String(input.model_name));
-    if (input.matched_source) qs.set("matched_source", String(input.matched_source));
+    if (input.matched_source)
+      qs.set("matched_source", String(input.matched_source));
 
-    const row = (await fetchJson(`/api/lifeswitch/training/my_exercises/upsert?${qs.toString()}`, {
-      method: "POST",
-    })) as MyExerciseRow;
+    const row = (await fetchJson(
+      `/api/lifeswitch/training/my_exercises/upsert?${qs.toString()}`,
+      {
+        method: "POST",
+      },
+    )) as MyExerciseRow;
 
     await loadMyExercises();
     return row;
@@ -455,10 +576,15 @@ export default function TrainingWorkoutsPage() {
       setAddStatus(`custom create failed: ${String(e?.message || e)}`);
     }
   }
-  async function addExerciseToSelected(exercise_id: string, display_name_snapshot?: string) {
+  async function addExerciseToSelected(
+    exercise_id: string,
+    display_name_snapshot?: string,
+  ) {
     if (!selected) return;
     if (templateExercises.some((e) => e.exercise_id === exercise_id)) return;
-    const maxSort = templateExercises.length ? Math.max(...templateExercises.map((x) => x.sort_order || 0)) : 0;
+    const maxSort = templateExercises.length
+      ? Math.max(...templateExercises.map((x) => x.sort_order || 0))
+      : 0;
 
     await fetchJson(
       `/api/lifeswitch/training/workout_templates/${encodeURIComponent(selected.workout_template_id)}/exercises/upsert`,
@@ -467,7 +593,8 @@ export default function TrainingWorkoutsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           exercise_id,
-          display_name_snapshot: String(display_name_snapshot || "").trim() || undefined,
+          display_name_snapshot:
+            String(display_name_snapshot || "").trim() || undefined,
           set_type: "straight",
           planned_sets: 3,
           default_weight: 0,
@@ -475,18 +602,20 @@ export default function TrainingWorkoutsPage() {
           flags: "",
           sort_order: maxSort + 10,
         }),
-      }
+      },
     );
 
     setQ("");
     await loadTemplateExercises(selected.workout_template_id);
   }
 
-  async function removeExerciseFromSelected(workout_template_exercise_id: string) {
+  async function removeExerciseFromSelected(
+    workout_template_exercise_id: string,
+  ) {
     if (!selected) return;
 
     const exercise = templateExercises.find(
-      (x) => x.workout_template_exercise_id === workout_template_exercise_id
+      (x) => x.workout_template_exercise_id === workout_template_exercise_id,
     );
     const name = exercise?.display_name_snapshot || "this exercise";
     const ok = window.confirm(`Remove exercise "${name}" from this workout?`);
@@ -494,9 +623,9 @@ export default function TrainingWorkoutsPage() {
 
     await fetchJson(
       `/api/lifeswitch/training/workout_templates/${encodeURIComponent(
-        selected.workout_template_id
+        selected.workout_template_id,
       )}/exercises/${encodeURIComponent(workout_template_exercise_id)}/delete`,
-      { method: "POST" }
+      { method: "POST" },
     );
 
     setOpenSelectedExerciseActionsId("");
@@ -523,16 +652,21 @@ export default function TrainingWorkoutsPage() {
             flags: row.flags ?? "",
             sort_order: (i + 1) * 10,
           }),
-        }
+        },
       );
     }
 
     await loadTemplateExercises(selected.workout_template_id);
   }
 
-  async function moveExercise(workout_template_exercise_id: string, dir: -1 | 1) {
+  async function moveExercise(
+    workout_template_exercise_id: string,
+    dir: -1 | 1,
+  ) {
     if (!selected) return;
-    const idx = templateExercises.findIndex((e) => e.workout_template_exercise_id === workout_template_exercise_id);
+    const idx = templateExercises.findIndex(
+      (e) => e.workout_template_exercise_id === workout_template_exercise_id,
+    );
     if (idx < 0) return;
     const j = idx + dir;
     if (j < 0 || j >= templateExercises.length) return;
@@ -543,13 +677,17 @@ export default function TrainingWorkoutsPage() {
     await reorderExercises(copy);
   }
 
-  async function loadTemplateExerciseSegments(workout_template_exercise_id: string) {
-
-    setSegmentLoadingIds((prev) => ({ ...prev, [workout_template_exercise_id]: true }));
+  async function loadTemplateExerciseSegments(
+    workout_template_exercise_id: string,
+  ) {
+    setSegmentLoadingIds((prev) => ({
+      ...prev,
+      [workout_template_exercise_id]: true,
+    }));
 
     try {
       const rows = (await fetchJson(
-        `/api/lifeswitch/training/workout_template_exercises/${encodeURIComponent(workout_template_exercise_id)}/segments`
+        `/api/lifeswitch/training/workout_template_exercises/${encodeURIComponent(workout_template_exercise_id)}/segments`,
       )) as WorkoutTemplateExerciseSegmentRow[];
 
       const arr = Array.isArray(rows) ? rows.slice() : [];
@@ -565,7 +703,10 @@ export default function TrainingWorkoutsPage() {
         [workout_template_exercise_id]: [],
       }));
     } finally {
-      setSegmentLoadingIds((prev) => ({ ...prev, [workout_template_exercise_id]: false }));
+      setSegmentLoadingIds((prev) => ({
+        ...prev,
+        [workout_template_exercise_id]: false,
+      }));
     }
   }
 
@@ -583,8 +724,10 @@ export default function TrainingWorkoutsPage() {
     }
   }
 
-  async function resizeDropSegments(row: WorkoutTemplateExerciseRow, drops: number) {
-
+  async function resizeDropSegments(
+    row: WorkoutTemplateExerciseRow,
+    drops: number,
+  ) {
     const id = row.workout_template_exercise_id;
     const safeDrops = Math.max(1, Math.min(9, Math.floor(Number(drops) || 1)));
     const targetCount = safeDrops + 1;
@@ -606,9 +749,14 @@ export default function TrainingWorkoutsPage() {
         existing?.default_weight ??
         (idx === 1
           ? Number(row.default_weight || 0)
-          : Math.max(0, Number(prev?.default_weight ?? row.default_weight ?? 0) - 10));
+          : Math.max(
+              0,
+              Number(prev?.default_weight ?? row.default_weight ?? 0) - 10,
+            ));
 
-      const defaultReps = existing?.default_reps ?? (idx === 1 ? Number(row.default_reps || 0) : 0);
+      const defaultReps =
+        existing?.default_reps ??
+        (idx === 1 ? Number(row.default_reps || 0) : 0);
       const label = idx === 1 ? "Start" : `Drop ${idx - 1}`;
 
       await fetchJson(
@@ -622,7 +770,7 @@ export default function TrainingWorkoutsPage() {
             default_weight: defaultWeight,
             default_reps: defaultReps,
           }),
-        }
+        },
       );
     }
 
@@ -630,9 +778,9 @@ export default function TrainingWorkoutsPage() {
       if (Number(seg.segment_index || 0) > targetCount) {
         await fetchJson(
           `/api/lifeswitch/training/workout_template_exercises/${encodeURIComponent(id)}/segments/${encodeURIComponent(
-            seg.workout_template_exercise_segment_id
+            seg.workout_template_exercise_segment_id,
           )}/delete`,
-          { method: "POST" }
+          { method: "POST" },
         );
       }
     }
@@ -640,9 +788,14 @@ export default function TrainingWorkoutsPage() {
     await loadTemplateExerciseSegments(id);
   }
 
-  async function updateExercise(workout_template_exercise_id: string, patch: Partial<WorkoutTemplateExerciseRow>) {
+  async function updateExercise(
+    workout_template_exercise_id: string,
+    patch: Partial<WorkoutTemplateExerciseRow>,
+  ) {
     if (!selected) return;
-    const row = templateExercises.find((x) => x.workout_template_exercise_id === workout_template_exercise_id);
+    const row = templateExercises.find(
+      (x) => x.workout_template_exercise_id === workout_template_exercise_id,
+    );
     if (!row) return;
 
     await fetchJson(
@@ -653,7 +806,10 @@ export default function TrainingWorkoutsPage() {
         body: JSON.stringify({
           workout_template_exercise_id,
           exercise_id: row.exercise_id,
-          display_name_snapshot: patch.display_name_snapshot ?? row.display_name_snapshot ?? undefined,
+          display_name_snapshot:
+            patch.display_name_snapshot ??
+            row.display_name_snapshot ??
+            undefined,
           set_type: patch.set_type ?? row.set_type ?? "straight",
           planned_sets: patch.planned_sets ?? row.planned_sets,
           default_weight: patch.default_weight ?? row.default_weight,
@@ -661,7 +817,7 @@ export default function TrainingWorkoutsPage() {
           flags: (patch.flags ?? row.flags ?? "") as any,
           sort_order: patch.sort_order ?? row.sort_order,
         }),
-      }
+      },
     );
 
     await loadTemplateExercises(selected.workout_template_id);
@@ -671,487 +827,651 @@ export default function TrainingWorkoutsPage() {
     }
   }
 
-
-
-
   function renderSelectedWorkoutDetail() {
     return (
       <main className="grid min-w-0 gap-4">
-          {selected ? (
-            <>
-              <section className="min-w-0 rounded-xl border p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold">Selected workout</div>
-                    <div className="mt-1 truncate text-lg font-medium">{selected.name}</div>
-                    {selected.notes ? (
-                      <div className="mt-1 text-sm text-muted-foreground">{selected.notes}</div>
-                    ) : null}
+        {selected ? (
+          <>
+            <section className="min-w-0 rounded-xl border p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold">Selected workout</div>
+                  <div className="mt-1 truncate text-lg font-medium">
+                    {selected.name}
                   </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      className="rounded-xl border px-3 py-1.5 text-sm hover:bg-muted/30 disabled:opacity-50"
-                      onClick={() => void createShareLink()}
-                      disabled={!selected}
-                    >
-                      Share
-                    </button>
-
-                    <button
-                      type="button"
-                      className="rounded-xl border px-3 py-1.5 text-sm hover:bg-muted/30"
-                      onClick={() => setEditingSelected((v) => !v)}
-                    >
-                      {editingSelected ? "Done" : "Edit"}
-                    </button>
-
-                    <button
-                      type="button"
-                      className="rounded-xl border px-3 py-1.5 text-sm font-medium text-primary hover:bg-muted/30"
-                      onClick={clearSelectedWorkout}
-                    >
-                      Close
-                    </button>
+                  {selected.notes ? (
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      {selected.notes}
+                    </div>
+                  ) : null}
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Counts as{" "}
+                    {selected.workout_role === "rehab"
+                      ? "rehab / prehab"
+                      : selected.workout_role === "strength"
+                        ? "strength training"
+                        : "not classified"}
                   </div>
                 </div>
 
-                {shareStatus || shareUrl ? (
-                  <div className="mt-4 rounded-xl border bg-muted/20 p-3 text-sm">
-                    {shareStatus ? <div>{shareStatus}</div> : null}
-                    {shareUrl ? (
-                      <div className="mt-2 break-all text-xs text-muted-foreground">
-                        {shareUrl}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-1.5 text-sm hover:bg-muted/30 disabled:opacity-50"
+                    onClick={() => void createShareLink()}
+                    disabled={!selected}
+                  >
+                    Share
+                  </button>
 
-                {editingSelected ? (
-                  <div className="mt-4 grid gap-3">
-                    <label>
-                      <div className="text-xs text-muted-foreground">Name</div>
-                      <input
-                        className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                        value={selected.name}
-                        onChange={(e) => void updateSelected({ name: e.target.value })}
-                        placeholder="Workout name"
-                      />
-                    </label>
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-1.5 text-sm hover:bg-muted/30"
+                    onClick={() => setEditingSelected((v) => !v)}
+                  >
+                    {editingSelected ? "Done" : "Edit"}
+                  </button>
 
-                    <label>
-                      <div className="text-xs text-muted-foreground">Notes</div>
-                      <input
-                        className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                        value={selected.notes || ""}
-                        onChange={(e) => void updateSelected({ notes: e.target.value })}
-                        placeholder="(optional)"
-                      />
-                    </label>
-                  </div>
-                ) : null}
-              </section>
+                  <button
+                    type="button"
+                    className="rounded-xl border px-3 py-1.5 text-sm font-medium text-primary hover:bg-muted/30"
+                    onClick={clearSelectedWorkout}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
 
-              <section className="min-w-0 rounded-xl border p-4">
-                <div className="flex items-center justify-between gap-2">
+              {shareStatus || shareUrl ? (
+                <div className="mt-4 rounded-xl border bg-muted/20 p-3 text-sm">
+                  {shareStatus ? <div>{shareStatus}</div> : null}
+                  {shareUrl ? (
+                    <div className="mt-2 text-xs break-all text-muted-foreground">
+                      {shareUrl}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {editingSelected ? (
+                <div className="mt-4 grid gap-3">
+                  {!selected.workout_role ? (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm text-amber-200">
+                      Choose Strength or Rehab before editing this workout.
+                    </div>
+                  ) : null}
                   <div>
-                    <div className="text-sm font-semibold">Exercises in this workout</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      Template defaults. Capture can change these for a single session.
+                    <div className="text-xs text-muted-foreground">
+                      Workout type
+                    </div>
+                    <div className="mt-1 inline-flex rounded-xl border p-1">
+                      {(["strength", "rehab"] as const).map((role) => (
+                        <button
+                          key={role}
+                          type="button"
+                          className={`rounded-lg px-3 py-1.5 text-sm ${selected.workout_role === role ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/30"}`}
+                          onClick={() => void setWorkoutRole(selected, role)}
+                        >
+                          {role === "strength" ? "Strength" : "Rehab / prehab"}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {exLoading
-                      ? "Loading…"
-                      : `${templateExercises.length} exercise${templateExercises.length === 1 ? "" : "s"}`}
+                  <label>
+                    <div className="text-xs text-muted-foreground">Name</div>
+                    <input
+                      className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                      value={selected.name}
+                      onChange={(e) =>
+                        void updateSelected({ name: e.target.value })
+                      }
+                      disabled={!selected.workout_role}
+                      placeholder="Workout name"
+                    />
+                  </label>
+
+                  <label>
+                    <div className="text-xs text-muted-foreground">Notes</div>
+                    <input
+                      className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                      value={selected.notes || ""}
+                      onChange={(e) =>
+                        void updateSelected({ notes: e.target.value })
+                      }
+                      disabled={!selected.workout_role}
+                      placeholder="(optional)"
+                    />
+                  </label>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="min-w-0 rounded-xl border p-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold">
+                    Exercises in this workout
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Template defaults. Capture can change these for a single
+                    session.
                   </div>
                 </div>
+                <div className="text-xs text-muted-foreground">
+                  {exLoading
+                    ? "Loading…"
+                    : `${templateExercises.length} exercise${templateExercises.length === 1 ? "" : "s"}`}
+                </div>
+              </div>
 
-                {templateExercises.length ? (
-                  <div className="mt-3 space-y-2">
-                    {templateExercises.map((e) => {
-                      const meta = myExercisesById.get(e.exercise_id);
-                      const title = e.display_name_snapshot || meta?.display_name || e.exercise_id;
-                      const open = openExerciseIds[e.workout_template_exercise_id] || false;
-                      const segments = templateExerciseSegments[e.workout_template_exercise_id] || [];
-                      const segmentsLoading = segmentLoadingIds[e.workout_template_exercise_id] || false;
+              {templateExercises.length ? (
+                <div className="mt-3 space-y-2">
+                  {templateExercises.map((e) => {
+                    const meta = myExercisesById.get(e.exercise_id);
+                    const title =
+                      e.display_name_snapshot ||
+                      meta?.display_name ||
+                      e.exercise_id;
+                    const open =
+                      openExerciseIds[e.workout_template_exercise_id] || false;
+                    const segments =
+                      templateExerciseSegments[
+                        e.workout_template_exercise_id
+                      ] || [];
+                    const segmentsLoading =
+                      segmentLoadingIds[e.workout_template_exercise_id] ||
+                      false;
 
-                      return (
-                        <div key={e.workout_template_exercise_id} className="min-w-0 rounded-xl border p-3">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <button
-                              type="button"
-                              className="min-w-0 flex-1 text-left"
-                              onClick={() => void toggleExerciseOpen(e)}
-                            >
-                              <div className="flex items-center gap-2">
-                                {open ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
-                                <div className="min-w-0">
-                                  <div className="truncate text-sm font-semibold text-blue-400">{title}</div>
-                                  {meta?.exercise_role === "rehab" ? (
-                                    <span className="mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                      Rehab · not a strength session
-                                    </span>
-                                  ) : null}
-                                  <div className="mt-1 text-xs text-muted-foreground">
-                                    {(e.set_type || "straight") === "drop" ? "drop" : "straight"} · {e.planned_sets} sets · {e.default_weight} × {e.default_reps}
-                                    {meta?.modality ? ` · ${meta.modality}` : ""}
-                                    {descriptiveExerciseKind(meta?.kind)
-                                      ? ` · ${descriptiveExerciseKind(meta?.kind)}`
-                                      : ""}
-                                  </div>
+                    return (
+                      <div
+                        key={e.workout_template_exercise_id}
+                        className="min-w-0 rounded-xl border p-3"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 text-left"
+                            onClick={() => void toggleExerciseOpen(e)}
+                          >
+                            <div className="flex items-center gap-2">
+                              {open ? (
+                                <ChevronUp className="h-4 w-4 shrink-0" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 shrink-0" />
+                              )}
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold text-blue-400">
+                                  {title}
+                                </div>
+                                {meta?.exercise_role === "rehab" ? (
+                                  <span className="mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                    Rehab · not a strength session
+                                  </span>
+                                ) : null}
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  {(e.set_type || "straight") === "drop"
+                                    ? "drop"
+                                    : "straight"}{" "}
+                                  · {e.planned_sets} sets · {e.default_weight} ×{" "}
+                                  {e.default_reps}
+                                  {meta?.modality ? ` · ${meta.modality}` : ""}
+                                  {descriptiveExerciseKind(meta?.kind)
+                                    ? ` · ${descriptiveExerciseKind(meta?.kind)}`
+                                    : ""}
                                 </div>
                               </div>
-                            </button>
-
-                            <div className="flex shrink-0 items-center gap-1">
-                              <button
-                                type="button"
-                                className="rounded-md p-2 hover:bg-muted/20 active:bg-muted/30"
-                                onClick={() => void moveExercise(e.workout_template_exercise_id, -1)}
-                                title="Move up"
-                              >
-                                <ChevronUp className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                className="rounded-md p-2 hover:bg-muted/20 active:bg-muted/30"
-                                onClick={() => void moveExercise(e.workout_template_exercise_id, 1)}
-                                title="Move down"
-                              >
-                                <ChevronDown className="h-4 w-4" />
-                              </button>
-                              <div className="relative">
-                                <button
-                                  type="button"
-                                  className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/20 active:bg-muted/30"
-                                  onClick={() =>
-                                    setOpenSelectedExerciseActionsId((prev) =>
-                                      prev === e.workout_template_exercise_id ? "" : e.workout_template_exercise_id
-                                    )
-                                  }
-                                  aria-expanded={openSelectedExerciseActionsId === e.workout_template_exercise_id}
-                                  title="Exercise actions"
-                                >
-                                  Actions
-                                  {openSelectedExerciseActionsId === e.workout_template_exercise_id ? (
-                                    <ChevronUp className="h-3 w-3" />
-                                  ) : (
-                                    <ChevronDown className="h-3 w-3" />
-                                  )}
-                                </button>
-
-                                {openSelectedExerciseActionsId === e.workout_template_exercise_id ? (
-                                  <div className="absolute right-0 z-20 mt-2 w-44 rounded-lg border border-red-500/20 bg-background p-2 shadow-lg">
-                                    <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
-                                      Danger zone
-                                    </div>
-                                    <button
-                                      type="button"
-                                      className="mt-2 inline-flex w-full items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
-                                      onClick={() => void removeExerciseFromSelected(e.workout_template_exercise_id)}
-                                      title="Remove exercise"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                      Remove exercise
-                                    </button>
-                                  </div>
-                                ) : null}
-                              </div>
                             </div>
-                          </div>
+                          </button>
 
-                          {open ? (
-                            <div className="mt-3 grid gap-3 overflow-hidden">
-                              <div className="flex flex-wrap items-end gap-4 text-sm">
-                                <label className="flex items-baseline gap-2">
-                                  <span className="text-[11px] text-muted-foreground">format</span>
-                                  <select
-                                    className="bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                    value={e.set_type || "straight"}
-                                    onChange={(ev) =>
-                                      void updateExercise(e.workout_template_exercise_id, { set_type: ev.target.value })
-                                    }
-                                  >
-                                    <option value="straight">Straight</option>
-                                    <option value="drop">Drop</option>
-                                  </select>
-                                </label>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button
+                              type="button"
+                              className="rounded-md p-2 hover:bg-muted/20 active:bg-muted/30"
+                              onClick={() =>
+                                void moveExercise(
+                                  e.workout_template_exercise_id,
+                                  -1,
+                                )
+                              }
+                              title="Move up"
+                            >
+                              <ChevronUp className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-md p-2 hover:bg-muted/20 active:bg-muted/30"
+                              onClick={() =>
+                                void moveExercise(
+                                  e.workout_template_exercise_id,
+                                  1,
+                                )
+                              }
+                              title="Move down"
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                            </button>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/20 active:bg-muted/30"
+                                onClick={() =>
+                                  setOpenSelectedExerciseActionsId((prev) =>
+                                    prev === e.workout_template_exercise_id
+                                      ? ""
+                                      : e.workout_template_exercise_id,
+                                  )
+                                }
+                                aria-expanded={
+                                  openSelectedExerciseActionsId ===
+                                  e.workout_template_exercise_id
+                                }
+                                title="Exercise actions"
+                              >
+                                Actions
+                                {openSelectedExerciseActionsId ===
+                                e.workout_template_exercise_id ? (
+                                  <ChevronUp className="h-3 w-3" />
+                                ) : (
+                                  <ChevronDown className="h-3 w-3" />
+                                )}
+                              </button>
 
-                                {(e.set_type || "straight") === "drop" ? (
-                                  <label className="flex items-baseline gap-2">
-                                    <span className="text-[11px] text-muted-foreground">drops</span>
-                                    <select
-                                      className="bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                      value={String(Math.max(1, (segments.length || 2) - 1))}
-                                      onChange={(ev) => void resizeDropSegments(e, Number(ev.target.value))}
-                                    >
-                                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-                                        <option key={n} value={n}>
-                                          {n}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </label>
-                                ) : null}
-                              </div>
-
-                              <div className="flex flex-wrap items-end gap-4 text-sm">
-                                <label className="flex items-baseline gap-2">
-                                  <span className="text-[11px] text-muted-foreground">sets</span>
-                                  <NumericInput
-                                    className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                    mode="integer"
-                                    min={1}
-                                    required
-                                    value={String(e.planned_sets)}
-                                    onValueChange={(value) =>
-                                      void updateExercise(e.workout_template_exercise_id, { planned_sets: Number(value || 0) })
-                                    }
-                                  />
-                                </label>
-
-                                <label className="flex items-baseline gap-2">
-                                  <span className="text-[11px] text-muted-foreground">wt</span>
-                                  <NumericInput
-                                    className="w-16 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                    mode="decimal"
-                                    min={0}
-                                    required
-                                    value={String(e.default_weight)}
-                                    onValueChange={(value) =>
-                                      void updateExercise(e.workout_template_exercise_id, { default_weight: Number(value || 0) })
-                                    }
-                                  />
-                                </label>
-
-                                <label className="flex items-baseline gap-2">
-                                  <span className="text-[11px] text-muted-foreground">reps</span>
-                                  <NumericInput
-                                    className="w-12 bg-transparent border-b border-muted/30 px-1 py-1 text-sm focus:outline-none focus:border-ring"
-                                    mode="integer"
-                                    min={0}
-                                    required
-                                    value={String(e.default_reps)}
-                                    onValueChange={(value) =>
-                                      void updateExercise(e.workout_template_exercise_id, { default_reps: Number(value || 0) })
-                                    }
-                                  />
-                                </label>
-                              </div>
-
-                              <input
-                                className="w-full bg-transparent border-b border-muted/30 px-1 py-2 text-sm focus:outline-none focus:border-ring"
-                                value={e.flags || ""}
-                                onChange={(ev) => void updateExercise(e.workout_template_exercise_id, { flags: ev.target.value })}
-                                placeholder="notes / flags (optional)"
-                              />
-
-                              {(e.set_type || "straight") === "drop" ? (
-                                <div className="max-w-full overflow-hidden rounded-xl border p-3">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div>
-                                      <div className="text-xs font-semibold">Drop set structure</div>
-                                      <div className="mt-1 text-[11px] text-muted-foreground">
-                                        Start weight plus each drop after it.
-                                      </div>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
-                                      onClick={() => void loadTemplateExerciseSegments(e.workout_template_exercise_id)}
-                                    >
-                                      Refresh
-                                    </button>
+                              {openSelectedExerciseActionsId ===
+                              e.workout_template_exercise_id ? (
+                                <div className="absolute right-0 z-20 mt-2 w-44 rounded-lg border border-red-500/20 bg-background p-2 shadow-lg">
+                                  <div className="text-[11px] font-semibold tracking-wide text-red-500 uppercase">
+                                    Danger zone
                                   </div>
-
-                                  {segmentsLoading ? (
-                                    <div className="mt-2 text-xs text-muted-foreground">Loading drops...</div>
-                                  ) : segments.length ? (
-                                    <div className="mt-3 grid gap-2">
-                                      {segments.map((seg) => (
-                                        <div
-                                          key={seg.workout_template_exercise_segment_id}
-                                          className="grid min-w-0 grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 rounded-lg border px-2 py-2 text-xs"
-                                        >
-                                          <div className="text-muted-foreground">
-                                            {seg.segment_index === 1 ? "Start" : `Drop ${seg.segment_index - 1}`}
-                                          </div>
-                                          <div>wt {seg.default_weight}</div>
-                                          <div>reps {seg.default_reps || ""}</div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <div className="mt-2 text-xs text-muted-foreground">
-                                      Select a drop count to create the drop rows.
-                                    </div>
-                                  )}
+                                  <button
+                                    type="button"
+                                    className="mt-2 inline-flex w-full items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                                    onClick={() =>
+                                      void removeExerciseFromSelected(
+                                        e.workout_template_exercise_id,
+                                      )
+                                    }
+                                    title="Remove exercise"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                    Remove exercise
+                                  </button>
                                 </div>
                               ) : null}
                             </div>
-                          ) : null}
+                          </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="mt-3 text-sm text-muted-foreground">Empty. Search exercises on the right and add a few.</div>
-                )}
-              </section>
-                {/* Add exercises inside selected workout */}
-                <section className="min-w-0 rounded-xl border p-4">
-                  <div className="text-sm font-semibold">
-                    Add exercises{selected ? ` to ${selected.name}` : " to selected workout"}
-                  </div>
 
-                  {selected ? (
-                    <div className="mt-4">
-                      <input
-                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                        value={q}
-                        onChange={(e) => setQ(e.target.value)}
-                        placeholder='Search exercises'
-                      />
+                        {open ? (
+                          <div className="mt-3 grid gap-3 overflow-hidden">
+                            <div className="flex flex-wrap items-end gap-4 text-sm">
+                              <label className="flex items-baseline gap-2">
+                                <span className="text-[11px] text-muted-foreground">
+                                  format
+                                </span>
+                                <select
+                                  className="border-b border-muted/30 bg-transparent px-1 py-1 text-sm focus:border-ring focus:outline-none"
+                                  value={e.set_type || "straight"}
+                                  onChange={(ev) =>
+                                    void updateExercise(
+                                      e.workout_template_exercise_id,
+                                      { set_type: ev.target.value },
+                                    )
+                                  }
+                                >
+                                  <option value="straight">Straight</option>
+                                  <option value="drop">Drop</option>
+                                </select>
+                              </label>
 
-                      {q.trim() ? (
-                        <div className="mt-3 space-y-4">
-                          {personalHits.length ? (
-                            <section>
-                              <div className="text-xs font-semibold text-muted-foreground">My / custom exercises</div>
-                              <div className="mt-2 divide-y divide-muted/20">
-                                {personalHits.map((h) => {
-                                  const alreadyIn = templateExercises.some((x) => x.exercise_id === h.exercise_id);
-
-                                  return (
-                                    <div key={h.exercise_id} className="flex items-center justify-between gap-3 py-3">
-                                      <div className="min-w-0">
-                                        <div className="truncate text-sm font-medium">{h.display_name}</div>
-                                        {h.exercise_role === "rehab" ? (
-                                          <div className="mt-1 text-[11px] font-medium text-muted-foreground">
-                                            Rehab · excluded from strength analysis
-                                          </div>
-                                        ) : null}
-                                        <div className="mt-1 text-xs text-muted-foreground">
-                                          {h.modality}
-                                          {descriptiveExerciseKind(h.kind)
-                                            ? ` · ${descriptiveExerciseKind(h.kind)}`
-                                            : ""}
-                                          {h.brand_name ? ` · ${h.brand_name}` : ""}
-                                        </div>
-                                      </div>
-
-                                      <button
-                                        type="button"
-                                        className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
-                                        onClick={() => void addExerciseToSelected(h.exercise_id, h.display_name)}
-                                        disabled={!selected || alreadyIn}
-                                        title="Add exercise to workout"
-                                      >
-                                        {alreadyIn ? "Added" : "Add"}
-                                      </button>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </section>
-                          ) : null}
-
-                          <section>
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="text-xs font-semibold text-muted-foreground">Catalog</div>
-                              <div className="text-[11px] text-muted-foreground">
-                                {catalogLoading ? "searching..." : catalogStatus}
-                              </div>
+                              {(e.set_type || "straight") === "drop" ? (
+                                <label className="flex items-baseline gap-2">
+                                  <span className="text-[11px] text-muted-foreground">
+                                    drops
+                                  </span>
+                                  <select
+                                    className="border-b border-muted/30 bg-transparent px-1 py-1 text-sm focus:border-ring focus:outline-none"
+                                    value={String(
+                                      Math.max(1, (segments.length || 2) - 1),
+                                    )}
+                                    onChange={(ev) =>
+                                      void resizeDropSegments(
+                                        e,
+                                        Number(ev.target.value),
+                                      )
+                                    }
+                                  >
+                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                                      <option key={n} value={n}>
+                                        {n}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              ) : null}
                             </div>
 
-                            {catalogHits.length ? (
-                              <div className="mt-2 divide-y divide-muted/20">
-                                {catalogHits.map((h) => {
-                                  const alreadyIn = templateExercises.some((x) => x.exercise_id === h.exercise_id);
-                                  const alreadySaved = savedExerciseIds.has(String(h.exercise_id));
+                            <div className="flex flex-wrap items-end gap-4 text-sm">
+                              <label className="flex items-baseline gap-2">
+                                <span className="text-[11px] text-muted-foreground">
+                                  sets
+                                </span>
+                                <NumericInput
+                                  className="w-12 border-b border-muted/30 bg-transparent px-1 py-1 text-sm focus:border-ring focus:outline-none"
+                                  mode="integer"
+                                  min={1}
+                                  required
+                                  value={String(e.planned_sets)}
+                                  onValueChange={(value) =>
+                                    void updateExercise(
+                                      e.workout_template_exercise_id,
+                                      { planned_sets: Number(value || 0) },
+                                    )
+                                  }
+                                />
+                              </label>
 
-                                  return (
-                                    <div key={h.exercise_id} className="flex items-center justify-between gap-3 py-3">
-                                      <div className="min-w-0">
-                                        <div className="truncate text-sm font-medium">{h.display_name}</div>
-                                        <div className="mt-1 text-xs text-muted-foreground">
-                                          {h.modality}
-                                          {h.kind ? ` · ${h.kind}` : ""}
-                                          {h.brand_name ? ` · ${h.brand_name}` : ""}
-                                          {alreadySaved ? " · saved" : ""}
-                                        </div>
-                                        {h.matched_text ? (
-                                          <div className="mt-1 max-h-10 overflow-hidden text-xs opacity-80">
-                                            {h.matched_text}
-                                          </div>
-                                        ) : null}
-                                      </div>
+                              <label className="flex items-baseline gap-2">
+                                <span className="text-[11px] text-muted-foreground">
+                                  wt
+                                </span>
+                                <NumericInput
+                                  className="w-16 border-b border-muted/30 bg-transparent px-1 py-1 text-sm focus:border-ring focus:outline-none"
+                                  mode="decimal"
+                                  min={0}
+                                  required
+                                  value={String(e.default_weight)}
+                                  onValueChange={(value) =>
+                                    void updateExercise(
+                                      e.workout_template_exercise_id,
+                                      { default_weight: Number(value || 0) },
+                                    )
+                                  }
+                                />
+                              </label>
 
-                                      <button
-                                        type="button"
-                                        className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
-                                        onClick={() => void addCatalogExerciseToSelected(h)}
-                                        disabled={!selected || alreadyIn}
-                                        title="Add catalog exercise to workout"
-                                      >
-                                        {alreadyIn ? "Added" : "Add"}
-                                      </button>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : catalogLoading ? null : (
-                              <div className="mt-2 text-sm text-muted-foreground">No catalog match.</div>
-                            )}
-                          </section>
-
-                          <section className="rounded-xl border p-3">
-                            <div className="text-sm font-medium">Need a custom exercise?</div>
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              Create “{q.trim()}” as one of your exercises and add it directly to this workout.
+                              <label className="flex items-baseline gap-2">
+                                <span className="text-[11px] text-muted-foreground">
+                                  reps
+                                </span>
+                                <NumericInput
+                                  className="w-12 border-b border-muted/30 bg-transparent px-1 py-1 text-sm focus:border-ring focus:outline-none"
+                                  mode="integer"
+                                  min={0}
+                                  required
+                                  value={String(e.default_reps)}
+                                  onValueChange={(value) =>
+                                    void updateExercise(
+                                      e.workout_template_exercise_id,
+                                      { default_reps: Number(value || 0) },
+                                    )
+                                  }
+                                />
+                              </label>
                             </div>
-                            <button
-                              type="button"
-                              className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                              onClick={() => void createCustomAndAddToSelected()}
-                              disabled={!selected || !q.trim()}
-                            >
-                              Create custom + add
-                            </button>
-                          </section>
-                        </div>
-                      ) : (
-                        <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
-                          Search to add exercises.
-                        </div>
-                      )}
 
-                      <div className="mt-3 text-xs text-muted-foreground">
-                    {myLoading ? "Loading My Training Library" : addStatus}
+                            <input
+                              className="w-full border-b border-muted/30 bg-transparent px-1 py-2 text-sm focus:border-ring focus:outline-none"
+                              value={e.flags || ""}
+                              onChange={(ev) =>
+                                void updateExercise(
+                                  e.workout_template_exercise_id,
+                                  { flags: ev.target.value },
+                                )
+                              }
+                              placeholder="notes / flags (optional)"
+                            />
+
+                            {(e.set_type || "straight") === "drop" ? (
+                              <div className="max-w-full overflow-hidden rounded-xl border p-3">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div>
+                                    <div className="text-xs font-semibold">
+                                      Drop set structure
+                                    </div>
+                                    <div className="mt-1 text-[11px] text-muted-foreground">
+                                      Start weight plus each drop after it.
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                                    onClick={() =>
+                                      void loadTemplateExerciseSegments(
+                                        e.workout_template_exercise_id,
+                                      )
+                                    }
+                                  >
+                                    Refresh
+                                  </button>
+                                </div>
+
+                                {segmentsLoading ? (
+                                  <div className="mt-2 text-xs text-muted-foreground">
+                                    Loading drops...
+                                  </div>
+                                ) : segments.length ? (
+                                  <div className="mt-3 grid gap-2">
+                                    {segments.map((seg) => (
+                                      <div
+                                        key={
+                                          seg.workout_template_exercise_segment_id
+                                        }
+                                        className="grid min-w-0 grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 rounded-lg border px-2 py-2 text-xs"
+                                      >
+                                        <div className="text-muted-foreground">
+                                          {seg.segment_index === 1
+                                            ? "Start"
+                                            : `Drop ${seg.segment_index - 1}`}
+                                        </div>
+                                        <div>wt {seg.default_weight}</div>
+                                        <div>reps {seg.default_reps || ""}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="mt-2 text-xs text-muted-foreground">
+                                    Select a drop count to create the drop rows.
+                                  </div>
+                                )}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="mt-3 text-sm text-muted-foreground">
+                  Empty. Search exercises on the right and add a few.
+                </div>
+              )}
+            </section>
+            {/* Add exercises inside selected workout */}
+            <section className="min-w-0 rounded-xl border p-4">
+              <div className="text-sm font-semibold">
+                Add exercises
+                {selected ? ` to ${selected.name}` : " to selected workout"}
+              </div>
+
+              {selected ? (
+                <div className="mt-4">
+                  <input
+                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Search exercises"
+                  />
+
+                  {q.trim() ? (
+                    <div className="mt-3 space-y-4">
+                      {personalHits.length ? (
+                        <section>
+                          <div className="text-xs font-semibold text-muted-foreground">
+                            My / custom exercises
+                          </div>
+                          <div className="mt-2 divide-y divide-muted/20">
+                            {personalHits.map((h) => {
+                              const alreadyIn = templateExercises.some(
+                                (x) => x.exercise_id === h.exercise_id,
+                              );
+
+                              return (
+                                <div
+                                  key={h.exercise_id}
+                                  className="flex items-center justify-between gap-3 py-3"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="truncate text-sm font-medium">
+                                      {h.display_name}
+                                    </div>
+                                    {h.exercise_role === "rehab" ? (
+                                      <div className="mt-1 text-[11px] font-medium text-muted-foreground">
+                                        Rehab · excluded from strength analysis
+                                      </div>
+                                    ) : null}
+                                    <div className="mt-1 text-xs text-muted-foreground">
+                                      {h.modality}
+                                      {descriptiveExerciseKind(h.kind)
+                                        ? ` · ${descriptiveExerciseKind(h.kind)}`
+                                        : ""}
+                                      {h.brand_name ? ` · ${h.brand_name}` : ""}
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                                    onClick={() =>
+                                      void addExerciseToSelected(
+                                        h.exercise_id,
+                                        h.display_name,
+                                      )
+                                    }
+                                    disabled={!selected || alreadyIn}
+                                    title="Add exercise to workout"
+                                  >
+                                    {alreadyIn ? "Added" : "Add"}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </section>
+                      ) : null}
+
+                      <section>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs font-semibold text-muted-foreground">
+                            Catalog
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {catalogLoading ? "searching..." : catalogStatus}
+                          </div>
+                        </div>
+
+                        {catalogHits.length ? (
+                          <div className="mt-2 divide-y divide-muted/20">
+                            {catalogHits.map((h) => {
+                              const alreadyIn = templateExercises.some(
+                                (x) => x.exercise_id === h.exercise_id,
+                              );
+                              const alreadySaved = savedExerciseIds.has(
+                                String(h.exercise_id),
+                              );
+
+                              return (
+                                <div
+                                  key={h.exercise_id}
+                                  className="flex items-center justify-between gap-3 py-3"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="truncate text-sm font-medium">
+                                      {h.display_name}
+                                    </div>
+                                    <div className="mt-1 text-xs text-muted-foreground">
+                                      {h.modality}
+                                      {h.kind ? ` · ${h.kind}` : ""}
+                                      {h.brand_name ? ` · ${h.brand_name}` : ""}
+                                      {alreadySaved ? " · saved" : ""}
+                                    </div>
+                                    {h.matched_text ? (
+                                      <div className="mt-1 max-h-10 overflow-hidden text-xs opacity-80">
+                                        {h.matched_text}
+                                      </div>
+                                    ) : null}
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                                    onClick={() =>
+                                      void addCatalogExerciseToSelected(h)
+                                    }
+                                    disabled={!selected || alreadyIn}
+                                    title="Add catalog exercise to workout"
+                                  >
+                                    {alreadyIn ? "Added" : "Add"}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : catalogLoading ? null : (
+                          <div className="mt-2 text-sm text-muted-foreground">
+                            No catalog match.
+                          </div>
+                        )}
+                      </section>
+
+                      <section className="rounded-xl border p-3">
+                        <div className="text-sm font-medium">
+                          Need a custom exercise?
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Create “{q.trim()}” as one of your exercises and add
+                          it directly to this workout.
+                        </div>
+                        <button
+                          type="button"
+                          className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                          onClick={() => void createCustomAndAddToSelected()}
+                          disabled={!selected || !q.trim()}
+                        >
+                          Create custom + add
+                        </button>
+                      </section>
                     </div>
                   ) : (
                     <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
-                      Select or create a workout first.
+                      Search to add exercises.
                     </div>
                   )}
-                </section>
 
-            </>
-          ) : (
-            <section className="rounded-xl border p-4">
-              <div className="text-sm text-muted-foreground">Create or select a workout.</div>
+                  <div className="mt-3 text-xs text-muted-foreground">
+                    {myLoading ? "Loading My Training Library" : addStatus}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
+                  Select or create a workout first.
+                </div>
+              )}
             </section>
-          )}
+          </>
+        ) : (
+          <section className="rounded-xl border p-4">
+            <div className="text-sm text-muted-foreground">
+              Create or select a workout.
+            </div>
+          </section>
+        )}
       </main>
     );
   }
 
   return (
     <div className="mx-auto w-full max-w-6xl overflow-x-hidden p-4">
-
       <div className="grid min-w-0 gap-4">
         {/* Left: create + workout list */}
         <aside className="min-w-0 rounded-xl border p-4">
@@ -1171,6 +1491,23 @@ export default function TrainingWorkoutsPage() {
                   if (e.key === "Enter") void createTemplate();
                 }}
               />
+              <label>
+                <div className="mb-1 text-xs text-muted-foreground">
+                  This workout counts as
+                </div>
+                <select
+                  className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                  value={newRole}
+                  onChange={(e) =>
+                    setNewRole(
+                      e.target.value === "rehab" ? "rehab" : "strength",
+                    )
+                  }
+                >
+                  <option value="strength">Strength training</option>
+                  <option value="rehab">Rehab / prehab</option>
+                </select>
+              </label>
               <button
                 type="button"
                 className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
@@ -1190,6 +1527,12 @@ export default function TrainingWorkoutsPage() {
             ) : null}
           </div>
 
+          {workoutRoleStatus ? (
+            <div className="mt-3 rounded-xl border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+              {workoutRoleStatus}
+            </div>
+          ) : null}
+
           {templates.length ? (
             <div className="mt-2 space-y-2">
               {templates.map((t) => {
@@ -1205,8 +1548,50 @@ export default function TrainingWorkoutsPage() {
                       className="w-full text-left"
                       onClick={() => setSelectedId(t.workout_template_id)}
                     >
-                      <div className="truncate text-sm font-semibold text-blue-400">{t.name}</div>
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <div className="truncate text-sm font-semibold text-blue-400">
+                          {t.name}
+                        </div>
+                        <span className="rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                          {t.workout_role === "rehab"
+                            ? "Rehab"
+                            : t.workout_role === "strength"
+                              ? "Strength"
+                              : "Unclassified"}
+                        </span>
+                      </div>
                     </button>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        Counts as
+                      </span>
+                      {(["strength", "rehab"] as const).map((role) => (
+                        <button
+                          key={role}
+                          type="button"
+                          className={`rounded-lg border px-2 py-1 text-xs ${t.workout_role === role ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/30"}`}
+                          onClick={() => void setWorkoutRole(t, role)}
+                        >
+                          {role === "strength" ? "Strength" : "Rehab"}
+                        </button>
+                      ))}
+                    </div>
+
+                    {t.workout_role &&
+                    Number(t.unclassified_session_count || 0) > 0 ? (
+                      <button
+                        type="button"
+                        className="mt-2 w-full rounded-lg border border-amber-500/30 bg-amber-500/5 px-2 py-2 text-left text-xs text-amber-200 hover:bg-amber-500/10"
+                        onClick={() => void classifyHistoricalSessions(t)}
+                      >
+                        Apply{" "}
+                        {t.workout_role === "rehab" ? "rehab" : "strength"} to{" "}
+                        {Number(t.unclassified_session_count)} older
+                        unclassified session
+                        {Number(t.unclassified_session_count) === 1 ? "" : "s"}
+                      </button>
+                    ) : null}
 
                     <div className="mt-2">
                       <button
@@ -1214,10 +1599,14 @@ export default function TrainingWorkoutsPage() {
                         className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
                         onClick={() =>
                           setOpenTemplateActionsId((prev) =>
-                            prev === t.workout_template_id ? "" : t.workout_template_id
+                            prev === t.workout_template_id
+                              ? ""
+                              : t.workout_template_id,
                           )
                         }
-                        aria-expanded={openTemplateActionsId === t.workout_template_id}
+                        aria-expanded={
+                          openTemplateActionsId === t.workout_template_id
+                        }
                         title="Workout actions"
                       >
                         Actions
@@ -1230,13 +1619,15 @@ export default function TrainingWorkoutsPage() {
 
                       {openTemplateActionsId === t.workout_template_id ? (
                         <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                          <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                          <div className="text-[11px] font-semibold tracking-wide text-red-500 uppercase">
                             Danger zone
                           </div>
                           <button
                             type="button"
                             className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
-                            onClick={() => void deactivateTemplate(t.workout_template_id)}
+                            onClick={() =>
+                              void deactivateTemplate(t.workout_template_id)
+                            }
                             title="Delete workout"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -1256,13 +1647,12 @@ export default function TrainingWorkoutsPage() {
               })}
             </div>
           ) : (
-            <div className="mt-2 text-sm text-muted-foreground">No workouts yet. Create one above.</div>
+            <div className="mt-2 text-sm text-muted-foreground">
+              No workouts yet. Create one above.
+            </div>
           )}
         </aside>
-
-
       </div>
     </div>
-
   );
 }
