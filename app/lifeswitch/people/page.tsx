@@ -140,7 +140,8 @@ const PERMISSIONS: Array<{
     scope: "plan:edit",
     label: "Plan edit",
     level: "edit",
-    description: "Allow direct shared plan editing. Use cautiously.",
+    description:
+      "Allow drafting and proposing shared Plan changes. The owner must still approve before activation.",
   },
 ];
 
