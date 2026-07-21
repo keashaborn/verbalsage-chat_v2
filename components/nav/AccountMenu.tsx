@@ -109,7 +109,7 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
 
           <nav className="py-1 text-sm">
             <AccountMenuLink href="/settings/assistant-profile" onNavigate={() => setOpen(false)}>
-              Assistant Profile
+              Personalization
             </AccountMenuLink>
             <AccountMenuLink href="/settings/appearance" onNavigate={() => setOpen(false)}>
               Appearance

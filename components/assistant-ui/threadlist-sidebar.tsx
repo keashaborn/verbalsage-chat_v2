@@ -14,50 +14,12 @@ import Image from "next/image";
 const BRAND_FILTER_SILVER =
   "grayscale brightness-125 contrast-125 opacity-85";
 
-function readCookie(name: string): string {
-  if (typeof document === "undefined") return "";
-  const part = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith(`${name}=`));
-  if (!part) return "";
-  try {
-    return decodeURIComponent(part.split("=").slice(1).join("="));
-  } catch {
-    return part.split("=").slice(1).join("=");
-  }
-}
-
-function normalizeVantageLabel(raw: string): string {
-  const v = String(raw || "").trim();
-  if (!v || v.toLowerCase() === "default") return "RESSE";
-  return v.toUpperCase();
-}
-
-function ActiveVantageBadge() {
-  const [vid, setVid] = React.useState("RESSE");
-
-  React.useEffect(() => {
-    const refresh = () => setVid(normalizeVantageLabel(readCookie("vs_vantage_id")));
-    refresh();
-
-    window.addEventListener("focus", refresh);
-    window.addEventListener("vs_vantage_changed", refresh);
-    window.addEventListener("vs_threads_refresh", refresh);
-
-    const id = window.setInterval(refresh, 2000);
-    return () => {
-      window.removeEventListener("focus", refresh);
-      window.removeEventListener("vs_vantage_changed", refresh);
-      window.removeEventListener("vs_threads_refresh", refresh);
-      window.clearInterval(id);
-    };
-  }, []);
-
+function AssistantBadge() {
   return (
     <div className="min-w-0 flex-1 leading-tight">
-      <div className="truncate text-sm font-semibold">{vid}</div>
+      <div className="truncate text-sm font-semibold">RESSE</div>
       <div className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
-        Sage Profile
+        Assistant
       </div>
     </div>
   );
@@ -87,7 +49,7 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
             />
           </div>
 
-          <ActiveVantageBadge />
+          <AssistantBadge />
         </div>
       </SidebarHeader>
 
