@@ -2,6 +2,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { randomUUID } from "crypto";
+import { cookies } from "next/headers";
+import { requireCapability } from "@/app/api/_auth/requireCapability";
 import { getSupabaseAuthContextFromRequest } from "@/app/api/_auth/supabaseUser";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
@@ -40,6 +42,17 @@ function shouldAvoidStorage(body: any, message: string): boolean {
   return body?.noStore === true || body?.debug === true || testPrefixes.some((prefix) => normalized.startsWith(prefix));
 }
 
+async function responseInspectionAllowed(req: Request): Promise<boolean> {
+  const expected = String(process.env.VS_DEBUG_TOKEN || "");
+  if (!expected) return false;
+  const jar = await cookies();
+  const supplied =
+    req.headers.get("x-vs-debug-token") || jar.get("vs_debug_token")?.value || "";
+  if (supplied !== expected) return false;
+  const capability = await requireCapability(req, "inspector.view");
+  return capability.ok;
+}
+
 export async function POST(req: Request) {
   const rid = requestId(req);
   try {
@@ -64,6 +77,7 @@ export async function POST(req: Request) {
     const rawThread = String(body?.thread_id || "").trim();
     const threadId = UUID_RE.test(rawThread) ? rawThread : null;
     const noStore = shouldAvoidStorage(body, message);
+    const includeInspection = await responseInspectionAllowed(req);
     if (!noStore && !threadId) {
       return new Response("thread_id required", { status: 400, headers: { "x-request-id": rid } });
     }
@@ -95,6 +109,7 @@ export async function POST(req: Request) {
         message,
         thread_id: threadId,
         no_store: noStore,
+        include_inspection: includeInspection,
       }),
       cache: "no-store",
     });
@@ -108,14 +123,30 @@ export async function POST(req: Request) {
 
     let answer = raw;
     let answerId = "";
+    let inspection: unknown = null;
     try {
       const parsed = JSON.parse(raw);
       answer = String(parsed?.answer || "");
       answerId = String(parsed?.answer_id || "");
+      inspection = parsed?.inspection || null;
     } catch {}
     if (!answer) {
       return new Response("Empty response", { status: 502, headers: { "x-request-id": rid } });
     }
+
+    const inspectionHeader =
+      includeInspection && inspection
+        ? Buffer.from(JSON.stringify(inspection), "utf8").toString("base64url")
+        : "";
+    const boundedInspectionHeader =
+      inspectionHeader && Buffer.byteLength(inspectionHeader, "ascii") <= 6000
+        ? inspectionHeader
+        : "";
+    const inspectionStatus = includeInspection
+      ? boundedInspectionHeader
+        ? "available"
+        : "unavailable"
+      : "disabled";
 
     return new Response(answer, {
       status: 200,
@@ -124,6 +155,12 @@ export async function POST(req: Request) {
         "x-request-id": rid,
         "X-VS-Response-Runtime": "resse_response_v0_2",
         ...(answerId ? { "X-VS-Answer-Id": answerId } : {}),
+        ...(boundedInspectionHeader
+          ? { "X-VS-Inspection": boundedInspectionHeader }
+          : {}),
+        ...(includeInspection
+          ? { "X-VS-Inspection-Status": inspectionStatus }
+          : {}),
       },
     });
   } catch (error: any) {

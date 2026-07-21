@@ -6,12 +6,16 @@ import { authFetch, authFetchJson } from "@/lib/authFetch";
 import { ChevronDown, Copy, RefreshCw, Volume2, Loader2, Square, Check } from "lucide-react";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
 import { useOpenAIRealtimeVoice } from "@/hooks/useOpenAIRealtimeVoice";
+import {
+  decodeResponseInspectionHeader,
+  ResponseTrace,
+  type ResponseInspection,
+} from "@/components/threads/ResponseTrace";
 
-type InspectResult = {
-  answer?: string;
-  meta_explanation?: any;
-  memory_used?: any[];
-  system_prompt?: string;
+type ChatResult = {
+  text: string;
+  inspect: ResponseInspection | null;
+  inspect_error: string | null;
 };
 
 type Msg = {
@@ -20,20 +24,9 @@ type Msg = {
   content: string;
   created_at?: string;
   v?: number;
-  inspect?: InspectResult | null;
+  inspect?: ResponseInspection | null;
   inspect_error?: string | null;
 };
-
-function readCookie(name: string): string | null {
-  if (typeof document === "undefined") return null;
-  const m = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
-  return m ? decodeURIComponent(m[1]) : null;
-}
-
-function hasInspectorCookie(): boolean {
-  const v = readCookie("vs_debug_token");
-  return !!(v && v.trim().length > 0);
-}
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return authFetchJson<T>(url, init);
@@ -56,40 +49,6 @@ function getLS<T>(key: string, fallback: T): T {
     }
   } catch {
     return fallback;
-  }
-}
-
-
-async function callInspect(input: string, tid: string, regen: boolean): Promise<InspectResult> {
-  const r = await authFetch("/api/chat/inspect", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "same-origin",
-    body: JSON.stringify({ input, thread_id: tid, regen }),
-  });
-
-  const t = await r.text().catch(() => "");
-  if (!r.ok) throw new Error(t || `HTTP ${r.status}`);
-
-  try {
-    return JSON.parse(t) as InspectResult;
-  } catch {
-    throw new Error("inspect: invalid JSON");
-  }
-}
-
-async function maybeInspect(
-  input: string,
-  tid: string,
-  regen: boolean,
-  isAdmin: boolean
-): Promise<{ inspect: InspectResult | null; inspect_error: string | null }> {
-  if (!isAdmin || !hasInspectorCookie()) return { inspect: null, inspect_error: null };
-  try {
-    const data = await callInspect(input, tid, regen);
-    return { inspect: data, inspect_error: null };
-  } catch (e: any) {
-    return { inspect: null, inspect_error: e?.message || String(e) };
   }
 }
 
@@ -143,7 +102,7 @@ export function BrainsChatPane() {
       try {
         const { data } = await supabase.auth.getUser();
         const role = (data?.user as any)?.app_metadata?.role;
-        const nextIsAdmin = role === "admin";
+        const nextIsAdmin = role === "owner" || role === "admin" || role === "developer";
         if (!mounted) return;
 
         setIsAdmin(nextIsAdmin);
@@ -251,7 +210,7 @@ export function BrainsChatPane() {
     transcript: string;
     reply: string;
     ms: number;
-    inspect: InspectResult | null;
+    inspect: ResponseInspection | null;
     inspect_error: string | null;
   } | null>(null);
 
@@ -578,7 +537,7 @@ export function BrainsChatPane() {
 
   async function loadMessages(
     tid: string,
-    attach?: { inspect: InspectResult | null; inspect_error: string | null }
+    attach?: { inspect: ResponseInspection | null; inspect_error: string | null }
   ) {
     setLoading(true);
     try {
@@ -643,14 +602,26 @@ export function BrainsChatPane() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function callChat(input: string, tid: string, regen = false, noStore = false): Promise<string> {
+  async function callChat(
+    input: string,
+    tid: string,
+    regen = false,
+    noStore = false
+  ): Promise<ChatResult> {
     const r = await authFetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ input, thread_id: tid, regen, noStore }),
     });
-    if (!r.ok) throw new Error(await r.text());
-    return await r.text();
+    const responseText = await r.text();
+    if (!r.ok) throw new Error(responseText);
+    return {
+      text: responseText,
+      ...decodeResponseInspectionHeader(
+        r.headers.get("X-VS-Inspection"),
+        r.headers.get("X-VS-Inspection-Status")
+      ),
+    };
   }
 
   async function truncateThreadFromMessage(tid: string, messageId: string): Promise<void> {
@@ -671,17 +642,33 @@ export function BrainsChatPane() {
 
     setSending(true);
     try {
-      const replyText = await callChat(lastUser, tid!, true);
-      const { inspect, inspect_error } = await maybeInspect(lastUser, tid!, true, isAdmin);
+      const reply = await callChat(lastUser, tid!, true);
 
       setMsgs((prev) => {
         const idx = lastAssistantIndex(prev);
         requestAnimationFrame(() => scrollToBottom("smooth"));
-        if (idx < 0) return [...prev, { role: "assistant", content: replyText, v: 1, inspect, inspect_error }];
+        if (idx < 0) {
+          return [
+            ...prev,
+            {
+              role: "assistant",
+              content: reply.text,
+              v: 1,
+              inspect: reply.inspect,
+              inspect_error: reply.inspect_error,
+            },
+          ];
+        }
 
         const next = prev.slice();
         const curV = Number(next[idx].v || 1);
-        next[idx] = { ...next[idx], content: replyText, v: curV + 1, inspect, inspect_error };
+        next[idx] = {
+          ...next[idx],
+          content: reply.text,
+          v: curV + 1,
+          inspect: reply.inspect,
+          inspect_error: reply.inspect_error,
+        };
         return next;
       });
     } catch (e: any) {
@@ -817,7 +804,7 @@ export function BrainsChatPane() {
     setMsgs((prev) => [...prev, { role: "user", content: msg }]);
 
     try {
-      const replyText = await callChat(msg, tid, false);
+      const reply = await callChat(msg, tid, false);
 
       void (async () => {
         try {
@@ -840,17 +827,27 @@ export function BrainsChatPane() {
         }
       })();
 
-      const { inspect, inspect_error } = await maybeInspect(msg, tid, false, isAdmin);
-
       setMsgs((prev): Msg[] => {
-        const next: Msg[] = [...prev, { role: "assistant", content: replyText, v: 1, inspect, inspect_error }];
+        const next: Msg[] = [
+          ...prev,
+          {
+            role: "assistant",
+            content: reply.text,
+            v: 1,
+            inspect: reply.inspect,
+            inspect_error: reply.inspect_error,
+          },
+        ];
         const idx = next.length - 1;
 
         return next;
       });
 
       window.dispatchEvent(new Event("vs_threads_refresh"));
-      await loadMessages(tid, { inspect, inspect_error });
+      await loadMessages(tid, {
+        inspect: reply.inspect,
+        inspect_error: reply.inspect_error,
+      });
     } catch (e: any) {
       alert(e?.message || String(e));
     } finally {
@@ -936,9 +933,7 @@ export function BrainsChatPane() {
 
         <div className="space-y-6">
           {msgs.map((m, idx) => {
-            const counts = (m.inspect as any)?.meta_explanation?.vantage?.counts || null;
-            const kMem = counts?.k_memory ?? null;
-            const kCor = counts?.k_corpus ?? null;
+            const inspect = m.inspect || null;
 
             const isTtsLoading = ttsLoadingIdx === idx;
             const isTtsPlaying = ttsPlayingIdx === idx;
@@ -1031,81 +1026,18 @@ export function BrainsChatPane() {
                     </div>
 
                     {isAdmin && (m.inspect || m.inspect_error) && (
-                      <details className="mt-2 max-w-[42rem] rounded-xl border bg-background/30 p-3 text-xs">
-                        <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Inspector
-                          {kMem != null || kCor != null ? ` (mem ${Number(kMem ?? 0)}, corpus ${Number(kCor ?? 0)})` : ""}
-                        </summary>
-
-                        {m.inspect_error && (
-                          <div className="mt-2 rounded-md border bg-muted/30 p-2">
-                            <div className="font-semibold">inspect_error</div>
-                            <div className="mt-1 whitespace-pre-wrap break-words">{m.inspect_error}</div>
-                          </div>
-                        )}
-
-                        {m.inspect && (
-                          <div className="mt-3 space-y-3">
-                            <div className="rounded-md border bg-muted/30 p-2">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="font-semibold">system_prompt</div>
-                                <button
-                                  className={[
-                                    "rounded-md border bg-background px-2 py-1 text-[11px]",
-                                    copiedKey === `inspect:system_prompt:${idx}` ? "ring-1 ring-ring" : "",
-                                  ].join(" ")}
-                                  onClick={() => copyText(String(m.inspect?.system_prompt || ""), undefined, `inspect:system_prompt:${idx}`)}
-                                >
-                                  {copiedKey === `inspect:system_prompt:${idx}` ? "Copied" : "Copy"}
-                                </button>
-                              </div>
-                              <pre className="mt-2 whitespace-pre-wrap break-words">{String(m.inspect.system_prompt || "")}</pre>
-                            </div>
-
-                            <div className="rounded-md border bg-muted/30 p-2">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="font-semibold">
-                                  memory_used ({Array.isArray(m.inspect.memory_used) ? m.inspect.memory_used.length : 0})
-                                </div>
-                                <button
-                                  className={[
-                                    "rounded-md border bg-background px-2 py-1 text-[11px]",
-                                    copiedKey === `inspect:memory_used:${idx}` ? "ring-1 ring-ring" : "",
-                                  ].join(" ")}
-                                  onClick={() =>
-                                    copyText(JSON.stringify(m.inspect?.memory_used || [], null, 2), undefined, `inspect:memory_used:${idx}`)
-                                  }
-                                >
-                                  {copiedKey === `inspect:memory_used:${idx}` ? "Copied" : "Copy"}
-                                </button>
-                              </div>
-                              <pre className="mt-2 whitespace-pre-wrap break-words">
-                                {JSON.stringify(m.inspect.memory_used || [], null, 2)}
-                              </pre>
-                            </div>
-
-                            <div className="rounded-md border bg-muted/30 p-2">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="font-semibold">meta_explanation</div>
-                                <button
-                                  className={[
-                                    "rounded-md border bg-background px-2 py-1 text-[11px]",
-                                    copiedKey === `inspect:meta_explanation:${idx}` ? "ring-1 ring-ring" : "",
-                                  ].join(" ")}
-                                  onClick={() =>
-                                    copyText(JSON.stringify(m.inspect?.meta_explanation || {}, null, 2), undefined, `inspect:meta_explanation:${idx}`)
-                                  }
-                                >
-                                  {copiedKey === `inspect:meta_explanation:${idx}` ? "Copied" : "Copy"}
-                                </button>
-                              </div>
-                              <pre className="mt-2 whitespace-pre-wrap break-words">
-                                {JSON.stringify(m.inspect.meta_explanation || {}, null, 2)}
-                              </pre>
-                            </div>
-                          </div>
-                        )}
-                      </details>
+                      <ResponseTrace
+                        inspection={inspect}
+                        error={m.inspect_error || null}
+                        copied={copiedKey === `inspect:trace:${idx}`}
+                        onCopy={() =>
+                          copyText(
+                            JSON.stringify(inspect, null, 2),
+                            undefined,
+                            `inspect:trace:${idx}`
+                          )
+                        }
+                      />
                     )}
                   </>
                 )}
