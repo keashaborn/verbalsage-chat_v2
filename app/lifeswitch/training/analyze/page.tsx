@@ -3,6 +3,10 @@
 import { authFetch } from "@/lib/authFetch";
 import { MiniLineChart, type XYPoint } from "@/components/sslg/MiniLineChart";
 import { calculateStrengthFrequency } from "./strengthFrequency";
+import {
+  calculateStrengthProgression,
+  type StrengthExposureRow,
+} from "./strengthProgression";
 import * as React from "react";
 
 type TrainingSessionRow = {
@@ -136,6 +140,22 @@ function formatDuration(min: number) {
   return `${Math.round(x)} min`;
 }
 
+function formatMetricNumber(value: number) {
+  const rounded = Math.round(safeNum(value, 0) * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function formatSignedMetric(value: number) {
+  const numeric = safeNum(value, 0);
+  return `${numeric > 0 ? "+" : ""}${formatMetricNumber(numeric)}`;
+}
+
+function formatLoad(value: number, unit: string | null) {
+  const numeric = safeNum(value, 0);
+  if (!unit && numeric === 0) return "Unloaded";
+  return `${formatMetricNumber(numeric)}${unit ? ` ${unit}` : ""}`;
+}
+
 function dailyStrengthSeries(
   sessions: TrainingSessionRow[],
   metric: "sessions" | "sets" | "volume"
@@ -238,6 +258,10 @@ export default function TrainingAnalyzePage() {
 
   const [strengthSessions, setStrengthSessions] = React.useState<TrainingSessionRow[]>([]);
   const [conditioningSessions, setConditioningSessions] = React.useState<ConditioningSessionRow[]>([]);
+  const [progressionRows, setProgressionRows] = React.useState<StrengthExposureRow[]>([]);
+  const [progressionLoading, setProgressionLoading] = React.useState(true);
+  const [progressionError, setProgressionError] = React.useState("");
+  const [showAllProgression, setShowAllProgression] = React.useState(false);
   const [trainingTargets, setTrainingTargets] = React.useState<Record<string, unknown> | null>(null);
   const [planEvidence, setPlanEvidence] = React.useState("Active Plan not loaded");
   const showDebug =
@@ -306,9 +330,34 @@ export default function TrainingAnalyzePage() {
     }
   }
 
+  async function loadProgressionRows() {
+    setProgressionLoading(true);
+    setProgressionError("");
+    const query = new URLSearchParams({
+      start_day: startDay,
+      end_day: today,
+      limit: "5000",
+    });
+
+    try {
+      const result = await fetchJson(`/api/lifeswitch/training/progression?${query.toString()}`);
+      setProgressionRows(Array.isArray(result) ? (result as StrengthExposureRow[]) : []);
+    } catch (error: any) {
+      setProgressionRows([]);
+      setProgressionError(String(error?.message || error));
+    } finally {
+      setProgressionLoading(false);
+    }
+  }
+
   React.useEffect(() => {
     void loadRows();
   }, []);
+
+  React.useEffect(() => {
+    setShowAllProgression(false);
+    void loadProgressionRows();
+  }, [startDay, today]);
 
   const filteredResistance = React.useMemo(() => {
     return strengthSessions.filter((s) => {
@@ -357,6 +406,15 @@ export default function TrainingAnalyzePage() {
     above: "border-sky-700/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
     insufficient_data: "border-muted-foreground/30 bg-muted/30 text-muted-foreground",
   }[strengthFrequency.status];
+
+  const strengthProgression = React.useMemo(
+    () => calculateStrengthProgression(progressionRows),
+    [progressionRows],
+  );
+
+  const visibleStrengthProgression = showAllProgression
+    ? strengthProgression
+    : strengthProgression.slice(0, 8);
 
   const summary = React.useMemo(() => {
     const strengthDays = new Set<string>();
@@ -519,10 +577,13 @@ export default function TrainingAnalyzePage() {
           <button
             type="button"
             className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
-            onClick={() => void loadRows()}
-            disabled={loading}
+            onClick={() => {
+              void loadRows();
+              void loadProgressionRows();
+            }}
+            disabled={loading || progressionLoading}
           >
-            {loading ? "Loading…" : "Refresh"}
+            {loading || progressionLoading ? "Loading…" : "Refresh"}
           </button>
         </div>
       </div>
@@ -602,6 +663,104 @@ export default function TrainingAnalyzePage() {
           )}
         </div>
       </section>
+
+      <section className="mt-6 rounded-xl border p-4" aria-label="Strength exercise progression">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold">Exercise progression</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Latest completed strength exposure compared with the previous exposure for the same exercise and load unit.
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {strengthProgression.length} exercise{strengthProgression.length === 1 ? "" : "s"}
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          Selected range: {startDay} → {today}. Rehab, incomplete, inactive, and unclassified work is excluded. Changes are descriptive; they do not by themselves prove increased or decreased strength.
+        </div>
+
+        {progressionError ? (
+          <div className="mt-4 rounded-xl border border-red-700/40 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-300">
+            Exercise progression unavailable: {progressionError}
+          </div>
+        ) : progressionLoading && !strengthProgression.length ? (
+          <div className="mt-4 rounded-xl border p-4 text-sm text-muted-foreground">
+            Loading exercise progression…
+          </div>
+        ) : visibleStrengthProgression.length ? (
+          <div className="mt-4 space-y-3">
+            {visibleStrengthProgression.map((item) => {
+              const statusLabel =
+                item.comparisonStatus === "comparable"
+                  ? "Comparable"
+                  : item.comparisonStatus === "baseline"
+                    ? "Baseline"
+                    : "No matching unit";
+              const statusClass =
+                item.comparisonStatus === "comparable"
+                  ? "border-sky-700/40 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+                  : "border-muted-foreground/30 bg-muted/30 text-muted-foreground";
+
+              return (
+                <div key={item.exerciseId} className="rounded-xl border p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold">{item.exerciseName}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Latest: {item.latest.day} · {item.latest.sessionName} · {item.exposureCount} exposure{item.exposureCount === 1 ? "" : "s"} in range
+                      </div>
+                    </div>
+                    <div className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusClass}`}>
+                      {statusLabel}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <MetricDetail label="Sets" value={formatMetricNumber(item.latest.setCount)} />
+                    <MetricDetail label="Total reps" value={formatMetricNumber(item.latest.totalReps)} />
+                    <MetricDetail label="Top load" value={formatLoad(item.latest.maxLoad, item.latest.loadUnit)} />
+                    <MetricDetail label="Volume" value={formatK(item.latest.totalVolume)} />
+                  </div>
+
+                  {item.previous && item.deltas ? (
+                    <div className="mt-3 rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                      <div>
+                        Previous {item.previous.day}: {item.previous.setCount} sets · {formatMetricNumber(item.previous.totalReps)} reps · top {formatLoad(item.previous.maxLoad, item.previous.loadUnit)} · volume {formatK(item.previous.totalVolume)}
+                      </div>
+                      <div className="mt-1">
+                        Change: sets {formatSignedMetric(item.deltas.sets)} · reps {formatSignedMetric(item.deltas.reps)} · top load {formatSignedMetric(item.deltas.maxLoad)}{item.latest.loadUnit ? ` ${item.latest.loadUnit}` : ""} · volume {formatSignedMetric(item.deltas.volume)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                      {item.comparisonStatus === "baseline"
+                        ? "Baseline only. Complete this exercise again to create a comparison."
+                        : "Earlier exposures use a different or mixed load unit, so no load comparison is shown."}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {strengthProgression.length > 8 ? (
+              <button
+                type="button"
+                className="w-full rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
+                onClick={() => setShowAllProgression((current) => !current)}
+              >
+                {showAllProgression ? "Show latest 8" : `Show all ${strengthProgression.length} exercises`}
+              </button>
+            ) : null}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-xl border p-4 text-sm text-muted-foreground">
+            No completed classified strength exercises were found in this range.
+          </div>
+        )}
+      </section>
+
       <section className="mt-6 grid gap-4">
         <div>
           <div className="text-sm font-semibold">Training trends</div>
@@ -699,6 +858,15 @@ function MetricCard({ label, value, sub }: { label: string; value: React.ReactNo
       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="mt-2 text-2xl font-semibold">{value}</div>
       {sub ? <div className="mt-1 text-xs text-muted-foreground">{sub}</div> : null}
+    </div>
+  );
+}
+
+function MetricDetail({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border p-3">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-1 text-base font-semibold">{value}</div>
     </div>
   );
 }
