@@ -1,11 +1,31 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
-import { readPlanNutritionTargets } from "@/lib/lifeswitch/planNutritionTargets";
+import {
+  readPlanNutritionTargets,
+  type PlanNutritionTargetConfig,
+} from "@/lib/lifeswitch/planNutritionTargets";
+import {
+  scoreNutritionDay,
+  scoreNutritionRollingWindow,
+} from "@/lib/lifeswitch/nutritionScoring";
 import { MiniLineChart, type XYPoint } from "@/components/sslg/MiniLineChart";
 import * as React from "react";
 
 type RangeDays = 7 | 14 | 30 | 90;
+type NutritionMetric = "kcal" | "protein_g" | "carbs_g" | "fat_g";
+
+const NUTRITION_METRICS: Array<{
+  value: NutritionMetric;
+  label: string;
+  yLabel: string;
+  suffix: string;
+}> = [
+  { value: "kcal", label: "Calories", yLabel: "Calories", suffix: " kcal" },
+  { value: "protein_g", label: "Protein", yLabel: "Protein", suffix: "g" },
+  { value: "carbs_g", label: "Carbs", yLabel: "Carbs", suffix: "g" },
+  { value: "fat_g", label: "Fat", yLabel: "Fat", suffix: "g" },
+];
 
 type DaySummary = {
   day: string;
@@ -15,16 +35,8 @@ type DaySummary = {
   protein_g: number | null;
   carbs_g: number | null;
   fat_g: number | null;
-  calorieHit: boolean;
-  proteinHit: boolean;
-  fullHit: boolean;
-};
-
-type PlanProfile = {
-  plan_profile_id?: string;
-  phase?: string;
-  nutrition_targets?: Record<string, any>;
-  [key: string]: any;
+  completedAt: string | null;
+  finalized: boolean;
 };
 
 function pad2(n: number) {
@@ -53,14 +65,6 @@ function fmt1(x: number) {
 
 function fmt0(x: number) {
   return String(Math.round(safeNum(x, 0)));
-}
-
-function calorieTargetFromPlan(plan: PlanProfile | null): number | null {
-  return readPlanNutritionTargets(plan?.nutrition_targets).nominalKcal;
-}
-
-function proteinTargetFromPlan(plan: PlanProfile | null): number | null {
-  return readPlanNutritionTargets(plan?.nutrition_targets).proteinMinimumG;
 }
 
 async function fetchJson(url: string, init?: RequestInit) {
@@ -207,24 +211,50 @@ export default function NutritionAnalyzePage() {
   const [rangeDays, setRangeDays] = React.useState<RangeDays>(30);
   const [status, setStatus] = React.useState("loading…");
   const [loading, setLoading] = React.useState(true);
-  const [plan, setPlan] = React.useState<PlanProfile | null>(null);
+  const [nutritionTargets, setNutritionTargets] = React.useState<PlanNutritionTargetConfig>(
+    () => readPlanNutritionTargets(null),
+  );
+  const [targetSource, setTargetSource] = React.useState("Plan targets not loaded");
   const [days, setDays] = React.useState<DaySummary[]>([]);
+  const [nutritionMetric, setNutritionMetric] = React.useState<NutritionMetric>("kcal");
   const showDebug =
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debug") === "1";
 
   const today = React.useMemo(() => todayLocalYYYYMMDD(), []);
   const startDay = React.useMemo(() => daysAgoYYYYMMDD(rangeDays - 1), [rangeDays]);
 
-  const calorieTarget = React.useMemo(() => calorieTargetFromPlan(plan), [plan]);
-  const proteinTarget = React.useMemo(() => proteinTargetFromPlan(plan), [plan]);
-
   async function loadRows() {
     setLoading(true);
     setStatus("loading nutrition analysis…");
 
     try {
-      const planJson = await fetchJson("/api/lifeswitch/plan/profile?create_if_missing=1");
-      setPlan(planJson && typeof planJson === "object" ? (planJson as PlanProfile) : null);
+      let nextTargets = readPlanNutritionTargets(null);
+      let nextTargetSource = "No calorie or protein targets found";
+
+      try {
+        const activePlanJson = await fetchJson("/api/lifeswitch/plan/agentic/active");
+        const activeDocument = activePlanJson?.active_plan?.document;
+
+        if (
+          activeDocument &&
+          typeof activeDocument === "object" &&
+          !Array.isArray(activeDocument)
+        ) {
+          nextTargets = readPlanNutritionTargets(activeDocument.nutrition_targets || {});
+          nextTargetSource = "Active Plan";
+        } else {
+          const legacyPlanJson = await fetchJson(
+            "/api/lifeswitch/plan/profile?create_if_missing=0",
+          );
+          nextTargets = readPlanNutritionTargets(legacyPlanJson?.nutrition_targets || {});
+          nextTargetSource = "Legacy Plan profile";
+        }
+      } catch (targetError: any) {
+        nextTargetSource = `Plan targets unavailable: ${String(targetError?.message || targetError)}`;
+      }
+
+      setNutritionTargets(nextTargets);
+      setTargetSource(nextTargetSource);
 
       const rangeUrl = new URL("/api/lifeswitch/nutrition/log/range", window.location.origin);
       rangeUrl.searchParams.set("start_day", daysAgoYYYYMMDD(89));
@@ -232,8 +262,6 @@ export default function NutritionAnalyzePage() {
       rangeUrl.searchParams.set("include_entries", "0");
       const rangeJson = await fetchJson(rangeUrl.toString());
       const rangeRows = Array.isArray(rangeJson?.days) ? rangeJson.days : [];
-      const calorieTarget = calorieTargetFromPlan(planJson);
-      const proteinTarget = proteinTargetFromPlan(planJson);
 
       const out: DaySummary[] = rangeRows
         .map((rangeDay: any) => {
@@ -244,21 +272,18 @@ export default function NutritionAnalyzePage() {
           };
           const t = extractTotals(raw);
           const any = hasAnyData(raw, t);
-          const calorieHit = any && calorieTarget != null && t.kcal != null && t.kcal <= calorieTarget;
-          const proteinHit = any && proteinTarget != null && t.protein_g != null && t.protein_g >= proteinTarget;
-          const fullHit =
-            any &&
-            (calorieTarget == null || calorieHit) &&
-            (proteinTarget == null || proteinHit);
+          const completedAt = raw?.day?.completed_at
+            ? String(raw.day.completed_at)
+            : null;
+          const finalized = day < todayLocalYYYYMMDD() || Boolean(completedAt);
 
           return {
             day,
             raw,
             any,
             ...t,
-            calorieHit,
-            proteinHit,
-            fullHit,
+            completedAt,
+            finalized,
           };
         })
         .filter((summary: DaySummary) => /^\d{4}-\d{2}-\d{2}$/.test(summary.day));
@@ -267,7 +292,6 @@ export default function NutritionAnalyzePage() {
       setStatus(`loaded ${out.filter((summary) => summary.any).length} logged days`);
     } catch (e: any) {
       setDays([]);
-      setPlan(null);
       setStatus(`error: ${String(e?.message || e)}`);
     } finally {
       setLoading(false);
@@ -283,40 +307,118 @@ export default function NutritionAnalyzePage() {
   }, [days, startDay, today]);
 
   const loggedDays = React.useMemo(() => filteredDays.filter((d) => d.any), [filteredDays]);
+  const finalizedLoggedDays = React.useMemo(
+    () => loggedDays.filter((d) => d.finalized),
+    [loggedDays],
+  );
+  const inProgressDays = React.useMemo(
+    () => loggedDays.filter((d) => !d.finalized),
+    [loggedDays],
+  );
 
   const summary = React.useMemo(() => {
-    const denom = Math.max(1, loggedDays.length);
+    const denom = Math.max(1, finalizedLoggedDays.length);
 
-    const kcalAvg = loggedDays.reduce((acc, d) => acc + safeNum(d.kcal, 0), 0) / denom;
-    const proteinAvg = loggedDays.reduce((acc, d) => acc + safeNum(d.protein_g, 0), 0) / denom;
-    const carbsAvg = loggedDays.reduce((acc, d) => acc + safeNum(d.carbs_g, 0), 0) / denom;
-    const fatAvg = loggedDays.reduce((acc, d) => acc + safeNum(d.fat_g, 0), 0) / denom;
-
-    const calorieHitDays = loggedDays.filter((d) => d.calorieHit).length;
-    const proteinHitDays = loggedDays.filter((d) => d.proteinHit).length;
-    const fullHitDays = loggedDays.filter((d) => d.fullHit).length;
+    const kcalAvg = finalizedLoggedDays.reduce((acc, d) => acc + safeNum(d.kcal, 0), 0) / denom;
+    const proteinAvg = finalizedLoggedDays.reduce((acc, d) => acc + safeNum(d.protein_g, 0), 0) / denom;
+    const carbsAvg = finalizedLoggedDays.reduce((acc, d) => acc + safeNum(d.carbs_g, 0), 0) / denom;
+    const fatAvg = finalizedLoggedDays.reduce((acc, d) => acc + safeNum(d.fat_g, 0), 0) / denom;
 
     return {
       loggedDays: loggedDays.length,
+      finalizedDays: finalizedLoggedDays.length,
+      inProgressDays: inProgressDays.length,
       missingDays: Math.max(0, rangeDays - loggedDays.length),
       kcalAvg,
       proteinAvg,
       carbsAvg,
       fatAvg,
-      calorieHitDays,
-      proteinHitDays,
-      fullHitDays,
-      calorieHitPct: loggedDays.length ? Math.round((calorieHitDays / loggedDays.length) * 100) : 0,
-      proteinHitPct: loggedDays.length ? Math.round((proteinHitDays / loggedDays.length) * 100) : 0,
-      fullHitPct: loggedDays.length ? Math.round((fullHitDays / loggedDays.length) * 100) : 0,
     };
-  }, [loggedDays, rangeDays]);
+  }, [finalizedLoggedDays, inProgressDays.length, loggedDays.length, rangeDays]);
 
-  const nutritionTargets = plan?.nutrition_targets || {};
-  const canonicalTargets = readPlanNutritionTargets(nutritionTargets);
+  const dailyScores = React.useMemo(
+    () =>
+      finalizedLoggedDays.map((day) => ({
+        day,
+        score: scoreNutritionDay(
+          {
+            day: day.day,
+            logged: day.any,
+            finalized: day.finalized,
+            kcal: day.kcal,
+            proteinG: day.protein_g,
+          },
+          nutritionTargets,
+        ),
+      })),
+    [finalizedLoggedDays, nutritionTargets],
+  );
+  const calorieEvaluableDays = dailyScores.filter(
+    ({ score }) => score.calorieStatus !== "not_evaluable",
+  );
+  const calorieHitDays = calorieEvaluableDays.filter(
+    ({ score }) => score.calorieStatus === "hit",
+  ).length;
+  const proteinEvaluableDays = dailyScores.filter(
+    ({ score }) => score.proteinStatus !== "not_evaluable",
+  );
+  const proteinHitDays = proteinEvaluableDays.filter(
+    ({ score }) => score.proteinStatus === "hit",
+  ).length;
 
-  const calorieSeries = React.useMemo(() => dayMetricSeries(filteredDays, "kcal"), [filteredDays]);
-  const proteinSeries = React.useMemo(() => dayMetricSeries(filteredDays, "protein_g"), [filteredDays]);
+  const currentDay = days.find((day) => day.day === today) || null;
+  const rollingAsOfDay = currentDay?.completedAt ? today : daysAgoYYYYMMDD(1);
+  const rollingScore = React.useMemo(
+    () =>
+      scoreNutritionRollingWindow(
+        days.map((day) => ({
+          day: day.day,
+          logged: day.any,
+          finalized: day.finalized,
+          kcal: day.kcal,
+          proteinG: day.protein_g,
+        })),
+        rollingAsOfDay,
+        nutritionTargets,
+      ),
+    [days, nutritionTargets, rollingAsOfDay],
+  );
+
+  const rollingStatusLabel =
+    rollingScore.status === "hit"
+      ? "Hit"
+      : rollingScore.status === "not_hit"
+        ? "Not hit"
+        : rollingScore.status === "insufficient_data"
+          ? "Needs more logged days"
+          : "Not configured";
+  const calorieTargetLabel = nutritionTargets.dailyRangeKcal
+    ? `${nutritionTargets.dailyRangeKcal.lower}–${nutritionTargets.dailyRangeKcal.upper} kcal acceptable daily range`
+    : nutritionTargets.nominalKcal != null
+      ? `${nutritionTargets.nominalKcal} kcal target · acceptable range not set`
+      : "No calorie target configured";
+  const proteinTargetLabel = nutritionTargets.proteinMinimumG != null
+    ? `${nutritionTargets.proteinMinimumG}g minimum${nutritionTargets.proteinWeeklyAdherence
+      ? ` · required ${nutritionTargets.proteinWeeklyAdherence.requiredHitDays}/${nutritionTargets.proteinWeeklyAdherence.windowDays} days`
+      : ""}`
+    : "No protein target configured";
+  const rollingTargetLabel = nutritionTargets.rollingAverageKcal
+    ? `${nutritionTargets.rollingAverageKcal.windowDays}-day calorie average ${nutritionTargets.rollingAverageKcal.lower}–${nutritionTargets.rollingAverageKcal.upper} kcal`
+    : null;
+
+  const selectedMetric =
+    NUTRITION_METRICS.find((metric) => metric.value === nutritionMetric) ??
+    NUTRITION_METRICS[0];
+  const nutritionSeries = React.useMemo(
+    () => dayMetricSeries(finalizedLoggedDays, nutritionMetric),
+    [finalizedLoggedDays, nutritionMetric],
+  );
+  const selectedMetricTargetLabel =
+    nutritionMetric === "kcal"
+      ? [calorieTargetLabel, rollingTargetLabel].filter(Boolean).join(" · ")
+      : nutritionMetric === "protein_g"
+        ? proteinTargetLabel
+        : "No Plan target is scored for this metric.";
 
   return (
     <div className="mx-auto max-w-6xl p-4 overflow-x-hidden">
@@ -359,119 +461,140 @@ export default function NutritionAnalyzePage() {
           <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
           <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
             <div>status: {status}</div>
+            <div>target source: {targetSource}</div>
             <div>days loaded: {days.length}</div>
             <div>logged days in range: {summary.loggedDays}</div>
+            <div>completed logged days in range: {summary.finalizedDays}</div>
           </div>
         </details>
       ) : null}
 
+      {status.startsWith("error:") ? (
+        <div className="mt-4 rounded-xl border border-red-700/40 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-300">
+          Nutrition analysis unavailable: {status.slice("error:".length).trim()}
+        </div>
+      ) : null}
+
       <section className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Logged days" value={summary.loggedDays} sub={`${summary.missingDays} days with no intake logged`} />
-        <MetricCard label="Avg calories" value={fmt0(summary.kcalAvg)} sub={calorieTarget ? `target ${calorieTarget}` : "no plan target"} />
-        <MetricCard label="Avg protein" value={`${fmt1(summary.proteinAvg)}g`} sub={proteinTarget ? `target ${proteinTarget}g` : "no plan target"} />
-        <MetricCard label="Avg macros" value={`${fmt1(summary.carbsAvg)}C / ${fmt1(summary.fatAvg)}F`} sub="daily average grams" />
-      </section>
-
-      <section className="mt-6 grid gap-3 md:grid-cols-3">
-        <MetricCard label="Calorie target" value={`${summary.calorieHitPct}%`} sub={`${summary.calorieHitDays}/${summary.loggedDays} logged days`} />
-        <MetricCard label="Protein target" value={`${summary.proteinHitPct}%`} sub={`${summary.proteinHitDays}/${summary.loggedDays} logged days`} />
-        <MetricCard label="Full nutrition hit" value={`${summary.fullHitPct}%`} sub={`${summary.fullHitDays}/${summary.loggedDays} logged days`} />
-      </section>
-
-      <section className="mt-6 rounded-xl border p-4">
-        <div className="text-sm font-semibold">Current Plan targets</div>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <Info label="Phase" value={plan?.phase || "—"} />
-          <Info label="Calories" value={canonicalTargets.nominalKcal == null ? "—" : String(canonicalTargets.nominalKcal)} />
-          <Info label="Protein" value={canonicalTargets.proteinMinimumG == null ? "—" : String(canonicalTargets.proteinMinimumG)} />
-          <Info label="Macros" value={String(nutritionTargets.macro_notes ?? nutritionTargets.carbs_fat ?? nutritionTargets.macros ?? "—")} />
-          <Info label="Meal structure" value={String(nutritionTargets.meal_structure ?? nutritionTargets.meals ?? nutritionTargets.meal_timing ?? "—")} />
-          <Info label="Adherence target" value={String(nutritionTargets.adherence_target ?? nutritionTargets.adherence ?? "—")} />
-        </div>
-      </section>
-
-      <section className="mt-6 rounded-xl border p-4">
-        <div className="text-sm font-semibold">Current read</div>
-        <div className="mt-2 text-sm text-muted-foreground">
-          {summary.loggedDays ? (
-            <>
-              In the selected range, intake was logged on {summary.loggedDays} of {rangeDays} days.
-              Average intake was {fmt0(summary.kcalAvg)} kcal and {fmt1(summary.proteinAvg)}g protein.
-              {calorieTarget ? ` Calories were at or below target on ${summary.calorieHitDays} logged days.` : " No calorie target is available from Plan."}
-              {proteinTarget ? ` Protein met target on ${summary.proteinHitDays} logged days.` : " No protein target is available from Plan."}
-            </>
-          ) : (
-            <>No logged nutrition days were found in this range.</>
-          )}
-        </div>
-      </section>
-      <section className="mt-6 grid gap-4">
-        <div>
-          <div className="text-sm font-semibold">Nutrition trends</div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Calories and protein across logged nutrition days.
-          </p>
-        </div>
-
-        <MiniLineChart
-          title="Calories per logged day"
-          series={calorieSeries}
-          xMode="date"
-          yLabel="Calories"
-          ySuffix=" kcal"
-          includeZero={false}
-          heightPx={260}
+        <MetricCard
+          label="Logged days"
+          value={summary.loggedDays}
+          sub={`${summary.finalizedDays} completed · ${summary.missingDays} with no intake${summary.inProgressDays ? ` · ${summary.inProgressDays} in progress` : ""}`}
         />
-
-        <MiniLineChart
-          title="Protein per logged day"
-          series={proteinSeries}
-          xMode="date"
-          yLabel="Protein"
-          ySuffix="g"
-          includeZero={false}
-          heightPx={260}
+        <MetricCard
+          label="Avg calories"
+          value={summary.finalizedDays ? fmt0(summary.kcalAvg) : "—"}
+          sub={calorieTargetLabel}
+        />
+        <MetricCard
+          label="Avg protein"
+          value={summary.finalizedDays ? `${fmt1(summary.proteinAvg)}g` : "—"}
+          sub={proteinTargetLabel}
+        />
+        <MetricCard
+          label="Avg macros"
+          value={summary.finalizedDays ? `${fmt1(summary.carbsAvg)}C / ${fmt1(summary.fatAvg)}F` : "—"}
+          sub="completed-day average grams"
         />
       </section>
-      <section className="mt-6 rounded-xl border p-4">
-        <div className="flex items-center justify-between gap-3">
+
+      <section className="mt-6 rounded-xl border p-4" aria-label="Plan versus actual nutrition adherence">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold">Recent nutrition days</div>
+            <div className="text-sm font-semibold">Plan vs actual · Nutrition adherence</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Daily totals from your nutrition log.
+              {targetSource}. Completed days are scored; an unfinished current day is excluded.
             </div>
           </div>
-          <div className="text-xs text-muted-foreground">
-            {loggedDays.length} day{loggedDays.length === 1 ? "" : "s"}
+          {rollingScore.windowDays ? (
+            <div className="rounded-full border px-3 py-1 text-xs font-semibold">
+              {rollingScore.windowDays}-day check · {rollingStatusLabel}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <MetricCard
+            label="Data"
+            value={rollingScore.windowDays
+              ? `${rollingScore.loggedDays}/${rollingScore.windowDays}`
+              : `${summary.finalizedDays}/${rangeDays}`}
+            sub={rollingScore.windowDays ? `completed days through ${rollingAsOfDay}` : "completed logged days in selected range"}
+          />
+          <MetricCard
+            label="Calories"
+            value={nutritionTargets.rollingAverageKcal
+              ? rollingScore.calorieAverage == null
+                ? "—"
+                : `${fmt0(rollingScore.calorieAverage)} avg`
+              : nutritionTargets.dailyRangeKcal
+                ? `${calorieHitDays}/${calorieEvaluableDays.length}`
+                : "Not scored"}
+            sub={nutritionTargets.rollingAverageKcal
+              ? `${nutritionTargets.rollingAverageKcal.lower}–${nutritionTargets.rollingAverageKcal.upper} kcal rolling range`
+              : nutritionTargets.dailyRangeKcal
+                ? `${nutritionTargets.dailyRangeKcal.lower}–${nutritionTargets.dailyRangeKcal.upper} kcal completed days`
+                : calorieTargetLabel}
+          />
+          <MetricCard
+            label="Protein"
+            value={nutritionTargets.proteinWeeklyAdherence
+              ? `${rollingScore.proteinDaysMeetingMinimum ?? 0}/${nutritionTargets.proteinWeeklyAdherence.windowDays}`
+              : nutritionTargets.proteinMinimumG != null
+                ? `${proteinHitDays}/${proteinEvaluableDays.length}`
+                : "Not scored"}
+            sub={nutritionTargets.proteinWeeklyAdherence
+              ? `required ${nutritionTargets.proteinWeeklyAdherence.requiredHitDays} days at or above ${nutritionTargets.proteinMinimumG ?? "—"}g`
+              : proteinTargetLabel}
+          />
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-xl border p-4" aria-label="Nutrition trends">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold">Nutrition trends</div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              One metric across completed logged days in the selected range.
+            </p>
+          </div>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Graph</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {NUTRITION_METRICS.map((metric) => (
+                <button
+                  key={metric.value}
+                  type="button"
+                  className={`rounded-full border px-3 py-1.5 text-sm ${
+                    nutritionMetric === metric.value
+                      ? "border-foreground bg-foreground text-background"
+                      : "hover:bg-muted/30"
+                  }`}
+                  onClick={() => setNutritionMetric(metric.value)}
+                >
+                  {metric.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {loggedDays.length ? (
-          <div className="mt-4 space-y-3">
-            {loggedDays.slice(0, 20).map((d) => (
-              <div key={d.day} className="rounded-xl border p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold">
-                      {d.day} {d.fullHit ? "· HIT" : ""}
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      kcal {fmt0(safeNum(d.kcal, 0))} · protein {fmt1(safeNum(d.protein_g, 0))}g · carbs {fmt1(safeNum(d.carbs_g, 0))}g · fat {fmt1(safeNum(d.fat_g, 0))}g
-                    </div>
-                  </div>
+        <div className="mt-4 rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          {selectedMetricTargetLabel}
+        </div>
 
-                  <div className="text-xs text-muted-foreground">
-                    {d.calorieHit ? "calorie hit" : "calorie miss"} · {d.proteinHit ? "protein hit" : "protein miss"}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-4 rounded-xl border p-4 text-sm text-muted-foreground">
-            No logged nutrition days in this range.
-          </div>
-        )}
+        <div className="mt-4">
+          <MiniLineChart
+          title={`${selectedMetric.label} per completed logged day`}
+          series={nutritionSeries}
+          xMode="date"
+          xLabel="Completed logged days · oldest to newest"
+          yLabel={selectedMetric.yLabel}
+          ySuffix={selectedMetric.suffix}
+          includeZero={false}
+          heightPx={300}
+          />
+        </div>
       </section>
     </div>
   );
@@ -483,15 +606,6 @@ function MetricCard({ label, value, sub }: { label: string; value: React.ReactNo
       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="mt-2 text-2xl font-semibold">{value}</div>
       {sub ? <div className="mt-1 text-xs text-muted-foreground">{sub}</div> : null}
-    </div>
-  );
-}
-
-function Info({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border p-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-sm">{value || "—"}</div>
     </div>
   );
 }
