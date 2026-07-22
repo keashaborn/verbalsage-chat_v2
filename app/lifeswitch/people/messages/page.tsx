@@ -521,7 +521,7 @@ export default function LifeSwitchPeopleMessagesPage() {
         >
           <BackButton
             fallbackHref="/lifeswitch/people"
-            label="Connections"
+            label="People"
             className="rounded-md px-3 py-2 text-sm"
           />
           <button

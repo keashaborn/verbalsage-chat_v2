@@ -3,10 +3,18 @@
 import * as React from "react";
 import Link from "next/link";
 import {
+  Activity,
+  ClipboardList,
   ChevronDown,
   ChevronUp,
+  Dumbbell,
+  LockKeyhole,
+  MessageSquare,
+  Plus,
+  Share2,
   ShieldCheck,
   Trash2,
+  Utensils,
   Users,
 } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
@@ -66,20 +74,6 @@ type CreatedInvitation = Invitation & {
   token: string;
 };
 
-type WorkoutTemplateShare = {
-  workout_template_share_id: string;
-  created_by_user_id: string;
-  workout_template_id: string;
-  workout_name?: string | null;
-  status: "active" | "revoked" | "expired";
-  label?: string | null;
-  notes?: string | null;
-  expires_at?: string | null;
-  revoked_at?: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
 type PermissionScope =
   | "messages:send"
   | "training:view"
@@ -90,14 +84,15 @@ type PermissionScope =
   | "plan:edit";
 
 type PermissionLevel = "none" | "view" | "comment" | "edit" | "admin";
-type NetworkTab = "connections" | "invites" | "sharing";
 
-const PERMISSIONS: Array<{
+type PermissionDefinition = {
   scope: PermissionScope;
   label: string;
   level: PermissionLevel;
   description: string;
-}> = [
+};
+
+const PERMISSIONS: PermissionDefinition[] = [
   {
     scope: "messages:send",
     label: "Messages",
@@ -106,42 +101,80 @@ const PERMISSIONS: Array<{
   },
   {
     scope: "training:view",
-    label: "Training view",
+    label: "Training history",
     level: "view",
     description:
-      "Allow viewing shared training logs and related training context.",
+      "View completed sessions, the training calendar, and exercise history.",
   },
   {
     scope: "nutrition:view",
-    label: "Nutrition view",
+    label: "Nutrition log",
     level: "view",
-    description:
-      "Allow viewing shared nutrition logs and related nutrition context.",
+    description: "View logged foods, meals, totals, and nutrition history.",
   },
   {
     scope: "measurements:view",
-    label: "Measurements view",
+    label: "Measurements",
     level: "view",
-    description: "Allow viewing shared measurements and body-composition data.",
+    description: "View measurements and body-composition history.",
   },
   {
     scope: "plan:view",
-    label: "Plan view",
+    label: "View Plan",
     level: "view",
     description: "Allow viewing the shared unified LifeSwitch plan.",
   },
   {
     scope: "plan:comment",
-    label: "Plan comment",
+    label: "Comment on Plan",
     level: "comment",
     description: "Allow comments and suggestions on the shared plan.",
   },
   {
     scope: "plan:edit",
-    label: "Plan edit",
+    label: "Draft Plan changes",
     level: "edit",
     description:
       "Allow drafting and proposing shared Plan changes. The owner must still approve before activation.",
+  },
+];
+
+const PERMISSION_GROUPS: Array<{
+  key: string;
+  label: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+  scopes: PermissionScope[];
+  sensitive?: boolean;
+}> = [
+  {
+    key: "communication",
+    label: "Communication",
+    description: "Private communication inside LifeSwitch.",
+    icon: MessageSquare,
+    scopes: ["messages:send"],
+  },
+  {
+    key: "training",
+    label: "Training",
+    description: "Read-only access to your completed training.",
+    icon: Dumbbell,
+    scopes: ["training:view"],
+  },
+  {
+    key: "plan",
+    label: "Plan collaboration",
+    description: "View, discuss, or draft changes to your Plan.",
+    icon: ClipboardList,
+    scopes: ["plan:view", "plan:comment", "plan:edit"],
+  },
+  {
+    key: "health",
+    label: "Health data",
+    description: "Sensitive nutrition and body-measurement records.",
+    icon: LockKeyhole,
+    scopes: ["nutrition:view", "measurements:view"],
+    sensitive: true,
   },
 ];
 
@@ -182,7 +215,7 @@ export default function LifeSwitchPeoplePage() {
   const [currentUserId, setCurrentUserId] = React.useState("");
   const currentUserIdRef = React.useRef("");
   const [authResolved, setAuthResolved] = React.useState(false);
-  const [activeTab, setActiveTab] = React.useState<NetworkTab>("connections");
+  const [invitePanelOpen, setInvitePanelOpen] = React.useState(false);
   const [people, setPeople] = React.useState<PersonProfile[]>([]);
   const [relationships, setRelationships] = React.useState<Relationship[]>([]);
   const [selectedUserId, setSelectedUserId] = React.useState("");
@@ -192,9 +225,6 @@ export default function LifeSwitchPeoplePage() {
     RelationshipPermission[]
   >([]);
   const [invitations, setInvitations] = React.useState<Invitation[]>([]);
-  const [workoutShares, setWorkoutShares] = React.useState<
-    WorkoutTemplateShare[]
-  >([]);
   const [inviteKind, setInviteKind] =
     React.useState<Relationship["relationship_kind"]>("friend");
   const [inviteLabel, setInviteLabel] = React.useState("");
@@ -217,7 +247,6 @@ export default function LifeSwitchPeoplePage() {
   const authContextVersionRef = React.useRef(0);
   const mutationRequestRef = React.useRef(0);
 
-  const currentPerson = people.find((p) => p.user_id === currentUserId) || null;
   const acceptedContacts = React.useMemo(
     () =>
       relationships
@@ -253,6 +282,28 @@ export default function LifeSwitchPeoplePage() {
     return m;
   }, [permissionsIGive]);
 
+  const permissionsTheyGive = React.useMemo(
+    () =>
+      permissions.filter(
+        (p) =>
+          p.grantor_user_id === selectedUserId &&
+          p.grantee_user_id === currentUserId &&
+          p.is_enabled,
+      ),
+    [permissions, selectedUserId, currentUserId],
+  );
+
+  const permissionTheyGiveByScope = React.useMemo(() => {
+    const m = new Map<PermissionScope, RelationshipPermission>();
+    for (const p of permissionsTheyGive) m.set(p.permission_scope, p);
+    return m;
+  }, [permissionsTheyGive]);
+
+  const pendingInvitations = React.useMemo(
+    () => invitations.filter((invitation) => invitation.status === "pending"),
+    [invitations],
+  );
+
   function clearSelectedContact() {
     contactSelectionVersionRef.current += 1;
     permissionsRequestRef.current += 1;
@@ -279,7 +330,6 @@ export default function LifeSwitchPeoplePage() {
     setPeople([]);
     setRelationships([]);
     setInvitations([]);
-    setWorkoutShares([]);
     clearSelectedContact();
     clearSensitiveInviteState();
     setInviteLabel("");
@@ -301,12 +351,9 @@ export default function LifeSwitchPeoplePage() {
     setLoading(true);
     setError("");
     try {
-      const [relationshipRows, inviteRows, shareRows] = await Promise.all([
+      const [relationshipRows, inviteRows] = await Promise.all([
         fetchJson<Relationship[]>("/api/lifeswitch/people/relationships"),
         fetchJson<Invitation[]>("/api/lifeswitch/people/invitations"),
-        fetchJson<WorkoutTemplateShare[]>(
-          "/api/lifeswitch/training/workout_template_shares?include_inactive=1",
-        ),
       ]);
 
       const profileIds = Array.from(
@@ -330,7 +377,6 @@ export default function LifeSwitchPeoplePage() {
       setPeople(profileRows);
       setRelationships(relationshipRows);
       setInvitations(Array.isArray(inviteRows) ? inviteRows : []);
-      setWorkoutShares(Array.isArray(shareRows) ? shareRows : []);
 
       const selectionChanged =
         contactSelectionVersionRef.current !== selectionVersionAtStart;
@@ -504,6 +550,31 @@ export default function LifeSwitchPeoplePage() {
       if (authContextVersionRef.current === authContextAtStart) {
         setCopyMessage("Could not copy automatically.");
       }
+    }
+  }
+
+  async function shareInviteLink(link: string) {
+    if (!canMutate) return;
+    setCopyMessage("");
+
+    if (typeof navigator.share !== "function") {
+      await copyInviteLink(link);
+      setCopyMessage(
+        "Sharing is not available in this browser. Link copied instead.",
+      );
+      return;
+    }
+
+    try {
+      await navigator.share({
+        title: "Join me on LifeSwitch",
+        text: "Use this private invitation to connect with me on LifeSwitch.",
+        url: link,
+      });
+      setCopyMessage("Invite shared.");
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      setCopyMessage("Could not open sharing. You can copy the link instead.");
     }
   }
 
@@ -758,67 +829,40 @@ export default function LifeSwitchPeoplePage() {
 
   return (
     <div className="grid gap-4">
-      <div
-        className={
-          selectedPerson
-            ? "hidden flex-col gap-3 sm:flex sm:flex-row sm:items-start sm:justify-between"
-            : "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
-        }
-      >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="text-lg font-semibold">Contacts</div>
+          <div className="text-lg font-semibold">People</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            Manage your LifeSwitch connections for messages, workout sharing,
-            and permissioned plan help.
+            Connect, message, and control exactly what each person can access.
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab("connections")}
-            className={[
-              "rounded-full border px-3 py-1.5 text-sm",
-              activeTab === "connections" ? "bg-muted/40" : "hover:bg-muted/30",
-            ].join(" ")}
-          >
-            Connections
-          </button>
-
           <Link
             href="/lifeswitch/people/messages"
-            className="rounded-full border px-3 py-1.5 text-sm hover:bg-muted/30"
+            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
           >
+            <MessageSquare className="h-4 w-4" />
             Messages
           </Link>
 
           <button
             type="button"
-            onClick={() => setActiveTab("invites")}
+            onClick={() => setInvitePanelOpen((open) => !open)}
+            aria-expanded={invitePanelOpen}
             className={[
-              "rounded-full border px-3 py-1.5 text-sm",
-              activeTab === "invites" ? "bg-muted/40" : "hover:bg-muted/30",
+              "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm",
+              invitePanelOpen ? "bg-muted/40" : "hover:bg-muted/30",
             ].join(" ")}
           >
-            Invites
+            <Plus className="h-4 w-4" />
+            Invite someone
+            {pendingInvitations.length ? (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px]">
+                {pendingInvitations.length}
+              </span>
+            ) : null}
           </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("sharing")}
-            className={[
-              "rounded-full border px-3 py-1.5 text-sm",
-              activeTab === "sharing" ? "bg-muted/40" : "hover:bg-muted/30",
-            ].join(" ")}
-          >
-            Sharing
-          </button>
-          <Link
-            href="/lifeswitch/people/helping"
-            className="rounded-full border px-3 py-1.5 text-sm hover:bg-muted/30"
-          >
-            Viewing
-          </Link>
         </div>
       </div>
 
@@ -828,226 +872,181 @@ export default function LifeSwitchPeoplePage() {
         </div>
       ) : null}
 
-      <section
-        className={activeTab === "invites" ? "rounded-xl border" : "hidden"}
-      >
-        <div className="border-b px-4 py-3">
-          <div className="text-sm font-semibold">Invite link</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            Create a connection-only invite link. Send it by text, email, or
-            LifeSwitch message.
-          </div>
-        </div>
-
-        <div className="grid gap-3 p-4">
-          <div className="grid gap-2 sm:grid-cols-[1fr_220px_auto]">
-            <input
-              value={inviteLabel}
-              onChange={(e) => setInviteLabel(e.target.value)}
-              placeholder="Person name or label"
-              className="rounded-md border bg-background px-3 py-2 text-sm"
-            />
-            <select
-              value={inviteKind}
-              onChange={(e) =>
-                setInviteKind(
-                  e.target.value as Relationship["relationship_kind"],
-                )
-              }
-              className="rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              <option value="friend">Friend</option>
-              <option value="training_partner">Training partner</option>
-              <option value="plan_helper">Plan helper</option>
-              <option value="coach">Coach</option>
-            </select>
+      {invitePanelOpen ? (
+        <section className="rounded-xl border">
+          <div className="flex items-start justify-between gap-3 border-b px-4 py-3">
+            <div>
+              <div className="text-sm font-semibold">Invite someone</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Create a private, expiring connection link and send it with
+                Mail, Messages, or another sharing app.
+              </div>
+            </div>
             <button
               type="button"
-              onClick={() => void createInviteLink()}
-              disabled={saving || !canMutate}
-              className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+              onClick={() => setInvitePanelOpen(false)}
+              className="rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
             >
-              Create link
+              Close
             </button>
           </div>
 
-          {lastInviteLink ? (
-            <div className="grid gap-2 rounded-xl border bg-muted/10 p-3">
-              <div className="text-xs font-medium text-muted-foreground">
-                Latest invite link
-              </div>
-              <div className="text-sm break-all">{lastInviteLink}</div>
-              <div>
-                <button
-                  type="button"
-                  onClick={() => void copyInviteLink(lastInviteLink)}
-                  className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
-                >
-                  Copy link
-                </button>
-              </div>
+          <div className="grid gap-3 p-4">
+            <div className="grid gap-2 sm:grid-cols-[1fr_220px_auto]">
+              <input
+                value={inviteLabel}
+                onChange={(e) => setInviteLabel(e.target.value)}
+                placeholder="Person name or label"
+                className="rounded-md border bg-background px-3 py-2 text-sm"
+              />
+              <select
+                value={inviteKind}
+                onChange={(e) =>
+                  setInviteKind(
+                    e.target.value as Relationship["relationship_kind"],
+                  )
+                }
+                className="rounded-md border bg-background px-3 py-2 text-sm"
+              >
+                <option value="friend">Friend</option>
+                <option value="training_partner">Training partner</option>
+                <option value="plan_helper">Plan helper</option>
+                <option value="coach">Coach</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => void createInviteLink()}
+                disabled={saving || !canMutate}
+                className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+              >
+                Create link
+              </button>
             </div>
-          ) : null}
 
-          {copyMessage ? (
-            <div className="text-xs text-muted-foreground">{copyMessage}</div>
-          ) : null}
-
-          <div className="rounded-xl border">
-            <div className="border-b px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Pending invites
+            <div className="text-xs text-muted-foreground">
+              The relationship label is descriptive. It never grants training,
+              Plan, nutrition, or measurement access automatically.
             </div>
-            <div className="grid">
-              {invitations.length === 0 ? (
-                <div className="p-3 text-sm text-muted-foreground">
-                  No pending invites.
+
+            {lastInviteLink ? (
+              <div className="grid gap-2 rounded-xl border bg-muted/10 p-3">
+                <div className="text-xs font-medium text-muted-foreground">
+                  Latest invite link
                 </div>
-              ) : (
-                invitations.map((inv) => (
-                  <div
-                    key={inv.invitation_id}
-                    className="grid gap-2 border-b p-3 last:border-0"
+                <div className="text-sm break-all">{lastInviteLink}</div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void shareInviteLink(lastInviteLink)}
+                    className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <div className="text-sm font-medium">
-                          {inv.label?.trim() || "Unnamed invite"}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {kindLabel(inv.relationship_kind)} · {inv.status}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Created{" "}
-                          {inv.created_at
-                            ? new Date(inv.created_at).toLocaleString()
-                            : ""}
-                        </div>
-                      </div>
+                    <Share2 className="h-3.5 w-3.5" />
+                    Share invite
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void copyInviteLink(lastInviteLink)}
+                    className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                  >
+                    Copy link
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenInviteActionsId((prev) =>
-                            prev === inv.invitation_id ? "" : inv.invitation_id,
-                          )
-                        }
-                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
-                        aria-expanded={
-                          openInviteActionsId === inv.invitation_id
-                        }
-                      >
-                        Actions
-                        {openInviteActionsId === inv.invitation_id ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3" />
-                        )}
-                      </button>
-                    </div>
+            {copyMessage ? (
+              <div className="text-xs text-muted-foreground">{copyMessage}</div>
+            ) : null}
 
-                    <div className="text-xs text-muted-foreground">
-                      Expires{" "}
-                      {inv.expires_at
-                        ? new Date(inv.expires_at).toLocaleDateString()
-                        : "later"}
-                    </div>
-
-                    {openInviteActionsId === inv.invitation_id ? (
-                      <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                        <div className="text-[11px] font-semibold tracking-wide text-red-500 uppercase">
-                          Danger zone
+            <div className="rounded-xl border">
+              <div className="border-b px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Pending invites
+              </div>
+              <div className="grid">
+                {pendingInvitations.length === 0 ? (
+                  <div className="p-3 text-sm text-muted-foreground">
+                    No pending invites.
+                  </div>
+                ) : (
+                  pendingInvitations.map((inv) => (
+                    <div
+                      key={inv.invitation_id}
+                      className="grid gap-2 border-b p-3 last:border-0"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <div className="text-sm font-medium">
+                            {inv.label?.trim() || "Unnamed invite"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {kindLabel(inv.relationship_kind)} · {inv.status}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Created{" "}
+                            {inv.created_at
+                              ? new Date(inv.created_at).toLocaleString()
+                              : ""}
+                          </div>
                         </div>
+
                         <button
                           type="button"
-                          onClick={() => void revokeInvite(inv.invitation_id)}
-                          disabled={saving || !canMutate}
-                          className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                          onClick={() =>
+                            setOpenInviteActionsId((prev) =>
+                              prev === inv.invitation_id
+                                ? ""
+                                : inv.invitation_id,
+                            )
+                          }
+                          className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                          aria-expanded={
+                            openInviteActionsId === inv.invitation_id
+                          }
                         >
-                          <Trash2 className="h-3 w-3" />
-                          Revoke invite
+                          Actions
+                          {openInviteActionsId === inv.invitation_id ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          )}
                         </button>
                       </div>
-                    ) : null}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <section
-        className={activeTab === "sharing" ? "rounded-xl border" : "hidden"}
-      >
-        <div className="border-b px-4 py-3">
-          <div className="text-sm font-semibold">Shared workout templates</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            Share links you created from Training Workouts. Links are copied
-            when created; this list lets you review them.
-          </div>
-        </div>
-
-        <div className="grid">
-          {workoutShares.length === 0 ? (
-            <div className="p-4 text-sm text-muted-foreground">
-              No workout template shares yet. Create one from Training Workouts.
-            </div>
-          ) : (
-            workoutShares.map((share) => {
-              const title =
-                share.label?.trim() || share.workout_name || "Shared workout";
-
-              return (
-                <div
-                  key={share.workout_template_share_id}
-                  className="grid gap-2 border-b p-3 last:border-0"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold">
-                        {title}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {share.workout_name && share.workout_name !== title
-                          ? `${share.workout_name} · `
-                          : ""}
-                        {share.status}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Created{" "}
-                        {share.created_at
-                          ? new Date(share.created_at).toLocaleString()
-                          : ""}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         Expires{" "}
-                        {share.expires_at
-                          ? new Date(share.expires_at).toLocaleDateString()
+                        {inv.expires_at
+                          ? new Date(inv.expires_at).toLocaleDateString()
                           : "later"}
                       </div>
-                    </div>
 
-                    <Link
-                      href="/lifeswitch/training/design/workouts"
-                      className="rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
-                    >
-                      Workouts
-                    </Link>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </section>
+                      {openInviteActionsId === inv.invitation_id ? (
+                        <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                          <div className="text-[11px] font-semibold tracking-wide text-red-500 uppercase">
+                            Danger zone
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void revokeInvite(inv.invitation_id)}
+                            disabled={saving || !canMutate}
+                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Revoke invite
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <div
         className={
-          activeTab === "connections"
-            ? selectedPerson
-              ? "grid gap-4 lg:grid-cols-[340px_1fr]"
-              : "grid gap-4"
-            : "hidden"
+          selectedPerson ? "grid gap-4 lg:grid-cols-[340px_1fr]" : "grid gap-4"
         }
       >
         <section
@@ -1059,13 +1058,25 @@ export default function LifeSwitchPeoplePage() {
         >
           <div className="flex items-center gap-2 border-b px-4 py-3">
             <Users className="h-4 w-4" />
-            <div className="text-sm font-semibold">Contacts</div>
+            <div className="text-sm font-semibold">Connections</div>
+            <div className="ml-auto text-xs text-muted-foreground">
+              {acceptedContacts.length}
+            </div>
           </div>
 
           <div className="grid max-h-[620px] overflow-auto">
             {acceptedContacts.length === 0 ? (
               <div className="p-4 text-sm text-muted-foreground">
                 {loading ? "Loading connections…" : "No accepted connections."}
+                {!loading ? (
+                  <button
+                    type="button"
+                    onClick={() => setInvitePanelOpen(true)}
+                    className="mt-3 block rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
+                  >
+                    Invite someone
+                  </button>
+                ) : null}
               </div>
             ) : (
               acceptedContacts.map(({ person, relationship: rel }) => {
@@ -1115,19 +1126,29 @@ export default function LifeSwitchPeoplePage() {
                 </div>
                 <div className="mt-1 text-xs break-all text-muted-foreground">
                   {selectedPerson
-                    ? selectedPerson.user_id
+                    ? selectedPerson.email ||
+                      kindLabel(selectedRelationship?.relationship_kind)
                     : "Choose someone from the list."}
                 </div>
               </div>
 
               {selectedPerson ? (
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  {permissionTheyGiveByScope.has("messages:send") ? (
+                    <Link
+                      href="/lifeswitch/people/messages"
+                      className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      Message
+                    </Link>
+                  ) : null}
                   <button
                     type="button"
                     onClick={clearSelectedContact}
                     className="rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
                   >
-                    <span className="lg:hidden">← Contacts</span>
+                    <span className="lg:hidden">← People</span>
                     <span className="hidden lg:inline">Close</span>
                   </button>
 
@@ -1210,11 +1231,10 @@ export default function LifeSwitchPeoplePage() {
                     </button>
                   </div>
 
-                  {selectedRelationship ? (
-                    <div className="text-xs text-muted-foreground">
-                      relationship_id: {selectedRelationship.relationship_id}
-                    </div>
-                  ) : null}
+                  <div className="text-xs text-muted-foreground">
+                    This label helps organize the relationship. Access remains
+                    separately controlled below.
+                  </div>
                 </div>
               </details>
             ) : null}
@@ -1225,11 +1245,82 @@ export default function LifeSwitchPeoplePage() {
               <ShieldCheck className="h-4 w-4" />
               <div>
                 <div className="text-sm font-semibold">
+                  What {displayName(selectedPerson, selectedUserId)} shares with
+                  you
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Open only the LifeSwitch areas this person has explicitly
+                  shared.
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4">
+              {loadingPermissions ? (
+                <div className="text-sm text-muted-foreground">
+                  Loading access…
+                </div>
+              ) : permissionsTheyGive.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  This person has not shared any LifeSwitch data with you.
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {permissionTheyGiveByScope.has("messages:send") ? (
+                    <Link
+                      href="/lifeswitch/people/messages"
+                      className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
+                    >
+                      <MessageSquare className="h-4 w-4" /> Message
+                    </Link>
+                  ) : null}
+                  {permissionTheyGiveByScope.has("training:view") ? (
+                    <Link
+                      href={`/lifeswitch/training/calendar?target_user_id=${encodeURIComponent(selectedUserId)}&target_name=${encodeURIComponent(displayName(selectedPerson, selectedUserId))}`}
+                      className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
+                    >
+                      <Dumbbell className="h-4 w-4" /> View training
+                    </Link>
+                  ) : null}
+                  {permissionTheyGiveByScope.has("plan:view") ? (
+                    <Link
+                      href={`/lifeswitch/plan?target_user_id=${encodeURIComponent(selectedUserId)}&target_name=${encodeURIComponent(displayName(selectedPerson, selectedUserId))}`}
+                      className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
+                    >
+                      <ClipboardList className="h-4 w-4" /> View Plan
+                    </Link>
+                  ) : null}
+                  {permissionTheyGiveByScope.has("nutrition:view") ? (
+                    <Link
+                      href={`/lifeswitch/nutrition/log?target_user_id=${encodeURIComponent(selectedUserId)}&target_name=${encodeURIComponent(displayName(selectedPerson, selectedUserId))}`}
+                      className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
+                    >
+                      <Utensils className="h-4 w-4" /> View nutrition
+                    </Link>
+                  ) : null}
+                  {permissionTheyGiveByScope.has("measurements:view") ? (
+                    <Link
+                      href={`/lifeswitch/measurements/log?target_user_id=${encodeURIComponent(selectedUserId)}&target_name=${encodeURIComponent(displayName(selectedPerson, selectedUserId))}`}
+                      className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
+                    >
+                      <Activity className="h-4 w-4" /> View measurements
+                    </Link>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border">
+            <div className="flex items-center gap-2 border-b px-4 py-3">
+              <ShieldCheck className="h-4 w-4" />
+              <div>
+                <div className="text-sm font-semibold">
                   Access you give {displayName(selectedPerson, selectedUserId)}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Control what this person can see or do in{" "}
-                  {displayName(currentPerson, currentUserId)}’s LifeSwitch.
+                  Every request is checked against your verified identity and
+                  this directional access grant.
                 </div>
               </div>
             </div>
@@ -1244,46 +1335,102 @@ export default function LifeSwitchPeoplePage() {
                   Loading permissions…
                 </div>
               ) : (
-                <>
-                  {PERMISSIONS.map((p) => {
-                    const existing = permissionByScope.get(p.scope);
-                    const enabled = Boolean(existing?.is_enabled);
+                PERMISSION_GROUPS.map((group) => {
+                  const GroupIcon = group.icon;
+                  const groupPermissions = group.scopes
+                    .map((scope) =>
+                      PERMISSIONS.find((item) => item.scope === scope),
+                    )
+                    .filter((item): item is PermissionDefinition =>
+                      Boolean(item),
+                    );
+                  const permissionRows = (
+                    <div className="grid gap-2">
+                      {groupPermissions.map((p) => {
+                        const existing = permissionByScope.get(p.scope);
+                        const enabled = Boolean(existing?.is_enabled);
 
-                    return (
-                      <div
-                        key={p.scope}
-                        className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_auto]"
-                      >
-                        <div>
-                          <div className="text-sm font-semibold">{p.label}</div>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            {p.description}
+                        return (
+                          <div
+                            key={p.scope}
+                            className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_auto]"
+                          >
+                            <div>
+                              <div className="text-sm font-semibold">
+                                {p.label}
+                              </div>
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                {p.description}
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void setPermission(p.scope, p.level, !enabled)
+                              }
+                              disabled={
+                                saving || loadingPermissions || !canMutate
+                              }
+                              aria-pressed={enabled}
+                              className={[
+                                "min-w-24 rounded-md border px-3 py-2 text-sm disabled:opacity-50",
+                                enabled ? "bg-muted/40" : "hover:bg-muted/30",
+                              ].join(" ")}
+                            >
+                              {enabled ? "Allowed" : "Not allowed"}
+                            </button>
                           </div>
-                          <div className="mt-1 text-[10px] text-muted-foreground">
-                            {p.scope} · level:{" "}
-                            {enabled
-                              ? existing?.permission_level || p.level
-                              : "none"}
+                        );
+                      })}
+                    </div>
+                  );
+
+                  if (group.sensitive) {
+                    return (
+                      <details
+                        key={group.key}
+                        className="rounded-xl border border-amber-500/25"
+                      >
+                        <summary className="cursor-pointer list-none p-3 [&::-webkit-details-marker]:hidden">
+                          <div className="flex items-center gap-2">
+                            <GroupIcon className="h-4 w-4 text-amber-500" />
+                            <div>
+                              <div className="text-sm font-semibold">
+                                {group.label}
+                              </div>
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                {group.description} Off unless you explicitly
+                                allow it.
+                              </div>
+                            </div>
+                          </div>
+                        </summary>
+                        <div className="border-t p-3">{permissionRows}</div>
+                      </details>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={group.key}
+                      className="grid gap-3 rounded-xl border p-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <GroupIcon className="h-4 w-4" />
+                        <div>
+                          <div className="text-sm font-semibold">
+                            {group.label}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {group.description}
                           </div>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void setPermission(p.scope, p.level, !enabled)
-                          }
-                          disabled={saving || loadingPermissions || !canMutate}
-                          className={[
-                            "rounded-md border px-3 py-2 text-sm disabled:opacity-50",
-                            enabled ? "bg-muted/30" : "hover:bg-muted/30",
-                          ].join(" ")}
-                        >
-                          {enabled ? "Turn off" : "Turn on"}
-                        </button>
                       </div>
-                    );
-                  })}
-                </>
+                      {permissionRows}
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>

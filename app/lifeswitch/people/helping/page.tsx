@@ -96,7 +96,7 @@ export default function LifeSwitchNetworkHelpingPage() {
         </div>
 
         <div className="flex gap-2">
-            <BackButton fallbackHref="/lifeswitch/people" label="Connections" className="rounded-md px-3 py-2 text-sm" />
+            <BackButton fallbackHref="/lifeswitch/people" label="People" className="rounded-md px-3 py-2 text-sm" />
           <button
             type="button"
             onClick={() => void loadGranted()}
