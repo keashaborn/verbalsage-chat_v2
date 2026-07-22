@@ -37,6 +37,11 @@ export type StrengthProgressionItem = {
   } | null;
 };
 
+export type StrengthProgressionSignal = {
+  headline: string;
+  detail: string;
+};
+
 function safeNumber(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -51,6 +56,23 @@ function comparisonKey(exposure: StrengthExposure) {
   const unit = normalizedUnit(exposure.loadUnit);
   if (unit) return unit;
   return exposure.maxLoad === 0 && exposure.loadUnit !== "mixed" ? "unloaded" : null;
+}
+
+function rowComparisonKey(row: StrengthExposureRow) {
+  const unit = normalizedUnit(row.load_unit);
+  if (unit) return unit;
+  return safeNumber(row.max_load) === 0 && row.load_unit !== "mixed"
+    ? "unloaded"
+    : null;
+}
+
+function signed(value: number, noun: string) {
+  const numeric = safeNumber(value);
+  const magnitude = Math.abs(numeric);
+  const label = `${magnitude} ${noun}${magnitude === 1 ? "" : "s"}`;
+  if (numeric > 0) return `${label} more`;
+  if (numeric < 0) return `${label} fewer`;
+  return `the same number of ${noun}s`;
 }
 
 function toExposure(row: StrengthExposureRow): StrengthExposure {
@@ -133,4 +155,92 @@ export function calculateStrengthProgression(
     if (byDay !== 0) return byDay;
     return a.exerciseName.localeCompare(b.exerciseName);
   });
+}
+
+export function comparableStrengthExposureRows(
+  rows: StrengthExposureRow[],
+  exerciseId: string,
+): StrengthExposureRow[] {
+  const matching = rows
+    .filter((row) => String(row.exercise_id || "") === exerciseId)
+    .sort((a, b) => {
+      const byDay = String(a.day || "").localeCompare(String(b.day || ""));
+      if (byDay !== 0) return byDay;
+      return String(a.training_session_id || "").localeCompare(
+        String(b.training_session_id || ""),
+      );
+    });
+  const latest = matching[matching.length - 1];
+  if (!latest) return [];
+
+  const latestKey = rowComparisonKey(latest);
+  if (!latestKey) return [latest];
+  return matching.filter((row) => rowComparisonKey(row) === latestKey);
+}
+
+export function describeStrengthProgression(
+  item: StrengthProgressionItem,
+): StrengthProgressionSignal {
+  if (!item.previous || !item.deltas) {
+    if (item.comparisonStatus === "baseline") {
+      return {
+        headline: "Baseline only",
+        detail: "Complete this exercise again with the same load unit to create a progression comparison.",
+      };
+    }
+    return {
+      headline: "No like-for-like comparison",
+      detail: "Earlier exposures use a different, missing, or mixed load unit.",
+    };
+  }
+
+  const { sets, reps, maxLoad, volume } = item.deltas;
+  const unit = item.latest.loadUnit ? ` ${item.latest.loadUnit}` : "";
+
+  if (sets === 0 && maxLoad === 0) {
+    if (reps > 0) {
+      return {
+        headline: `${reps} more rep${reps === 1 ? "" : "s"} at the same load and set count`,
+        detail: `Volume changed by ${volume > 0 ? "+" : ""}${volume}.`,
+      };
+    }
+    if (reps < 0) {
+      return {
+        headline: `${Math.abs(reps)} fewer rep${Math.abs(reps) === 1 ? "" : "s"} at the same load and set count`,
+        detail: `Volume changed by ${volume}.`,
+      };
+    }
+    return {
+      headline: "No change in load, sets, or total reps",
+      detail: "The two latest comparable exposures produced the same recorded dose.",
+    };
+  }
+
+  if (sets !== 0) {
+    return {
+      headline: `Training dose changed: ${signed(sets, "set")} and ${signed(reps, "rep")}`,
+      detail:
+        maxLoad === 0
+          ? "Load was unchanged. Because set count changed, total reps and volume are not a direct like-for-like progression test."
+          : `Top load changed by ${maxLoad > 0 ? "+" : ""}${maxLoad}${unit}. Because set count also changed, this is a mixed comparison.`,
+    };
+  }
+
+  if (maxLoad > 0) {
+    return {
+      headline: `Top load increased by ${maxLoad}${unit}${reps === 0 ? " with total reps maintained" : ""}`,
+      detail:
+        reps === 0
+          ? "Set count and total reps were unchanged."
+          : `Total reps changed by ${reps > 0 ? "+" : ""}${reps} with the same set count.`,
+    };
+  }
+
+  return {
+    headline: `Top load decreased by ${Math.abs(maxLoad)}${unit}`,
+    detail:
+      reps === 0
+        ? "Set count and total reps were unchanged."
+        : `Total reps changed by ${reps > 0 ? "+" : ""}${reps} with the same set count.`,
+  };
 }

@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   calculateStrengthProgression,
+  comparableStrengthExposureRows,
+  describeStrengthProgression,
   type StrengthExposureRow,
 } from "./strengthProgression.ts";
 
@@ -79,4 +81,45 @@ test("keeps exercises separate and orders them by latest exposure", () => {
     }),
   ]);
   assert.deepEqual(items.map((item) => item.exerciseName), ["Row", "Chest Press"]);
+});
+
+test("builds a chronological graph series using the latest load unit", () => {
+  const rows = comparableStrengthExposureRows(
+    [
+      exposure({ training_session_id: "lb-old", day: "2026-07-10", load_unit: "lb" }),
+      exposure({ training_session_id: "kg", day: "2026-07-15", load_unit: "kg" }),
+      exposure({ training_session_id: "lb-new", day: "2026-07-20", load_unit: "lb" }),
+    ],
+    "exercise-1",
+  );
+  assert.deepEqual(rows.map((row) => row.training_session_id), ["lb-old", "lb-new"]);
+});
+
+test("describes increased reps at an unchanged load and set count", () => {
+  const [item] = calculateStrengthProgression([
+    exposure(),
+    exposure({ training_session_id: "previous", day: "2026-07-15", total_reps: 46 }),
+  ]);
+  const signal = describeStrengthProgression(item);
+  assert.equal(signal.headline, "4 more reps at the same load and set count");
+});
+
+test("flags a changed set count as a different training dose", () => {
+  const [item] = calculateStrengthProgression([
+    exposure({ set_count: 3, total_reps: 37 }),
+    exposure({ training_session_id: "previous", day: "2026-07-15", set_count: 2, total_reps: 29 }),
+  ]);
+  const signal = describeStrengthProgression(item);
+  assert.equal(signal.headline, "Training dose changed: 1 set more and 8 reps more");
+  assert.match(signal.detail, /not a direct like-for-like progression test/);
+});
+
+test("describes a higher top load without calling it proven strength gain", () => {
+  const [item] = calculateStrengthProgression([
+    exposure({ max_load: 153, total_reps: 50 }),
+    exposure({ training_session_id: "previous", day: "2026-07-15", max_load: 148, total_reps: 50 }),
+  ]);
+  const signal = describeStrengthProgression(item);
+  assert.equal(signal.headline, "Top load increased by 5 lb with total reps maintained");
+  assert.doesNotMatch(signal.headline.toLowerCase(), /stronger|strength gain/);
 });
