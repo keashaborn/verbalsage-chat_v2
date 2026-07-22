@@ -5,6 +5,8 @@ import * as React from "react";
 export type XYPoint = { x: string; y: number; id?: string; occurred_at?: string; sort_ts?: string; data?: any };
 export type XMarker = { x: string; label?: string };
 export type PhaseStart = { x: string; phase: string; label?: string };
+export type YReferenceBand = { lower: number; upper: number; label?: string };
+export type YReferenceLine = { y: number; label?: string };
 
 function shortDay(x: string) {
   const s = String(x || "");
@@ -36,6 +38,8 @@ export function MiniLineChart({
   yMin,
   yMax,
   yTickStep,
+  yReferenceBands,
+  yReferenceLines,
   heightPx = 240,
   widthPx = 720,
 }: {
@@ -56,6 +60,8 @@ export function MiniLineChart({
   yMin?: number | null;
   yMax?: number | null;
   yTickStep?: number | null;
+  yReferenceBands?: YReferenceBand[];
+  yReferenceLines?: YReferenceLine[];
   heightPx?: number;
   widthPx?: number;
 }) {
@@ -88,10 +94,24 @@ export function MiniLineChart({
   const PLOT_Y0 = PAD_TOP;
   const PLOT_Y1 = X_AXIS_Y;
 
+  const referenceBands = (Array.isArray(yReferenceBands) ? yReferenceBands : [])
+    .filter((band) => Number.isFinite(band?.lower) && Number.isFinite(band?.upper))
+    .map((band) => ({
+      ...band,
+      lower: Math.min(band.lower, band.upper),
+      upper: Math.max(band.lower, band.upper),
+    }));
+  const referenceLines = (Array.isArray(yReferenceLines) ? yReferenceLines : [])
+    .filter((line) => Number.isFinite(line?.y));
+
   // ----------------------------
   // Y domain
   // ----------------------------
-  const ys = pts.map((p) => p.y);
+  const ys = [
+    ...pts.map((p) => p.y),
+    ...referenceBands.flatMap((band) => [band.lower, band.upper]),
+    ...referenceLines.map((line) => line.y),
+  ];
   const hasYMin = typeof yMin === "number" && Number.isFinite(yMin);
   const hasYMax = typeof yMax === "number" && Number.isFinite(yMax);
 
@@ -370,6 +390,23 @@ export function MiniLineChart({
 
       <div className="mt-2 w-full aspect-[16/6]">
         <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full" role="img" aria-label={title}>
+          {/* Optional goal ranges rendered behind the data. */}
+          {referenceBands.map((band, index) => {
+            const top = yFor(band.upper);
+            const bottom = yFor(band.lower);
+            return (
+              <rect
+                key={`y-band-${index}`}
+                x={PLOT_X0}
+                y={top}
+                width={PLOT_X1 - PLOT_X0}
+                height={Math.max(0, bottom - top)}
+                fill="#22c55e"
+                opacity="0.09"
+              />
+            );
+          })}
+
           {/* axes */}
           <path d={`M ${Y_AXIS_X} ${X_AXIS_Y} H ${W - PAD_RIGHT}`} fill="none" stroke="currentColor" opacity="0.2" />
           <path d={`M ${Y_AXIS_X} ${PAD_TOP} V ${X_AXIS_Y}`} fill="none" stroke="currentColor" opacity="0.2" />
@@ -448,6 +485,35 @@ export function MiniLineChart({
               />
             </g>
           ))}
+
+          {/* Optional horizontal goal and minimum lines. */}
+          {referenceLines.map((line, index) => {
+            const y = yFor(line.y);
+            const labelY = Math.max(PLOT_Y0 + 10, Math.min(PLOT_Y1 - 4, y - 4));
+            return (
+              <g key={`y-reference-${index}`}>
+                <path
+                  d={`M ${PLOT_X0} ${y.toFixed(2)} H ${PLOT_X1}`}
+                  fill="none"
+                  stroke="#22c55e"
+                  strokeWidth="1.5"
+                  strokeDasharray="5 4"
+                  opacity="0.8"
+                />
+                {line.label ? (
+                  <text
+                    x={PLOT_X1 - 4}
+                    y={labelY}
+                    fontSize="9"
+                    fill="#22c55e"
+                    textAnchor="end"
+                  >
+                    {line.label}
+                  </text>
+                ) : null}
+              </g>
+            );
+          })}
 
           {/* Axis labels (inside SVG) */}
           {yLabel ? (

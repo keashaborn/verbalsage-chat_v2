@@ -9,7 +9,12 @@ import {
   scoreNutritionDay,
   scoreNutritionRollingWindow,
 } from "@/lib/lifeswitch/nutritionScoring";
-import { MiniLineChart, type XYPoint } from "@/components/sslg/MiniLineChart";
+import {
+  MiniLineChart,
+  type XYPoint,
+  type YReferenceBand,
+  type YReferenceLine,
+} from "@/components/sslg/MiniLineChart";
 import * as React from "react";
 
 type RangeDays = 7 | 14 | 30 | 90;
@@ -419,6 +424,20 @@ export default function NutritionAnalyzePage() {
       : nutritionMetric === "protein_g"
         ? proteinTargetLabel
         : "No Plan target is scored for this metric.";
+  const nutritionReferenceBands: YReferenceBand[] =
+    nutritionMetric === "kcal" && nutritionTargets.dailyRangeKcal
+      ? [{
+          lower: nutritionTargets.dailyRangeKcal.lower,
+          upper: nutritionTargets.dailyRangeKcal.upper,
+          label: "acceptable daily range",
+        }]
+      : [];
+  const nutritionReferenceLines: YReferenceLine[] =
+    nutritionMetric === "kcal" && nutritionTargets.nominalKcal != null
+      ? [{ y: nutritionTargets.nominalKcal, label: `${nutritionTargets.nominalKcal} kcal target` }]
+      : nutritionMetric === "protein_g" && nutritionTargets.proteinMinimumG != null
+        ? [{ y: nutritionTargets.proteinMinimumG, label: `${nutritionTargets.proteinMinimumG}g minimum` }]
+        : [];
 
   return (
     <div className="mx-auto max-w-6xl p-4 overflow-x-hidden">
@@ -591,6 +610,8 @@ export default function NutritionAnalyzePage() {
           xLabel="Completed logged days · oldest to newest"
           yLabel={selectedMetric.yLabel}
           ySuffix={selectedMetric.suffix}
+          yReferenceBands={nutritionReferenceBands}
+          yReferenceLines={nutritionReferenceLines}
           includeZero={false}
           heightPx={300}
           />
