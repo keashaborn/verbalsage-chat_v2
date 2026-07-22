@@ -1,7 +1,10 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { authFetch } from "@/lib/authFetch";
+
+let activeRealtimeOwner: symbol | null = null;
+let activeRealtimeStop: (() => void) | null = null;
 
 export type OpenAIRealtimeVoiceStatus =
   | "idle"
@@ -45,6 +48,7 @@ function makeCancelledError() {
 }
 
 export function useOpenAIRealtimeVoice() {
+  const ownerRef = useRef(Symbol("openai-realtime-voice"));
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -99,14 +103,26 @@ export function useOpenAIRealtimeVoice() {
       if (audio) {
         audio.pause();
         audio.srcObject = null;
+        audio.removeAttribute("src");
+        audio.load();
       }
     } catch {}
+
+    if (activeRealtimeOwner === ownerRef.current) {
+      activeRealtimeOwner = null;
+      activeRealtimeStop = null;
+    }
   }, []);
 
   const start = useCallback(async (opts: StartOptions = {}) => {
     if (startingRef.current) return;
 
+    if (activeRealtimeOwner !== ownerRef.current) {
+      activeRealtimeStop?.();
+    }
     stop();
+    activeRealtimeOwner = ownerRef.current;
+    activeRealtimeStop = stop;
 
     const generation = generationRef.current;
     startingRef.current = true;
@@ -277,6 +293,16 @@ export function useOpenAIRealtimeVoice() {
 
     await start(opts);
   }, [start, status, stop]);
+
+  useEffect(() => {
+    const stopOnPageHide = () => stop();
+    window.addEventListener("pagehide", stopOnPageHide);
+
+    return () => {
+      window.removeEventListener("pagehide", stopOnPageHide);
+      stop();
+    };
+  }, [stop]);
 
   return {
     status,

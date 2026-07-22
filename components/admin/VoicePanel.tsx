@@ -415,7 +415,7 @@ export function VoicePanel() {
         footer={
           <div className="space-y-1">
             <div>Used by Talk. The current Realtime model is managed centrally.</div>
-            <div>Synced to your account and cached in this browser.</div>
+            <div>Changes save automatically to your account and this browser.</div>
             <div className="font-medium text-foreground">
               Disclosure: the voice you hear is AI-generated, not a human voice.
             </div>
@@ -463,7 +463,7 @@ export function VoicePanel() {
         title="Spoken replies"
         footer={
           <div className="space-y-1">
-            <div>Synced to your account and cached in this browser.</div>
+            <div>Changes save automatically to your account and this browser.</div>
             <div className="font-medium text-foreground">
               Disclosure: the voice you hear is AI-generated, not a human voice.
             </div>
