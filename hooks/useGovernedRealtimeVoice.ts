@@ -21,6 +21,11 @@ export type GovernedVoiceTurnContext = {
   transcriptionMs: number;
   transcriptionModel: string;
   transcriptionProvider: string;
+  transcriptionLanguage: string;
+  transcriptionConfidenceTokenCount: number | null;
+  transcriptionConfidenceMeanLogprob: number | null;
+  transcriptionConfidenceMinimumLogprob: number | null;
+  transcriptionLowConfidenceTokenCount: number | null;
   transcriptionRequestId: string;
   transcriptionProviderRequestId: string;
   turnStartedAtMs: number;
@@ -70,6 +75,11 @@ function transcriptionError(payload: any): string {
       payload?.error ||
       "Transcription failed.",
   );
+}
+
+function optionalFiniteNumber(value: unknown): number | null {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 export function useGovernedRealtimeVoice() {
@@ -280,6 +290,19 @@ export function useGovernedRealtimeVoice() {
             ),
             transcriptionModel: String(payload?.model || "").slice(0, 80),
             transcriptionProvider: String(payload?.provider || "").slice(0, 40),
+            transcriptionLanguage: String(payload?.language || "").slice(0, 16),
+            transcriptionConfidenceTokenCount: optionalFiniteNumber(
+              payload?.confidence?.token_count,
+            ),
+            transcriptionConfidenceMeanLogprob: optionalFiniteNumber(
+              payload?.confidence?.mean_logprob,
+            ),
+            transcriptionConfidenceMinimumLogprob: optionalFiniteNumber(
+              payload?.confidence?.minimum_logprob,
+            ),
+            transcriptionLowConfidenceTokenCount: optionalFiniteNumber(
+              payload?.confidence?.low_confidence_token_count,
+            ),
             transcriptionRequestId: String(
               response.headers.get("x-request-id") || "",
             ).slice(0, 128),

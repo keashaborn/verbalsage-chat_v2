@@ -1104,6 +1104,15 @@ export function BrainsChatPane() {
           tts_segment_count: speechMetrics?.segmentCount || 0,
           transcription_provider: turn.transcriptionProvider,
           transcription_model: turn.transcriptionModel,
+          transcription_language: turn.transcriptionLanguage,
+          transcription_confidence_token_count:
+            turn.transcriptionConfidenceTokenCount,
+          transcription_confidence_mean_logprob:
+            turn.transcriptionConfidenceMeanLogprob,
+          transcription_confidence_minimum_logprob:
+            turn.transcriptionConfidenceMinimumLogprob,
+          transcription_low_confidence_token_count:
+            turn.transcriptionLowConfidenceTokenCount,
           transcription_request_id: turn.transcriptionRequestId,
           transcription_provider_request_id:
             turn.transcriptionProviderRequestId,
@@ -1135,6 +1144,15 @@ export function BrainsChatPane() {
           ),
           transcription_provider: turn.transcriptionProvider,
           transcription_model: turn.transcriptionModel,
+          transcription_language: turn.transcriptionLanguage,
+          transcription_confidence_token_count:
+            turn.transcriptionConfidenceTokenCount,
+          transcription_confidence_mean_logprob:
+            turn.transcriptionConfidenceMeanLogprob,
+          transcription_confidence_minimum_logprob:
+            turn.transcriptionConfidenceMinimumLogprob,
+          transcription_low_confidence_token_count:
+            turn.transcriptionLowConfidenceTokenCount,
           transcription_request_id: turn.transcriptionRequestId,
           transcription_provider_request_id:
             turn.transcriptionProviderRequestId,

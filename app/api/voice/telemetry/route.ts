@@ -21,6 +21,18 @@ function boundedInteger(value: unknown, maximum = 600_000): number | null {
   return Math.max(0, Math.min(maximum, Math.round(number)));
 }
 
+function boundedNumber(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+): number | null {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  const bounded = Math.max(minimum, Math.min(maximum, number));
+  return Math.round(bounded * 1_000_000) / 1_000_000;
+}
+
 function boundedToken(value: unknown): string {
   const token = String(value || "").trim();
   return TOKEN_RE.test(token) ? token : "";
@@ -95,6 +107,25 @@ export async function POST(req: Request) {
     tts_segment_count: boundedInteger(body?.tts_segment_count, 256),
     transcription_provider: boundedToken(body?.transcription_provider),
     transcription_model: boundedToken(body?.transcription_model),
+    transcription_language: boundedToken(body?.transcription_language),
+    transcription_confidence_token_count: boundedInteger(
+      body?.transcription_confidence_token_count,
+      32_000,
+    ),
+    transcription_confidence_mean_logprob: boundedNumber(
+      body?.transcription_confidence_mean_logprob,
+      -100,
+      0,
+    ),
+    transcription_confidence_minimum_logprob: boundedNumber(
+      body?.transcription_confidence_minimum_logprob,
+      -100,
+      0,
+    ),
+    transcription_low_confidence_token_count: boundedInteger(
+      body?.transcription_low_confidence_token_count,
+      32_000,
+    ),
     transcription_request_id: boundedToken(body?.transcription_request_id),
     transcription_provider_request_id: boundedToken(
       body?.transcription_provider_request_id,
