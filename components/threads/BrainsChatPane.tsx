@@ -140,7 +140,7 @@ export function BrainsChatPane() {
     voiceStatus === "requesting"
       ? "Requesting microphone…"
       : voiceStatus === "connecting"
-        ? "Connecting secure transcription…"
+        ? "Preparing secure transcription…"
         : voiceStatus === "listening"
           ? "Listening"
           : voiceStatus === "speaking"
@@ -150,7 +150,9 @@ export function BrainsChatPane() {
               : voiceStatus === "responding"
                 ? "Preparing and speaking reply…"
           : voiceHasError
-            ? "Voice error"
+            ? governedVoice.lastError
+              ? `Voice error: ${governedVoice.lastError}`
+              : "Voice error"
             : "Voice off";
   const didAutoScrollForThreadRef = React.useRef<string | null>(null);
 

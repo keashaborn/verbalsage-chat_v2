@@ -17,6 +17,12 @@ type StartOptions = {
   onTranscript: (transcript: string) => Promise<void>;
 };
 
+const MIME_TYPE_PREFERENCES = [
+  "audio/webm;codecs=opus",
+  "audio/webm",
+  "audio/mp4",
+  "audio/ogg;codecs=opus",
+];
 const SPEECH_START_RMS = 0.025;
 const SPEECH_END_RMS = 0.018;
 const END_SILENCE_MS = 900;
@@ -32,85 +38,35 @@ function cancelledError() {
   return error;
 }
 
-function waitForIceGatheringComplete(
-  pc: RTCPeerConnection,
-  timeoutMs = 4_000,
-): Promise<void> {
-  if (pc.iceGatheringState === "complete") return Promise.resolve();
-
-  return new Promise((resolve) => {
-    let finished = false;
-    const finish = () => {
-      if (finished) return;
-      finished = true;
-      window.clearTimeout(timer);
-      pc.removeEventListener("icegatheringstatechange", onChange);
-      resolve();
-    };
-    const onChange = () => {
-      if (pc.iceGatheringState === "complete") finish();
-    };
-    const timer = window.setTimeout(finish, timeoutMs);
-    pc.addEventListener("icegatheringstatechange", onChange);
-  });
+function preferredMimeType(): string {
+  if (typeof MediaRecorder === "undefined") return "";
+  return (
+    MIME_TYPE_PREFERENCES.find((value) =>
+      MediaRecorder.isTypeSupported(value),
+    ) || ""
+  );
 }
 
-function waitForDataChannelOpen(
-  channel: RTCDataChannel,
-  timeoutMs = 10_000,
-): Promise<void> {
-  if (channel.readyState === "open") return Promise.resolve();
-
-  return new Promise((resolve, reject) => {
-    let finished = false;
-    const cleanup = () => {
-      window.clearTimeout(timer);
-      channel.removeEventListener("open", onOpen);
-      channel.removeEventListener("close", onClose);
-      channel.removeEventListener("error", onError);
-    };
-    const succeed = () => {
-      if (finished) return;
-      finished = true;
-      cleanup();
-      resolve();
-    };
-    const fail = () => {
-      if (finished) return;
-      finished = true;
-      cleanup();
-      reject(new Error("Realtime transcription connection failed."));
-    };
-    const onOpen = () => succeed();
-    const onClose = () => fail();
-    const onError = () => fail();
-    const timer = window.setTimeout(fail, timeoutMs);
-    channel.addEventListener("open", onOpen);
-    channel.addEventListener("close", onClose);
-    channel.addEventListener("error", onError);
-  });
-}
-
-function normalizedSdp(raw: string): string {
-  const filtered = raw
-    .split(/\r?\n/)
-    .filter((line) => line.trim() !== "a=extmap-allow-mixed")
-    .join("\r\n");
-  return filtered.endsWith("\r\n") ? filtered : `${filtered}\r\n`;
+function transcriptionError(payload: any): string {
+  return String(
+    payload?.detail?.error ||
+      payload?.detail ||
+      payload?.error ||
+      "Transcription failed.",
+  );
 }
 
 export function useGovernedRealtimeVoice() {
-  const ownerRef = useRef(Symbol("governed-realtime-voice"));
+  const ownerRef = useRef(Symbol("governed-continuous-voice"));
   const generationRef = useRef(0);
   const startingRef = useRef(false);
-  const peerRef = useRef<RTCPeerConnection | null>(null);
-  const channelRef = useRef<RTCDataChannel | null>(null);
+  const processingRef = useRef(false);
   const streamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationRef = useRef<number | null>(null);
-  const transcriptTimeoutRef = useRef<number | null>(null);
-  const processingRef = useRef(false);
   const speechStartedAtRef = useRef<number | null>(null);
   const lastSpeechAtRef = useRef<number | null>(null);
   const onTranscriptRef = useRef<StartOptions["onTranscript"] | null>(null);
@@ -137,22 +93,13 @@ export function useGovernedRealtimeVoice() {
       window.cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
     }
-    if (transcriptTimeoutRef.current != null) {
-      window.clearTimeout(transcriptTimeoutRef.current);
-      transcriptTimeoutRef.current = null;
-    }
 
-    const channel = channelRef.current;
-    channelRef.current = null;
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
     try {
-      channel?.close();
+      if (recorder && recorder.state !== "inactive") recorder.stop();
     } catch {}
-
-    const peer = peerRef.current;
-    peerRef.current = null;
-    try {
-      peer?.close();
-    } catch {}
+    chunksRef.current = [];
 
     const stream = streamRef.current;
     streamRef.current = null;
@@ -199,21 +146,117 @@ export function useGovernedRealtimeVoice() {
         setStatus("error");
       };
 
+      const createRecorder = (stream: MediaStream): MediaRecorder => {
+        chunksRef.current = [];
+        const mimeType = preferredMimeType();
+        const recorder = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream);
+        recorderRef.current = recorder;
+        recorder.addEventListener("dataavailable", (event) => {
+          if (event.data.size > 0) chunksRef.current.push(event.data);
+        });
+        recorder.addEventListener("error", () => {
+          failSession("The browser could not record microphone audio.");
+        });
+        recorder.start(250);
+        return recorder;
+      };
+
       const resumeListening = () => {
         if (generationRef.current !== generation) return;
+        const stream = streamRef.current;
+        if (!stream) {
+          failSession("The microphone stream closed.");
+          return;
+        }
         processingRef.current = false;
         speechStartedAtRef.current = null;
         lastSpeechAtRef.current = null;
         setPartialTranscript("");
         setInputEnabled(true);
-        setStatus("listening");
+        try {
+          createRecorder(stream);
+          setStatus("listening");
+        } catch (error: any) {
+          failSession(
+            String(error?.message || error || "Unable to resume recording."),
+          );
+        }
+      };
+
+      const finishTurn = async () => {
+        if (processingRef.current || generationRef.current !== generation)
+          return;
+        const recorder = recorderRef.current;
+        if (!recorder || recorder.state === "inactive") {
+          failSession("No active microphone recording was available.");
+          return;
+        }
+
+        processingRef.current = true;
+        setInputEnabled(false);
+        setStatus("transcribing");
+
+        try {
+          await new Promise<void>((resolve, reject) => {
+            recorder.addEventListener("stop", () => resolve(), { once: true });
+            recorder.addEventListener(
+              "error",
+              () =>
+                reject(
+                  new Error("The browser could not finish the recording."),
+                ),
+              { once: true },
+            );
+            recorder.stop();
+          });
+          assertCurrent();
+          recorderRef.current = null;
+
+          const contentType =
+            recorder.mimeType || chunksRef.current[0]?.type || "audio/webm";
+          const audio = new Blob(chunksRef.current, { type: contentType });
+          chunksRef.current = [];
+          if (!audio.size) {
+            resumeListening();
+            return;
+          }
+
+          const response = await authFetch("/api/voice/openai/transcribe", {
+            method: "POST",
+            headers: { "Content-Type": contentType },
+            body: audio,
+          });
+          const payload = await response.json().catch(() => ({}));
+          assertCurrent();
+          if (!response.ok) throw new Error(transcriptionError(payload));
+
+          const transcript = String(payload?.transcript || "").trim();
+          setPartialTranscript("");
+          if (!transcript) {
+            resumeListening();
+            return;
+          }
+
+          setPartialTranscript(transcript);
+          setStatus("responding");
+          await onTranscriptRef.current?.(transcript);
+          assertCurrent();
+          resumeListening();
+        } catch (error: any) {
+          if (error?.name === "AbortError") return;
+          failSession(
+            String(error?.message || error || "Continuous voice failed."),
+          );
+        }
       };
 
       try {
         if (
           typeof window === "undefined" ||
           !navigator.mediaDevices?.getUserMedia ||
-          typeof RTCPeerConnection === "undefined"
+          typeof MediaRecorder === "undefined"
         ) {
           throw new Error("Continuous voice is not available in this browser.");
         }
@@ -228,6 +271,7 @@ export function useGovernedRealtimeVoice() {
         assertCurrent();
         streamRef.current = stream;
 
+        setStatus("connecting");
         const AudioContextConstructor =
           window.AudioContext || (window as any).webkitAudioContext;
         if (!AudioContextConstructor) {
@@ -235,150 +279,13 @@ export function useGovernedRealtimeVoice() {
         }
         const audioContext: AudioContext = new AudioContextConstructor();
         audioContextRef.current = audioContext;
-        if (audioContext.state === "suspended") {
-          await audioContext.resume();
-        }
+        if (audioContext.state === "suspended") await audioContext.resume();
         const analyser = audioContext.createAnalyser();
         analyser.fftSize = 2048;
         audioContext.createMediaStreamSource(stream).connect(analyser);
         analyserRef.current = analyser;
 
-        setStatus("connecting");
-        const peer = new RTCPeerConnection({
-          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-        });
-        peerRef.current = peer;
-        const channel = peer.createDataChannel("oai-events");
-        channelRef.current = channel;
-
-        peer.ontrack = (event) => {
-          event.track.stop();
-          failSession(
-            "The transcription-only session unexpectedly produced audio.",
-          );
-        };
-        peer.onconnectionstatechange = () => {
-          if (generationRef.current !== generation) return;
-          if (
-            peer.connectionState === "failed" ||
-            peer.connectionState === "closed"
-          ) {
-            failSession("Realtime transcription connection closed.");
-          }
-        };
-
-        channel.addEventListener("message", (event) => {
-          if (generationRef.current !== generation) return;
-          try {
-            const payload = JSON.parse(String(event.data || "{}"));
-            const type = String(payload?.type || "");
-
-            if (type === "session.created") {
-              if (String(payload?.session?.type || "") !== "transcription") {
-                failSession(
-                  "OpenAI did not create a transcription-only session.",
-                );
-              }
-              return;
-            }
-
-            if (type.startsWith("response.")) {
-              failSession(
-                "The transcription session attempted to generate a response.",
-              );
-              return;
-            }
-
-            if (type === "error") {
-              const message = String(
-                payload?.error?.message ||
-                  payload?.message ||
-                  "Realtime transcription error.",
-              );
-              failSession(message);
-              return;
-            }
-
-            if (type === "conversation.item.input_audio_transcription.delta") {
-              setPartialTranscript(
-                (current) => `${current}${String(payload?.delta || "")}`,
-              );
-              return;
-            }
-
-            if (
-              type === "conversation.item.input_audio_transcription.completed"
-            ) {
-              if (transcriptTimeoutRef.current != null) {
-                window.clearTimeout(transcriptTimeoutRef.current);
-                transcriptTimeoutRef.current = null;
-              }
-              const transcript = String(payload?.transcript || "").trim();
-              setPartialTranscript("");
-              if (!transcript) {
-                resumeListening();
-                return;
-              }
-
-              setStatus("responding");
-              void Promise.resolve(onTranscriptRef.current?.(transcript))
-                .catch((error: any) => {
-                  if (generationRef.current !== generation) return;
-                  setLastError(
-                    String(error?.message || error || "Voice response failed."),
-                  );
-                })
-                .finally(() => resumeListening());
-            }
-          } catch {
-            // Ignore unknown non-JSON events; recognized errors fail closed.
-          }
-        });
-
-        const [track] = stream.getAudioTracks();
-        if (!track) throw new Error("No microphone audio track was available.");
-        peer.addTransceiver(track, {
-          direction: "sendonly",
-          streams: [stream],
-        });
-
-        const offer = await peer.createOffer();
-        assertCurrent();
-        await peer.setLocalDescription(offer);
-        await waitForIceGatheringComplete(peer);
-        assertCurrent();
-
-        const localSdp = peer.localDescription?.sdp;
-        if (!localSdp)
-          throw new Error("Failed to create the voice connection.");
-
-        const response = await authFetch(
-          "/api/voice/openai/transcription-webrtc-offer",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/sdp" },
-            body: localSdp,
-          },
-        );
-        const answerText = await response.text();
-        assertCurrent();
-        if (!response.ok) {
-          throw new Error(
-            answerText ||
-              `Realtime transcription failed: HTTP ${response.status}`,
-          );
-        }
-        if (!answerText.trimStart().startsWith("v=")) {
-          throw new Error("The voice service returned an invalid connection.");
-        }
-
-        await peer.setRemoteDescription({
-          type: "answer",
-          sdp: normalizedSdp(answerText),
-        });
-        await waitForDataChannelOpen(channel);
-        assertCurrent();
-
+        createRecorder(stream);
         startingRef.current = false;
         setStatus("listening");
 
@@ -386,7 +293,7 @@ export function useGovernedRealtimeVoice() {
         const runVad = () => {
           if (generationRef.current !== generation) return;
           animationRef.current = window.requestAnimationFrame(runVad);
-          if (processingRef.current || channel.readyState !== "open") return;
+          if (processingRef.current) return;
 
           analyser.getByteTimeDomainData(samples);
           let sumSquares = 0;
@@ -416,18 +323,7 @@ export function useGovernedRealtimeVoice() {
             return;
           }
 
-          processingRef.current = true;
-          setInputEnabled(false);
-          setStatus("transcribing");
-          channel.send(
-            JSON.stringify({
-              event_id: `voice_commit_${Date.now()}`,
-              type: "input_audio_buffer.commit",
-            }),
-          );
-          transcriptTimeoutRef.current = window.setTimeout(() => {
-            failSession("Realtime transcription timed out.");
-          }, 30_000);
+          void finishTurn();
         };
         runVad();
       } catch (error: any) {
