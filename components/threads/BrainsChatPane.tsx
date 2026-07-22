@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { authFetch, authFetchJson } from "@/lib/authFetch";
 import { ChevronDown, Copy, RefreshCw, Volume2, Loader2, Square, Check } from "lucide-react";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
-import { useGovernedVoiceTurn } from "@/hooks/useGovernedVoiceTurn";
+import { useGovernedRealtimeVoice } from "@/hooks/useGovernedRealtimeVoice";
 import {
   decodeResponseInspectionHeader,
   ResponseTrace,
@@ -52,6 +52,60 @@ function getLS<T>(key: string, fallback: T): T {
   }
 }
 
+function splitForSpeech(text: string, maximumCharacters = 1400): string[] {
+  const units = String(text || "")
+    .replace(/\r/g, "")
+    .split(/\n+|(?<=[.!?])\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const chunks: string[] = [];
+  let current = "";
+
+  const append = (unit: string) => {
+    if (!current) {
+      current = unit;
+    } else if (current.length + unit.length + 1 <= maximumCharacters) {
+      current = `${current} ${unit}`;
+    } else {
+      chunks.push(current);
+      current = unit;
+    }
+  };
+
+  for (const unit of units) {
+    if (unit.length <= maximumCharacters) {
+      append(unit);
+      continue;
+    }
+
+    const words = unit.split(/\s+/).filter(Boolean);
+    let fragment = "";
+    for (const word of words) {
+      if (word.length > maximumCharacters) {
+        if (fragment) {
+          append(fragment);
+          fragment = "";
+        }
+        for (let offset = 0; offset < word.length; offset += maximumCharacters) {
+          append(word.slice(offset, offset + maximumCharacters));
+        }
+        continue;
+      }
+      if (!fragment) fragment = word;
+      else if (fragment.length + word.length + 1 <= maximumCharacters) {
+        fragment = `${fragment} ${word}`;
+      } else {
+        append(fragment);
+        fragment = word;
+      }
+    }
+    if (fragment) append(fragment);
+  }
+
+  if (current) chunks.push(current);
+  return chunks;
+}
+
 export function BrainsChatPane() {
   const [threadId, setThreadId] = React.useState<string | null>(null);
   const [msgs, setMsgs] = React.useState<Msg[]>([]);
@@ -60,30 +114,41 @@ export function BrainsChatPane() {
   const [loading, setLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(false);
-  const governedVoice = useGovernedVoiceTurn();
+  const governedVoice = useGovernedRealtimeVoice();
 
   const voiceStatus = governedVoice.status;
   const voiceIsConnecting =
-    voiceStatus === "requesting" || voiceStatus === "transcribing";
-  const voiceIsActive = voiceStatus === "recording";
+    voiceStatus === "requesting" || voiceStatus === "connecting";
+  const voiceIsActive =
+    voiceStatus === "listening" ||
+    voiceStatus === "speaking" ||
+    voiceStatus === "transcribing" ||
+    voiceStatus === "responding";
   const voiceHasError = voiceStatus === "error";
+  const voiceConversationEpochRef = React.useRef(0);
 
   const voiceButtonLabel =
     voiceStatus === "requesting"
       ? "Requesting microphone…"
-      : voiceStatus === "transcribing"
-        ? "Transcribing…"
+      : voiceStatus === "connecting"
+        ? "Connecting…"
         : voiceIsActive
-          ? "Stop and send"
+          ? "End conversation"
           : "Talk";
 
   const voiceStatusLabel =
     voiceStatus === "requesting"
       ? "Requesting microphone…"
-      : voiceStatus === "transcribing"
-        ? "Transcribing securely…"
-        : voiceIsActive
-          ? "Recording"
+      : voiceStatus === "connecting"
+        ? "Connecting secure transcription…"
+        : voiceStatus === "listening"
+          ? "Listening"
+          : voiceStatus === "speaking"
+            ? "Listening to you"
+            : voiceStatus === "transcribing"
+              ? "Transcribing…"
+              : voiceStatus === "responding"
+                ? "Preparing and speaking reply…"
           : voiceHasError
             ? "Voice error"
             : "Voice off";
@@ -187,6 +252,7 @@ export function BrainsChatPane() {
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = React.useRef<string | null>(null);
   const ttsAbortRef = React.useRef<AbortController | null>(null);
+  const ttsPlaybackResolveRef = React.useRef<(() => void) | null>(null);
   const ttsEpochRef = React.useRef<number>(0);
 
   // WebAudio fallback (Safari can block HTMLAudioElement.play() after async fetch)
@@ -200,7 +266,7 @@ export function BrainsChatPane() {
     inspect_error: string | null;
   } | null>(null);
 
-  // Legacy non-OpenAI realtime voice is disabled. OpenAI Realtime is staged separately.
+  // Realtime is transcription-only; response generation remains backend-governed.
 
   const audioNodeRef = React.useRef<AudioBufferSourceNode | null>(null);
 
@@ -329,6 +395,10 @@ export function BrainsChatPane() {
       audioNodeRef.current = null;
     }
 
+    const resolvePlayback = ttsPlaybackResolveRef.current;
+    ttsPlaybackResolveRef.current = null;
+    resolvePlayback?.();
+
     cleanupAudioUrl();
     setTtsLoadingIdx(null);
     setTtsPlayingIdx(null);
@@ -371,10 +441,8 @@ export function BrainsChatPane() {
   async function speak(textToSpeak: string, idx: number) {
     const t = (textToSpeak || "").trim();
     if (!t) return;
-    if (t.length > 4096) {
-      alert("This response is too long for one voice request. Long-response playback will be added in the streaming phase.");
-      return;
-    }
+    const chunks = splitForSpeech(t);
+    if (!chunks.length) return;
 
     // ignore repeated taps while loading (prevents spam)
     if (ttsLoadingIdx === idx) return;
@@ -408,82 +476,113 @@ export function BrainsChatPane() {
     ttsAbortRef.current = ac;
 
     try {
-      const r = await authFetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: t, voice, speed, model }),
-        signal: ac.signal,
-      });
-
-      if (ttsEpochRef.current !== epoch) return;
-      if (!r.ok) throw new Error(await r.text());
-
-      const blob = await r.blob();
-      if (ttsEpochRef.current !== epoch) return;
-
-      // HTMLAudioElement fast path
-      const url = URL.createObjectURL(blob);
-      audioUrlRef.current = url;
-
-      const a = new Audio(url);
-      audioRef.current = a;
-
-      const done = () => {
-        if (ttsEpochRef.current !== epoch) return;
-        if (audioRef.current === a) audioRef.current = null;
-        cleanupAudioUrl(url);
-        keepAwakeStop();
-        setTtsPlayingIdx(null);
+      const requestChunk = async (text: string) => {
+        const response = await authFetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, voice, speed, model }),
+          signal: ac.signal,
+        });
+        if (!response.ok) throw new Error(await response.text());
+        return response.blob();
       };
 
-      a.addEventListener("ended", done);
-      a.addEventListener("error", done);
-
-      try {
-        await a.play(); // may throw NotAllowedError
+      const playChunk = async (blob: Blob) => {
         if (ttsEpochRef.current !== epoch) return;
-        setTtsLoadingIdx(null);
-        setTtsPlayingIdx(idx);
-        return;
-      } catch (err: any) {
-        // Safari policy block -> WebAudio fallback
-        const name = String(err?.name || "");
-        const msg = String(err?.message || err || "");
-        const looksBlocked = name === "NotAllowedError" || /not allowed|denied permission/i.test(msg);
-        if (!looksBlocked) throw err;
+        const url = URL.createObjectURL(blob);
+        audioUrlRef.current = url;
+        const audio = new Audio(url);
+        audioRef.current = audio;
+
+        let settlePlayback: () => void = () => {};
+        const playbackFinished = new Promise<void>((resolve, reject) => {
+          let settled = false;
+          const settle = (error?: Error) => {
+            if (settled) return;
+            settled = true;
+            audio.removeEventListener("ended", onEnded);
+            audio.removeEventListener("error", onError);
+            if (ttsPlaybackResolveRef.current === settlePlayback) {
+              ttsPlaybackResolveRef.current = null;
+            }
+            if (audioRef.current === audio) audioRef.current = null;
+            cleanupAudioUrl(url);
+            if (error) reject(error);
+            else resolve();
+          };
+          const onEnded = () => settle();
+          const onError = () => settle(new Error("Voice playback failed."));
+          settlePlayback = () => settle();
+          ttsPlaybackResolveRef.current = settlePlayback;
+          audio.addEventListener("ended", onEnded);
+          audio.addEventListener("error", onError);
+        });
 
         try {
-          a.pause();
-        } catch { }
-        audioRef.current = null;
-        cleanupAudioUrl(url);
-
-        const ctx = ensureAudioContext();
-        if (!ctx) throw err;
-
-        if (ctx.state === "suspended") await ctx.resume().catch(() => { });
-
-        const ab = await blob.arrayBuffer();
-        if (ttsEpochRef.current !== epoch) return;
-
-        const decoded = await ctx.decodeAudioData(ab.slice(0));
-        if (ttsEpochRef.current !== epoch) return;
-
-        const src = ctx.createBufferSource();
-        src.buffer = decoded;
-        src.connect(ctx.destination);
-        audioNodeRef.current = src;
-
-        src.onended = () => {
+          await audio.play();
           if (ttsEpochRef.current !== epoch) return;
-          if (audioNodeRef.current === src) audioNodeRef.current = null;
-          keepAwakeStop();
-          setTtsPlayingIdx(null);
-        };
+          setTtsLoadingIdx(null);
+          setTtsPlayingIdx(idx);
+          await playbackFinished;
+          return;
+        } catch (error: any) {
+          const name = String(error?.name || "");
+          const message = String(error?.message || error || "");
+          const blocked =
+            name === "NotAllowedError" ||
+            /not allowed|denied permission/i.test(message);
+          settlePlayback();
+          try {
+            audio.pause();
+          } catch { }
+          if (!blocked) throw error;
+        }
 
-        src.start(0);
+        const context = ensureAudioContext();
+        if (!context) throw new Error("Voice playback is unavailable.");
+        if (context.state === "suspended") {
+          await context.resume().catch(() => { });
+        }
+        const data = await blob.arrayBuffer();
+        if (ttsEpochRef.current !== epoch) return;
+        const decoded = await context.decodeAudioData(data.slice(0));
+        if (ttsEpochRef.current !== epoch) return;
+
+        const source = context.createBufferSource();
+        source.buffer = decoded;
+        source.connect(context.destination);
+        audioNodeRef.current = source;
         setTtsLoadingIdx(null);
         setTtsPlayingIdx(idx);
+        await new Promise<void>((resolve) => {
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            if (audioNodeRef.current === source) audioNodeRef.current = null;
+            if (ttsPlaybackResolveRef.current === done) {
+              ttsPlaybackResolveRef.current = null;
+            }
+            resolve();
+          };
+          ttsPlaybackResolveRef.current = done;
+          source.onended = done;
+          source.start(0);
+        });
+      };
+
+      let pending = requestChunk(chunks[0]);
+      for (let index = 0; index < chunks.length; index += 1) {
+        if (ttsEpochRef.current !== epoch) return;
+        if (index > 0) setTtsLoadingIdx(idx);
+        const blob = await pending;
+        const following =
+          index + 1 < chunks.length
+            ? requestChunk(chunks[index + 1])
+            : null;
+        await playChunk(blob);
+        if (ttsEpochRef.current !== epoch) return;
+        if (following) pending = following;
       }
     } catch (e: any) {
       if (e?.name === "AbortError") return;
@@ -491,6 +590,10 @@ export function BrainsChatPane() {
       alert(e?.message || String(e));
       stopTTS();
     } finally {
+      if (ttsEpochRef.current === epoch) {
+        keepAwakeStop();
+        setTtsPlayingIdx(null);
+      }
       if (ttsEpochRef.current === epoch) setTtsLoadingIdx(null);
       if (ttsAbortRef.current === ac) ttsAbortRef.current = null;
     }
@@ -671,25 +774,32 @@ export function BrainsChatPane() {
   async function startListening() {
     stopTTS();
     unlockAudioForSafari();
+    voiceConversationEpochRef.current += 1;
+    const conversationEpoch = voiceConversationEpochRef.current;
     try {
-      await governedVoice.start();
+      await governedVoice.start({
+        onTranscript: async (transcript) => {
+          await sendMessage(transcript, {
+            speakReply: true,
+            shouldSpeak: () =>
+              voiceConversationEpochRef.current === conversationEpoch,
+          });
+        },
+      });
     } catch (e: any) {
       alert(e?.message || String(e));
     }
   }
 
   async function stopListeningAndRespond() {
-    try {
-      const transcript = await governedVoice.stopAndTranscribe();
-      await sendMessage(transcript, { speakReply: true });
-    } catch (e: any) {
-      alert(e?.message || String(e));
-    }
+    voiceConversationEpochRef.current += 1;
+    governedVoice.stop();
+    stopTTS();
   }
 
   async function sendMessage(
     overrideText?: string,
-    options: { speakReply?: boolean } = {},
+    options: { speakReply?: boolean; shouldSpeak?: () => boolean } = {},
   ) {
     stopTTS();
     const msg = String(
@@ -782,7 +892,7 @@ export function BrainsChatPane() {
         inspect: reply.inspect,
         inspect_error: reply.inspect_error,
       });
-      if (options.speakReply) {
+      if (options.speakReply && (options.shouldSpeak?.() ?? true)) {
         await speak(reply.text, Number.MAX_SAFE_INTEGER);
       }
     } catch (e: any) {
@@ -1027,7 +1137,7 @@ export function BrainsChatPane() {
                     startListening().catch((e) => alert(String((e as any)?.message ?? e)));
                   }
                 }}
-                disabled={sending || voiceIsConnecting}
+                disabled={voiceIsConnecting}
                 className={[
                   "rounded-xl border px-3 py-2 text-xs disabled:opacity-50",
                   voiceIsActive || voiceIsConnecting ? "bg-muted" : "bg-background",
@@ -1040,6 +1150,9 @@ export function BrainsChatPane() {
 
               <span className="text-[11px] text-muted-foreground">
                 OpenAI transcription · AI-generated reply · {voiceStatusLabel}
+                {governedVoice.partialTranscript
+                  ? ` · ${governedVoice.partialTranscript}`
+                  : ""}
               </span>
 
               <button onClick={() => sendMessage()} disabled={sending} className="rounded-xl bg-muted px-3 py-2 text-xs disabled:opacity-50">
