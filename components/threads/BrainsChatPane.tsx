@@ -385,6 +385,10 @@ export function BrainsChatPane() {
   async function speak(textToSpeak: string, idx: number) {
     const t = (textToSpeak || "").trim();
     if (!t) return;
+    if (t.length > 4096) {
+      alert("This response is too long for one voice request. Long-response playback will be added in the streaming phase.");
+      return;
+    }
 
     // ignore repeated taps while loading (prevents spam)
     if (ttsLoadingIdx === idx) return;
@@ -410,7 +414,7 @@ export function BrainsChatPane() {
       localStorage.setItem("vs_voice_engine", "openai_tts");
     } catch { }
 
-    const voice = String(getLS<string>("vs_voice", "sage")).trim();
+    const voice = String(getLS<string>("vs_voice", "marin")).trim();
     const model = String(getLS<string>("vs_voice_model", "gpt-4o-mini-tts")).trim();
     const speed = Number(getLS<number>("vs_voice_speed", 1.0)) || 1.0;
 
@@ -998,14 +1002,15 @@ export function BrainsChatPane() {
                         ].join(" ")}
                         onClick={() => speak(m.content, idx)}
                         disabled={disableSpeak}
-                        aria-label={isTtsLoading ? "Loading" : isTtsPlaying ? "Stop" : "Speak"}
+                        aria-label={isTtsLoading ? "Loading AI-generated voice" : isTtsPlaying ? "Stop AI-generated voice" : "Speak with AI-generated voice"}
+                        title="AI-generated voice"
                       >
                         {isTtsLoading ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Volume2 className="h-4 w-4" />
                         )}
-                        <span className="sr-only">{isTtsLoading ? "Loading" : isTtsPlaying ? "Stop" : "Speak"}</span>
+                        <span className="sr-only">{isTtsLoading ? "Loading AI-generated voice" : isTtsPlaying ? "Stop AI-generated voice" : "Speak with AI-generated voice"}</span>
                       </button>
 
                       {idx === lastAIdx && (
@@ -1101,7 +1106,7 @@ export function BrainsChatPane() {
               </button>
 
               <span className="text-[11px] text-muted-foreground">
-                {voiceStatusLabel}
+                AI-generated voice · {voiceStatusLabel}
               </span>
 
               <button onClick={() => sendMessage()} disabled={sending} className="rounded-xl bg-muted px-3 py-2 text-xs disabled:opacity-50">

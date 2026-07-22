@@ -190,13 +190,17 @@ async function speakTextFromButton(btn: HTMLElement) {
 
   const cleaned = text.replace(/\bCopy\b|\bSpeak\b|\bRefresh\b/g, "").trim();
   if (!cleaned) return;
+  if (cleaned.length > 4096) {
+    alert("This response is too long for one voice request. Long-response playback will be added in the streaming phase.");
+    return;
+  }
 
   try {
     localStorage.setItem("vs_voice_engine", "openai_tts");
   } catch { }
 
   // OpenAI TTS (/api/tts)
-  const voice = String(getLS<string>("vs_voice", "sage")).trim();
+  const voice = String(getLS<string>("vs_voice", "marin")).trim();
   const model = String(getLS<string>("vs_voice_model", "gpt-4o-mini-tts")).trim();
   const speed = Number(getLS<number>("vs_voice_speed", 1.0)) || 1.0;
 
@@ -273,7 +277,7 @@ const AssistantActionBar: FC = () => {
         </TooltipIconButton>
       </ActionBarPrimitive.Copy>
       <TooltipIconButton
-        tooltip="Speak"
+        tooltip="Speak with AI-generated voice"
         onClick={(e) => {
           e.preventDefault();
           speakTextFromButton(e.currentTarget);

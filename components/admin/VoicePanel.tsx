@@ -4,6 +4,27 @@ import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch } from "@/lib/authFetch";
 
+type TTSModelCapability = {
+  id: string;
+  label: string;
+  description: string;
+  legacy: boolean;
+  supports_instructions: boolean;
+  default_voice: string;
+  recommended_voices: string[];
+  voices: string[];
+};
+
+type VoiceCapabilities = {
+  version: string;
+  tts: {
+    default_model: string;
+    default_voice: string;
+    maximum_input_characters: number;
+    models: TTSModelCapability[];
+  };
+};
+
 function getLS<T>(k: string, fallback: T): T {
   try {
     const v = localStorage.getItem(k);
@@ -20,7 +41,7 @@ function setLS(k: string, v: any) {
 }
 
 function normalizeVoiceSettings(raw: any) {
-  const voice = String(raw?.vs_voice || raw?.voice || "sage").trim() || "sage";
+  const voice = String(raw?.vs_voice || raw?.voice || "marin").trim() || "marin";
   const model = String(raw?.vs_voice_model || raw?.model || "gpt-4o-mini-tts").trim() || "gpt-4o-mini-tts";
   const speedRaw = Number(raw?.vs_voice_speed ?? raw?.speed ?? 1.0);
   const speed = Number.isFinite(speedRaw) ? Math.max(0.6, Math.min(1.4, speedRaw)) : 1.0;
@@ -33,14 +54,20 @@ function saveVoiceSettingsLocal(nextVoice: string, nextSpeed: number, nextModel:
   setLS("vs_voice_model", nextModel);
 }
 
-function saveVoiceSettingsCloud(nextVoice: string, nextSpeed: number, nextModel: string) {
-  void supabase.auth.updateUser({
+async function saveVoiceSettingsCloud(nextVoice: string, nextSpeed: number, nextModel: string) {
+  const { error } = await supabase.auth.updateUser({
     data: {
       vs_voice: nextVoice,
       vs_voice_speed: nextSpeed,
       vs_voice_model: nextModel,
     },
   });
+  return error;
+}
+
+function voiceLabel(voice: string, recommended: string[]) {
+  const display = voice.charAt(0).toUpperCase() + voice.slice(1);
+  return recommended.includes(voice) ? `${display} — Recommended` : display;
 }
 
 function Group({
@@ -137,30 +164,36 @@ function SliderRow({
 }
 
 export function VoicePanel() {
-  const [voice, setVoice] = React.useState<string>("sage");
+  const [voice, setVoice] = React.useState<string>("marin");
   const [speed, setSpeed] = React.useState<number>(1.0);
   const [model, setModel] = React.useState<string>("gpt-4o-mini-tts");
   const [testText, setTestText] = React.useState<string>("Hello, this is Sage inside LifeSwitch.");
   const [busy, setBusy] = React.useState<boolean>(false);
   const [status, setStatus] = React.useState<string>("");
   const [isPlaying, setIsPlaying] = React.useState<boolean>(false);
+  const [capabilities, setCapabilities] = React.useState<VoiceCapabilities | null>(null);
+  const [capabilitiesError, setCapabilitiesError] = React.useState<string>("");
 
-  const voicesMiniTTS = ["alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"];
-  const voices4oMiniTTS = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"];
-  const voices = model === "gpt-4o-mini-tts" ? voices4oMiniTTS : voicesMiniTTS;
+  const selectedModel = React.useMemo(
+    () => capabilities?.tts.models.find((item) => item.id === model) ?? null,
+    [capabilities, model],
+  );
+  const voices = selectedModel?.voices ?? [];
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
   function saveVoiceSettings(nextVoice: string, nextSpeed: number, nextModel: string) {
     saveVoiceSettingsLocal(nextVoice, nextSpeed, nextModel);
-    saveVoiceSettingsCloud(nextVoice, nextSpeed, nextModel);
+    void saveVoiceSettingsCloud(nextVoice, nextSpeed, nextModel).then((error) => {
+      if (error) setStatus("Saved on this device, but account sync failed.");
+    });
   }
 
   React.useEffect(() => {
     let cancelled = false;
 
     const local = normalizeVoiceSettings({
-      vs_voice: getLS<string>("vs_voice", "sage"),
+      vs_voice: getLS<string>("vs_voice", "marin"),
       vs_voice_speed: getLS<number>("vs_voice_speed", 1.0),
       vs_voice_model: getLS<string>("vs_voice_model", "gpt-4o-mini-tts"),
     });
@@ -192,14 +225,56 @@ export function VoicePanel() {
   }, []);
 
   React.useEffect(() => {
-    const allowed = model === "gpt-4o-mini-tts" ? voices4oMiniTTS : voicesMiniTTS;
-    if (!allowed.includes(voice)) {
-      const fallback = "sage";
-      setVoice(fallback);
-      saveVoiceSettings(fallback, speed, model);
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const response = await authFetch("/api/voice/capabilities", { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const payload = (await response.json()) as VoiceCapabilities;
+        if (!payload?.tts?.default_model || !Array.isArray(payload?.tts?.models)) {
+          throw new Error("Invalid capabilities response");
+        }
+
+        if (!cancelled) {
+          setCapabilities(payload);
+          setCapabilitiesError("");
+        }
+      } catch {
+        if (!cancelled) {
+          setCapabilities(null);
+          setCapabilitiesError("Voice options are temporarily unavailable.");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!capabilities) return;
+
+    const nextModel =
+      capabilities.tts.models.find((item) => item.id === model) ??
+      capabilities.tts.models.find((item) => item.id === capabilities.tts.default_model);
+    if (!nextModel) return;
+
+    const nextVoice = nextModel.voices.includes(voice) ? voice : nextModel.default_voice;
+    if (nextModel.id !== model || nextVoice !== voice) {
+      setModel(nextModel.id);
+      setVoice(nextVoice);
+      saveVoiceSettings(nextVoice, speed, nextModel.id);
+      setStatus(
+        nextModel.id !== model
+          ? `Speech model changed to ${nextModel.label} because the saved model is unavailable.`
+          : `Voice changed to ${voiceLabel(nextVoice, nextModel.recommended_voices)} because ${voice} is unavailable for ${nextModel.label}.`,
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model]);
+  }, [capabilities, model, voice]);
 
   async function playTTS(text: string) {
     const msg = String(text || "").trim();
@@ -264,28 +339,84 @@ export function VoicePanel() {
   return (
     <div className="space-y-4">
       <Group
-        title="Voice"
+        title="Spoken replies"
         footer={
-          <>
-            Synced to your account and cached in this browser.
-          </>
+          <div className="space-y-1">
+            <div>Synced to your account and cached in this browser.</div>
+            <div className="font-medium text-foreground">
+              Disclosure: the voice you hear is AI-generated, not a human voice.
+            </div>
+          </div>
         }
       >
+        <Row
+          left="Speech model"
+          right={
+            <select
+              className="w-[210px] rounded-lg border bg-background px-2 py-1.5 text-sm"
+              value={model}
+              disabled={!capabilities}
+              onChange={(e) => {
+                const nextModel = capabilities?.tts.models.find((item) => item.id === e.target.value);
+                if (!nextModel) return;
+
+                const nextVoice = nextModel.voices.includes(voice) ? voice : nextModel.default_voice;
+                setModel(nextModel.id);
+                setVoice(nextVoice);
+                saveVoiceSettings(nextVoice, speed, nextModel.id);
+
+                if (nextVoice !== voice) {
+                  setStatus(
+                    `Voice changed to ${voiceLabel(nextVoice, nextModel.recommended_voices)} because ${voice} is unavailable for ${nextModel.label}.`,
+                  );
+                } else {
+                  setStatus("");
+                }
+              }}
+            >
+              <optgroup label="Recommended">
+                {capabilities?.tts.models
+                  .filter((item) => !item.legacy)
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+              </optgroup>
+              <optgroup label="Advanced · Legacy">
+                {capabilities?.tts.models
+                  .filter((item) => item.legacy)
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+              </optgroup>
+            </select>
+          }
+        >
+          {selectedModel ? (
+            <div className="text-xs text-muted-foreground">{selectedModel.description}</div>
+          ) : null}
+        </Row>
+
         <Row
           left="Voice"
           right={
             <select
               className="w-[210px] rounded-lg border bg-background px-2 py-1.5 text-sm"
               value={voice}
+              disabled={!selectedModel}
               onChange={(e) => {
-                const v = e.target.value;
-                setVoice(v);
-                saveVoiceSettings(v, speed, model);
+                const nextVoice = e.target.value;
+                setVoice(nextVoice);
+                saveVoiceSettings(nextVoice, speed, model);
+                setStatus("");
               }}
             >
-              {voices.map((v) => (
-                <option key={v} value={v}>
-                  {v}
+              {voices.map((item) => (
+                <option key={item} value={item}>
+                  {voiceLabel(item, selectedModel?.recommended_voices ?? [])}
                 </option>
               ))}
             </select>
@@ -299,29 +430,10 @@ export function VoicePanel() {
           max={1.4}
           step={0.05}
           format={(v) => `${v.toFixed(2)}×`}
-          onChange={(s) => {
-            setSpeed(s);
-            saveVoiceSettings(voice, s, model);
+          onChange={(nextSpeed) => {
+            setSpeed(nextSpeed);
+            saveVoiceSettings(voice, nextSpeed, model);
           }}
-        />
-
-        <Row
-          left="Voice model"
-          right={
-            <select
-              className="w-[210px] rounded-lg border bg-background px-2 py-1.5 text-sm"
-              value={model}
-              onChange={(e) => {
-                const m = e.target.value;
-                setModel(m);
-                saveVoiceSettings(voice, speed, m);
-              }}
-            >
-              <option value="gpt-4o-mini-tts">gpt-4o-mini-tts</option>
-              <option value="tts-1">tts-1</option>
-              <option value="tts-1-hd">tts-1-hd</option>
-            </select>
-          }
         />
 
         <Row left="Test phrase">
@@ -334,11 +446,15 @@ export function VoicePanel() {
 
         <ActionRow
           label={busy ? "Working…" : isPlaying ? "Playing…" : "Play test phrase"}
-          disabled={busy || isPlaying}
+          disabled={busy || isPlaying || !selectedModel}
           onClick={() => playTTS(testText)}
         />
 
         {isPlaying ? <ActionRow label="Stop" disabled={busy} onClick={stopAudio} /> : null}
+
+        {capabilitiesError ? (
+          <Row left={<span className="text-xs text-destructive">{capabilitiesError}</span>} />
+        ) : null}
 
         {status ? <Row left={<span className="text-xs text-muted-foreground">{status}</span>} /> : null}
       </Group>

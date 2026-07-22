@@ -5,6 +5,7 @@ import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const MAX_TTS_CHARACTERS = 4096;
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
@@ -42,6 +43,18 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { ok: false, error: "missing_text" },
         { status: 400, headers: { "x-request-id": requestId } }
+      );
+    }
+
+    if (text.length > MAX_TTS_CHARACTERS) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "text_too_long",
+          maximum_characters: MAX_TTS_CHARACTERS,
+          actual_characters: text.length,
+        },
+        { status: 413, headers: { "x-request-id": requestId } },
       );
     }
 

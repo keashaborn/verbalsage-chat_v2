@@ -405,6 +405,10 @@ export function LifeSwitchHelper() {
   async function prepareHelperSpeech(replyText: string) {
     const textToSpeak = speechTextFromMarkdown(replyText);
     if (!textToSpeak) return;
+    if (textToSpeak.length > 4096) {
+      setTtsError("This response is too long for one voice request. Long-response playback will be added in the streaming phase.");
+      return;
+    }
 
     if (preparedSpeechTextRef.current === textToSpeak && audioUrlRef.current)
       return;
@@ -414,7 +418,7 @@ export function LifeSwitchHelper() {
     setTtsError("");
     setTtsPreparing(true);
 
-    const voice = getLocalString("vs_voice", "sage").trim() || "sage";
+    const voice = getLocalString("vs_voice", "marin").trim() || "marin";
     const model =
       getLocalString("vs_voice_model", "gpt-4o-mini-tts").trim() ||
       "gpt-4o-mini-tts";
@@ -567,6 +571,9 @@ export function LifeSwitchHelper() {
               <div className="text-[11px] text-muted-foreground">
                 {domain} / {mode}
               </div>
+              <div className="text-[11px] text-muted-foreground">
+                Speech uses an AI-generated voice.
+              </div>
             </div>
             <div className="flex items-center gap-1">
               <Button
@@ -574,14 +581,14 @@ export function LifeSwitchHelper() {
                 variant={ttsBusy ? "default" : "ghost"}
                 size="sm"
                 aria-label={
-                  ttsBusy ? "Stop helper speech" : "Speak latest helper answer"
+                  ttsBusy ? "Stop AI-generated helper speech" : "Speak latest helper answer with AI-generated voice"
                 }
                 title={
                   ttsBusy
                     ? "Stop"
                     : ttsPreparing
                       ? "Preparing voice"
-                      : "Speak latest answer"
+                      : "Speak latest answer with AI-generated voice"
                 }
                 onClick={speakLatestAssistant}
                 disabled={ttsPreparing}
