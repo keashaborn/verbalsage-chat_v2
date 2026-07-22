@@ -303,8 +303,6 @@ export function BrainsChatPane() {
   // -----------------------------
   // TTS: single-flight + UI state
   // -----------------------------
-  const audioRef = React.useRef<HTMLAudioElement | null>(null);
-  const audioUrlRef = React.useRef<string | null>(null);
   const ttsAbortRef = React.useRef<AbortController | null>(null);
   const ttsPlaybackResolveRef = React.useRef<(() => void) | null>(null);
   const ttsEpochRef = React.useRef<number>(0);
@@ -322,7 +320,7 @@ export function BrainsChatPane() {
 
   // Realtime is transcription-only; response generation remains backend-governed.
 
-  const audioNodeRef = React.useRef<AudioBufferSourceNode | null>(null);
+  const audioNodesRef = React.useRef<Set<AudioBufferSourceNode>>(new Set());
 
   // Screen Wake Lock (best-effort; not supported on all iOS/Safari versions)
   const wakeLockRef = React.useRef<any>(null);
@@ -335,15 +333,6 @@ export function BrainsChatPane() {
   function bumpTtsEpoch() {
     ttsEpochRef.current += 1;
     return ttsEpochRef.current;
-  }
-
-  function cleanupAudioUrl(url?: string) {
-    const u = url ?? audioUrlRef.current;
-    if (!u) return;
-    try {
-      URL.revokeObjectURL(u);
-    } catch {}
-    if (audioUrlRef.current === u) audioUrlRef.current = null;
   }
 
   function ensureAudioContext(): AudioContext | null {
@@ -433,28 +422,20 @@ export function BrainsChatPane() {
       ttsAbortRef.current = null;
     }
 
-    if (audioRef.current) {
+    for (const source of audioNodesRef.current) {
       try {
-        audioRef.current.pause();
+        source.stop();
       } catch {}
-      audioRef.current = null;
+      try {
+        source.disconnect();
+      } catch {}
     }
-
-    if (audioNodeRef.current) {
-      try {
-        audioNodeRef.current.stop();
-      } catch {}
-      try {
-        audioNodeRef.current.disconnect();
-      } catch {}
-      audioNodeRef.current = null;
-    }
+    audioNodesRef.current.clear();
 
     const resolvePlayback = ttsPlaybackResolveRef.current;
     ttsPlaybackResolveRef.current = null;
     resolvePlayback?.();
 
-    cleanupAudioUrl();
     setTtsLoadingIdx(null);
     setTtsPlayingIdx(null);
   }
@@ -471,24 +452,19 @@ export function BrainsChatPane() {
         ttsAbortRef.current = null;
       }
 
-      if (audioRef.current) {
+      for (const source of audioNodesRef.current) {
         try {
-          audioRef.current.pause();
+          source.stop();
         } catch {}
-        audioRef.current = null;
+        try {
+          source.disconnect();
+        } catch {}
       }
+      audioNodesRef.current.clear();
 
-      if (audioNodeRef.current) {
-        try {
-          audioNodeRef.current.stop();
-        } catch {}
-        try {
-          audioNodeRef.current.disconnect();
-        } catch {}
-        audioNodeRef.current = null;
-      }
-
-      cleanupAudioUrl();
+      const resolvePlayback = ttsPlaybackResolveRef.current;
+      ttsPlaybackResolveRef.current = null;
+      resolvePlayback?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -585,105 +561,142 @@ export function BrainsChatPane() {
         if (providerRequestId) {
           providerRequestIds.push(providerRequestId.slice(0, 128));
         }
-        return response.blob();
+        const audioFormat = response.headers.get("x-vs-audio-format");
+        const sampleRate = Number(
+          response.headers.get("x-vs-audio-sample-rate") || "",
+        );
+        if (audioFormat !== "pcm_s16le" || sampleRate !== 24000) {
+          await response.body?.cancel().catch(() => {});
+          throw new Error("The voice service returned an unsupported format.");
+        }
+        if (!response.body) {
+          throw new Error("The voice service returned no audio stream.");
+        }
+        return response;
       };
 
-      const playChunk = async (blob: Blob) => {
+      const playChunk = async (response: Response) => {
         if (ttsEpochRef.current !== epoch) return;
-        const url = URL.createObjectURL(blob);
-        audioUrlRef.current = url;
-        const audio = new Audio(url);
-        audioRef.current = audio;
-
-        let settlePlayback: () => void = () => {};
-        const playbackFinished = new Promise<void>((resolve, reject) => {
-          let settled = false;
-          const settle = (error?: Error) => {
-            if (settled) return;
-            settled = true;
-            audio.removeEventListener("ended", onEnded);
-            audio.removeEventListener("error", onError);
-            if (ttsPlaybackResolveRef.current === settlePlayback) {
-              ttsPlaybackResolveRef.current = null;
-            }
-            if (audioRef.current === audio) audioRef.current = null;
-            cleanupAudioUrl(url);
-            if (error) reject(error);
-            else resolve();
-          };
-          const onEnded = () => settle();
-          const onError = () => settle(new Error("Voice playback failed."));
-          settlePlayback = () => settle();
-          ttsPlaybackResolveRef.current = settlePlayback;
-          audio.addEventListener("ended", onEnded);
-          audio.addEventListener("error", onError);
-        });
-
-        try {
-          await audio.play();
-          if (ttsEpochRef.current !== epoch) return;
-          if (firstAudioAtMs == null) firstAudioAtMs = performance.now();
-          setTtsLoadingIdx(null);
-          setTtsPlayingIdx(idx);
-          await playbackFinished;
-          return;
-        } catch (error: any) {
-          const name = String(error?.name || "");
-          const message = String(error?.message || error || "");
-          const blocked =
-            name === "NotAllowedError" ||
-            /not allowed|denied permission/i.test(message);
-          settlePlayback();
-          try {
-            audio.pause();
-          } catch {}
-          if (!blocked) throw error;
-        }
-
         const context = ensureAudioContext();
         if (!context) throw new Error("Voice playback is unavailable.");
         if (context.state === "suspended") {
           await context.resume().catch(() => {});
         }
-        const data = await blob.arrayBuffer();
-        if (ttsEpochRef.current !== epoch) return;
-        const decoded = await context.decodeAudioData(data.slice(0));
-        if (ttsEpochRef.current !== epoch) return;
 
-        const source = context.createBufferSource();
-        source.buffer = decoded;
-        source.connect(context.destination);
-        audioNodeRef.current = source;
-        setTtsLoadingIdx(null);
-        setTtsPlayingIdx(idx);
-        await new Promise<void>((resolve) => {
+        const reader = response.body!.getReader();
+        const sampleRate = 24000;
+        const minimumScheduleBytes = 4096;
+        let pendingBytes = new Uint8Array(0);
+        let nextStartAt = 0;
+        let lastSource: AudioBufferSourceNode | null = null;
+        let streamComplete = false;
+        const endedSources = new WeakSet<AudioBufferSourceNode>();
+
+        let settlePlayback: () => void = () => {};
+        const playbackFinished = new Promise<void>((resolve) => {
           let settled = false;
-          const done = () => {
+          settlePlayback = () => {
             if (settled) return;
             settled = true;
-            if (audioNodeRef.current === source) audioNodeRef.current = null;
-            if (ttsPlaybackResolveRef.current === done) {
+            if (ttsPlaybackResolveRef.current === settlePlayback) {
               ttsPlaybackResolveRef.current = null;
             }
             resolve();
           };
-          ttsPlaybackResolveRef.current = done;
-          source.onended = done;
-          if (firstAudioAtMs == null) firstAudioAtMs = performance.now();
-          source.start(0);
+          ttsPlaybackResolveRef.current = settlePlayback;
         });
+
+        const schedulePcm = (bytes: Uint8Array) => {
+          if (!bytes.length || ttsEpochRef.current !== epoch) return;
+          const samples = new Float32Array(bytes.length / 2);
+          for (let offset = 0; offset < bytes.length; offset += 2) {
+            let value = bytes[offset] | (bytes[offset + 1] << 8);
+            if (value >= 0x8000) value -= 0x10000;
+            samples[offset / 2] = value / 0x8000;
+          }
+
+          const buffer = context.createBuffer(1, samples.length, sampleRate);
+          buffer.copyToChannel(samples, 0);
+          const source = context.createBufferSource();
+          source.buffer = buffer;
+          source.connect(context.destination);
+          audioNodesRef.current.add(source);
+          lastSource = source;
+
+          const now = context.currentTime;
+          if (nextStartAt <= now) nextStartAt = now + 0.06;
+          const startAt = nextStartAt;
+          nextStartAt += buffer.duration;
+          source.onended = () => {
+            endedSources.add(source);
+            audioNodesRef.current.delete(source);
+            try {
+              source.disconnect();
+            } catch {}
+            if (streamComplete && source === lastSource) settlePlayback();
+          };
+
+          if (firstAudioAtMs == null) {
+            firstAudioAtMs =
+              performance.now() + Math.max(0, startAt - now) * 1000;
+            setTtsLoadingIdx(null);
+            setTtsPlayingIdx(idx);
+          }
+          source.start(startAt);
+        };
+
+        try {
+          while (true) {
+            if (ttsEpochRef.current !== epoch || ac.signal.aborted) {
+              await reader.cancel().catch(() => {});
+              settlePlayback();
+              return;
+            }
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (!value?.length) continue;
+
+            const combined = new Uint8Array(pendingBytes.length + value.length);
+            combined.set(pendingBytes);
+            combined.set(value, pendingBytes.length);
+            if (combined.length >= minimumScheduleBytes) {
+              const completeLength = combined.length - (combined.length % 2);
+              schedulePcm(combined.slice(0, completeLength));
+              pendingBytes = combined.slice(completeLength);
+            } else {
+              pendingBytes = combined;
+            }
+          }
+
+          if (pendingBytes.length % 2 !== 0) {
+            throw new Error("The voice service returned incomplete PCM audio.");
+          }
+          schedulePcm(pendingBytes);
+          streamComplete = true;
+          if (!lastSource) {
+            settlePlayback();
+            throw new Error(
+              "The voice service returned an empty audio stream.",
+            );
+          }
+          if (endedSources.has(lastSource)) settlePlayback();
+          await playbackFinished;
+        } finally {
+          await reader.cancel().catch(() => {});
+          if (!streamComplete) settlePlayback();
+        }
       };
 
       let pending = requestChunk(chunks[0], 0);
       for (let index = 0; index < chunks.length; index += 1) {
         if (ttsEpochRef.current !== epoch) return metrics("cancelled");
         if (index > 0) setTtsLoadingIdx(idx);
-        const blob = await pending;
+        const response = await pending;
         const following =
           index + 1 < chunks.length
             ? requestChunk(chunks[index + 1], index + 1)
             : null;
-        await playChunk(blob);
+        await playChunk(response);
         if (ttsEpochRef.current !== epoch) return metrics("cancelled");
         if (following) pending = following;
       }

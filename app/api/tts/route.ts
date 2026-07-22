@@ -177,6 +177,7 @@ export async function POST(req: Request) {
       voiceTurn.value &&
       upstream.headers.get("x-vs-voice-turn-id") !== voiceTurn.value
     ) {
+      await upstream.body?.cancel().catch(() => {});
       return NextResponse.json(
         { ok: false, error: "voice_turn_correlation_lost" },
         { status: 502, headers: { "x-request-id": rid } },
@@ -199,13 +200,31 @@ export async function POST(req: Request) {
       );
     }
 
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    return new Response(buf, {
+    if (!upstream.body) {
+      return NextResponse.json(
+        { ok: false, error: "tts_upstream_stream_missing" },
+        { status: 502, headers: { "x-request-id": rid } },
+      );
+    }
+
+    return new Response(upstream.body, {
       status: 200,
       headers: {
-        "content-type": upstream.headers.get("content-type") || "audio/mpeg",
+        "content-type": upstream.headers.get("content-type") || "audio/pcm",
         "x-request-id": rid,
         "cache-control": "no-store",
+        ...(upstream.headers.get("x-vs-audio-format")
+          ? {
+              "x-vs-audio-format": upstream.headers.get("x-vs-audio-format")!,
+            }
+          : {}),
+        ...(upstream.headers.get("x-vs-audio-sample-rate")
+          ? {
+              "x-vs-audio-sample-rate": upstream.headers.get(
+                "x-vs-audio-sample-rate",
+              )!,
+            }
+          : {}),
         ...(upstream.headers.get("x-vs-provider-request-id")
           ? {
               "x-vs-provider-request-id": upstream.headers.get(
