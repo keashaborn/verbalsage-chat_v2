@@ -2,6 +2,7 @@
 
 import { authFetch } from "@/lib/authFetch";
 import { MiniLineChart, type XYPoint } from "@/components/sslg/MiniLineChart";
+import { calculateStrengthFrequency } from "./strengthFrequency";
 import * as React from "react";
 
 type TrainingSessionRow = {
@@ -237,6 +238,8 @@ export default function TrainingAnalyzePage() {
 
   const [strengthSessions, setStrengthSessions] = React.useState<TrainingSessionRow[]>([]);
   const [conditioningSessions, setConditioningSessions] = React.useState<ConditioningSessionRow[]>([]);
+  const [trainingTargets, setTrainingTargets] = React.useState<Record<string, unknown> | null>(null);
+  const [planEvidence, setPlanEvidence] = React.useState("Active Plan not loaded");
   const showDebug =
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debug") === "1";
 
@@ -248,9 +251,12 @@ export default function TrainingAnalyzePage() {
     setStatus("loading training analysis…");
 
     try {
-      const [strengthJson, conditioningJson] = await Promise.all([
+      const [strengthJson, conditioningJson, planResult] = await Promise.all([
         fetchJson("/api/lifeswitch/training/sessions?limit=500"),
         fetchJson("/api/lifeswitch/training/conditioning_sessions?limit=500"),
+        fetchJson("/api/lifeswitch/plan/agentic/active")
+          .then((value) => ({ value, failed: false }))
+          .catch(() => ({ value: null, failed: true })),
       ]);
 
       const strengthArr = Array.isArray(strengthJson) ? (strengthJson as TrainingSessionRow[]) : [];
@@ -270,10 +276,30 @@ export default function TrainingAnalyzePage() {
 
       setStrengthSessions(strengthArr);
       setConditioningSessions(conditioningArr);
+      const activePlan = planResult.value?.active_plan;
+      const activeDocument = activePlan?.document;
+      if (activeDocument && typeof activeDocument === "object" && !Array.isArray(activeDocument)) {
+        const nextTargets = activeDocument.training_targets;
+        setTrainingTargets(
+          nextTargets && typeof nextTargets === "object" && !Array.isArray(nextTargets)
+            ? (nextTargets as Record<string, unknown>)
+            : {},
+        );
+        setPlanEvidence(
+          activePlan.version_number != null
+            ? `Active Plan v${activePlan.version_number}`
+            : "Active Plan",
+        );
+      } else {
+        setTrainingTargets(null);
+        setPlanEvidence(planResult.failed ? "Active Plan unavailable" : "No active Plan");
+      }
       setStatus(`loaded ${strengthArr.length} resistance sessions and ${conditioningArr.length} conditioning sessions`);
     } catch (e: any) {
       setStrengthSessions([]);
       setConditioningSessions([]);
+      setTrainingTargets(null);
+      setPlanEvidence("Active Plan unavailable");
       setStatus(`error: ${String(e?.message || e)}`);
     } finally {
       setLoading(false);
@@ -307,6 +333,30 @@ export default function TrainingAnalyzePage() {
       return day >= startDay && day <= today;
     });
   }, [conditioningSessions, startDay, today]);
+
+  const strengthFrequency = React.useMemo(
+    () =>
+      calculateStrengthFrequency({
+        sessions: strengthSessions,
+        trainingTargets,
+        today,
+      }),
+    [strengthSessions, trainingTargets, today],
+  );
+
+  const strengthFrequencyStatus = {
+    met: "Met",
+    below: "Below",
+    above: "Above",
+    insufficient_data: "Insufficient data",
+  }[strengthFrequency.status];
+
+  const strengthFrequencyStatusClass = {
+    met: "border-emerald-700/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    below: "border-amber-700/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    above: "border-sky-700/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+    insufficient_data: "border-muted-foreground/30 bg-muted/30 text-muted-foreground",
+  }[strengthFrequency.status];
 
   const summary = React.useMemo(() => {
     const strengthDays = new Set<string>();
@@ -490,6 +540,50 @@ export default function TrainingAnalyzePage() {
         <MetricCard label="Strength volume" value={formatK(summary.volume)} sub="logged load × reps" />
         <MetricCard label="Rehab" value={`${summary.rehabDays} days`} sub={`${summary.rehabSessions} sessions · ${summary.rehabSets} sets`} />
         <MetricCard label="Conditioning" value={formatDuration(summary.conditioningMinutes)} sub={`${summary.conditioningSessions} sessions`} />
+      </section>
+
+      <section className="mt-6 rounded-xl border p-4" aria-label="Plan versus actual strength frequency">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold">Plan vs actual · Strength frequency</div>
+            <div className="mt-1 text-xs text-muted-foreground">{planEvidence}</div>
+          </div>
+          <div className={`rounded-full border px-3 py-1 text-xs font-semibold ${strengthFrequencyStatusClass}`}>
+            {strengthFrequencyStatus}
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border p-4">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Planned</div>
+            <div className="mt-2 text-2xl font-semibold">
+              {strengthFrequency.target?.label ?? "Not set"}
+            </div>
+          </div>
+          <div className="rounded-xl border p-4">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Completed</div>
+            <div className="mt-2 text-2xl font-semibold">{strengthFrequency.completed}</div>
+            <div className="mt-1 text-xs text-muted-foreground">canonical strength sessions</div>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-1 text-xs text-muted-foreground">
+          <div>
+            Latest completed 7-day window: {strengthFrequency.windowStart} → {strengthFrequency.windowEnd}. Today ({today}) is excluded.
+          </div>
+          <div>
+            A completed strength or mixed strength + rehab session counts once. Rehab-only, conditioning-only, incomplete, inactive, and unclassified sessions are excluded.
+          </div>
+          <div>
+            Excluded in this window: {strengthFrequency.excluded.rehab} rehab-only · {strengthFrequency.excluded.incomplete} incomplete · {strengthFrequency.excluded.unclassified} unclassified.
+          </div>
+        </div>
+
+        {strengthFrequency.excluded.unclassified > 0 ? (
+          <div className="mt-3 rounded-lg border border-amber-700/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+            {strengthFrequency.excluded.unclassified} unclassified session{strengthFrequency.excluded.unclassified === 1 ? " was" : "s were"} excluded. Classify historical sessions explicitly before using them as strength evidence.
+          </div>
+        ) : null}
       </section>
 
       <section className="mt-6 rounded-xl border p-4">
