@@ -6,6 +6,8 @@ import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const MAX_TTS_CHARACTERS = 4096;
+const TTS_UPSTREAM_RETRY_DELAYS_MS = [0, 300, 1200];
+const RETRYABLE_UPSTREAM_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
@@ -14,6 +16,10 @@ function clamp(n: number, lo: number, hi: number) {
 function getRequestId(req: Request): string {
   const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
   return raw && raw.length <= 128 ? raw : randomUUID();
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 export async function POST(req: Request) {
@@ -59,20 +65,57 @@ export async function POST(req: Request) {
     }
 
     const BRAINS_URL = (process.env.BRAINS_URL || "http://172.31.32.171:8088").replace(/\/+$/, "");
-    const upstream = await fetch(`${BRAINS_URL}/voice/tts`, {
-      method: "POST",
-      cache: "no-store",
-      headers: brainsUpstreamHeaders(requestId, userId, {
-        "content-type": "application/json; charset=utf-8",
-      }),
-      body: JSON.stringify({
-        text,
-        voice,
-        model,
-        speed,
-        instructions,
-      }),
+    const upstreamBody = JSON.stringify({
+      text,
+      voice,
+      model,
+      speed,
+      instructions,
     });
+    let upstream: Response | null = null;
+    let lastTransportError: unknown = null;
+
+    for (
+      let attempt = 0;
+      attempt < TTS_UPSTREAM_RETRY_DELAYS_MS.length;
+      attempt += 1
+    ) {
+      const delay = TTS_UPSTREAM_RETRY_DELAYS_MS[attempt];
+      if (delay > 0) await wait(delay);
+
+      try {
+        const candidate = await fetch(`${BRAINS_URL}/voice/tts`, {
+          method: "POST",
+          cache: "no-store",
+          headers: brainsUpstreamHeaders(requestId, userId, {
+            "content-type": "application/json; charset=utf-8",
+          }),
+          body: upstreamBody,
+        });
+        upstream = candidate;
+        lastTransportError = null;
+        if (
+          candidate.ok ||
+          !RETRYABLE_UPSTREAM_STATUSES.has(candidate.status) ||
+          attempt === TTS_UPSTREAM_RETRY_DELAYS_MS.length - 1
+        ) {
+          break;
+        }
+        await candidate.arrayBuffer().catch(() => new ArrayBuffer(0));
+      } catch (error) {
+        upstream = null;
+        lastTransportError = error;
+        if (attempt === TTS_UPSTREAM_RETRY_DELAYS_MS.length - 1) break;
+      }
+    }
+
+    if (!upstream) {
+      throw new Error(
+        `TTS backend unavailable after retry: ${String(
+          (lastTransportError as any)?.message || lastTransportError || "fetch failed",
+        )}`,
+      );
+    }
 
     const rid = upstream.headers.get("x-request-id") || requestId;
     const contentType = upstream.headers.get("content-type") || "";
