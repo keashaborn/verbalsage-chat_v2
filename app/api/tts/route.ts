@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
+import {
+  voiceTurnHeaders,
+  voiceTurnIdFromRequest,
+} from "@/lib/voiceObservability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,12 +18,39 @@ function clamp(n: number, lo: number, hi: number) {
 }
 
 function getRequestId(req: Request): string {
-  const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
+  const raw = (
+    req.headers.get("x-request-id") ||
+    req.headers.get("x-correlation-id") ||
+    ""
+  ).trim();
   return raw && raw.length <= 128 ? raw : randomUUID();
 }
 
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function ttsSegmentHeaders(req: Request): Record<string, string> | null {
+  const rawIndex = req.headers.get("x-vs-tts-segment-index");
+  const rawCount = req.headers.get("x-vs-tts-segment-count");
+  if (rawIndex == null && rawCount == null) return {};
+  if (rawIndex == null || rawCount == null) return null;
+  const index = Number(rawIndex);
+  const count = Number(rawCount);
+  if (
+    !Number.isInteger(index) ||
+    !Number.isInteger(count) ||
+    index < 0 ||
+    count < 1 ||
+    count > 256 ||
+    index >= count
+  ) {
+    return null;
+  }
+  return {
+    "x-vs-tts-segment-index": String(index),
+    "x-vs-tts-segment-count": String(count),
+  };
 }
 
 export async function POST(req: Request) {
@@ -30,7 +61,22 @@ export async function POST(req: Request) {
     if (!userId) {
       return NextResponse.json(
         { ok: false, error: "unauthorized" },
-        { status: 401, headers: { "x-request-id": requestId } }
+        { status: 401, headers: { "x-request-id": requestId } },
+      );
+    }
+
+    const voiceTurn = voiceTurnIdFromRequest(req);
+    if (voiceTurn.supplied && !voiceTurn.value) {
+      return NextResponse.json(
+        { ok: false, error: "invalid_voice_turn_id" },
+        { status: 400, headers: { "x-request-id": requestId } },
+      );
+    }
+    const segmentHeaders = ttsSegmentHeaders(req);
+    if (!segmentHeaders) {
+      return NextResponse.json(
+        { ok: false, error: "invalid_tts_segment_metadata" },
+        { status: 400, headers: { "x-request-id": requestId } },
       );
     }
 
@@ -48,7 +94,7 @@ export async function POST(req: Request) {
     if (!text) {
       return NextResponse.json(
         { ok: false, error: "missing_text" },
-        { status: 400, headers: { "x-request-id": requestId } }
+        { status: 400, headers: { "x-request-id": requestId } },
       );
     }
 
@@ -64,7 +110,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const BRAINS_URL = (process.env.BRAINS_URL || "http://172.31.32.171:8088").replace(/\/+$/, "");
+    const BRAINS_URL = (
+      process.env.BRAINS_URL || "http://172.31.32.171:8088"
+    ).replace(/\/+$/, "");
     const upstreamBody = JSON.stringify({
       text,
       voice,
@@ -89,6 +137,8 @@ export async function POST(req: Request) {
           cache: "no-store",
           headers: brainsUpstreamHeaders(requestId, userId, {
             "content-type": "application/json; charset=utf-8",
+            ...voiceTurnHeaders(voiceTurn.value),
+            ...segmentHeaders,
           }),
           body: upstreamBody,
         });
@@ -112,7 +162,9 @@ export async function POST(req: Request) {
     if (!upstream) {
       throw new Error(
         `TTS backend unavailable after retry: ${String(
-          (lastTransportError as any)?.message || lastTransportError || "fetch failed",
+          (lastTransportError as any)?.message ||
+            lastTransportError ||
+            "fetch failed",
         )}`,
       );
     }
@@ -120,15 +172,31 @@ export async function POST(req: Request) {
     const rid = upstream.headers.get("x-request-id") || requestId;
     const contentType = upstream.headers.get("content-type") || "";
 
+    if (
+      upstream.ok &&
+      voiceTurn.value &&
+      upstream.headers.get("x-vs-voice-turn-id") !== voiceTurn.value
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "voice_turn_correlation_lost" },
+        { status: 502, headers: { "x-request-id": rid } },
+      );
+    }
+
     if (!upstream.ok) {
       const errText = await upstream.text().catch(() => "");
-      return new Response(errText || `TTS upstream error: HTTP ${upstream.status}`, {
-        status: upstream.status,
-        headers: {
-          "content-type": contentType || "text/plain; charset=utf-8",
-          "x-request-id": rid,
+      return new Response(
+        errText || `TTS upstream error: HTTP ${upstream.status}`,
+        {
+          status: upstream.status,
+          headers: {
+            "content-type": contentType || "text/plain; charset=utf-8",
+            "x-request-id": rid,
+            ...voiceTurnHeaders(voiceTurn.value),
+            ...segmentHeaders,
+          },
         },
-      });
+      );
     }
 
     const buf = Buffer.from(await upstream.arrayBuffer());
@@ -138,12 +206,21 @@ export async function POST(req: Request) {
         "content-type": upstream.headers.get("content-type") || "audio/mpeg",
         "x-request-id": rid,
         "cache-control": "no-store",
+        ...(upstream.headers.get("x-vs-provider-request-id")
+          ? {
+              "x-vs-provider-request-id": upstream.headers.get(
+                "x-vs-provider-request-id",
+              )!,
+            }
+          : {}),
+        ...voiceTurnHeaders(voiceTurn.value),
+        ...segmentHeaders,
       },
     });
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, error: "tts_proxy_error", detail: String(e?.message || e) },
-      { status: 500, headers: { "x-request-id": requestId } }
+      { status: 500, headers: { "x-request-id": requestId } },
     );
   }
 }

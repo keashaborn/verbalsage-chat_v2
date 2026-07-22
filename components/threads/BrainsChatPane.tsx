@@ -3,9 +3,21 @@
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch, authFetchJson } from "@/lib/authFetch";
-import { ChevronDown, Copy, RefreshCw, Volume2, Loader2, Square, Check } from "lucide-react";
+import {
+  ChevronDown,
+  Copy,
+  RefreshCw,
+  Volume2,
+  Loader2,
+  Square,
+  Check,
+} from "lucide-react";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
-import { useGovernedRealtimeVoice } from "@/hooks/useGovernedRealtimeVoice";
+import {
+  useGovernedRealtimeVoice,
+  type GovernedVoiceTurnContext,
+} from "@/hooks/useGovernedRealtimeVoice";
+import { VOICE_TURN_HEADER } from "@/lib/voiceObservability";
 import {
   decodeResponseInspectionHeader,
   ResponseTrace,
@@ -16,6 +28,26 @@ type ChatResult = {
   text: string;
   inspect: ResponseInspection | null;
   inspect_error: string | null;
+  answerId: string;
+  requestId: string;
+};
+
+type VoiceSpeechMetrics = {
+  status: "completed" | "failed" | "cancelled";
+  firstAudioMs: number | null;
+  firstAudioAtMs: number | null;
+  totalMs: number;
+  segmentCount: number;
+  model: string;
+  voice: string;
+  requestIds: string[];
+  providerRequestIds: string[];
+};
+
+type VoiceSendOptions = {
+  speakReply?: boolean;
+  shouldSpeak?: () => boolean;
+  voiceTurn?: GovernedVoiceTurnContext;
 };
 
 type Msg = {
@@ -43,8 +75,8 @@ function getLS<T>(key: string, fallback: T): T {
     } catch {
       // Back-compat for legacy raw localStorage values.
       if (typeof fallback === "string") return raw as any;
-      if (typeof fallback === "number") return (Number(raw) as any);
-      if (typeof fallback === "boolean") return ((raw === "true") as any);
+      if (typeof fallback === "number") return Number(raw) as any;
+      if (typeof fallback === "boolean") return (raw === "true") as any;
       return fallback;
     }
   } catch {
@@ -98,10 +130,25 @@ function splitForSpeech(
   return chunks;
 }
 
+async function recordVoiceTurnTrace(payload: Record<string, unknown>) {
+  try {
+    await authFetch("/api/voice/telemetry", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    });
+  } catch {
+    // Observability is non-blocking; it must never break the conversation.
+  }
+}
+
 export function BrainsChatPane() {
   const [threadId, setThreadId] = React.useState<string | null>(null);
   const [msgs, setMsgs] = React.useState<Msg[]>([]);
-  const [editingMessageId, setEditingMessageId] = React.useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = React.useState<string | null>(
+    null,
+  );
   const [editingText, setEditingText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
@@ -141,11 +188,11 @@ export function BrainsChatPane() {
               ? "Transcribing…"
               : voiceStatus === "responding"
                 ? "Preparing and speaking reply…"
-          : voiceHasError
-            ? governedVoice.lastError
-              ? `Voice error: ${governedVoice.lastError}`
-              : "Voice error"
-            : "Voice off";
+                : voiceHasError
+                  ? governedVoice.lastError
+                    ? `Voice error: ${governedVoice.lastError}`
+                    : "Voice error"
+                  : "Voice off";
   const didAutoScrollForThreadRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
@@ -155,7 +202,8 @@ export function BrainsChatPane() {
       try {
         const { data } = await supabase.auth.getUser();
         const role = (data?.user as any)?.app_metadata?.role;
-        const nextIsAdmin = role === "owner" || role === "admin" || role === "developer";
+        const nextIsAdmin =
+          role === "owner" || role === "admin" || role === "developer";
         if (!mounted) return;
 
         setIsAdmin(nextIsAdmin);
@@ -165,8 +213,10 @@ export function BrainsChatPane() {
         if (!nextIsAdmin) {
           setMsgs((prev) =>
             prev.map((m) =>
-              m.inspect || m.inspect_error ? { ...m, inspect: null, inspect_error: null } : m
-            )
+              m.inspect || m.inspect_error
+                ? { ...m, inspect: null, inspect_error: null }
+                : m,
+            ),
           );
         }
       } catch {
@@ -174,8 +224,10 @@ export function BrainsChatPane() {
           setIsAdmin(false);
           setMsgs((prev) =>
             prev.map((m) =>
-              m.inspect || m.inspect_error ? { ...m, inspect: null, inspect_error: null } : m
-            )
+              m.inspect || m.inspect_error
+                ? { ...m, inspect: null, inspect_error: null }
+                : m,
+            ),
           );
         }
       }
@@ -198,7 +250,6 @@ export function BrainsChatPane() {
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const [atBottom, setAtBottom] = React.useState(true);
 
-
   function scrollToBottom(behavior: ScrollBehavior = "auto") {
     const el = scrollRef.current;
     if (!el) return;
@@ -215,7 +266,8 @@ export function BrainsChatPane() {
 
   React.useEffect(() => {
     return () => {
-      if (copiedTimerRef.current != null) window.clearTimeout(copiedTimerRef.current);
+      if (copiedTimerRef.current != null)
+        window.clearTimeout(copiedTimerRef.current);
       copiedTimerRef.current = null;
     };
   }, []);
@@ -225,15 +277,23 @@ export function BrainsChatPane() {
       await navigator.clipboard.writeText(t);
 
       // clear timers
-      if (copiedTimerRef.current != null) window.clearTimeout(copiedTimerRef.current);
-      if (copiedKeyTimerRef.current != null) window.clearTimeout(copiedKeyTimerRef.current);
+      if (copiedTimerRef.current != null)
+        window.clearTimeout(copiedTimerRef.current);
+      if (copiedKeyTimerRef.current != null)
+        window.clearTimeout(copiedKeyTimerRef.current);
 
       if (typeof idx === "number") {
         setCopiedIdx(idx);
-        copiedTimerRef.current = window.setTimeout(() => setCopiedIdx(null), 900);
+        copiedTimerRef.current = window.setTimeout(
+          () => setCopiedIdx(null),
+          900,
+        );
       } else if (key) {
         setCopiedKey(key);
-        copiedKeyTimerRef.current = window.setTimeout(() => setCopiedKey(null), 900);
+        copiedKeyTimerRef.current = window.setTimeout(
+          () => setCopiedKey(null),
+          900,
+        );
       }
     } catch {
       // ignore
@@ -264,7 +324,6 @@ export function BrainsChatPane() {
 
   const audioNodeRef = React.useRef<AudioBufferSourceNode | null>(null);
 
-
   // Screen Wake Lock (best-effort; not supported on all iOS/Safari versions)
   const wakeLockRef = React.useRef<any>(null);
   // Keep-awake video (best-effort)
@@ -283,13 +342,15 @@ export function BrainsChatPane() {
     if (!u) return;
     try {
       URL.revokeObjectURL(u);
-    } catch { }
+    } catch {}
     if (audioUrlRef.current === u) audioUrlRef.current = null;
   }
 
   function ensureAudioContext(): AudioContext | null {
     if (typeof window === "undefined") return null;
-    const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined;
+    const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as
+      | typeof AudioContext
+      | undefined;
     if (!Ctx) return null;
     if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
     return audioCtxRef.current;
@@ -298,8 +359,8 @@ export function BrainsChatPane() {
   function unlockAudioForSafari() {
     try {
       const ctx = ensureAudioContext();
-      if (ctx && ctx.state === "suspended") void ctx.resume().catch(() => { });
-    } catch { }
+      if (ctx && ctx.state === "suspended") void ctx.resume().catch(() => {});
+    } catch {}
   }
 
   async function wakeLockStart() {
@@ -333,7 +394,6 @@ export function BrainsChatPane() {
     }
   }
 
-
   function keepAwakeStart() {
     try {
       void wakeLockStart();
@@ -346,8 +406,9 @@ export function BrainsChatPane() {
       // Use your API media route (you confirmed it returns 200)
       if (!cur.includes("/api/media/awake")) v.src = "/api/media/awake";
       const p = v.play();
-      if (p && typeof (p as any).catch === "function") (p as Promise<void>).catch(() => { });
-    } catch { }
+      if (p && typeof (p as any).catch === "function")
+        (p as Promise<void>).catch(() => {});
+    } catch {}
   }
 
   function keepAwakeStop() {
@@ -358,7 +419,7 @@ export function BrainsChatPane() {
       v.pause();
       v.removeAttribute("src");
       v.load();
-    } catch { }
+    } catch {}
   }
 
   function stopTTS() {
@@ -368,24 +429,24 @@ export function BrainsChatPane() {
     if (ttsAbortRef.current) {
       try {
         ttsAbortRef.current.abort();
-      } catch { }
+      } catch {}
       ttsAbortRef.current = null;
     }
 
     if (audioRef.current) {
       try {
         audioRef.current.pause();
-      } catch { }
+      } catch {}
       audioRef.current = null;
     }
 
     if (audioNodeRef.current) {
       try {
         audioNodeRef.current.stop();
-      } catch { }
+      } catch {}
       try {
         audioNodeRef.current.disconnect();
-      } catch { }
+      } catch {}
       audioNodeRef.current = null;
     }
 
@@ -406,24 +467,24 @@ export function BrainsChatPane() {
       if (ttsAbortRef.current) {
         try {
           ttsAbortRef.current.abort();
-        } catch { }
+        } catch {}
         ttsAbortRef.current = null;
       }
 
       if (audioRef.current) {
         try {
           audioRef.current.pause();
-        } catch { }
+        } catch {}
         audioRef.current = null;
       }
 
       if (audioNodeRef.current) {
         try {
           audioNodeRef.current.stop();
-        } catch { }
+        } catch {}
         try {
           audioNodeRef.current.disconnect();
-        } catch { }
+        } catch {}
         audioNodeRef.current = null;
       }
 
@@ -432,19 +493,23 @@ export function BrainsChatPane() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function speak(textToSpeak: string, idx: number) {
+  async function speak(
+    textToSpeak: string,
+    idx: number,
+    voiceTurnId?: string,
+  ): Promise<VoiceSpeechMetrics | null> {
     const t = (textToSpeak || "").trim();
-    if (!t) return;
+    if (!t) return null;
     const chunks = splitForSpeech(t);
-    if (!chunks.length) return;
+    if (!chunks.length) return null;
 
     // ignore repeated taps while loading (prevents spam)
-    if (ttsLoadingIdx === idx) return;
+    if (ttsLoadingIdx === idx) return null;
 
     // tap again while playing stops
     if (ttsPlayingIdx === idx) {
       stopTTS();
-      return;
+      return null;
     }
 
     // replace any existing playback
@@ -460,24 +525,66 @@ export function BrainsChatPane() {
 
     try {
       localStorage.setItem("vs_voice_engine", "openai_tts");
-    } catch { }
+    } catch {}
 
     const voice = String(getLS<string>("vs_voice", "marin")).trim();
-    const model = String(getLS<string>("vs_voice_model", "gpt-4o-mini-tts")).trim();
+    const model = String(
+      getLS<string>("vs_voice_model", "gpt-4o-mini-tts"),
+    ).trim();
     const speed = Number(getLS<number>("vs_voice_speed", 1.0)) || 1.0;
 
     const ac = new AbortController();
     ttsAbortRef.current = ac;
+    const ttsStartedAt = performance.now();
+    let firstAudioAtMs: number | null = null;
+    const requestIds: string[] = [];
+    const providerRequestIds: string[] = [];
+
+    const metrics = (
+      status: VoiceSpeechMetrics["status"],
+    ): VoiceSpeechMetrics => ({
+      status,
+      firstAudioMs:
+        firstAudioAtMs == null
+          ? null
+          : Math.max(0, Math.round(firstAudioAtMs - ttsStartedAt)),
+      firstAudioAtMs,
+      totalMs: Math.max(0, Math.round(performance.now() - ttsStartedAt)),
+      segmentCount: chunks.length,
+      model,
+      voice,
+      requestIds,
+      providerRequestIds,
+    });
 
     try {
-      const requestChunk = async (text: string) => {
+      const requestChunk = async (text: string, chunkIndex: number) => {
         const response = await authFetch("/api/tts", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(voiceTurnId ? { [VOICE_TURN_HEADER]: voiceTurnId } : {}),
+            "x-vs-tts-segment-index": String(chunkIndex),
+            "x-vs-tts-segment-count": String(chunks.length),
+          },
           body: JSON.stringify({ text, voice, speed, model }),
           signal: ac.signal,
         });
         if (!response.ok) throw new Error(await response.text());
+        if (
+          voiceTurnId &&
+          response.headers.get(VOICE_TURN_HEADER) !== voiceTurnId
+        ) {
+          throw new Error("Voice turn correlation was not preserved by TTS.");
+        }
+        const requestId = String(response.headers.get("x-request-id") || "");
+        const providerRequestId = String(
+          response.headers.get("x-vs-provider-request-id") || "",
+        );
+        if (requestId) requestIds.push(requestId.slice(0, 128));
+        if (providerRequestId) {
+          providerRequestIds.push(providerRequestId.slice(0, 128));
+        }
         return response.blob();
       };
 
@@ -515,6 +622,7 @@ export function BrainsChatPane() {
         try {
           await audio.play();
           if (ttsEpochRef.current !== epoch) return;
+          if (firstAudioAtMs == null) firstAudioAtMs = performance.now();
           setTtsLoadingIdx(null);
           setTtsPlayingIdx(idx);
           await playbackFinished;
@@ -528,14 +636,14 @@ export function BrainsChatPane() {
           settlePlayback();
           try {
             audio.pause();
-          } catch { }
+          } catch {}
           if (!blocked) throw error;
         }
 
         const context = ensureAudioContext();
         if (!context) throw new Error("Voice playback is unavailable.");
         if (context.state === "suspended") {
-          await context.resume().catch(() => { });
+          await context.resume().catch(() => {});
         }
         const data = await blob.arrayBuffer();
         if (ttsEpochRef.current !== epoch) return;
@@ -561,28 +669,31 @@ export function BrainsChatPane() {
           };
           ttsPlaybackResolveRef.current = done;
           source.onended = done;
+          if (firstAudioAtMs == null) firstAudioAtMs = performance.now();
           source.start(0);
         });
       };
 
-      let pending = requestChunk(chunks[0]);
+      let pending = requestChunk(chunks[0], 0);
       for (let index = 0; index < chunks.length; index += 1) {
-        if (ttsEpochRef.current !== epoch) return;
+        if (ttsEpochRef.current !== epoch) return metrics("cancelled");
         if (index > 0) setTtsLoadingIdx(idx);
         const blob = await pending;
         const following =
           index + 1 < chunks.length
-            ? requestChunk(chunks[index + 1])
+            ? requestChunk(chunks[index + 1], index + 1)
             : null;
         await playChunk(blob);
-        if (ttsEpochRef.current !== epoch) return;
+        if (ttsEpochRef.current !== epoch) return metrics("cancelled");
         if (following) pending = following;
       }
+      return metrics("completed");
     } catch (e: any) {
-      if (e?.name === "AbortError") return;
+      if (e?.name === "AbortError") return metrics("cancelled");
       console.error(e);
       alert(e?.message || String(e));
       stopTTS();
+      return metrics("failed");
     } finally {
       if (ttsEpochRef.current === epoch) {
         keepAwakeStop();
@@ -598,7 +709,9 @@ export function BrainsChatPane() {
   // -----------------------------
   async function loadActiveThread(): Promise<string | null> {
     try {
-      const active = await fetchJson<{ thread_id: string | null }>("/api/threads/active");
+      const active = await fetchJson<{ thread_id: string | null }>(
+        "/api/threads/active",
+      );
       setThreadId(active.thread_id);
       return active.thread_id;
     } catch {
@@ -608,14 +721,17 @@ export function BrainsChatPane() {
   }
 
   function lastAssistantIndex(arr: Msg[]) {
-    for (let i = arr.length - 1; i >= 0; i--) if (arr[i].role === "assistant") return i;
+    for (let i = arr.length - 1; i >= 0; i--)
+      if (arr[i].role === "assistant") return i;
     return -1;
   }
 
   function startEditingMessage(m: Msg) {
     const mid = String(m.id || "").trim();
     if (!mid) {
-      alert("This message has no saved message id yet. Reload the thread, then edit it.");
+      alert(
+        "This message has no saved message id yet. Reload the thread, then edit it.",
+      );
       return;
     }
     setEditingMessageId(mid);
@@ -624,17 +740,28 @@ export function BrainsChatPane() {
 
   async function loadMessages(
     tid: string,
-    attach?: { inspect: ResponseInspection | null; inspect_error: string | null }
+    attach?: {
+      inspect: ResponseInspection | null;
+      inspect_error: string | null;
+    },
   ) {
     setLoading(true);
     try {
-      const data = await fetchJson<Msg[]>(`/api/threads/${encodeURIComponent(tid)}/messages`);
-      const normalized = (Array.isArray(data) ? data : []).map((m) => (m.role === "assistant" ? { ...m, v: 1 } : m));
+      const data = await fetchJson<Msg[]>(
+        `/api/threads/${encodeURIComponent(tid)}/messages`,
+      );
+      const normalized = (Array.isArray(data) ? data : []).map((m) =>
+        m.role === "assistant" ? { ...m, v: 1 } : m,
+      );
 
       if (isAdmin && attach && (attach.inspect || attach.inspect_error)) {
         const idx = lastAssistantIndex(normalized);
         if (idx >= 0) {
-          normalized[idx] = { ...normalized[idx], inspect: attach.inspect, inspect_error: attach.inspect_error };
+          normalized[idx] = {
+            ...normalized[idx],
+            inspect: attach.inspect,
+            inspect_error: attach.inspect_error,
+          };
         }
       }
 
@@ -657,8 +784,11 @@ export function BrainsChatPane() {
     });
     if (!r.ok) throw new Error(await r.text());
 
-    const active = await fetchJson<{ thread_id: string | null }>("/api/threads/active");
-    if (!active.thread_id) throw new Error("New chat created, but no active thread id found.");
+    const active = await fetchJson<{ thread_id: string | null }>(
+      "/api/threads/active",
+    );
+    if (!active.thread_id)
+      throw new Error("New chat created, but no active thread id found.");
 
     setThreadId(active.thread_id);
     setMsgs([]);
@@ -693,35 +823,51 @@ export function BrainsChatPane() {
     input: string,
     tid: string,
     regen = false,
-    noStore = false
+    noStore = false,
+    voiceTurnId?: string,
   ): Promise<ChatResult> {
     const r = await authFetch("/api/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(voiceTurnId ? { [VOICE_TURN_HEADER]: voiceTurnId } : {}),
+      },
       body: JSON.stringify({ input, thread_id: tid, regen, noStore }),
     });
     const responseText = await r.text();
     if (!r.ok) throw new Error(responseText);
+    if (voiceTurnId && r.headers.get(VOICE_TURN_HEADER) !== voiceTurnId) {
+      throw new Error("Voice turn correlation was not preserved by chat.");
+    }
     return {
       text: responseText,
+      answerId: String(r.headers.get("X-VS-Answer-Id") || ""),
+      requestId: String(r.headers.get("x-request-id") || ""),
       ...decodeResponseInspectionHeader(
         r.headers.get("X-VS-Inspection"),
-        r.headers.get("X-VS-Inspection-Status")
+        r.headers.get("X-VS-Inspection-Status"),
       ),
     };
   }
 
-  async function truncateThreadFromMessage(tid: string, messageId: string): Promise<void> {
+  async function truncateThreadFromMessage(
+    tid: string,
+    messageId: string,
+  ): Promise<void> {
     const r = await authFetch(
       `/api/threads/${encodeURIComponent(tid)}/messages/${encodeURIComponent(messageId)}/truncate`,
-      { method: "DELETE" }
+      { method: "DELETE" },
     );
     if (!r.ok) throw new Error(await r.text());
   }
 
   async function regenerateLast() {
     stopTTS();
-    const lastUser = [...msgs].reverse().find((m) => m.role === "user")?.content?.trim() || "";
+    const lastUser =
+      [...msgs]
+        .reverse()
+        .find((m) => m.role === "user")
+        ?.content?.trim() || "";
     if (!lastUser) return;
 
     let tid = threadId;
@@ -772,9 +918,10 @@ export function BrainsChatPane() {
     const conversationEpoch = voiceConversationEpochRef.current;
     try {
       await governedVoice.start({
-        onTranscript: async (transcript) => {
+        onTranscript: async (transcript, voiceTurn) => {
           await sendMessage(transcript, {
             speakReply: true,
+            voiceTurn,
             shouldSpeak: () =>
               voiceConversationEpochRef.current === conversationEpoch,
           });
@@ -793,11 +940,11 @@ export function BrainsChatPane() {
 
   async function sendMessage(
     overrideText?: string,
-    options: { speakReply?: boolean; shouldSpeak?: () => boolean } = {},
+    options: VoiceSendOptions = {},
   ) {
     stopTTS();
     const msg = String(
-      overrideText ?? (editingMessageId ? editingText : text)
+      overrideText ?? (editingMessageId ? editingText : text),
     ).trim();
     if (!msg || sending) return;
 
@@ -841,8 +988,19 @@ export function BrainsChatPane() {
 
     setMsgs((prev) => [...prev, { role: "user", content: msg }]);
 
+    const responseStartedAt = performance.now();
     try {
-      const reply = await callChat(msg, tid, false);
+      const reply = await callChat(
+        msg,
+        tid,
+        false,
+        false,
+        options.voiceTurn?.voiceTurnId,
+      );
+      const responseMs = Math.max(
+        0,
+        Math.round(performance.now() - responseStartedAt),
+      );
 
       void (async () => {
         try {
@@ -850,14 +1008,17 @@ export function BrainsChatPane() {
           const token = data?.session?.access_token;
           if (!token) return;
 
-          const r = await fetch(`/api/threads/${encodeURIComponent(tid)}/auto-title`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
+          const r = await fetch(
+            `/api/threads/${encodeURIComponent(tid)}/auto-title`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ input: msg }),
             },
-            body: JSON.stringify({ input: msg }),
-          });
+          );
 
           if (r.ok) window.dispatchEvent(new Event("vs_threads_refresh"));
         } catch {
@@ -886,10 +1047,86 @@ export function BrainsChatPane() {
         inspect: reply.inspect,
         inspect_error: reply.inspect_error,
       });
+      let speechMetrics: VoiceSpeechMetrics | null = null;
       if (options.speakReply && (options.shouldSpeak?.() ?? true)) {
-        await speak(reply.text, Number.MAX_SAFE_INTEGER);
+        speechMetrics = await speak(
+          reply.text,
+          Number.MAX_SAFE_INTEGER,
+          options.voiceTurn?.voiceTurnId,
+        );
+      }
+      if (options.voiceTurn) {
+        const turn = options.voiceTurn;
+        const traceStatus = speechMetrics?.status || "cancelled";
+        await recordVoiceTurnTrace({
+          voice_turn_id: turn.voiceTurnId,
+          thread_id: tid,
+          answer_id: reply.answerId,
+          status: traceStatus,
+          failure_stage:
+            traceStatus === "failed"
+              ? "tts"
+              : traceStatus === "completed"
+                ? "none"
+                : "tts",
+          speech_ms: turn.speechMs,
+          audio_bytes: turn.audioBytes,
+          transcription_ms: turn.transcriptionMs,
+          response_ms: responseMs,
+          tts_first_audio_ms: speechMetrics?.firstAudioMs,
+          speech_to_first_audio_ms:
+            speechMetrics?.firstAudioAtMs == null
+              ? null
+              : Math.max(
+                  0,
+                  Math.round(
+                    speechMetrics.firstAudioAtMs - turn.turnStartedAtMs,
+                  ),
+                ),
+          tts_total_ms: speechMetrics?.totalMs,
+          total_turn_ms: Math.max(
+            0,
+            Math.round(performance.now() - turn.turnStartedAtMs),
+          ),
+          tts_segment_count: speechMetrics?.segmentCount || 0,
+          transcription_provider: turn.transcriptionProvider,
+          transcription_model: turn.transcriptionModel,
+          transcription_request_id: turn.transcriptionRequestId,
+          transcription_provider_request_id:
+            turn.transcriptionProviderRequestId,
+          response_request_id: reply.requestId,
+          tts_model: speechMetrics?.model || "",
+          tts_voice: speechMetrics?.voice || "",
+          tts_request_ids: speechMetrics?.requestIds || [],
+          tts_provider_request_ids: speechMetrics?.providerRequestIds || [],
+        });
       }
     } catch (e: any) {
+      if (options.voiceTurn) {
+        const turn = options.voiceTurn;
+        await recordVoiceTurnTrace({
+          voice_turn_id: turn.voiceTurnId,
+          thread_id: tid,
+          status: "failed",
+          failure_stage: "response",
+          speech_ms: turn.speechMs,
+          audio_bytes: turn.audioBytes,
+          transcription_ms: turn.transcriptionMs,
+          response_ms: Math.max(
+            0,
+            Math.round(performance.now() - responseStartedAt),
+          ),
+          total_turn_ms: Math.max(
+            0,
+            Math.round(performance.now() - turn.turnStartedAtMs),
+          ),
+          transcription_provider: turn.transcriptionProvider,
+          transcription_model: turn.transcriptionModel,
+          transcription_request_id: turn.transcriptionRequestId,
+          transcription_provider_request_id:
+            turn.transcriptionProviderRequestId,
+        });
+      }
       alert(e?.message || String(e));
     } finally {
       setSending(false);
@@ -950,7 +1187,6 @@ export function BrainsChatPane() {
     });
   }, [threadId, msgs.length]);
 
-
   const lastAIdx = lastAssistantIndex(msgs);
 
   return (
@@ -962,15 +1198,29 @@ export function BrainsChatPane() {
         playsInline
         loop
         preload="auto"
-        style={{ position: "fixed", width: 1, height: 1, opacity: 0, left: 0, top: 0, pointerEvents: "none" }}
+        style={{
+          position: "fixed",
+          width: 1,
+          height: 1,
+          opacity: 0,
+          left: 0,
+          top: 0,
+          pointerEvents: "none",
+        }}
       />
 
       <div
         ref={scrollRef}
-        className="mx-auto min-w-0 w-full max-w-[44rem] flex-1 overflow-x-hidden overflow-y-auto px-5 pt-6 pb-[calc(10.5rem+env(safe-area-inset-bottom))]"
+        className="mx-auto w-full max-w-[44rem] min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-5 pt-6 pb-[calc(10.5rem+env(safe-area-inset-bottom))]"
       >
-        {!threadId && <div className="mb-6 text-sm text-muted-foreground">Start typing to create a new chat.</div>}
-        {loading && <div className="mb-4 text-xs text-muted-foreground">Loading…</div>}
+        {!threadId && (
+          <div className="mb-6 text-sm text-muted-foreground">
+            Start typing to create a new chat.
+          </div>
+        )}
+        {loading && (
+          <div className="mb-4 text-xs text-muted-foreground">Loading…</div>
+        )}
 
         <div className="space-y-6">
           {msgs.map((m, idx) => {
@@ -984,15 +1234,22 @@ export function BrainsChatPane() {
             const isCopied = copiedIdx === idx;
 
             return (
-              <div key={idx} className={m.role === "user" ? "text-left" : "text-left"}>
+              <div
+                key={idx}
+                className={m.role === "user" ? "text-left" : "text-left"}
+              >
                 <div
                   className={
                     m.role === "user"
                       ? "inline-block rounded-2xl bg-muted px-4 py-2 text-sm"
-                      : "block min-w-0 max-w-full overflow-hidden text-sm leading-7"
+                      : "block max-w-full min-w-0 overflow-hidden text-sm leading-7"
                   }
                 >
-                  {m.role === "assistant" ? <MarkdownMessage>{m.content}</MarkdownMessage> : m.content}
+                  {m.role === "assistant" ? (
+                    <MarkdownMessage>{m.content}</MarkdownMessage>
+                  ) : (
+                    m.content
+                  )}
                 </div>
 
                 {m.role === "user" && (
@@ -1022,24 +1279,36 @@ export function BrainsChatPane() {
                     <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                       <button
                         className={[
-                          "inline-flex items-center justify-center rounded-md p-3 sm:p-2 hover:bg-muted disabled:opacity-50",
+                          "inline-flex items-center justify-center rounded-md p-3 hover:bg-muted disabled:opacity-50 sm:p-2",
                           isCopied ? "bg-muted" : "",
                         ].join(" ")}
                         onClick={() => copyText(m.content, idx)}
                         aria-label={isCopied ? "Copied" : "Copy"}
                       >
-                        {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                        <span className="sr-only">{isCopied ? "Copied" : "Copy"}</span>
+                        {isCopied ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                        <span className="sr-only">
+                          {isCopied ? "Copied" : "Copy"}
+                        </span>
                       </button>
 
                       <button
                         className={[
-                          "inline-flex items-center justify-center rounded-md p-3 sm:p-2 hover:bg-muted disabled:opacity-50",
+                          "inline-flex items-center justify-center rounded-md p-3 hover:bg-muted disabled:opacity-50 sm:p-2",
                           isTtsLoading ? "bg-muted" : "",
                         ].join(" ")}
                         onClick={() => speak(m.content, idx)}
                         disabled={disableSpeak}
-                        aria-label={isTtsLoading ? "Loading AI-generated voice" : isTtsPlaying ? "Stop AI-generated voice" : "Speak with AI-generated voice"}
+                        aria-label={
+                          isTtsLoading
+                            ? "Loading AI-generated voice"
+                            : isTtsPlaying
+                              ? "Stop AI-generated voice"
+                              : "Speak with AI-generated voice"
+                        }
                         title="AI-generated voice"
                       >
                         {isTtsLoading ? (
@@ -1047,12 +1316,18 @@ export function BrainsChatPane() {
                         ) : (
                           <Volume2 className="h-4 w-4" />
                         )}
-                        <span className="sr-only">{isTtsLoading ? "Loading AI-generated voice" : isTtsPlaying ? "Stop AI-generated voice" : "Speak with AI-generated voice"}</span>
+                        <span className="sr-only">
+                          {isTtsLoading
+                            ? "Loading AI-generated voice"
+                            : isTtsPlaying
+                              ? "Stop AI-generated voice"
+                              : "Speak with AI-generated voice"}
+                        </span>
                       </button>
 
                       {idx === lastAIdx && (
                         <button
-                          className="inline-flex items-center justify-center rounded-md p-3 sm:p-2 hover:bg-muted disabled:opacity-50"
+                          className="inline-flex items-center justify-center rounded-md p-3 hover:bg-muted disabled:opacity-50 sm:p-2"
                           onClick={regenerateLast}
                           disabled={sending}
                           aria-label="Regenerate"
@@ -1063,7 +1338,9 @@ export function BrainsChatPane() {
                       )}
 
                       {typeof m.v === "number" && m.v > 1 && (
-                        <span className="ml-1 rounded-md border px-1.5 py-0.5 text-[11px]">v{m.v}</span>
+                        <span className="ml-1 rounded-md border px-1.5 py-0.5 text-[11px]">
+                          v{m.v}
+                        </span>
                       )}
                     </div>
 
@@ -1076,7 +1353,7 @@ export function BrainsChatPane() {
                           copyText(
                             JSON.stringify(inspect, null, 2),
                             undefined,
-                            `inspect:trace:${idx}`
+                            `inspect:trace:${idx}`,
                           )
                         }
                       />
@@ -1091,7 +1368,7 @@ export function BrainsChatPane() {
 
       {!atBottom && (
         <button
-          className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-4 z-20 rounded-full border bg-background/80 p-3 shadow-lg backdrop-blur"
+          className="fixed right-4 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-20 rounded-full border bg-background/80 p-3 shadow-lg backdrop-blur"
           onClick={() => scrollToBottom("smooth")}
           aria-label="Scroll to bottom"
         >
@@ -1100,7 +1377,7 @@ export function BrainsChatPane() {
       )}
 
       <div className="sticky bottom-0 z-10 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto w-full max-w-[44rem] px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3">
+        <div className="mx-auto w-full max-w-[44rem] px-5 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
           <div className="rounded-3xl border bg-background px-4 py-3">
             <textarea
               className="w-full resize-none bg-transparent text-sm outline-none"
@@ -1126,15 +1403,21 @@ export function BrainsChatPane() {
                 type="button"
                 onClick={() => {
                   if (voiceIsActive) {
-                    stopListeningAndRespond().catch((e) => alert(String((e as any)?.message ?? e)));
+                    stopListeningAndRespond().catch((e) =>
+                      alert(String((e as any)?.message ?? e)),
+                    );
                   } else if (!voiceIsConnecting) {
-                    startListening().catch((e) => alert(String((e as any)?.message ?? e)));
+                    startListening().catch((e) =>
+                      alert(String((e as any)?.message ?? e)),
+                    );
                   }
                 }}
                 disabled={voiceIsConnecting}
                 className={[
                   "rounded-xl border px-3 py-2 text-xs disabled:opacity-50",
-                  voiceIsActive || voiceIsConnecting ? "bg-muted" : "bg-background",
+                  voiceIsActive || voiceIsConnecting
+                    ? "bg-muted"
+                    : "bg-background",
                 ].join(" ")}
                 aria-label={voiceButtonLabel}
                 title={voiceStatusLabel}
@@ -1149,7 +1432,11 @@ export function BrainsChatPane() {
                   : ""}
               </span>
 
-              <button onClick={() => sendMessage()} disabled={sending} className="rounded-xl bg-muted px-3 py-2 text-xs disabled:opacity-50">
+              <button
+                onClick={() => sendMessage()}
+                disabled={sending}
+                className="rounded-xl bg-muted px-3 py-2 text-xs disabled:opacity-50"
+              >
                 {sending ? "Sending…" : "Send"}
               </button>
             </div>

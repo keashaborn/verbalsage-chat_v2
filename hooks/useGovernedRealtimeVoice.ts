@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authFetch } from "@/lib/authFetch";
+import { VOICE_TURN_HEADER } from "@/lib/voiceObservability";
 
 export type GovernedRealtimeVoiceStatus =
   | "idle"
@@ -13,8 +14,23 @@ export type GovernedRealtimeVoiceStatus =
   | "responding"
   | "error";
 
+export type GovernedVoiceTurnContext = {
+  voiceTurnId: string;
+  speechMs: number;
+  audioBytes: number;
+  transcriptionMs: number;
+  transcriptionModel: string;
+  transcriptionProvider: string;
+  transcriptionRequestId: string;
+  transcriptionProviderRequestId: string;
+  turnStartedAtMs: number;
+};
+
 type StartOptions = {
-  onTranscript: (transcript: string) => Promise<void>;
+  onTranscript: (
+    transcript: string,
+    context: GovernedVoiceTurnContext,
+  ) => Promise<void>;
 };
 
 const MIME_TYPE_PREFERENCES = [
@@ -194,6 +210,9 @@ export function useGovernedRealtimeVoice() {
           return;
         }
 
+        const speechStartedAt = speechStartedAtRef.current || performance.now();
+        const speechEndedAt = performance.now();
+        const voiceTurnId = crypto.randomUUID();
         processingRef.current = true;
         setInputEnabled(false);
         setStatus("transcribing");
@@ -223,14 +242,24 @@ export function useGovernedRealtimeVoice() {
             return;
           }
 
+          const transcriptionStartedAt = performance.now();
           const response = await authFetch("/api/voice/openai/transcribe", {
             method: "POST",
-            headers: { "Content-Type": contentType },
+            headers: {
+              "Content-Type": contentType,
+              [VOICE_TURN_HEADER]: voiceTurnId,
+            },
             body: audio,
           });
           const payload = await response.json().catch(() => ({}));
+          const transcriptionCompletedAt = performance.now();
           assertCurrent();
           if (!response.ok) throw new Error(transcriptionError(payload));
+          if (response.headers.get(VOICE_TURN_HEADER) !== voiceTurnId) {
+            throw new Error(
+              "Voice turn correlation was not preserved by transcription.",
+            );
+          }
 
           const transcript = String(payload?.transcript || "").trim();
           setPartialTranscript("");
@@ -241,7 +270,24 @@ export function useGovernedRealtimeVoice() {
 
           setPartialTranscript(transcript);
           setStatus("responding");
-          await onTranscriptRef.current?.(transcript);
+          await onTranscriptRef.current?.(transcript, {
+            voiceTurnId,
+            speechMs: Math.max(0, Math.round(speechEndedAt - speechStartedAt)),
+            audioBytes: audio.size,
+            transcriptionMs: Math.max(
+              0,
+              Math.round(transcriptionCompletedAt - transcriptionStartedAt),
+            ),
+            transcriptionModel: String(payload?.model || "").slice(0, 80),
+            transcriptionProvider: String(payload?.provider || "").slice(0, 40),
+            transcriptionRequestId: String(
+              response.headers.get("x-request-id") || "",
+            ).slice(0, 128),
+            transcriptionProviderRequestId: String(
+              payload?.provider_request_id || "",
+            ).slice(0, 128),
+            turnStartedAtMs: speechStartedAt,
+          });
           assertCurrent();
           resumeListening();
         } catch (error: any) {

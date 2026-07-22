@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { requireCapability } from "@/app/api/_auth/requireCapability";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
+import {
+  voiceTurnHeaders,
+  voiceTurnIdFromRequest,
+} from "@/lib/voiceObservability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,6 +57,14 @@ export async function POST(req: Request) {
     );
   }
 
+  const voiceTurn = voiceTurnIdFromRequest(req);
+  if (voiceTurn.supplied && !voiceTurn.value) {
+    return NextResponse.json(
+      { ok: false, error: "invalid_voice_turn_id" },
+      { status: 400, headers: { "x-request-id": requestId } },
+    );
+  }
+
   const contentType = normalizedAudioType(req.headers.get("content-type"));
   if (!SUPPORTED_AUDIO_TYPES.has(contentType)) {
     return NextResponse.json(
@@ -99,12 +111,23 @@ export async function POST(req: Request) {
       headers: brainsUpstreamHeaders(requestId, userId, {
         "content-type": contentType,
         "x-vs-owner-user-id": userId,
+        ...voiceTurnHeaders(voiceTurn.value),
       }),
       body: audio,
     });
 
     const responseBody = await upstream.text().catch(() => "");
     const upstreamRequestId = upstream.headers.get("x-request-id") || requestId;
+    if (
+      upstream.ok &&
+      voiceTurn.value &&
+      upstream.headers.get("x-vs-voice-turn-id") !== voiceTurn.value
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "voice_turn_correlation_lost" },
+        { status: 502, headers: { "x-request-id": upstreamRequestId } },
+      );
+    }
     return new Response(responseBody, {
       status: upstream.status,
       headers: {
@@ -113,6 +136,7 @@ export async function POST(req: Request) {
           "application/json; charset=utf-8",
         "cache-control": "no-store",
         "x-request-id": upstreamRequestId,
+        ...voiceTurnHeaders(voiceTurn.value),
       },
     });
   } catch (error: any) {

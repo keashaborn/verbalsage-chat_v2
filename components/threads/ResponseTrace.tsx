@@ -2,6 +2,10 @@
 
 export type ResponseInspection = {
   contract_version: "response_inspection_v1";
+  delivery?: {
+    channel: "voice";
+    voice_turn_id: string;
+  } | null;
   before_openai: {
     response_mode: string;
     closure: string;
@@ -87,16 +91,17 @@ export function ResponseTrace({
 }: ResponseTraceProps) {
   const before = inspection?.before_openai;
   return (
-    <details className="bg-background/30 mt-2 max-w-[42rem] rounded-xl border p-3 text-xs">
-      <summary className="text-muted-foreground cursor-pointer text-xs font-semibold tracking-wide uppercase select-none">
+    <details className="mt-2 max-w-[42rem] rounded-xl border bg-background/30 p-3 text-xs">
+      <summary className="cursor-pointer text-xs font-semibold tracking-wide text-muted-foreground uppercase select-none">
         Response trace
         {before
           ? ` · ${before.response_mode} · FM ${before.fm_record_count} · memory ${before.memory_record_count}`
           : ""}
+        {inspection?.delivery?.channel === "voice" ? " · voice" : ""}
       </summary>
 
       {error && (
-        <div className="bg-muted/30 mt-2 rounded-md border p-2">
+        <div className="mt-2 rounded-md border bg-muted/30 p-2">
           <div className="font-semibold">Trace unavailable</div>
           <div className="mt-1 break-words whitespace-pre-wrap">{error}</div>
         </div>
@@ -107,8 +112,8 @@ export function ResponseTrace({
           <div className="flex justify-end">
             <button
               className={[
-                "bg-background rounded-md border px-2 py-1 text-[11px]",
-                copied ? "ring-ring ring-1" : "",
+                "rounded-md border bg-background px-2 py-1 text-[11px]",
+                copied ? "ring-1 ring-ring" : "",
               ].join(" ")}
               onClick={onCopy}
             >
@@ -116,7 +121,21 @@ export function ResponseTrace({
             </button>
           </div>
 
-          <div className="bg-muted/30 rounded-md border p-2">
+          {inspection.delivery?.channel === "voice" && (
+            <div className="rounded-md border bg-muted/30 p-2">
+              <div className="font-semibold">Voice delivery</div>
+              <div className="mt-2 grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1">
+                <span className="text-muted-foreground">Channel</span>
+                <span>governed voice</span>
+                <span className="text-muted-foreground">Voice turn</span>
+                <span className="font-mono text-[11px] break-all">
+                  {inspection.delivery.voice_turn_id}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-md border bg-muted/30 p-2">
             <div className="font-semibold">Before OpenAI</div>
             <div className="mt-2 grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1">
               <span className="text-muted-foreground">Mode</span>
@@ -147,20 +166,20 @@ export function ResponseTrace({
               </span>
             </div>
             {inspection.before_openai.fm_selected_record_ids.length > 0 && (
-              <div className="text-muted-foreground mt-2 break-words">
+              <div className="mt-2 break-words text-muted-foreground">
                 FM records:{" "}
                 {inspection.before_openai.fm_selected_record_ids.join(", ")}
               </div>
             )}
             {inspection.before_openai.safety_reason_codes.length > 0 && (
-              <div className="text-muted-foreground mt-2 break-words">
+              <div className="mt-2 break-words text-muted-foreground">
                 Safety reasons:{" "}
                 {inspection.before_openai.safety_reason_codes.join(", ")}
               </div>
             )}
           </div>
 
-          <div className="bg-muted/30 rounded-md border p-2">
+          <div className="rounded-md border bg-muted/30 p-2">
             <div className="font-semibold">OpenAI</div>
             <div className="mt-2 grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1">
               <span className="text-muted-foreground">Model</span>
@@ -176,7 +195,7 @@ export function ResponseTrace({
             </div>
           </div>
 
-          <div className="bg-muted/30 rounded-md border p-2">
+          <div className="rounded-md border bg-muted/30 p-2">
             <div className="font-semibold">After OpenAI</div>
             <div className="mt-2 grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1">
               <span className="text-muted-foreground">Validation</span>
