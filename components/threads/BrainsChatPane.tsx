@@ -52,57 +52,49 @@ function getLS<T>(key: string, fallback: T): T {
   }
 }
 
-function splitForSpeech(text: string, maximumCharacters = 1400): string[] {
-  const units = String(text || "")
+function splitForSpeech(
+  text: string,
+  firstChunkCharacters = 320,
+  followingChunkCharacters = 900,
+): string[] {
+  const words = String(text || "")
     .replace(/\r/g, "")
-    .split(/\n+|(?<=[.!?])\s+/)
-    .map((item) => item.trim())
+    .replace(/\n+/g, " ")
+    .split(/\s+/)
     .filter(Boolean);
   const chunks: string[] = [];
   let current = "";
 
-  const append = (unit: string) => {
-    if (!current) {
-      current = unit;
-    } else if (current.length + unit.length + 1 <= maximumCharacters) {
-      current = `${current} ${unit}`;
-    } else {
+  const currentLimit = () =>
+    chunks.length === 0 ? firstChunkCharacters : followingChunkCharacters;
+  const flush = () => {
+    if (current) {
       chunks.push(current);
-      current = unit;
+      current = "";
     }
   };
 
-  for (const unit of units) {
-    if (unit.length <= maximumCharacters) {
-      append(unit);
-      continue;
+  for (let word of words) {
+    while (word.length > currentLimit()) {
+      flush();
+      const limit = currentLimit();
+      chunks.push(word.slice(0, limit));
+      word = word.slice(limit);
     }
+    if (!word) continue;
 
-    const words = unit.split(/\s+/).filter(Boolean);
-    let fragment = "";
-    for (const word of words) {
-      if (word.length > maximumCharacters) {
-        if (fragment) {
-          append(fragment);
-          fragment = "";
-        }
-        for (let offset = 0; offset < word.length; offset += maximumCharacters) {
-          append(word.slice(offset, offset + maximumCharacters));
-        }
-        continue;
-      }
-      if (!fragment) fragment = word;
-      else if (fragment.length + word.length + 1 <= maximumCharacters) {
-        fragment = `${fragment} ${word}`;
-      } else {
-        append(fragment);
-        fragment = word;
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= currentLimit()) {
+      current = candidate;
+    } else {
+      flush();
+      if (word.length <= currentLimit()) {
+        current = word;
       }
     }
-    if (fragment) append(fragment);
   }
 
-  if (current) chunks.push(current);
+  flush();
   return chunks;
 }
 
