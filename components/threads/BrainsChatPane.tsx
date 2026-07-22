@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { authFetch, authFetchJson } from "@/lib/authFetch";
 import { ChevronDown, Copy, RefreshCw, Volume2, Loader2, Square, Check } from "lucide-react";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
-import { useOpenAIRealtimeVoice } from "@/hooks/useOpenAIRealtimeVoice";
+import { useGovernedVoiceTurn } from "@/hooks/useGovernedVoiceTurn";
 import {
   decodeResponseInspectionHeader,
   ResponseTrace,
@@ -59,40 +59,34 @@ export function BrainsChatPane() {
   const [editingText, setEditingText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
-  const [listening, setListening] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(false);
-  const realtimeVoice = useOpenAIRealtimeVoice();
+  const governedVoice = useGovernedVoiceTurn();
 
-  const voiceStatus = realtimeVoice.status;
-  const voiceIsConnecting = voiceStatus === "connecting";
-  const voiceIsActive = voiceStatus === "active";
+  const voiceStatus = governedVoice.status;
+  const voiceIsConnecting =
+    voiceStatus === "requesting" || voiceStatus === "transcribing";
+  const voiceIsActive = voiceStatus === "recording";
   const voiceHasError = voiceStatus === "error";
 
-  const voiceButtonLabel = voiceIsConnecting
-    ? "Connecting…"
-    : voiceIsActive || listening
-      ? "Stop voice"
-      : "Talk";
+  const voiceButtonLabel =
+    voiceStatus === "requesting"
+      ? "Requesting microphone…"
+      : voiceStatus === "transcribing"
+        ? "Transcribing…"
+        : voiceIsActive
+          ? "Stop and send"
+          : "Talk";
 
-  const voiceStatusLabel = voiceIsConnecting
-    ? "Connecting voice…"
-    : voiceIsActive || listening
-      ? "Voice active"
-      : voiceHasError
-        ? "Voice error"
-        : "Voice off";
-
-  const micStreamRef = React.useRef<MediaStream | null>(null);
-  const micCtxRef = React.useRef<AudioContext | null>(null);
-  const micSrcRef = React.useRef<MediaStreamAudioSourceNode | null>(null);
-  const micProcRef = React.useRef<ScriptProcessorNode | null>(null);
-  const micBufRef = React.useRef<Float32Array[]>([]);
-  const vadRef = React.useRef<{ speech: boolean; silenceMs: number; stopScheduled: boolean }>({
-    speech: false,
-    silenceMs: 0,
-    stopScheduled: false,
-  });
-  const stopVoiceInFlightRef = React.useRef(false);
+  const voiceStatusLabel =
+    voiceStatus === "requesting"
+      ? "Requesting microphone…"
+      : voiceStatus === "transcribing"
+        ? "Transcribing securely…"
+        : voiceIsActive
+          ? "Recording"
+          : voiceHasError
+            ? "Voice error"
+            : "Voice off";
   const didAutoScrollForThreadRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
@@ -140,14 +134,6 @@ export function BrainsChatPane() {
     };
   }, []);
 
-  // Tune later if needed
-  const VAD_START_RMS = 0.02;       // speech start threshold
-  const VAD_END_RMS = 0.015;        // silence threshold (hysteresis)
-  const VAD_END_SILENCE_MS = 900;   // ms of silence to end utterance
-
-
-
-  const micSrcRateRef = React.useRef<number>(48000);
   const [text, setText] = React.useState("");
 
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
@@ -682,109 +668,29 @@ export function BrainsChatPane() {
     }
   }
 
-  function f32Concat(chunks: Float32Array[]): Float32Array {
-    const n = chunks.reduce((a, c) => a + c.length, 0);
-    const out = new Float32Array(n);
-    let off = 0;
-    for (const c of chunks) {
-      out.set(c, off);
-      off += c.length;
-    }
-    return out;
-  }
-
-  function resampleLinear(input: Float32Array, srcRate: number, dstRate: number): Float32Array {
-    if (srcRate === dstRate) return input;
-    const ratio = dstRate / srcRate;
-    const outLen = Math.max(1, Math.floor(input.length * ratio));
-    const out = new Float32Array(outLen);
-    for (let i = 0; i < outLen; i++) {
-      const t = i / ratio;
-      const i0 = Math.floor(t);
-      const i1 = Math.min(i0 + 1, input.length - 1);
-      const frac = t - i0;
-      out[i] = input[i0] * (1 - frac) + input[i1] * frac;
-    }
-    return out;
-  }
-
-  function f32ToPcm16leBytes(input: Float32Array): Uint8Array {
-    const out = new Uint8Array(input.length * 2);
-    const view = new DataView(out.buffer);
-    for (let i = 0; i < input.length; i++) {
-      let s = input[i];
-      if (s > 1) s = 1;
-      if (s < -1) s = -1;
-      const v = Math.round(s * 32767);
-      view.setInt16(i * 2, v, true);
-    }
-    return out;
-  }
-
-  function u8ToB64(u8: Uint8Array): string {
-    let bin = "";
-    const chunk = 0x8000;
-    for (let i = 0; i < u8.length; i += chunk) {
-      bin += String.fromCharCode(...u8.subarray(i, i + chunk));
-    }
-    return btoa(bin);
-  }
-
   async function startListening() {
     stopTTS();
-
+    unlockAudioForSafari();
     try {
-      let liveVoice: string | undefined;
-      try {
-        const response = await authFetch("/api/voice/capabilities", { cache: "no-store" });
-        if (response.ok) {
-          const capabilities = (await response.json()) as {
-            realtime?: {
-              default_model?: string;
-              default_voice?: string;
-              models?: Array<{ id: string; default_voice: string; voices: string[] }>;
-            };
-          };
-          const realtime = capabilities.realtime;
-          const currentModel = realtime?.models?.find((item) => item.id === realtime.default_model);
-          if (currentModel) {
-            const saved = String(
-              getLS<string>("vs_realtime_voice", "") || getLS<string>("vs_voice", "") || "",
-            ).trim().toLowerCase();
-            liveVoice = currentModel.voices.includes(saved) ? saved : currentModel.default_voice;
-            localStorage.setItem("vs_realtime_voice", JSON.stringify(liveVoice));
-          }
-        }
-      } catch {
-        // The backend owns the default model and voice when capability lookup is unavailable.
-      }
-
-      await realtimeVoice.start({
-        ...(liveVoice ? { voice: liveVoice } : {}),
-        instructions: [
-          "You are Sage in live voice mode inside LifeSwitch.",
-          "Use a calm, concise, conversational style.",
-          "Answer the user's spoken question directly.",
-          "Do not drift into math, geometry, tutoring, or unrelated explanations unless the user explicitly asks for that.",
-          "If interrupted, stop the current answer and respond to the user's new direction.",
-          "Do not claim to write into the text chat unless transcript capture is explicitly enabled.",
-          "Keep most spoken answers short unless the user asks for more detail.",
-        ].join(" "),
-      });
-      setListening(true);
+      await governedVoice.start();
     } catch (e: any) {
-      setListening(false);
       alert(e?.message || String(e));
     }
   }
 
   async function stopListeningAndRespond() {
-    realtimeVoice.stop();
-    setListening(false);
-    stopVoiceInFlightRef.current = false;
+    try {
+      const transcript = await governedVoice.stopAndTranscribe();
+      await sendMessage(transcript, { speakReply: true });
+    } catch (e: any) {
+      alert(e?.message || String(e));
+    }
   }
 
-  async function sendMessage(overrideText?: string) {
+  async function sendMessage(
+    overrideText?: string,
+    options: { speakReply?: boolean } = {},
+  ) {
     stopTTS();
     const msg = String(
       overrideText ?? (editingMessageId ? editingText : text)
@@ -876,6 +782,9 @@ export function BrainsChatPane() {
         inspect: reply.inspect,
         inspect_error: reply.inspect_error,
       });
+      if (options.speakReply) {
+        await speak(reply.text, Number.MAX_SAFE_INTEGER);
+      }
     } catch (e: any) {
       alert(e?.message || String(e));
     } finally {
@@ -1112,16 +1021,16 @@ export function BrainsChatPane() {
               <button
                 type="button"
                 onClick={() => {
-                  if (voiceIsActive || voiceIsConnecting || listening) {
+                  if (voiceIsActive) {
                     stopListeningAndRespond().catch((e) => alert(String((e as any)?.message ?? e)));
-                  } else {
+                  } else if (!voiceIsConnecting) {
                     startListening().catch((e) => alert(String((e as any)?.message ?? e)));
                   }
                 }}
-                disabled={sending}
+                disabled={sending || voiceIsConnecting}
                 className={[
                   "rounded-xl border px-3 py-2 text-xs disabled:opacity-50",
-                  voiceIsActive || voiceIsConnecting || listening ? "bg-muted" : "bg-background",
+                  voiceIsActive || voiceIsConnecting ? "bg-muted" : "bg-background",
                 ].join(" ")}
                 aria-label={voiceButtonLabel}
                 title={voiceStatusLabel}
@@ -1130,7 +1039,7 @@ export function BrainsChatPane() {
               </button>
 
               <span className="text-[11px] text-muted-foreground">
-                AI-generated voice · {voiceStatusLabel}
+                OpenAI transcription · AI-generated reply · {voiceStatusLabel}
               </span>
 
               <button onClick={() => sendMessage()} disabled={sending} className="rounded-xl bg-muted px-3 py-2 text-xs disabled:opacity-50">

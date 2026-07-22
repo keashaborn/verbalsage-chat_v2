@@ -15,16 +15,6 @@ type TTSModelCapability = {
   voices: string[];
 };
 
-type RealtimeModelCapability = {
-  id: string;
-  label: string;
-  description: string;
-  rollback: boolean;
-  default_voice: string;
-  recommended_voices: string[];
-  voices: string[];
-};
-
 type VoiceCapabilities = {
   version: string;
   tts: {
@@ -32,12 +22,6 @@ type VoiceCapabilities = {
     default_voice: string;
     maximum_input_characters: number;
     models: TTSModelCapability[];
-  };
-  realtime: {
-    default_model: string;
-    default_voice: string;
-    managed_model: boolean;
-    models: RealtimeModelCapability[];
   };
 };
 
@@ -77,17 +61,6 @@ async function saveVoiceSettingsCloud(nextVoice: string, nextSpeed: number, next
       vs_voice_speed: nextSpeed,
       vs_voice_model: nextModel,
     },
-  });
-  return error;
-}
-
-function saveRealtimeVoiceLocal(nextVoice: string) {
-  setLS("vs_realtime_voice", nextVoice);
-}
-
-async function saveRealtimeVoiceCloud(nextVoice: string) {
-  const { error } = await supabase.auth.updateUser({
-    data: { vs_realtime_voice: nextVoice },
   });
   return error;
 }
@@ -194,7 +167,6 @@ export function VoicePanel() {
   const [voice, setVoice] = React.useState<string>("marin");
   const [speed, setSpeed] = React.useState<number>(1.0);
   const [model, setModel] = React.useState<string>("gpt-4o-mini-tts");
-  const [realtimeVoice, setRealtimeVoice] = React.useState<string>("marin");
   const [testText, setTestText] = React.useState<string>("Hello, this is Sage inside LifeSwitch.");
   const [busy, setBusy] = React.useState<boolean>(false);
   const [status, setStatus] = React.useState<string>("");
@@ -207,23 +179,11 @@ export function VoicePanel() {
     [capabilities, model],
   );
   const voices = selectedModel?.voices ?? [];
-  const realtimeModel = React.useMemo(
-    () => capabilities?.realtime.models.find((item) => item.id === capabilities.realtime.default_model) ?? null,
-    [capabilities],
-  );
-
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
   function saveVoiceSettings(nextVoice: string, nextSpeed: number, nextModel: string) {
     saveVoiceSettingsLocal(nextVoice, nextSpeed, nextModel);
     void saveVoiceSettingsCloud(nextVoice, nextSpeed, nextModel).then((error) => {
-      if (error) setStatus("Saved on this device, but account sync failed.");
-    });
-  }
-
-  function saveRealtimeVoice(nextVoice: string) {
-    saveRealtimeVoiceLocal(nextVoice);
-    void saveRealtimeVoiceCloud(nextVoice).then((error) => {
       if (error) setStatus("Saved on this device, but account sync failed.");
     });
   }
@@ -240,18 +200,13 @@ export function VoicePanel() {
     setVoice(local.voice);
     setSpeed(local.speed);
     setModel(local.model);
-    setRealtimeVoice(
-      String(getLS<string>("vs_realtime_voice", "") || local.voice || "marin").trim().toLowerCase() || "marin",
-    );
-
     void (async () => {
       const { data } = await supabase.auth.getUser();
       const md: any = data?.user?.user_metadata || {};
       const hasCloud =
         md.vs_voice != null ||
         md.vs_voice_speed != null ||
-        md.vs_voice_model != null ||
-        md.vs_realtime_voice != null;
+        md.vs_voice_model != null;
 
       if (!hasCloud || cancelled) return;
 
@@ -260,9 +215,6 @@ export function VoicePanel() {
       setVoice(cloud.voice);
       setSpeed(cloud.speed);
       setModel(cloud.model);
-      const cloudRealtimeVoice = String(md.vs_realtime_voice || cloud.voice || "marin").trim().toLowerCase() || "marin";
-      saveRealtimeVoiceLocal(cloudRealtimeVoice);
-      setRealtimeVoice(cloudRealtimeVoice);
     })();
 
     return () => {
@@ -281,9 +233,7 @@ export function VoicePanel() {
         const payload = (await response.json()) as VoiceCapabilities;
         if (
           !payload?.tts?.default_model ||
-          !Array.isArray(payload?.tts?.models) ||
-          !payload?.realtime?.default_model ||
-          !Array.isArray(payload?.realtime?.models)
+          !Array.isArray(payload?.tts?.models)
         ) {
           throw new Error("Invalid capabilities response");
         }
@@ -326,27 +276,6 @@ export function VoicePanel() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [capabilities, model, voice]);
-
-  React.useEffect(() => {
-    if (!realtimeModel) return;
-
-    const nextVoice = realtimeModel.voices.includes(realtimeVoice)
-      ? realtimeVoice
-      : realtimeModel.default_voice;
-    const isMigrated = getLS<string>("vs_realtime_voice", "") === nextVoice;
-
-    if (nextVoice !== realtimeVoice) {
-      setRealtimeVoice(nextVoice);
-      setStatus(
-        `Live voice changed to ${voiceLabel(nextVoice, realtimeModel.recommended_voices)} because ${realtimeVoice} is unavailable for ${realtimeModel.label}.`,
-      );
-    }
-
-    if (!isMigrated || nextVoice !== realtimeVoice) {
-      saveRealtimeVoice(nextVoice);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [realtimeModel, realtimeVoice]);
 
   async function playTTS(text: string) {
     const msg = String(text || "").trim();
@@ -411,58 +340,13 @@ export function VoicePanel() {
   return (
     <div className="space-y-4">
       <Group
-        title="Live conversation"
-        footer={
-          <div className="space-y-1">
-            <div>Used by Talk. The current Realtime model is managed centrally.</div>
-            <div>Changes save automatically to your account and this browser.</div>
-            <div className="font-medium text-foreground">
-              Disclosure: the voice you hear is AI-generated, not a human voice.
-            </div>
-          </div>
-        }
-      >
-        <Row
-          left="Realtime model"
-          right={
-            <div className="w-[210px] rounded-lg border bg-muted/40 px-2 py-1.5 text-sm">
-              {realtimeModel ? `${realtimeModel.label} · Managed` : "Loading…"}
-            </div>
-          }
-        >
-          {realtimeModel ? (
-            <div className="text-xs text-muted-foreground">{realtimeModel.description}</div>
-          ) : null}
-        </Row>
-
-        <Row
-          left="Live voice"
-          right={
-            <select
-              className="w-[210px] rounded-lg border bg-background px-2 py-1.5 text-sm"
-              value={realtimeVoice}
-              disabled={!realtimeModel}
-              onChange={(e) => {
-                const nextVoice = e.target.value;
-                setRealtimeVoice(nextVoice);
-                saveRealtimeVoice(nextVoice);
-                setStatus("");
-              }}
-            >
-              {(realtimeModel?.voices ?? []).map((item) => (
-                <option key={item} value={item}>
-                  {voiceLabel(item, realtimeModel?.recommended_voices ?? [])}
-                </option>
-              ))}
-            </select>
-          }
-        />
-      </Group>
-
-      <Group
         title="Spoken replies"
         footer={
           <div className="space-y-1">
+            <div>Used for message playback and governed Talk replies.</div>
+            <div>
+              Talk audio is transcribed by OpenAI, then the transcript follows the same safeguarded chat path as typed messages.
+            </div>
             <div>Changes save automatically to your account and this browser.</div>
             <div className="font-medium text-foreground">
               Disclosure: the voice you hear is AI-generated, not a human voice.
