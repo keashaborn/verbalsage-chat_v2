@@ -85,19 +85,7 @@ function applyProfileCookiesFromSession(session: any): boolean {
     const md: any = session?.user?.user_metadata || {};
     applyThemeFromMetadata(md);
 
-    const v1: any = session?.user?.user_metadata?.vs_settings_v1;
-    if (!v1) return false;
-
-    const cloudUpdatedAt = String(v1.updated_at || "");
-    const localUpdatedAt = lsGet(LS_CLOUD_UPDATED_AT) || "";
-
-    const needApply = !hasProfileCookies() || (cloudUpdatedAt && cloudUpdatedAt !== localUpdatedAt);
-    if (!needApply) return true;
-
-    if (v1.model) {
-      writeStringCookie("vs_model", String(v1.model).trim().slice(0, 64));
-    }
-    // OpenAI-only voice engine. Ignore legacy non-OpenAI metadata.
+    // Voice preferences are independent of the versioned profile-cookie bundle.
     if (md.vs_voice_engine === "openai_tts") {
       lsSet("vs_voice_engine", md.vs_voice_engine);
     } else {
@@ -116,7 +104,22 @@ function applyProfileCookiesFromSession(session: any): boolean {
       lsSet("vs_voice_speed", JSON.stringify(Number(md.vs_voice_speed)));
     }
 
+    if (typeof md.vs_realtime_voice === "string" && md.vs_realtime_voice.trim()) {
+      lsSet("vs_realtime_voice", JSON.stringify(md.vs_realtime_voice.trim().toLowerCase()));
+    }
 
+    const v1: any = session?.user?.user_metadata?.vs_settings_v1;
+    if (!v1) return false;
+
+    const cloudUpdatedAt = String(v1.updated_at || "");
+    const localUpdatedAt = lsGet(LS_CLOUD_UPDATED_AT) || "";
+
+    const needApply = !hasProfileCookies() || (cloudUpdatedAt && cloudUpdatedAt !== localUpdatedAt);
+    if (!needApply) return true;
+
+    if (v1.model) {
+      writeStringCookie("vs_model", String(v1.model).trim().slice(0, 64));
+    }
     const active = v1?.vantage?.active;
     if (active) {
       const vid = String(active.vantageId || "default").trim().slice(0, 64) || "default";

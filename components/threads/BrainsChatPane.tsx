@@ -734,9 +734,33 @@ export function BrainsChatPane() {
     stopTTS();
 
     try {
+      let liveVoice: string | undefined;
+      try {
+        const response = await authFetch("/api/voice/capabilities", { cache: "no-store" });
+        if (response.ok) {
+          const capabilities = (await response.json()) as {
+            realtime?: {
+              default_model?: string;
+              default_voice?: string;
+              models?: Array<{ id: string; default_voice: string; voices: string[] }>;
+            };
+          };
+          const realtime = capabilities.realtime;
+          const currentModel = realtime?.models?.find((item) => item.id === realtime.default_model);
+          if (currentModel) {
+            const saved = String(
+              getLS<string>("vs_realtime_voice", "") || getLS<string>("vs_voice", "") || "",
+            ).trim().toLowerCase();
+            liveVoice = currentModel.voices.includes(saved) ? saved : currentModel.default_voice;
+            localStorage.setItem("vs_realtime_voice", JSON.stringify(liveVoice));
+          }
+        }
+      } catch {
+        // The backend owns the default model and voice when capability lookup is unavailable.
+      }
+
       await realtimeVoice.start({
-        voice: String(getLS<string>("vs_voice", "marin")).trim() || "marin",
-        model: String(getLS<string>("vs_realtime_model", "gpt-realtime-2")).trim() || "gpt-realtime-2",
+        ...(liveVoice ? { voice: liveVoice } : {}),
         instructions: [
           "You are Sage in live voice mode inside LifeSwitch.",
           "Use a calm, concise, conversational style.",
