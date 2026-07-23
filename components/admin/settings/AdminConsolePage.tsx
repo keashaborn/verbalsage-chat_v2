@@ -4,6 +4,7 @@ import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { CardsPanel } from "@/components/admin/settings/CardsPanel";
 import { MemoryReviewPanel } from "@/components/admin/settings/MemoryReviewPanel";
+import { VoiceSystemHealthPanel } from "@/components/admin/settings/VoiceSystemHealthPanel";
 import { CAPABILITY_REGISTRY, PERMISSION_ROLES, type PermissionRole, capabilitiesForRole } from "@/components/admin/settings/permissions/permissionRegistry";
 
 function readCookie(name: string): string | null {
@@ -187,6 +188,8 @@ export function AdminConsolePage() {
         description="Prompt inspection, model diagnostics, and runtime debugging tools."
       >
         <div className="space-y-3">
+          <VoiceSystemHealthPanel />
+
           <div className="rounded-xl border p-3">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
