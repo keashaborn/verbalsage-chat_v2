@@ -194,8 +194,8 @@ The following routes now use the capability authorization helper:
 - `user_data.forget_recent`
   - `/api/admin/forget_recent`
 
-- `voice.realtime_token`
-  - `/api/voice/ws-token`
+- `voice.transcription`
+  - `/api/voice/openai/transcribe`
 
 ### Current Guard Audit
 

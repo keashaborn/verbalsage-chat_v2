@@ -108,10 +108,6 @@ function applyProfileCookiesFromSession(session: any): boolean {
       lsSet("vs_voice_speed", JSON.stringify(Number(md.vs_voice_speed)));
     }
 
-    if (typeof md.vs_realtime_voice === "string" && md.vs_realtime_voice.trim()) {
-      lsSet("vs_realtime_voice", JSON.stringify(md.vs_realtime_voice.trim().toLowerCase()));
-    }
-
     if (
       md.vs_voice_privacy_notice_version === VOICE_PRIVACY_NOTICE_VERSION
     ) {

@@ -192,7 +192,7 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
   },
 
   {
-    key: "voice.realtime_token",
+    key: "voice.transcription",
     label: "Use Governed Voice",
     description:
       "Transcribe speech and route the transcript through governed response generation.",

@@ -16,8 +16,11 @@ Completed:
   - `components/admin/GrokVoiceRealtimePanel.tsx`
 - Cleaned stale Grok code from assistant-ui thread.
 - Moved frontend `/api/tts` to proxy through Brains `/voice/tts`.
-- Added frontend BFF route:
-  - `POST /api/voice/openai/session`
+- Retired direct Realtime answer generation and transcription-only WebRTC.
+- Current governed voice uses:
+  - `POST /api/voice/openai/transcribe`
+  - authenticated `/api/chat` orchestration
+  - `/api/tts` speech synthesis
 
 Validated:
 
@@ -33,7 +36,7 @@ Validated:
   - no direct `api.openai.com/v1/audio/speech`
 - Remaining frontend voice routes:
   - `app/api/tts/route.ts`
-  - `app/api/voice/openai/session/route.ts`
+  - `app/api/voice/openai/transcribe/route.ts`
 
 Relevant commits:
 
@@ -43,6 +46,12 @@ Relevant commits:
 - `568bea3 auto: snapshot 2026-06-30T15:00:40Z` — TTS proxy through Brains
 - `7c5b524 Disable legacy Grok runtime in active chat`
 - `d4111dd auto: snapshot 2026-06-30T18:31:35Z` — removed stale frontend Grok surfaces
+
+2026-07-23 retirement update:
+
+- Removed the unused transcription-only WebRTC offer route.
+- Renamed the active permission to `voice.transcription`.
+- Renamed the continuous governed conversation hook to remove obsolete Realtime terminology.
 
 ## Desired Runtime Shape
 

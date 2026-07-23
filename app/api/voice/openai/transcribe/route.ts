@@ -41,7 +41,7 @@ function normalizedAudioType(raw: string | null): string {
 
 export async function POST(req: Request) {
   const requestId = getRequestId(req);
-  const capability = await requireCapability(req, "voice.realtime_token");
+  const capability = await requireCapability(req, "voice.transcription");
   if (!capability.ok) {
     return NextResponse.json(
       { ok: false, error: capability.msg },

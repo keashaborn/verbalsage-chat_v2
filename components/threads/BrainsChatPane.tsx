@@ -14,9 +14,9 @@ import {
 } from "lucide-react";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
 import {
-  useGovernedRealtimeVoice,
+  useGovernedVoiceConversation,
   type GovernedVoiceTurnContext,
-} from "@/hooks/useGovernedRealtimeVoice";
+} from "@/hooks/useGovernedVoiceConversation";
 import { VOICE_TURN_HEADER } from "@/lib/voiceObservability";
 import {
   decodeResponseInspectionHeader,
@@ -161,7 +161,7 @@ export function BrainsChatPane() {
   const [voicePrivacyOpen, setVoicePrivacyOpen] = React.useState(false);
   const [voicePrivacySaving, setVoicePrivacySaving] = React.useState(false);
   const [voicePrivacyError, setVoicePrivacyError] = React.useState("");
-  const governedVoice = useGovernedRealtimeVoice();
+  const governedVoice = useGovernedVoiceConversation();
 
   const voiceStatus = governedVoice.status;
   const voiceIsConnecting =

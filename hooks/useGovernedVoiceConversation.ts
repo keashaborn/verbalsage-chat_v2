@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { authFetch } from "@/lib/authFetch";
 import { VOICE_TURN_HEADER } from "@/lib/voiceObservability";
 
-export type GovernedRealtimeVoiceStatus =
+export type GovernedVoiceConversationStatus =
   | "idle"
   | "requesting"
   | "connecting"
@@ -96,7 +96,7 @@ function optionalFiniteNumber(value: unknown): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
-export function useGovernedRealtimeVoice() {
+export function useGovernedVoiceConversation() {
   const ownerRef = useRef(Symbol("governed-continuous-voice"));
   const generationRef = useRef(0);
   const startingRef = useRef(false);
@@ -114,7 +114,7 @@ export function useGovernedRealtimeVoice() {
     StartOptions["onTranscriptionFailure"] | null
   >(null);
 
-  const [status, setStatus] = useState<GovernedRealtimeVoiceStatus>("idle");
+  const [status, setStatus] = useState<GovernedVoiceConversationStatus>("idle");
   const [lastError, setLastError] = useState("");
   const [partialTranscript, setPartialTranscript] = useState("");
 
