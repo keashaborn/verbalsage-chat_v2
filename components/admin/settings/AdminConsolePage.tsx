@@ -7,22 +7,6 @@ import { MemoryReviewPanel } from "@/components/admin/settings/MemoryReviewPanel
 import { VoiceSystemHealthPanel } from "@/components/admin/settings/VoiceSystemHealthPanel";
 import { CAPABILITY_REGISTRY, PERMISSION_ROLES, type PermissionRole, capabilitiesForRole } from "@/components/admin/settings/permissions/permissionRegistry";
 
-function readCookie(name: string): string | null {
-  if (typeof document === "undefined") return null;
-  const m = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
-  return m ? decodeURIComponent(m[1]) : null;
-}
-
-function hasCookie(name: string): boolean {
-  const v = readCookie(name);
-  return !!(v && v.trim().length > 0);
-}
-
-function clearCookie(name: string) {
-  if (typeof document === "undefined") return;
-  document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
-}
-
 function normalizePermissionRoleClient(raw: any): PermissionRole {
   const v = String(raw || "").trim();
   return PERMISSION_ROLES.some((r) => r.key === v) ? (v as PermissionRole) : "user";
@@ -124,8 +108,6 @@ export function AdminConsolePage() {
   const effectiveSource = effectivePermissions?.ok ? "server" : "client fallback";
 
   React.useEffect(() => {
-    setInspectorEnabled(hasCookie("vs_debug_token"));
-
     let cancelled = false;
     (async () => {
       try {
@@ -140,6 +122,19 @@ export function AdminConsolePage() {
           setEffectivePermissions(null);
           setCurrentRole("user");
         }
+      }
+    })();
+
+    (async () => {
+      try {
+        const r = await authFetch("/api/admin/debug_cookie", {
+          method: "GET",
+          cache: "no-store",
+        });
+        const j = await r.json().catch(() => null);
+        if (!cancelled) setInspectorEnabled(!!(r.ok && j?.enabled));
+      } catch {
+        if (!cancelled) setInspectorEnabled(false);
       }
     })();
 
@@ -165,10 +160,20 @@ export function AdminConsolePage() {
     }
   }
 
-  function disableInspector() {
-    clearCookie("vs_debug_token");
-    setInspectorEnabled(false);
-    setStatus("disabled");
+  async function disableInspector() {
+    setStatus("disabling…");
+    try {
+      const r = await authFetch("/api/admin/debug_cookie", {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      const t = await r.text().catch(() => "");
+      if (!r.ok) throw new Error(t || `HTTP ${r.status}`);
+      setInspectorEnabled(false);
+      setStatus("disabled");
+    } catch (e: any) {
+      setStatus(`error: ${e?.message || String(e)}`);
+    }
   }
 
   return (
@@ -195,7 +200,7 @@ export function AdminConsolePage() {
               <div className="min-w-0">
                 <div className="text-sm font-semibold">Prompt Inspector</div>
                 <div className="text-xs text-muted-foreground">
-                  Enables prompt inspection for this browser. Uses cookie <code>vs_debug_token</code>.
+                  Enables prompt inspection for this browser. Authorization is checked on every request.
                 </div>
               </div>
 
@@ -204,7 +209,7 @@ export function AdminConsolePage() {
                 checked={inspectorEnabled}
                 onChange={(e) => {
                   if (e.target.checked) enableInspector();
-                  else disableInspector();
+                  else void disableInspector();
                 }}
               />
             </div>

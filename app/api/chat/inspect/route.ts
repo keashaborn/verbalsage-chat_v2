@@ -5,6 +5,10 @@ import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
 import { requireCapability } from "@/app/api/_auth/requireCapability";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
+import {
+  inspectorSessionCookieName,
+  inspectorSessionEnabled,
+} from "@/lib/inspectorSession";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -130,13 +134,6 @@ export async function POST(req: Request) {
     const BRAINS_URL = process.env.BRAINS_URL || "http://172.31.32.171:8088";
     const jar = await cookies();
 
-    // Debug gate (same rule as /api/chat)
-    const debugTokenHdr = req.headers.get("x-vs-debug-token") || "";
-    const debugTokenCookie = jar.get("vs_debug_token")?.value || "";
-    const debugTokenValid =
-      !!process.env.VS_DEBUG_TOKEN &&
-      (debugTokenHdr === process.env.VS_DEBUG_TOKEN || debugTokenCookie === process.env.VS_DEBUG_TOKEN);
-
     const cap = await requireCapability(req, "inspector.view");
 
     if (!cap.ok) {
@@ -146,12 +143,11 @@ export async function POST(req: Request) {
       });
     }
 
-    // Inspector access is capability-gated. A stale browser debug cookie must not
-    // grant Inspector access after switching to an account without inspector.view.
-    const debugAllowed = debugTokenValid;
-
-    if (!debugAllowed) {
-      return new Response("debug token required", {
+    const inspectorEnabled = inspectorSessionEnabled(
+      jar.get(inspectorSessionCookieName())?.value,
+    );
+    if (!inspectorEnabled) {
+      return new Response("inspector session required", {
         status: 403,
         headers: { "Content-Type": "text/plain; charset=utf-8", "x-request-id": requestId },
       });

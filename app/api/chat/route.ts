@@ -10,6 +10,10 @@ import {
   voiceTurnHeaders,
   voiceTurnIdFromRequest,
 } from "@/lib/voiceObservability";
+import {
+  inspectorSessionCookieName,
+  inspectorSessionEnabled,
+} from "@/lib/inspectorSession";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -76,16 +80,12 @@ function shouldAvoidStorage(body: any, message: string): boolean {
 }
 
 async function responseInspectionAllowed(req: Request): Promise<boolean> {
-  const expected = String(process.env.VS_DEBUG_TOKEN || "");
-  if (!expected) return false;
-  const jar = await cookies();
-  const supplied =
-    req.headers.get("x-vs-debug-token") ||
-    jar.get("vs_debug_token")?.value ||
-    "";
-  if (supplied !== expected) return false;
   const capability = await requireCapability(req, "inspector.view");
-  return capability.ok;
+  if (!capability.ok) return false;
+  const jar = await cookies();
+  return inspectorSessionEnabled(
+    jar.get(inspectorSessionCookieName())?.value,
+  );
 }
 
 function responseTimingsHeader(value: unknown): string {

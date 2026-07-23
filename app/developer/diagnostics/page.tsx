@@ -77,18 +77,8 @@ async function readJsonSafe<T = any>(r: Response): Promise<{ json: T | null; raw
   }
 }
 
-function readCookie(name: string): string | null {
-  if (typeof document === "undefined") return null;
-  const m = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
-  return m ? decodeURIComponent(m[1]) : null;
-}
-
-async function ensureInspectorCookie(): Promise<void> {
-  // /api/chat/inspect requires vs_debug_token == server VS_DEBUG_TOKEN
-  const cur = readCookie("vs_debug_token");
-  if (cur && cur.trim().length > 0) return;
-
-  // Ask server to mint the cookie (same action as Developer → Inspector toggle)
+async function ensureInspectorSession(): Promise<void> {
+  // Ask the server to enable a capability-bound, non-secret browser session.
   const r = await authFetch("/api/admin/debug_cookie", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -99,7 +89,7 @@ async function ensureInspectorCookie(): Promise<void> {
   if (r.ok) return;
 
   const t = await r.text().catch(() => "");
-  throw new Error(`debug_cookie ${r.status}: ${t || "unauthorized"}`);
+  throw new Error(`inspector session ${r.status}: ${t || "unauthorized"}`);
 }
 
 
@@ -278,7 +268,7 @@ export default function DiagnosticsPage() {
     const suite_id = "suite:v0";
     const target_model_id = modelId;
 
-    await ensureInspectorCookie();
+    await ensureInspectorSession();
     try {
       for (const probe of PROBES_V0) {
         // Use existing inspect route so we reuse routing + inspector plumbing.

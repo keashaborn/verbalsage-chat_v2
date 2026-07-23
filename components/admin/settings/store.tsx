@@ -74,8 +74,6 @@ export type VSSettingsState = {
   pragmatics: any | null; // cookie: vs_vantage_pragmatics (JSON)
   roleplay: any | null; // cookie: vs_vantage_roleplay (JSON)
 
-  // Inspector/debug (action-driven; not part of Save)
-  debugEnabled: boolean; // cookie presence: vs_debug_token
 };
 
 const DEFAULT_STATE: VSSettingsState = {
@@ -111,7 +109,6 @@ const DEFAULT_STATE: VSSettingsState = {
   },
   roleplay: null,
 
-  debugEnabled: false,
 };
 
 function safeLocalStorageGet(key: string): string | null {
@@ -183,9 +180,7 @@ function loadPersisted(): VSSettingsState {
     (readJsonCookie("vs_vantage_definition_overlay") ?? readJsonCookie("vs_vantage_roleplay")) ??
     DEFAULT_STATE.roleplay;
 
-  const debugEnabled = !!readCookie("vs_debug_token");
-
-  return { theme, model, vantageId, mix, routing, limits, pragmatics, roleplay, debugEnabled };
+  return { theme, model, vantageId, mix, routing, limits, pragmatics, roleplay };
 }
 
 // For now, global Save commits ONLY the Vantage cookies to avoid clobbering
