@@ -36,7 +36,11 @@ import {
   storeVoicePrivacyNoticeAcceptance,
   VOICE_PRIVACY_NOTICE_VERSION,
 } from "@/lib/voicePrivacy";
-import { splitForSpeech } from "@/lib/voiceSpeech";
+import {
+  pcmS16leToWav,
+  shouldUseNativeSafariAudio,
+  splitForSpeech,
+} from "@/lib/voiceSpeech";
 
 type ChatResult = {
   text: string;
@@ -277,6 +281,9 @@ export function BrainsChatPane() {
   const ttsAbortRef = React.useRef<AbortController | null>(null);
   const ttsPlaybackResolveRef = React.useRef<(() => void) | null>(null);
   const ttsEpochRef = React.useRef<number>(0);
+  const nativeAudioRef = React.useRef<HTMLAudioElement | null>(null);
+  const nativeAudioUrlRef = React.useRef<string | null>(null);
+  const nativeAudioPreparedRef = React.useRef(false);
 
   // WebAudio fallback (Safari can block HTMLAudioElement.play() after async fetch)
   const audioCtxRef = React.useRef<AudioContext | null>(null);
@@ -316,10 +323,56 @@ export function BrainsChatPane() {
     return audioCtxRef.current;
   }
 
+  function ensureNativeAudioElement(): HTMLAudioElement | null {
+    if (typeof window === "undefined") return null;
+    if (!nativeAudioRef.current) {
+      const audio = new Audio();
+      audio.preload = "auto";
+      (audio as any).playsInline = true;
+      nativeAudioRef.current = audio;
+    }
+    return nativeAudioRef.current;
+  }
+
+  function releaseNativeAudioUrl() {
+    const currentUrl = nativeAudioUrlRef.current;
+    nativeAudioUrlRef.current = null;
+    if (currentUrl) URL.revokeObjectURL(currentUrl);
+  }
+
   function unlockAudioForSafari() {
     try {
       const ctx = ensureAudioContext();
       if (ctx && ctx.state === "suspended") void ctx.resume().catch(() => {});
+
+      if (
+        nativeAudioPreparedRef.current ||
+        !shouldUseNativeSafariAudio(navigator.userAgent)
+      ) {
+        return;
+      }
+      const audio = ensureNativeAudioElement();
+      if (!audio) return;
+      releaseNativeAudioUrl();
+      const silentPcm = new Uint8Array(480);
+      const silentWav = pcmS16leToWav(silentPcm);
+      const url = URL.createObjectURL(
+        new Blob([silentWav.buffer as ArrayBuffer], { type: "audio/wav" }),
+      );
+      nativeAudioUrlRef.current = url;
+      audio.src = url;
+      audio.volume = 0;
+      const preparation = audio.play();
+      void preparation
+        .then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = 1;
+          nativeAudioPreparedRef.current = true;
+        })
+        .catch(() => {
+          nativeAudioPreparedRef.current = false;
+        });
     } catch {}
   }
 
@@ -403,6 +456,14 @@ export function BrainsChatPane() {
     }
     audioNodesRef.current.clear();
 
+    const nativeAudio = nativeAudioRef.current;
+    if (nativeAudio) {
+      nativeAudio.pause();
+      nativeAudio.removeAttribute("src");
+      nativeAudio.load();
+    }
+    releaseNativeAudioUrl();
+
     const resolvePlayback = ttsPlaybackResolveRef.current;
     ttsPlaybackResolveRef.current = null;
     resolvePlayback?.();
@@ -432,6 +493,15 @@ export function BrainsChatPane() {
         } catch {}
       }
       audioNodesRef.current.clear();
+
+      const nativeAudio = nativeAudioRef.current;
+      if (nativeAudio) {
+        nativeAudio.pause();
+        nativeAudio.removeAttribute("src");
+        nativeAudio.load();
+      }
+      releaseNativeAudioUrl();
+      nativeAudioRef.current = null;
 
       const resolvePlayback = ttsPlaybackResolveRef.current;
       ttsPlaybackResolveRef.current = null;
@@ -486,6 +556,9 @@ export function BrainsChatPane() {
     let firstAudioAtMs: number | null = null;
     const requestIds: string[] = [];
     const providerRequestIds: string[] = [];
+    const useNativeSafariAudio = shouldUseNativeSafariAudio(
+      navigator.userAgent,
+    );
 
     const metrics = (
       status: VoiceSpeechMetrics["status"],
@@ -658,6 +731,65 @@ export function BrainsChatPane() {
         }
       };
 
+      const playNativeSafariChunk = async (response: Response) => {
+        if (ttsEpochRef.current !== epoch) return;
+        const audio = ensureNativeAudioElement();
+        if (!audio) throw new Error("Native voice playback is unavailable.");
+
+        const pcm = new Uint8Array(await response.arrayBuffer());
+        if (!pcm.length) {
+          throw new Error("The voice service returned an empty audio stream.");
+        }
+        const wav = pcmS16leToWav(pcm);
+        releaseNativeAudioUrl();
+        const url = URL.createObjectURL(
+          new Blob([wav.buffer as ArrayBuffer], { type: "audio/wav" }),
+        );
+        nativeAudioUrlRef.current = url;
+        audio.src = url;
+        audio.currentTime = 0;
+        audio.muted = false;
+        audio.volume = 1;
+
+        let settlePlayback: () => void = () => {};
+        const playbackFinished = new Promise<void>((resolve, reject) => {
+          let settled = false;
+          const settle = (error?: Error) => {
+            if (settled) return;
+            settled = true;
+            audio.onended = null;
+            audio.onerror = null;
+            if (ttsPlaybackResolveRef.current === settlePlayback) {
+              ttsPlaybackResolveRef.current = null;
+            }
+            if (error) reject(error);
+            else resolve();
+          };
+          settlePlayback = () => settle();
+          audio.onended = () => settle();
+          audio.onerror = () =>
+            settle(new Error("Safari could not play the voice audio."));
+          ttsPlaybackResolveRef.current = settlePlayback;
+        });
+
+        try {
+          await audio.play();
+          if (ttsEpochRef.current !== epoch || ac.signal.aborted) {
+            audio.pause();
+            settlePlayback();
+            return;
+          }
+          if (firstAudioAtMs == null) {
+            firstAudioAtMs = performance.now();
+          }
+          setTtsLoadingIdx(null);
+          setTtsPlayingIdx(idx);
+          await playbackFinished;
+        } finally {
+          settlePlayback();
+        }
+      };
+
       let pending = requestChunk(chunks[0], 0);
       for (let index = 0; index < chunks.length; index += 1) {
         if (ttsEpochRef.current !== epoch) return metrics("cancelled");
@@ -667,7 +799,11 @@ export function BrainsChatPane() {
           index + 1 < chunks.length
             ? requestChunk(chunks[index + 1], index + 1)
             : null;
-        await playChunk(response);
+        if (useNativeSafariAudio) {
+          await playNativeSafariChunk(response);
+        } else {
+          await playChunk(response);
+        }
         if (ttsEpochRef.current !== epoch) return metrics("cancelled");
         if (following) pending = following;
       }
@@ -1086,6 +1222,7 @@ export function BrainsChatPane() {
         inspect: reply.inspect,
         inspect_error: reply.inspect_error,
       });
+      setSending(false);
       let speechMetrics: VoiceSpeechMetrics | null = null;
       if (options.speakReply && (options.shouldSpeak?.() ?? true)) {
         speechMetrics = await speak(
@@ -1481,10 +1618,16 @@ export function BrainsChatPane() {
 
               <button
                 onClick={() => sendMessage()}
-                disabled={sending}
+                disabled={
+                  sending || ttsLoadingIdx != null || ttsPlayingIdx != null
+                }
                 className="rounded-xl bg-muted px-3 py-2 text-xs disabled:opacity-50"
               >
-                {sending ? "Sending…" : "Send"}
+                {sending
+                  ? "Sending…"
+                  : ttsLoadingIdx != null || ttsPlayingIdx != null
+                    ? "Speaking…"
+                    : "Send"}
               </button>
             </div>
           </div>
