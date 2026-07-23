@@ -2,6 +2,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { randomUUID } from "crypto";
+import {
+  BRAINS_RESPONSE_TIMEOUT_MS,
+  isAbortLike,
+  requestDeadlineSignal,
+} from "@/lib/requestDeadline";
 import { cookies } from "next/headers";
 import { requireCapability } from "@/app/api/_auth/requireCapability";
 import { getSupabaseAuthContextFromRequest } from "@/app/api/_auth/supabaseUser";
@@ -83,9 +88,7 @@ async function responseInspectionAllowed(req: Request): Promise<boolean> {
   const capability = await requireCapability(req, "inspector.view");
   if (!capability.ok) return false;
   const jar = await cookies();
-  return inspectorSessionEnabled(
-    jar.get(inspectorSessionCookieName())?.value,
-  );
+  return inspectorSessionEnabled(jar.get(inspectorSessionCookieName())?.value);
 }
 
 function responseTimingsHeader(value: unknown): string {
@@ -148,6 +151,10 @@ export async function POST(req: Request) {
     }
 
     const brains = process.env.BRAINS_URL || "http://172.31.32.171:8088";
+    const upstreamSignal = requestDeadlineSignal(
+      BRAINS_RESPONSE_TIMEOUT_MS,
+      req.signal,
+    );
     if (!noStore) {
       const log = await fetch(`${brains}/log`, {
         method: "POST",
@@ -163,6 +170,7 @@ export async function POST(req: Request) {
           tags: ["user", "chat"],
         }),
         cache: "no-store",
+        signal: upstreamSignal,
       });
       if (!log.ok) {
         return new Response("Transcript write unavailable", {
@@ -186,13 +194,15 @@ export async function POST(req: Request) {
         include_inspection: includeInspection,
       }),
       cache: "no-store",
+      signal: upstreamSignal,
     });
     const raw = await upstream.text().catch(() => "");
     if (!upstream.ok) {
+      const timedOut = upstream.status === 504;
       return new Response(
-        `Brains HTTP ${upstream.status}\n${raw.slice(0, 1000)}`,
+        timedOut ? "Response timed out" : "Response unavailable",
         {
-          status: 502,
+          status: timedOut ? 504 : 502,
           headers: {
             "Content-Type": "text/plain; charset=utf-8",
             "x-request-id": rid,
@@ -250,9 +260,7 @@ export async function POST(req: Request) {
         "X-VS-Response-Runtime": "resse_response_v0_2",
         ...voiceTurnHeaders(voiceTurn.value),
         ...(answerId ? { "X-VS-Answer-Id": answerId } : {}),
-        ...(timingsHeader
-          ? { "X-VS-Response-Timings": timingsHeader }
-          : {}),
+        ...(timingsHeader ? { "X-VS-Response-Timings": timingsHeader } : {}),
         ...(boundedInspectionHeader
           ? { "X-VS-Inspection": boundedInspectionHeader }
           : {}),
@@ -262,9 +270,13 @@ export async function POST(req: Request) {
       },
     });
   } catch (error: any) {
-    return new Response(`Route error: ${error?.message || String(error)}`, {
-      status: 500,
-      headers: { "x-request-id": rid },
-    });
+    const timedOut = isAbortLike(error);
+    return new Response(
+      timedOut ? "Response timed out" : "Response unavailable",
+      {
+        status: timedOut ? 504 : 502,
+        headers: { "x-request-id": rid },
+      },
+    );
   }
 }

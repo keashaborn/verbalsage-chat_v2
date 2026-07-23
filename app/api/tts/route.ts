@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import {
+  isAbortLike,
+  requestDeadlineSignal,
+  TTS_SEGMENT_TIMEOUT_MS,
+} from "@/lib/requestDeadline";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
 import {
@@ -122,6 +127,10 @@ export async function POST(req: Request) {
     });
     let upstream: Response | null = null;
     let lastTransportError: unknown = null;
+    const upstreamSignal = requestDeadlineSignal(
+      TTS_SEGMENT_TIMEOUT_MS,
+      req.signal,
+    );
 
     for (
       let attempt = 0;
@@ -141,6 +150,7 @@ export async function POST(req: Request) {
             ...segmentHeaders,
           }),
           body: upstreamBody,
+          signal: upstreamSignal,
         });
         upstream = candidate;
         lastTransportError = null;
@@ -155,7 +165,12 @@ export async function POST(req: Request) {
       } catch (error) {
         upstream = null;
         lastTransportError = error;
-        if (attempt === TTS_UPSTREAM_RETRY_DELAYS_MS.length - 1) break;
+        if (
+          upstreamSignal.aborted ||
+          attempt === TTS_UPSTREAM_RETRY_DELAYS_MS.length - 1
+        ) {
+          break;
+        }
       }
     }
 
@@ -237,9 +252,13 @@ export async function POST(req: Request) {
       },
     });
   } catch (e: any) {
+    const timedOut = isAbortLike(e);
     return NextResponse.json(
-      { ok: false, error: "tts_proxy_error", detail: String(e?.message || e) },
-      { status: 500, headers: { "x-request-id": requestId } },
+      { ok: false, error: timedOut ? "tts_timeout" : "tts_proxy_error" },
+      {
+        status: timedOut ? 504 : 502,
+        headers: { "x-request-id": requestId },
+      },
     );
   }
 }

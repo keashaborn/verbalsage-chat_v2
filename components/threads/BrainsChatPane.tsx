@@ -9,6 +9,10 @@ import {
   RefreshCw,
   Volume2,
   Loader2,
+  Pause,
+  Play,
+  RotateCcw,
+  RotateCw,
   Square,
   Check,
 } from "lucide-react";
@@ -18,6 +22,12 @@ import {
   type GovernedVoiceTurnContext,
 } from "@/hooks/useGovernedVoiceConversation";
 import { VOICE_TURN_HEADER } from "@/lib/voiceObservability";
+import {
+  BROWSER_RESPONSE_TIMEOUT_MS,
+  RequestDeadlineError,
+  TTS_SEGMENT_TIMEOUT_MS,
+  withRequestDeadline,
+} from "@/lib/requestDeadline";
 import {
   decodeResponseInspectionHeader,
   ResponseTrace,
@@ -39,7 +49,6 @@ import {
 import {
   endOfSpeechToFirstAudioMs,
   pcmS16leToWav,
-  shouldUseNativeSafariAudio,
   splitForSpeech,
 } from "@/lib/voiceSpeech";
 
@@ -72,6 +81,22 @@ type VoiceSpeechMetrics = {
   voice: string;
   requestIds: string[];
   providerRequestIds: string[];
+};
+
+type VoicePlaybackState = {
+  status: "loading" | "playing" | "paused" | "error";
+  label: string;
+  messageIndex: number;
+  segmentIndex: number;
+  segmentCount: number;
+  currentTime: number;
+  duration: number;
+  error?: string;
+};
+
+type PreparedSpeechSegment = {
+  url: string;
+  duration: number;
 };
 
 type VoiceSendOptions = {
@@ -114,6 +139,13 @@ function getLS<T>(key: string, fallback: T): T {
   }
 }
 
+function formatPlaybackTime(seconds: number): string {
+  const value = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  const whole = Math.floor(value);
+  const minutes = Math.floor(whole / 60);
+  return `${minutes}:${String(whole % 60).padStart(2, "0")}`;
+}
+
 async function recordVoiceTurnTrace(payload: Record<string, unknown>) {
   try {
     await authFetch("/api/voice/telemetry", {
@@ -127,17 +159,16 @@ async function recordVoiceTurnTrace(payload: Record<string, unknown>) {
   }
 }
 
-function decodeResponseTimingsHeader(value: string | null): ResponseStageTimings | null {
+function decodeResponseTimingsHeader(
+  value: string | null,
+): ResponseStageTimings | null {
   if (!value) return null;
   try {
     const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
     const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
     const parsed = JSON.parse(
       new TextDecoder().decode(
-        Uint8Array.from(
-          atob(padded),
-          (character) => character.charCodeAt(0),
-        ),
+        Uint8Array.from(atob(padded), (character) => character.charCodeAt(0)),
       ),
     );
     return parsed && typeof parsed === "object" && !Array.isArray(parsed)
@@ -161,6 +192,7 @@ export function BrainsChatPane() {
   const [voicePrivacyOpen, setVoicePrivacyOpen] = React.useState(false);
   const [voicePrivacySaving, setVoicePrivacySaving] = React.useState(false);
   const [voicePrivacyError, setVoicePrivacyError] = React.useState("");
+  const [requestError, setRequestError] = React.useState("");
   const governedVoice = useGovernedVoiceConversation();
 
   const voiceStatus = governedVoice.status;
@@ -309,17 +341,20 @@ export function BrainsChatPane() {
   }
 
   // -----------------------------
-  // TTS: single-flight + UI state
+  // TTS: single-flight + visible playback controls
   // -----------------------------
   const ttsAbortRef = React.useRef<AbortController | null>(null);
   const ttsPlaybackResolveRef = React.useRef<(() => void) | null>(null);
   const ttsEpochRef = React.useRef<number>(0);
+  const ttsJumpRef = React.useRef<{
+    segmentIndex: number;
+    offsetSeconds: number;
+  } | null>(null);
+  const ttsSegmentDurationsRef = React.useRef<Map<number, number>>(new Map());
+  const ttsObjectUrlsRef = React.useRef<Set<string>>(new Set());
   const nativeAudioRef = React.useRef<HTMLAudioElement | null>(null);
   const nativeAudioUrlRef = React.useRef<string | null>(null);
   const nativeAudioPreparedRef = React.useRef(false);
-
-  // WebAudio fallback (Safari can block HTMLAudioElement.play() after async fetch)
-  const audioCtxRef = React.useRef<AudioContext | null>(null);
 
   const [freeformDebug, setFreeformDebug] = React.useState<{
     transcript: string;
@@ -329,31 +364,17 @@ export function BrainsChatPane() {
     inspect_error: string | null;
   } | null>(null);
 
-  // Realtime is transcription-only; response generation remains backend-governed.
-
-  const audioNodesRef = React.useRef<Set<AudioBufferSourceNode>>(new Set());
-
-  // Screen Wake Lock (best-effort; not supported on all iOS/Safari versions)
   const wakeLockRef = React.useRef<any>(null);
-  // Keep-awake video (best-effort)
   const keepAwakeVideoRef = React.useRef<HTMLVideoElement | null>(null);
 
   const [ttsLoadingIdx, setTtsLoadingIdx] = React.useState<number | null>(null);
   const [ttsPlayingIdx, setTtsPlayingIdx] = React.useState<number | null>(null);
+  const [playbackState, setPlaybackState] =
+    React.useState<VoicePlaybackState | null>(null);
 
   function bumpTtsEpoch() {
     ttsEpochRef.current += 1;
     return ttsEpochRef.current;
-  }
-
-  function ensureAudioContext(): AudioContext | null {
-    if (typeof window === "undefined") return null;
-    const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as
-      | typeof AudioContext
-      | undefined;
-    if (!Ctx) return null;
-    if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
-    return audioCtxRef.current;
   }
 
   function ensureNativeAudioElement(): HTMLAudioElement | null {
@@ -370,20 +391,20 @@ export function BrainsChatPane() {
   function releaseNativeAudioUrl() {
     const currentUrl = nativeAudioUrlRef.current;
     nativeAudioUrlRef.current = null;
-    if (currentUrl) URL.revokeObjectURL(currentUrl);
+    if (currentUrl && !ttsObjectUrlsRef.current.has(currentUrl)) {
+      URL.revokeObjectURL(currentUrl);
+    }
+  }
+
+  function releaseSpeechObjectUrls() {
+    for (const url of ttsObjectUrlsRef.current) URL.revokeObjectURL(url);
+    ttsObjectUrlsRef.current.clear();
+    nativeAudioUrlRef.current = null;
   }
 
   function unlockAudioForSafari() {
     try {
-      const ctx = ensureAudioContext();
-      if (ctx && ctx.state === "suspended") void ctx.resume().catch(() => {});
-
-      if (
-        nativeAudioPreparedRef.current ||
-        !shouldUseNativeSafariAudio(navigator.userAgent)
-      ) {
-        return;
-      }
+      if (nativeAudioPreparedRef.current) return;
       const audio = ensureNativeAudioElement();
       if (!audio) return;
       releaseNativeAudioUrl();
@@ -402,9 +423,11 @@ export function BrainsChatPane() {
           audio.currentTime = 0;
           audio.volume = 1;
           nativeAudioPreparedRef.current = true;
+          releaseNativeAudioUrl();
         })
         .catch(() => {
           nativeAudioPreparedRef.current = false;
+          releaseNativeAudioUrl();
         });
     } catch {}
   }
@@ -413,28 +436,22 @@ export function BrainsChatPane() {
     try {
       const wl = (navigator as any)?.wakeLock;
       if (!wl || typeof wl.request !== "function") return;
-
-      // Avoid spamming request() if we already hold one.
       if (wakeLockRef.current) return;
-
       const sentinel = await wl.request("screen");
       wakeLockRef.current = sentinel;
-
-      // If the UA releases it, clear our ref.
       sentinel?.addEventListener?.("release", () => {
         if (wakeLockRef.current === sentinel) wakeLockRef.current = null;
       });
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   async function wakeLockStop() {
     try {
-      const s = wakeLockRef.current;
-      if (s && typeof s.release === "function") await s.release();
+      const sentinel = wakeLockRef.current;
+      if (sentinel && typeof sentinel.release === "function") {
+        await sentinel.release();
+      }
     } catch {
-      // ignore
     } finally {
       wakeLockRef.current = null;
     }
@@ -443,102 +460,153 @@ export function BrainsChatPane() {
   function keepAwakeStart() {
     try {
       void wakeLockStart();
-      const v = keepAwakeVideoRef.current;
-      if (!v) return;
-      v.muted = true;
-      v.loop = true;
-      (v as any).playsInline = true;
-      const cur = String(v.currentSrc || v.src || "");
-      // Use your API media route (you confirmed it returns 200)
-      if (!cur.includes("/api/media/awake")) v.src = "/api/media/awake";
-      const p = v.play();
-      if (p && typeof (p as any).catch === "function")
-        (p as Promise<void>).catch(() => {});
+      const video = keepAwakeVideoRef.current;
+      if (!video) return;
+      video.muted = true;
+      video.loop = true;
+      (video as any).playsInline = true;
+      const current = String(video.currentSrc || video.src || "");
+      if (!current.includes("/api/media/awake")) video.src = "/api/media/awake";
+      const playback = video.play();
+      if (playback && typeof playback.catch === "function") {
+        playback.catch(() => {});
+      }
     } catch {}
   }
 
   function keepAwakeStop() {
     try {
       void wakeLockStop();
-      const v = keepAwakeVideoRef.current;
-      if (!v) return;
-      v.pause();
-      v.removeAttribute("src");
-      v.load();
+      const video = keepAwakeVideoRef.current;
+      if (!video) return;
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
     } catch {}
+  }
+
+  function clearNativePlayback() {
+    const audio = nativeAudioRef.current;
+    if (audio) {
+      audio.onended = null;
+      audio.onerror = null;
+      audio.ontimeupdate = null;
+      audio.onplaying = null;
+      audio.onpause = null;
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+    }
+    const resolvePlayback = ttsPlaybackResolveRef.current;
+    ttsPlaybackResolveRef.current = null;
+    resolvePlayback?.();
+    releaseSpeechObjectUrls();
   }
 
   function stopTTS() {
     bumpTtsEpoch();
     keepAwakeStop();
-
-    if (ttsAbortRef.current) {
-      try {
-        ttsAbortRef.current.abort();
-      } catch {}
-      ttsAbortRef.current = null;
-    }
-
-    for (const source of audioNodesRef.current) {
-      try {
-        source.stop();
-      } catch {}
-      try {
-        source.disconnect();
-      } catch {}
-    }
-    audioNodesRef.current.clear();
-
-    const nativeAudio = nativeAudioRef.current;
-    if (nativeAudio) {
-      nativeAudio.pause();
-      nativeAudio.removeAttribute("src");
-      nativeAudio.load();
-    }
-    releaseNativeAudioUrl();
-
-    const resolvePlayback = ttsPlaybackResolveRef.current;
-    ttsPlaybackResolveRef.current = null;
-    resolvePlayback?.();
-
+    ttsAbortRef.current?.abort();
+    ttsAbortRef.current = null;
+    ttsJumpRef.current = null;
+    ttsSegmentDurationsRef.current.clear();
+    clearNativePlayback();
     setTtsLoadingIdx(null);
     setTtsPlayingIdx(null);
+    setPlaybackState(null);
+  }
+
+  function togglePlaybackPause() {
+    const audio = nativeAudioRef.current;
+    if (!audio || !playbackState || playbackState.status === "error") return;
+    if (audio.paused) {
+      void audio.play().catch(() => {
+        setPlaybackState((current) =>
+          current
+            ? {
+                ...current,
+                status: "error",
+                error: "Voice playback could not resume.",
+              }
+            : current,
+        );
+      });
+    } else {
+      audio.pause();
+      setPlaybackState((current) =>
+        current ? { ...current, status: "paused" } : current,
+      );
+    }
+  }
+
+  function seekPlayback(seconds: number) {
+    const audio = nativeAudioRef.current;
+    const current = playbackState;
+    if (
+      !audio ||
+      !current ||
+      current.status === "error" ||
+      !Number.isFinite(audio.currentTime)
+    ) {
+      return;
+    }
+    const duration =
+      Number.isFinite(audio.duration) && audio.duration > 0
+        ? audio.duration
+        : current.duration;
+    const target = audio.currentTime + seconds;
+    if (target >= 0 && target < duration) {
+      audio.currentTime = target;
+      setPlaybackState((state) =>
+        state ? { ...state, currentTime: target } : state,
+      );
+      return;
+    }
+
+    if (target < 0 && current.segmentIndex > 0) {
+      const previousIndex = current.segmentIndex - 1;
+      const previousDuration =
+        ttsSegmentDurationsRef.current.get(previousIndex) || 0;
+      ttsJumpRef.current = {
+        segmentIndex: previousIndex,
+        offsetSeconds: Math.max(0, previousDuration + target),
+      };
+      audio.pause();
+      ttsPlaybackResolveRef.current?.();
+      return;
+    }
+
+    if (target >= duration && current.segmentIndex + 1 < current.segmentCount) {
+      ttsJumpRef.current = {
+        segmentIndex: current.segmentIndex + 1,
+        offsetSeconds: Math.max(0, target - duration),
+      };
+      audio.pause();
+      ttsPlaybackResolveRef.current?.();
+      return;
+    }
+
+    audio.currentTime = Math.max(0, Math.min(duration, target));
+  }
+
+  function seekPlaybackTo(seconds: number) {
+    const audio = nativeAudioRef.current;
+    if (!audio || !Number.isFinite(seconds)) return;
+    const duration =
+      Number.isFinite(audio.duration) && audio.duration > 0
+        ? audio.duration
+        : playbackState?.duration || 0;
+    audio.currentTime = Math.max(0, Math.min(duration, seconds));
   }
 
   React.useEffect(() => {
     return () => {
       bumpTtsEpoch();
       keepAwakeStop();
-
-      if (ttsAbortRef.current) {
-        try {
-          ttsAbortRef.current.abort();
-        } catch {}
-        ttsAbortRef.current = null;
-      }
-
-      for (const source of audioNodesRef.current) {
-        try {
-          source.stop();
-        } catch {}
-        try {
-          source.disconnect();
-        } catch {}
-      }
-      audioNodesRef.current.clear();
-
-      const nativeAudio = nativeAudioRef.current;
-      if (nativeAudio) {
-        nativeAudio.pause();
-        nativeAudio.removeAttribute("src");
-        nativeAudio.load();
-      }
-      releaseNativeAudioUrl();
+      ttsAbortRef.current?.abort();
+      ttsAbortRef.current = null;
+      clearNativePlayback();
       nativeAudioRef.current = null;
-
-      const resolvePlayback = ttsPlaybackResolveRef.current;
-      ttsPlaybackResolveRef.current = null;
-      resolvePlayback?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -548,30 +616,31 @@ export function BrainsChatPane() {
     idx: number,
     voiceTurnId?: string,
   ): Promise<VoiceSpeechMetrics | null> {
-    const t = (textToSpeak || "").trim();
-    if (!t) return null;
-    const chunks = splitForSpeech(t);
+    const text = (textToSpeak || "").trim();
+    if (!text) return null;
+    const chunks = splitForSpeech(text);
     if (!chunks.length) return null;
-
-    // ignore repeated taps while loading (prevents spam)
     if (ttsLoadingIdx === idx) return null;
-
-    // tap again while playing stops
     if (ttsPlayingIdx === idx) {
       stopTTS();
       return null;
     }
 
-    // replace any existing playback
     stopTTS();
     const epoch = bumpTtsEpoch();
-
-    // best-effort: keep device awake longer
     keepAwakeStart();
     unlockAudioForSafari();
-
     setTtsLoadingIdx(idx);
     setTtsPlayingIdx(null);
+    setPlaybackState({
+      status: "loading",
+      label: text.slice(0, 120),
+      messageIndex: idx,
+      segmentIndex: 0,
+      segmentCount: chunks.length,
+      currentTime: 0,
+      duration: 0,
+    });
 
     try {
       localStorage.setItem("vs_voice_engine", "openai_tts");
@@ -582,16 +651,14 @@ export function BrainsChatPane() {
       getLS<string>("vs_voice_model", "gpt-4o-mini-tts"),
     ).trim();
     const speed = Number(getLS<number>("vs_voice_speed", 1.0)) || 1.0;
-
-    const ac = new AbortController();
-    ttsAbortRef.current = ac;
+    const abort = new AbortController();
+    ttsAbortRef.current = abort;
     const ttsStartedAt = performance.now();
     let firstAudioAtMs: number | null = null;
+    let playerError = "";
     const requestIds: string[] = [];
     const providerRequestIds: string[] = [];
-    const useNativeSafariAudio = shouldUseNativeSafariAudio(
-      navigator.userAgent,
-    );
+    const segmentCache = new Map<number, Promise<PreparedSpeechSegment>>();
 
     const metrics = (
       status: VoiceSpeechMetrics["status"],
@@ -610,250 +677,242 @@ export function BrainsChatPane() {
       providerRequestIds,
     });
 
-    try {
-      const requestChunk = async (text: string, chunkIndex: number) => {
-        const response = await authFetch("/api/tts", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(voiceTurnId ? { [VOICE_TURN_HEADER]: voiceTurnId } : {}),
-            "x-vs-tts-segment-index": String(chunkIndex),
-            "x-vs-tts-segment-count": String(chunks.length),
-          },
-          body: JSON.stringify({ text, voice, speed, model }),
-          signal: ac.signal,
-        });
-        if (!response.ok) throw new Error(await response.text());
-        if (
-          voiceTurnId &&
-          response.headers.get(VOICE_TURN_HEADER) !== voiceTurnId
-        ) {
-          throw new Error("Voice turn correlation was not preserved by TTS.");
-        }
-        const requestId = String(response.headers.get("x-request-id") || "");
-        const providerRequestId = String(
-          response.headers.get("x-vs-provider-request-id") || "",
-        );
-        if (requestId) requestIds.push(requestId.slice(0, 128));
-        if (providerRequestId) {
-          providerRequestIds.push(providerRequestId.slice(0, 128));
-        }
-        const audioFormat = response.headers.get("x-vs-audio-format");
-        const sampleRate = Number(
-          response.headers.get("x-vs-audio-sample-rate") || "",
-        );
-        if (audioFormat !== "pcm_s16le" || sampleRate !== 24000) {
-          await response.body?.cancel().catch(() => {});
-          throw new Error("The voice service returned an unsupported format.");
-        }
-        if (!response.body) {
-          throw new Error("The voice service returned no audio stream.");
-        }
-        return response;
-      };
-
-      const playChunk = async (response: Response) => {
-        if (ttsEpochRef.current !== epoch) return;
-        const context = ensureAudioContext();
-        if (!context) throw new Error("Voice playback is unavailable.");
-        if (context.state === "suspended") {
-          await context.resume().catch(() => {});
-        }
-
-        const reader = response.body!.getReader();
-        const sampleRate = 24000;
-        const minimumScheduleBytes = 4096;
-        let pendingBytes = new Uint8Array(0);
-        let nextStartAt = 0;
-        let lastSource: AudioBufferSourceNode | null = null;
-        let streamComplete = false;
-        const endedSources = new WeakSet<AudioBufferSourceNode>();
-
-        let settlePlayback: () => void = () => {};
-        const playbackFinished = new Promise<void>((resolve) => {
-          let settled = false;
-          settlePlayback = () => {
-            if (settled) return;
-            settled = true;
-            if (ttsPlaybackResolveRef.current === settlePlayback) {
-              ttsPlaybackResolveRef.current = null;
+    const requestSegment = (segmentIndex: number) => {
+      const existing = segmentCache.get(segmentIndex);
+      if (existing) return existing;
+      const request = withRequestDeadline(
+        async (signal) => {
+          const response = await authFetch("/api/tts", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(voiceTurnId ? { [VOICE_TURN_HEADER]: voiceTurnId } : {}),
+              "x-vs-tts-segment-index": String(segmentIndex),
+              "x-vs-tts-segment-count": String(chunks.length),
+            },
+            body: JSON.stringify({
+              text: chunks[segmentIndex],
+              voice,
+              speed,
+              model,
+            }),
+            signal,
+          });
+          if (!response.ok) {
+            if (response.status === 504) {
+              throw new RequestDeadlineError("Voice playback timed out.");
             }
-            resolve();
-          };
-          ttsPlaybackResolveRef.current = settlePlayback;
-        });
-
-        const schedulePcm = (bytes: Uint8Array) => {
-          if (!bytes.length || ttsEpochRef.current !== epoch) return;
-          const samples = new Float32Array(bytes.length / 2);
-          for (let offset = 0; offset < bytes.length; offset += 2) {
-            let value = bytes[offset] | (bytes[offset + 1] << 8);
-            if (value >= 0x8000) value -= 0x10000;
-            samples[offset / 2] = value / 0x8000;
+            throw new Error("Voice playback is temporarily unavailable.");
           }
-
-          const buffer = context.createBuffer(1, samples.length, sampleRate);
-          buffer.copyToChannel(samples, 0);
-          const source = context.createBufferSource();
-          source.buffer = buffer;
-          source.connect(context.destination);
-          audioNodesRef.current.add(source);
-          lastSource = source;
-
-          const now = context.currentTime;
-          if (nextStartAt <= now) nextStartAt = now + 0.06;
-          const startAt = nextStartAt;
-          nextStartAt += buffer.duration;
-          source.onended = () => {
-            endedSources.add(source);
-            audioNodesRef.current.delete(source);
-            try {
-              source.disconnect();
-            } catch {}
-            if (streamComplete && source === lastSource) settlePlayback();
-          };
-
-          if (firstAudioAtMs == null) {
-            firstAudioAtMs =
-              performance.now() + Math.max(0, startAt - now) * 1000;
-            setTtsLoadingIdx(null);
-            setTtsPlayingIdx(idx);
+          if (
+            voiceTurnId &&
+            response.headers.get(VOICE_TURN_HEADER) !== voiceTurnId
+          ) {
+            throw new Error("Voice turn correlation was not preserved by TTS.");
           }
-          source.start(startAt);
-        };
-
-        try {
-          while (true) {
-            if (ttsEpochRef.current !== epoch || ac.signal.aborted) {
-              await reader.cancel().catch(() => {});
-              settlePlayback();
-              return;
-            }
-            const { done, value } = await reader.read();
-            if (done) break;
-            if (!value?.length) continue;
-
-            const combined = new Uint8Array(pendingBytes.length + value.length);
-            combined.set(pendingBytes);
-            combined.set(value, pendingBytes.length);
-            if (combined.length >= minimumScheduleBytes) {
-              const completeLength = combined.length - (combined.length % 2);
-              schedulePcm(combined.slice(0, completeLength));
-              pendingBytes = combined.slice(completeLength);
-            } else {
-              pendingBytes = combined;
-            }
+          const requestId = String(response.headers.get("x-request-id") || "");
+          const providerRequestId = String(
+            response.headers.get("x-vs-provider-request-id") || "",
+          );
+          if (requestId) requestIds.push(requestId.slice(0, 128));
+          if (providerRequestId) {
+            providerRequestIds.push(providerRequestId.slice(0, 128));
           }
-
-          if (pendingBytes.length % 2 !== 0) {
-            throw new Error("The voice service returned incomplete PCM audio.");
-          }
-          schedulePcm(pendingBytes);
-          streamComplete = true;
-          if (!lastSource) {
-            settlePlayback();
+          const audioFormat = response.headers.get("x-vs-audio-format");
+          const sampleRate = Number(
+            response.headers.get("x-vs-audio-sample-rate") || "",
+          );
+          if (audioFormat !== "pcm_s16le" || sampleRate !== 24000) {
+            await response.body?.cancel().catch(() => {});
             throw new Error(
-              "The voice service returned an empty audio stream.",
+              "The voice service returned an unsupported format.",
             );
           }
-          if (endedSources.has(lastSource)) settlePlayback();
-          await playbackFinished;
-        } finally {
-          await reader.cancel().catch(() => {});
-          if (!streamComplete) settlePlayback();
-        }
-      };
-
-      const playNativeSafariChunk = async (response: Response) => {
-        if (ttsEpochRef.current !== epoch) return;
-        const audio = ensureNativeAudioElement();
-        if (!audio) throw new Error("Native voice playback is unavailable.");
-
-        const pcm = new Uint8Array(await response.arrayBuffer());
-        if (!pcm.length) {
-          throw new Error("The voice service returned an empty audio stream.");
-        }
-        const wav = pcmS16leToWav(pcm);
-        releaseNativeAudioUrl();
-        const url = URL.createObjectURL(
-          new Blob([wav.buffer as ArrayBuffer], { type: "audio/wav" }),
-        );
-        nativeAudioUrlRef.current = url;
-        audio.src = url;
-        audio.currentTime = 0;
-        audio.muted = false;
-        audio.volume = 1;
-
-        let settlePlayback: () => void = () => {};
-        const playbackFinished = new Promise<void>((resolve, reject) => {
-          let settled = false;
-          const settle = (error?: Error) => {
-            if (settled) return;
-            settled = true;
-            audio.onended = null;
-            audio.onerror = null;
-            if (ttsPlaybackResolveRef.current === settlePlayback) {
-              ttsPlaybackResolveRef.current = null;
-            }
-            if (error) reject(error);
-            else resolve();
-          };
-          settlePlayback = () => settle();
-          audio.onended = () => settle();
-          audio.onerror = () =>
-            settle(new Error("Safari could not play the voice audio."));
-          ttsPlaybackResolveRef.current = settlePlayback;
-        });
-
-        try {
-          await audio.play();
-          if (ttsEpochRef.current !== epoch || ac.signal.aborted) {
-            audio.pause();
-            settlePlayback();
-            return;
+          const pcm = new Uint8Array(await response.arrayBuffer());
+          if (!pcm.length) {
+            throw new Error("The voice service returned empty audio.");
           }
-          if (firstAudioAtMs == null) {
-            firstAudioAtMs = performance.now();
+          const wav = pcmS16leToWav(pcm);
+          const url = URL.createObjectURL(
+            new Blob([wav.buffer as ArrayBuffer], { type: "audio/wav" }),
+          );
+          ttsObjectUrlsRef.current.add(url);
+          const duration = pcm.byteLength / (24_000 * 2);
+          ttsSegmentDurationsRef.current.set(segmentIndex, duration);
+          return { url, duration };
+        },
+        TTS_SEGMENT_TIMEOUT_MS,
+        abort.signal,
+      );
+      segmentCache.set(segmentIndex, request);
+      void request.catch(() => {});
+      return request;
+    };
+
+    const playSegment = async (
+      segment: PreparedSpeechSegment,
+      segmentIndex: number,
+      offsetSeconds: number,
+    ) => {
+      if (ttsEpochRef.current !== epoch) return;
+      const audio = ensureNativeAudioElement();
+      if (!audio) throw new Error("Voice playback is unavailable.");
+      nativeAudioUrlRef.current = segment.url;
+      audio.src = segment.url;
+      audio.currentTime = Math.max(
+        0,
+        Math.min(segment.duration, offsetSeconds),
+      );
+      audio.muted = false;
+      audio.volume = 1;
+
+      let settlePlayback: () => void = () => {};
+      const playbackFinished = new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const settle = (error?: Error) => {
+          if (settled) return;
+          settled = true;
+          audio.onended = null;
+          audio.onerror = null;
+          audio.ontimeupdate = null;
+          audio.onplaying = null;
+          audio.onpause = null;
+          if (ttsPlaybackResolveRef.current === settlePlayback) {
+            ttsPlaybackResolveRef.current = null;
           }
+          if (error) reject(error);
+          else resolve();
+        };
+        settlePlayback = () => settle();
+        ttsPlaybackResolveRef.current = settlePlayback;
+        audio.onended = () => settle();
+        audio.onerror = () =>
+          settle(new Error("The browser could not play the voice audio."));
+        audio.ontimeupdate = () => {
+          setPlaybackState((current) =>
+            current
+              ? {
+                  ...current,
+                  currentTime: audio.currentTime,
+                  duration: segment.duration,
+                }
+              : current,
+          );
+        };
+        audio.onplaying = () => {
+          if (firstAudioAtMs == null) firstAudioAtMs = performance.now();
           setTtsLoadingIdx(null);
           setTtsPlayingIdx(idx);
-          await playbackFinished;
-        } finally {
-          settlePlayback();
-        }
-      };
+          setPlaybackState((current) =>
+            current
+              ? {
+                  ...current,
+                  status: "playing",
+                  segmentIndex,
+                  currentTime: audio.currentTime,
+                  duration: segment.duration,
+                }
+              : current,
+          );
+        };
+        audio.onpause = () => {
+          if (
+            ttsEpochRef.current === epoch &&
+            !audio.ended &&
+            !ttsJumpRef.current
+          ) {
+            setPlaybackState((current) =>
+              current ? { ...current, status: "paused" } : current,
+            );
+          }
+        };
+      });
 
-      let pending = requestChunk(chunks[0], 0);
-      for (let index = 0; index < chunks.length; index += 1) {
+      await audio.play();
+      if (ttsEpochRef.current !== epoch || abort.signal.aborted) {
+        audio.pause();
+        settlePlayback();
+        return;
+      }
+      await playbackFinished;
+    };
+
+    try {
+      let segmentIndex = 0;
+      let offsetSeconds = 0;
+      while (segmentIndex < chunks.length) {
         if (ttsEpochRef.current !== epoch) return metrics("cancelled");
-        if (index > 0) setTtsLoadingIdx(idx);
-        const response = await pending;
-        const following =
-          index + 1 < chunks.length
-            ? requestChunk(chunks[index + 1], index + 1)
-            : null;
-        if (useNativeSafariAudio) {
-          await playNativeSafariChunk(response);
-        } else {
-          await playChunk(response);
+        setTtsLoadingIdx(idx);
+        setPlaybackState((current) =>
+          current
+            ? {
+                ...current,
+                status: "loading",
+                segmentIndex,
+                currentTime: offsetSeconds,
+                duration: ttsSegmentDurationsRef.current.get(segmentIndex) || 0,
+              }
+            : current,
+        );
+        const segment = await requestSegment(segmentIndex);
+        if (segmentIndex + 1 < chunks.length) {
+          void requestSegment(segmentIndex + 1);
         }
+        await playSegment(segment, segmentIndex, offsetSeconds);
         if (ttsEpochRef.current !== epoch) return metrics("cancelled");
-        if (following) pending = following;
+        const jump = ttsJumpRef.current;
+        ttsJumpRef.current = null;
+        if (jump) {
+          segmentIndex = jump.segmentIndex;
+          offsetSeconds = jump.offsetSeconds;
+        } else {
+          segmentIndex += 1;
+          offsetSeconds = 0;
+        }
       }
       return metrics("completed");
-    } catch (e: any) {
-      if (e?.name === "AbortError") return metrics("cancelled");
-      console.error(e);
-      alert(e?.message || String(e));
-      stopTTS();
+    } catch (error: any) {
+      if (error?.name === "AbortError") return metrics("cancelled");
+      playerError =
+        error instanceof RequestDeadlineError
+          ? error.message
+          : String(
+              error?.message ||
+                "Voice playback could not be completed. Please try again.",
+            );
       return metrics("failed");
     } finally {
       if (ttsEpochRef.current === epoch) {
         keepAwakeStop();
+        const audio = nativeAudioRef.current;
+        if (audio) {
+          audio.pause();
+          audio.removeAttribute("src");
+          audio.load();
+        }
+        const resolvePlayback = ttsPlaybackResolveRef.current;
+        ttsPlaybackResolveRef.current = null;
+        resolvePlayback?.();
+        releaseSpeechObjectUrls();
+        ttsSegmentDurationsRef.current.clear();
         setTtsPlayingIdx(null);
+        setTtsLoadingIdx(null);
+        setPlaybackState((current) =>
+          playerError
+            ? {
+                status: "error",
+                label: current?.label || text.slice(0, 120),
+                messageIndex: idx,
+                segmentIndex: current?.segmentIndex || 0,
+                segmentCount: chunks.length,
+                currentTime: current?.currentTime || 0,
+                duration: current?.duration || 0,
+                error: playerError,
+              }
+            : null,
+        );
       }
-      if (ttsEpochRef.current === epoch) setTtsLoadingIdx(null);
-      if (ttsAbortRef.current === ac) ttsAbortRef.current = null;
+      if (ttsAbortRef.current === abort) ttsAbortRef.current = null;
     }
   }
 
@@ -979,16 +1038,35 @@ export function BrainsChatPane() {
     noStore = false,
     voiceTurnId?: string,
   ): Promise<ChatResult> {
-    const r = await authFetch("/api/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(voiceTurnId ? { [VOICE_TURN_HEADER]: voiceTurnId } : {}),
+    const { response: r, responseText } = await withRequestDeadline(
+      async (signal) => {
+        const response = await authFetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(voiceTurnId ? { [VOICE_TURN_HEADER]: voiceTurnId } : {}),
+          },
+          body: JSON.stringify({ input, thread_id: tid, regen, noStore }),
+          signal,
+        });
+        return {
+          response,
+          responseText: await response.text(),
+        };
       },
-      body: JSON.stringify({ input, thread_id: tid, regen, noStore }),
-    });
-    const responseText = await r.text();
-    if (!r.ok) throw new Error(responseText);
+      BROWSER_RESPONSE_TIMEOUT_MS,
+    );
+    if (!r.ok) {
+      if (r.status === 504) {
+        throw new RequestDeadlineError(
+          "The response took too long. Please try again.",
+        );
+      }
+      if (r.status === 401) {
+        throw new Error("Your session expired. Please sign in again.");
+      }
+      throw new Error("The response could not be completed. Please try again.");
+    }
     if (voiceTurnId && r.headers.get(VOICE_TURN_HEADER) !== voiceTurnId) {
       throw new Error("Voice turn correlation was not preserved by chat.");
     }
@@ -1061,7 +1139,9 @@ export function BrainsChatPane() {
         return next;
       });
     } catch (e: any) {
-      alert(e?.message || String(e));
+      setRequestError(
+        String(e?.message || "The response could not be regenerated."),
+      );
     } finally {
       setSending(false);
     }
@@ -1101,7 +1181,9 @@ export function BrainsChatPane() {
         },
       });
     } catch (e: any) {
-      alert(e?.message || String(e));
+      setRequestError(
+        String(e?.message || "Voice could not start. Please try again."),
+      );
     }
   }
 
@@ -1172,6 +1254,7 @@ export function BrainsChatPane() {
     const isEditing = !!editMessageId;
 
     setSending(true);
+    setRequestError("");
     setText("");
     if (editingMessageId) {
       setEditingMessageId(null);
@@ -1192,7 +1275,9 @@ export function BrainsChatPane() {
         });
       }
     } catch (e: any) {
-      alert(e?.message || String(e));
+      setRequestError(
+        String(e?.message || "The conversation could not be prepared."),
+      );
       setSending(false);
       return;
     }
@@ -1291,10 +1376,8 @@ export function BrainsChatPane() {
           response_classifier_ms:
             reply.responseTimings?.signal_classification_ms,
           response_memory_ms: reply.responseTimings?.memory_selection_ms,
-          response_orchestration_ms:
-            reply.responseTimings?.orchestration_ms,
-          response_generation_ms:
-            reply.responseTimings?.answer_generation_ms,
+          response_orchestration_ms: reply.responseTimings?.orchestration_ms,
+          response_generation_ms: reply.responseTimings?.answer_generation_ms,
           response_persistence_ms: reply.responseTimings?.persistence_ms,
           tts_first_audio_ms: speechMetrics?.firstAudioMs,
           speech_to_first_audio_ms: endOfSpeechToFirstAudioMs(
@@ -1364,7 +1447,14 @@ export function BrainsChatPane() {
             turn.transcriptionProviderRequestId,
         });
       }
-      alert(e?.message || String(e));
+      setRequestError(
+        e instanceof RequestDeadlineError
+          ? e.message
+          : String(
+              e?.message ||
+                "The response could not be completed. Please try again.",
+            ),
+      );
     } finally {
       setSending(false);
     }
@@ -1615,7 +1705,124 @@ export function BrainsChatPane() {
 
       <div className="sticky bottom-0 z-10 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto w-full max-w-[44rem] px-5 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+          {playbackState && (
+            <div
+              className="mb-2 rounded-2xl border bg-background px-3 py-3 shadow-lg"
+              role="region"
+              aria-label="AI-generated voice playback"
+            >
+              <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-medium">
+                    {playbackState.status === "loading"
+                      ? "Preparing voice"
+                      : playbackState.status === "paused"
+                        ? "Voice paused"
+                        : playbackState.status === "error"
+                          ? "Voice error"
+                          : "Speaking"}
+                    {playbackState.segmentCount > 1
+                      ? ` · Part ${playbackState.segmentIndex + 1} of ${playbackState.segmentCount}`
+                      : ""}
+                  </div>
+                  <div className="truncate text-[11px] text-muted-foreground">
+                    {playbackState.error || playbackState.label}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-md border p-2"
+                  onClick={stopTTS}
+                  aria-label="Stop and close voice playback"
+                  title="Stop and close"
+                >
+                  <Square className="h-4 w-4" />
+                </button>
+              </div>
+
+              {playbackState.status !== "error" && (
+                <>
+                  <input
+                    className="mb-2 h-1.5 w-full accent-foreground"
+                    type="range"
+                    min={0}
+                    max={Math.max(playbackState.duration, 0.1)}
+                    step={0.1}
+                    value={Math.min(
+                      playbackState.currentTime,
+                      Math.max(playbackState.duration, 0.1),
+                    )}
+                    onChange={(event) =>
+                      seekPlaybackTo(Number(event.currentTarget.value))
+                    }
+                    aria-label="Voice playback position"
+                  />
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="min-w-[5rem] text-[11px] text-muted-foreground tabular-nums">
+                      {formatPlaybackTime(playbackState.currentTime)} /{" "}
+                      {formatPlaybackTime(playbackState.duration)}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        className="rounded-md border p-2"
+                        onClick={() => seekPlayback(-10)}
+                        aria-label="Go back 10 seconds"
+                        title="Back 10 seconds"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-md border p-2"
+                        onClick={togglePlaybackPause}
+                        disabled={playbackState.status === "loading"}
+                        aria-label={
+                          playbackState.status === "paused"
+                            ? "Resume voice playback"
+                            : "Pause voice playback"
+                        }
+                        title={
+                          playbackState.status === "paused" ? "Resume" : "Pause"
+                        }
+                      >
+                        {playbackState.status === "paused" ? (
+                          <Play className="h-4 w-4" />
+                        ) : (
+                          <Pause className="h-4 w-4" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-md border p-2"
+                        onClick={() => seekPlayback(10)}
+                        aria-label="Go forward 10 seconds"
+                        title="Forward 10 seconds"
+                      >
+                        <RotateCw className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <div className="rounded-3xl border bg-background px-4 py-3">
+            {requestError && (
+              <div
+                className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs"
+                role="alert"
+              >
+                <span>{requestError}</span>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-md border px-2 py-1"
+                  onClick={() => setRequestError("")}
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
             <textarea
               className="w-full resize-none bg-transparent text-sm outline-none"
               rows={2}

@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import {
+  BRAINS_TRANSCRIPTION_TIMEOUT_MS,
+  isAbortLike,
+  requestDeadlineSignal,
+} from "@/lib/requestDeadline";
 import { requireCapability } from "@/app/api/_auth/requireCapability";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
@@ -114,6 +119,10 @@ export async function POST(req: Request) {
         ...voiceTurnHeaders(voiceTurn.value),
       }),
       body: audio,
+      signal: requestDeadlineSignal(
+        BRAINS_TRANSCRIPTION_TIMEOUT_MS,
+        req.signal,
+      ),
     });
 
     const responseBody = await upstream.text().catch(() => "");
@@ -140,13 +149,16 @@ export async function POST(req: Request) {
       },
     });
   } catch (error: any) {
+    const timedOut = isAbortLike(error);
     return NextResponse.json(
       {
         ok: false,
-        error: "brains_unreachable",
-        detail: String(error?.message || error),
+        error: timedOut ? "transcription_timeout" : "brains_unreachable",
       },
-      { status: 502, headers: { "x-request-id": requestId } },
+      {
+        status: timedOut ? 504 : 502,
+        headers: { "x-request-id": requestId },
+      },
     );
   }
 }

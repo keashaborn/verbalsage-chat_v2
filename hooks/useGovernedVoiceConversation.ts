@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authFetch } from "@/lib/authFetch";
 import { VOICE_TURN_HEADER } from "@/lib/voiceObservability";
+import {
+  BROWSER_TRANSCRIPTION_TIMEOUT_MS,
+  withRequestDeadline,
+} from "@/lib/requestDeadline";
 
 export type GovernedVoiceConversationStatus =
   | "idle"
@@ -63,6 +67,7 @@ const SPEECH_END_RMS = 0.018;
 const END_SILENCE_MS = 900;
 const MIN_SPEECH_MS = 250;
 const MAX_TURN_MS = 90_000;
+const VOICE_SESSION_OWNER_KEY = "vs_active_voice_session_v1";
 
 let activeOwner: symbol | null = null;
 let activeStop: (() => void) | null = null;
@@ -113,6 +118,8 @@ export function useGovernedVoiceConversation() {
   const onTranscriptionFailureRef = useRef<
     StartOptions["onTranscriptionFailure"] | null
   >(null);
+  const transcriptionAbortRef = useRef<AbortController | null>(null);
+  const crossTabOwnerRef = useRef("");
 
   const [status, setStatus] = useState<GovernedVoiceConversationStatus>("idle");
   const [lastError, setLastError] = useState("");
@@ -132,6 +139,18 @@ export function useGovernedVoiceConversation() {
     lastSpeechAtRef.current = null;
     onTranscriptRef.current = null;
     onTranscriptionFailureRef.current = null;
+    transcriptionAbortRef.current?.abort();
+    transcriptionAbortRef.current = null;
+
+    try {
+      if (
+        crossTabOwnerRef.current &&
+        localStorage.getItem(VOICE_SESSION_OWNER_KEY) ===
+          crossTabOwnerRef.current
+      ) {
+        localStorage.removeItem(VOICE_SESSION_OWNER_KEY);
+      }
+    } catch {}
 
     if (animationRef.current != null) {
       window.cancelAnimationFrame(animationRef.current);
@@ -173,6 +192,10 @@ export function useGovernedVoiceConversation() {
 
       activeOwner = ownerRef.current;
       activeStop = stop;
+      try {
+        crossTabOwnerRef.current ||= crypto.randomUUID();
+        localStorage.setItem(VOICE_SESSION_OWNER_KEY, crossTabOwnerRef.current);
+      } catch {}
       const generation = generationRef.current;
       startingRef.current = true;
       onTranscriptRef.current = onTranscript;
@@ -241,8 +264,7 @@ export function useGovernedVoiceConversation() {
 
         const speechStartedAt = speechStartedAtRef.current || performance.now();
         const speechEndedAt = performance.now();
-        const detectedSpeechEndedAt =
-          lastSpeechAtRef.current || speechEndedAt;
+        const detectedSpeechEndedAt = lastSpeechAtRef.current || speechEndedAt;
         const voiceTurnId = crypto.randomUUID();
         processingRef.current = true;
         setInputEnabled(false);
@@ -279,15 +301,31 @@ export function useGovernedVoiceConversation() {
           }
 
           transcriptionStartedAt = performance.now();
-          const response = await authFetch("/api/voice/openai/transcribe", {
-            method: "POST",
-            headers: {
-              "Content-Type": contentType,
-              [VOICE_TURN_HEADER]: voiceTurnId,
+          const transcriptionAbort = new AbortController();
+          transcriptionAbortRef.current = transcriptionAbort;
+          const { response, payload } = await withRequestDeadline(
+            async (signal) => {
+              const result = await authFetch("/api/voice/openai/transcribe", {
+                method: "POST",
+                headers: {
+                  "Content-Type": contentType,
+                  [VOICE_TURN_HEADER]: voiceTurnId,
+                },
+                body: audio,
+                signal,
+              });
+              return {
+                response: result,
+                payload: await result.json().catch(() => ({})),
+              };
             },
-            body: audio,
+            BROWSER_TRANSCRIPTION_TIMEOUT_MS,
+            transcriptionAbort.signal,
+          ).finally(() => {
+            if (transcriptionAbortRef.current === transcriptionAbort) {
+              transcriptionAbortRef.current = null;
+            }
           });
-          const payload = await response.json().catch(() => ({}));
           const transcriptionCompletedAt = performance.now();
           transcriptionRequestId = String(
             response.headers.get("x-request-id") || "",
@@ -358,11 +396,9 @@ export function useGovernedVoiceConversation() {
                 transcriptionStartedAt == null
                   ? null
                   : Math.max(
-                    0,
-                    Math.round(
-                      performance.now() - transcriptionStartedAt,
+                      0,
+                      Math.round(performance.now() - transcriptionStartedAt),
                     ),
-                  ),
               transcriptionRequestId,
               transcriptionProviderRequestId,
               turnStartedAtMs: speechStartedAt,
@@ -467,9 +503,20 @@ export function useGovernedVoiceConversation() {
 
   useEffect(() => {
     const stopOnPageHide = () => stop();
+    const stopForOtherTab = (event: StorageEvent) => {
+      if (
+        event.key === VOICE_SESSION_OWNER_KEY &&
+        event.newValue &&
+        event.newValue !== crossTabOwnerRef.current
+      ) {
+        stop();
+      }
+    };
     window.addEventListener("pagehide", stopOnPageHide);
+    window.addEventListener("storage", stopForOtherTab);
     return () => {
       window.removeEventListener("pagehide", stopOnPageHide);
+      window.removeEventListener("storage", stopForOtherTab);
       stop();
     };
   }, [stop]);
