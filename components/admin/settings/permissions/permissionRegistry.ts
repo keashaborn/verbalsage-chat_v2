@@ -193,8 +193,9 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
 
   {
     key: "voice.realtime_token",
-    label: "Use Realtime Voice",
-    description: "Start an authenticated OpenAI Realtime WebRTC voice session.",
+    label: "Use Governed Voice",
+    description:
+      "Transcribe speech and route the transcript through governed response generation.",
     category: "voice",
     scope: "own_account",
     access: "use",

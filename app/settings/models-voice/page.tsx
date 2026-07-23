@@ -23,7 +23,8 @@ export default function ModelsVoiceSettingsPage() {
               OpenAI TTS
             </div>
             <div className="px-1 text-xs text-muted-foreground">
-              OpenAI voice is the active provider. Realtime voice will use the OpenAI Realtime endpoint.
+              Voice uses OpenAI transcription, governed response generation,
+              and OpenAI TTS.
             </div>
           </div>
 

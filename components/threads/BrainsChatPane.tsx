@@ -23,6 +23,19 @@ import {
   ResponseTrace,
   type ResponseInspection,
 } from "@/components/threads/ResponseTrace";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  hasAcceptedVoicePrivacyNotice,
+  storeVoicePrivacyNoticeAcceptance,
+  VOICE_PRIVACY_NOTICE_VERSION,
+} from "@/lib/voicePrivacy";
 
 type ChatResult = {
   text: string;
@@ -153,6 +166,9 @@ export function BrainsChatPane() {
   const [loading, setLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(false);
+  const [voicePrivacyOpen, setVoicePrivacyOpen] = React.useState(false);
+  const [voicePrivacySaving, setVoicePrivacySaving] = React.useState(false);
+  const [voicePrivacyError, setVoicePrivacyError] = React.useState("");
   const governedVoice = useGovernedRealtimeVoice();
 
   const voiceStatus = governedVoice.status;
@@ -945,6 +961,44 @@ export function BrainsChatPane() {
     }
   }
 
+  function handleVoiceButton() {
+    if (voiceIsActive) {
+      void stopListeningAndRespond();
+      return;
+    }
+    if (voiceIsConnecting) return;
+    if (!hasAcceptedVoicePrivacyNotice()) {
+      setVoicePrivacyError("");
+      setVoicePrivacyOpen(true);
+      return;
+    }
+    void startListening();
+  }
+
+  async function acceptVoicePrivacyNotice() {
+    if (voicePrivacySaving) return;
+    setVoicePrivacySaving(true);
+    setVoicePrivacyError("");
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          vs_voice_privacy_notice_version: VOICE_PRIVACY_NOTICE_VERSION,
+          vs_voice_privacy_notice_acknowledged_at: new Date().toISOString(),
+        },
+      });
+      if (error) throw error;
+      storeVoicePrivacyNoticeAcceptance();
+      setVoicePrivacyOpen(false);
+      await startListening();
+    } catch (error: any) {
+      setVoicePrivacyError(
+        String(error?.message || "Could not save voice privacy choice."),
+      );
+    } finally {
+      setVoicePrivacySaving(false);
+    }
+  }
+
   async function stopListeningAndRespond() {
     voiceConversationEpochRef.current += 1;
     governedVoice.stop();
@@ -1432,17 +1486,7 @@ export function BrainsChatPane() {
             <div className="flex items-center justify-between gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  if (voiceIsActive) {
-                    stopListeningAndRespond().catch((e) =>
-                      alert(String((e as any)?.message ?? e)),
-                    );
-                  } else if (!voiceIsConnecting) {
-                    startListening().catch((e) =>
-                      alert(String((e as any)?.message ?? e)),
-                    );
-                  }
-                }}
+                onClick={handleVoiceButton}
                 disabled={voiceIsConnecting}
                 className={[
                   "rounded-xl border px-3 py-2 text-xs disabled:opacity-50",
@@ -1474,6 +1518,63 @@ export function BrainsChatPane() {
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={voicePrivacyOpen}
+        onOpenChange={(open) => {
+          if (!voicePrivacySaving) setVoicePrivacyOpen(open);
+        }}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Before using voice</DialogTitle>
+            <DialogDescription>
+              Review how a governed voice conversation handles your data.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-sm leading-6">
+            <p>
+              Your microphone audio is sent to OpenAI for transcription.
+              Verbal Sage does not store the raw microphone audio.
+            </p>
+            <p>
+              The transcript and assistant reply are saved to your account
+              chat history and follow the same safeguards and governed memory
+              rules as typed messages.
+            </p>
+            <p>
+              Operational voice metadata is retained for up to 30 days. The
+              reply you hear is AI-generated, not a human voice.
+            </p>
+          </div>
+
+          {voicePrivacyError && (
+            <p role="alert" className="text-sm text-destructive">
+              {voicePrivacyError}
+            </p>
+          )}
+
+          <DialogFooter>
+            <button
+              type="button"
+              className="rounded-md border px-4 py-2 text-sm"
+              onClick={() => setVoicePrivacyOpen(false)}
+              disabled={voicePrivacySaving}
+            >
+              Not now
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50"
+              onClick={() => void acceptVoicePrivacyNotice()}
+              disabled={voicePrivacySaving}
+            >
+              {voicePrivacySaving ? "Saving…" : "Continue with voice"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

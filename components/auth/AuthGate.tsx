@@ -4,6 +4,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch } from "@/lib/authFetch";
 import { applyTheme, normalizeThemeValue } from "@/lib/theme";
+import {
+  VOICE_PRIVACY_NOTICE_STORAGE_KEY,
+  VOICE_PRIVACY_NOTICE_VERSION,
+} from "@/lib/voicePrivacy";
 
 const MAX_AGE_S = 60 * 60 * 24 * 30; // 30d
 const LS_CLOUD_UPDATED_AT = "vs_cloud_settings_v1_updated_at";
@@ -106,6 +110,15 @@ function applyProfileCookiesFromSession(session: any): boolean {
 
     if (typeof md.vs_realtime_voice === "string" && md.vs_realtime_voice.trim()) {
       lsSet("vs_realtime_voice", JSON.stringify(md.vs_realtime_voice.trim().toLowerCase()));
+    }
+
+    if (
+      md.vs_voice_privacy_notice_version === VOICE_PRIVACY_NOTICE_VERSION
+    ) {
+      lsSet(
+        VOICE_PRIVACY_NOTICE_STORAGE_KEY,
+        JSON.stringify(VOICE_PRIVACY_NOTICE_VERSION),
+      );
     }
 
     const v1: any = session?.user?.user_metadata?.vs_settings_v1;
