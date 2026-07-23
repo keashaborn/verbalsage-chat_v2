@@ -128,14 +128,15 @@ const PERMISSIONS: PermissionDefinition[] = [
     scope: "plan:comment",
     label: "Comment on Plan",
     level: "comment",
-    description: "Allow comments and suggestions on the shared plan.",
+    description:
+      "Allow comments and suggestions. This also allows viewing the shared Plan.",
   },
   {
     scope: "plan:edit",
     label: "Draft Plan changes",
     level: "edit",
     description:
-      "Allow drafting and proposing shared Plan changes. The owner must still approve before activation.",
+      "Allow drafting and proposing changes. This also allows viewing; the owner must still approve activation.",
   },
 ];
 
@@ -473,6 +474,9 @@ export default function LifeSwitchPeoplePage() {
     setSelectedUserId(userId);
     setSelectedKind(rel.relationship_kind);
     setPermissions([]);
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
     await loadPermissions(rel.relationship_id);
   }
 
@@ -828,7 +832,7 @@ export default function LifeSwitchPeoplePage() {
   }, [authResolved, currentUserId]);
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4 pt-1 sm:pt-0">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="text-lg font-semibold">People</div>
@@ -1117,14 +1121,14 @@ export default function LifeSwitchPeoplePage() {
 
         <section className={selectedPerson ? "grid gap-4" : "hidden"}>
           <div className="rounded-xl border p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-semibold">
+            <div className="grid gap-3 sm:flex sm:items-start sm:justify-between">
+              <div className="min-w-0 sm:flex-1">
+                <div className="text-sm font-semibold [overflow-wrap:anywhere]">
                   {selectedPerson
                     ? displayName(selectedPerson)
                     : "Select a person"}
                 </div>
-                <div className="mt-1 text-xs break-all text-muted-foreground">
+                <div className="mt-1 text-xs [overflow-wrap:anywhere] text-muted-foreground">
                   {selectedPerson
                     ? selectedPerson.email ||
                       kindLabel(selectedRelationship?.relationship_kind)
@@ -1133,7 +1137,7 @@ export default function LifeSwitchPeoplePage() {
               </div>
 
               {selectedPerson ? (
-                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
                   {permissionTheyGiveByScope.has("messages:send") ? (
                     <Link
                       href="/lifeswitch/people/messages"
@@ -1353,9 +1357,9 @@ export default function LifeSwitchPeoplePage() {
                         return (
                           <div
                             key={p.scope}
-                            className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_auto]"
+                            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border px-3 py-2.5"
                           >
-                            <div>
+                            <div className="min-w-0">
                               <div className="text-sm font-semibold">
                                 {p.label}
                               </div>
@@ -1374,7 +1378,7 @@ export default function LifeSwitchPeoplePage() {
                               }
                               aria-pressed={enabled}
                               className={[
-                                "min-w-24 rounded-md border px-3 py-2 text-sm disabled:opacity-50",
+                                "min-w-[6.5rem] rounded-md border px-3 py-2 text-xs disabled:opacity-50 sm:text-sm",
                                 enabled ? "bg-muted/40" : "hover:bg-muted/30",
                               ].join(" ")}
                             >

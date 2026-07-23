@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Trash2 } from "lucide-react";
 import BackButton from "@/components/nav/BackButton";
 import { authFetch } from "@/lib/authFetch";
 import { supabase } from "@/lib/supabaseClient";
@@ -137,6 +138,8 @@ export default function LifeSwitchPeopleMessagesPage() {
   const [loadingConversations, setLoadingConversations] = React.useState(false);
   const [loadingMessages, setLoadingMessages] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const [removingConversationId, setRemovingConversationId] =
+    React.useState("");
   const savingRef = React.useRef(false);
   const connectionsRequestRef = React.useRef(0);
   const conversationsRequestRef = React.useRef(0);
@@ -196,6 +199,7 @@ export default function LifeSwitchPeopleMessagesPage() {
     mutationRequestRef.current += 1;
     savingRef.current = false;
     setSaving(false);
+    setRemovingConversationId("");
     setPeople([]);
     setRelationships([]);
     setConversations([]);
@@ -430,6 +434,47 @@ export default function LifeSwitchPeopleMessagesPage() {
         savingRef.current = false;
         setSaving(false);
       }
+    }
+  }
+
+  async function removeConversationFromList() {
+    if (!selectedConversation || selectedConversation.can_send === true) return;
+    if (!authResolved || !currentUserId) {
+      setError("Your signed-in session is not ready.");
+      return;
+    }
+
+    const conversationId = selectedConversation.conversation_id;
+    const name = displayUserName(
+      selectedConversation.other_display_name,
+      selectedConversation.other_user_id,
+    );
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        `Remove the history-only conversation with ${name} from your list? The other account's copy and the underlying messages will not be deleted.`,
+      )
+    ) {
+      return;
+    }
+
+    setRemovingConversationId(conversationId);
+    setError("");
+    try {
+      await fetchJson<{ removed: string }>(
+        `/api/lifeswitch/people/conversations/${encodeURIComponent(conversationId)}`,
+        { method: "DELETE" },
+      );
+      if (selectedIdRef.current === conversationId) {
+        changeSelectedConversation("");
+      }
+      await loadConversations();
+    } catch (e) {
+      if (selectedIdRef.current === conversationId) {
+        setError(String(e instanceof Error ? e.message : e));
+      }
+    } finally {
+      setRemovingConversationId("");
     }
   }
 
@@ -684,7 +729,7 @@ export default function LifeSwitchPeopleMessagesPage() {
               </button>
             ) : null}
 
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="min-w-0 flex-1 truncate text-sm font-semibold">
                 {selectedConversation
                   ? selectedConversation.title ||
@@ -695,9 +740,27 @@ export default function LifeSwitchPeopleMessagesPage() {
                   : "Select a conversation"}
               </div>
               {selectedConversation && !canSend ? (
-                <span className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
-                  Messaging unavailable · history only
-                </span>
+                <>
+                  <span className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
+                    Messaging unavailable · history only
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void removeConversationFromList()}
+                    disabled={
+                      Boolean(removingConversationId) ||
+                      !authResolved ||
+                      !currentUserId
+                    }
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-500 hover:bg-red-500/10 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {removingConversationId ===
+                    selectedConversation.conversation_id
+                      ? "Removing…"
+                      : "Remove"}
+                  </button>
+                </>
               ) : null}
             </div>
           </div>
