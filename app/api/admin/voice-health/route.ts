@@ -40,7 +40,11 @@ export async function GET(req: Request) {
   const correlationId = requestId(req);
   const auth = await requireCapability(req, "diagnostics.view");
   if (!auth.ok) {
-    return errorResponse(auth.status, auth.msg, correlationId);
+    return errorResponse(
+      auth.status,
+      auth.msg || "unauthorized",
+      correlationId,
+    );
   }
 
   const canaryActor = (
