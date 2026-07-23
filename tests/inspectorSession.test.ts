@@ -6,6 +6,7 @@ import {
   inspectorSessionCookie,
   inspectorSessionCookieName,
   inspectorSessionEnabled,
+  retiredInspectorCookieDeletion,
 } from "../lib/inspectorSession.ts";
 
 test("the inspector enablement flag is exact and non-secret", () => {
@@ -35,6 +36,16 @@ test("cookie deletion preserves the security attributes", () => {
   const cookie = inspectorSessionCookie(false, true);
 
   assert.match(cookie, /^__Host-vs_inspector_enabled=;/);
+  assert.match(cookie, /Max-Age=0/);
+  assert.match(cookie, /HttpOnly/);
+  assert.match(cookie, /SameSite=Strict/);
+  assert.match(cookie, /Secure/);
+});
+
+test("the retired shared-secret cookie is actively deleted", () => {
+  const cookie = retiredInspectorCookieDeletion(true);
+
+  assert.match(cookie, /^vs_debug_token=;/);
   assert.match(cookie, /Max-Age=0/);
   assert.match(cookie, /HttpOnly/);
   assert.match(cookie, /SameSite=Strict/);

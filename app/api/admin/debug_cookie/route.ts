@@ -8,7 +8,13 @@ import {
   inspectorSessionCookie,
   inspectorSessionCookieName,
   inspectorSessionEnabled,
+  retiredInspectorCookieDeletion,
 } from "@/lib/inspectorSession";
+
+function clearRetiredCookie(response: Response): Response {
+  response.headers.append("Set-Cookie", retiredInspectorCookieDeletion());
+  return response;
+}
 
 export async function GET(req: Request) {
   const auth = await requireCapability(req, "inspector.view");
@@ -23,9 +29,11 @@ export async function GET(req: Request) {
   const enabled = inspectorSessionEnabled(
     jar.get(inspectorSessionCookieName())?.value,
   );
-  return Response.json(
-    { ok: true, enabled },
-    { headers: INSPECTOR_NO_STORE_HEADERS },
+  return clearRetiredCookie(
+    Response.json(
+      { ok: true, enabled },
+      { headers: INSPECTOR_NO_STORE_HEADERS },
+    ),
   );
 }
 
@@ -45,7 +53,7 @@ export async function POST(req: Request) {
     },
   });
   res.headers.append("Set-Cookie", inspectorSessionCookie(true));
-  return res;
+  return clearRetiredCookie(res);
 }
 
 export async function DELETE(req: Request) {
@@ -64,5 +72,5 @@ export async function DELETE(req: Request) {
     },
   });
   res.headers.append("Set-Cookie", inspectorSessionCookie(false));
-  return res;
+  return clearRetiredCookie(res);
 }
