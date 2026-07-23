@@ -1,4 +1,4 @@
-export const FIRST_SPEECH_SEGMENT_CHARACTERS = 320;
+export const FIRST_SPEECH_SEGMENT_CHARACTERS = 160;
 export const FOLLOWING_SPEECH_SEGMENT_CHARACTERS = 900;
 export const SPEECH_PCM_SAMPLE_RATE = 24_000;
 
@@ -54,6 +54,20 @@ export function shouldUseNativeSafariAudio(userAgent: string): boolean {
     /Safari/i.test(value) &&
     !/(Chrome|Chromium|CriOS|Edg|EdgiOS|OPR|Android)/i.test(value)
   );
+}
+
+export function endOfSpeechToFirstAudioMs(
+  speechEndedAtMs: number,
+  firstAudioAtMs: number | null,
+): number | null {
+  if (
+    firstAudioAtMs == null ||
+    !Number.isFinite(speechEndedAtMs) ||
+    !Number.isFinite(firstAudioAtMs)
+  ) {
+    return null;
+  }
+  return Math.max(0, Math.round(firstAudioAtMs - speechEndedAtMs));
 }
 
 export function pcmS16leToWav(

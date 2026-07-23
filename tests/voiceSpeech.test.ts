@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   FIRST_SPEECH_SEGMENT_CHARACTERS,
   FOLLOWING_SPEECH_SEGMENT_CHARACTERS,
+  endOfSpeechToFirstAudioMs,
   pcmS16leToWav,
   shouldUseNativeSafariAudio,
   splitForSpeech,
@@ -20,6 +21,16 @@ function normalized(text: string): string {
 
 test("empty speech produces no requests", () => {
   assert.deepEqual(splitForSpeech(" \n\r "), []);
+});
+
+test("first speech segment is latency bounded", () => {
+  assert.equal(FIRST_SPEECH_SEGMENT_CHARACTERS, 160);
+});
+
+test("end-of-speech latency excludes user speaking time", () => {
+  assert.equal(endOfSpeechToFirstAudioMs(4_000, 6_750), 2_750);
+  assert.equal(endOfSpeechToFirstAudioMs(7_000, 6_750), 0);
+  assert.equal(endOfSpeechToFirstAudioMs(4_000, null), null);
 });
 
 test("1,500-word answer is bounded and lossless", () => {

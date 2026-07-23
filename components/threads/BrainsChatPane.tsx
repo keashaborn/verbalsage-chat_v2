@@ -37,6 +37,7 @@ import {
   VOICE_PRIVACY_NOTICE_VERSION,
 } from "@/lib/voicePrivacy";
 import {
+  endOfSpeechToFirstAudioMs,
   pcmS16leToWav,
   shouldUseNativeSafariAudio,
   splitForSpeech,
@@ -1296,15 +1297,11 @@ export function BrainsChatPane() {
             reply.responseTimings?.answer_generation_ms,
           response_persistence_ms: reply.responseTimings?.persistence_ms,
           tts_first_audio_ms: speechMetrics?.firstAudioMs,
-          speech_to_first_audio_ms:
-            speechMetrics?.firstAudioAtMs == null
-              ? null
-              : Math.max(
-                  0,
-                  Math.round(
-                    speechMetrics.firstAudioAtMs - turn.turnStartedAtMs,
-                  ),
-                ),
+          speech_to_first_audio_ms: endOfSpeechToFirstAudioMs(
+            turn.speechEndedAtMs,
+            speechMetrics?.firstAudioAtMs ?? null,
+          ),
+          speech_to_first_audio_basis: "detected_speech_end_v1",
           tts_total_ms: speechMetrics?.totalMs,
           total_turn_ms: Math.max(
             0,

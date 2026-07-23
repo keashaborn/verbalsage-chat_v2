@@ -117,6 +117,9 @@ export async function POST(req: Request) {
     response_persistence_ms: boundedInteger(body?.response_persistence_ms),
     tts_first_audio_ms: boundedInteger(body?.tts_first_audio_ms),
     speech_to_first_audio_ms: boundedInteger(body?.speech_to_first_audio_ms),
+    speech_to_first_audio_basis: boundedToken(
+      body?.speech_to_first_audio_basis,
+    ),
     tts_total_ms: boundedInteger(body?.tts_total_ms, 3_600_000),
     total_turn_ms: boundedInteger(body?.total_turn_ms, 3_600_000),
     tts_segment_count: boundedInteger(body?.tts_segment_count, 256),

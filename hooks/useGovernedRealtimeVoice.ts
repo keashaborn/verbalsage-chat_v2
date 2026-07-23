@@ -29,6 +29,7 @@ export type GovernedVoiceTurnContext = {
   transcriptionRequestId: string;
   transcriptionProviderRequestId: string;
   turnStartedAtMs: number;
+  speechEndedAtMs: number;
 };
 
 export type GovernedVoiceTurnFailureContext = {
@@ -240,6 +241,8 @@ export function useGovernedRealtimeVoice() {
 
         const speechStartedAt = speechStartedAtRef.current || performance.now();
         const speechEndedAt = performance.now();
+        const detectedSpeechEndedAt =
+          lastSpeechAtRef.current || speechEndedAt;
         const voiceTurnId = crypto.randomUUID();
         processingRef.current = true;
         setInputEnabled(false);
@@ -337,6 +340,7 @@ export function useGovernedRealtimeVoice() {
             transcriptionRequestId,
             transcriptionProviderRequestId,
             turnStartedAtMs: speechStartedAt,
+            speechEndedAtMs: detectedSpeechEndedAt,
           });
           assertCurrent();
           resumeListening();
