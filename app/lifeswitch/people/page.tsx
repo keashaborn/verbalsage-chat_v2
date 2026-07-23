@@ -1368,22 +1368,32 @@ export default function LifeSwitchPeoplePage() {
                               </div>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void setPermission(p.scope, p.level, !enabled)
-                              }
-                              disabled={
-                                saving || loadingPermissions || !canMutate
-                              }
-                              aria-pressed={enabled}
-                              className={[
-                                "min-w-[6.5rem] rounded-md border px-3 py-2 text-xs disabled:opacity-50 sm:text-sm",
-                                enabled ? "bg-muted/40" : "hover:bg-muted/30",
-                              ].join(" ")}
-                            >
-                              {enabled ? "Allowed" : "Not allowed"}
-                            </button>
+                            <div className="grid min-w-[7.5rem] justify-items-end gap-1">
+                              <div className="text-[11px] text-muted-foreground">
+                                Currently{" "}
+                                {enabled ? "allowed" : "not allowed"}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void setPermission(p.scope, p.level, !enabled)
+                                }
+                                disabled={
+                                  saving || loadingPermissions || !canMutate
+                                }
+                                aria-label={`${
+                                  enabled ? "Remove" : "Allow"
+                                } ${p.label} access`}
+                                className={[
+                                  "min-w-[7.5rem] rounded-md border px-3 py-2 text-xs disabled:opacity-50 sm:text-sm",
+                                  enabled
+                                    ? "hover:bg-muted/30"
+                                    : "bg-muted/40 hover:bg-muted/60",
+                                ].join(" ")}
+                              >
+                                {enabled ? "Remove access" : "Allow access"}
+                              </button>
+                            </div>
                           </div>
                         );
                       })}
