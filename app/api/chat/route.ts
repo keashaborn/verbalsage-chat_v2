@@ -13,6 +13,21 @@ import {
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const RESPONSE_TIMING_KEYS = [
+  "command_validation_ms",
+  "conversation_snapshot_ms",
+  "policy_input_ms",
+  "signal_classification_ms",
+  "signal_binding_ms",
+  "memory_selection_ms",
+  "trusted_request_ms",
+  "orchestration_ms",
+  "answer_generation_ms",
+  "finalization_ms",
+  "pipeline_total_ms",
+  "persistence_ms",
+  "backend_total_ms",
+] as const;
 
 function requestId(req: Request): string {
   const raw = (
@@ -71,6 +86,19 @@ async function responseInspectionAllowed(req: Request): Promise<boolean> {
   if (supplied !== expected) return false;
   const capability = await requireCapability(req, "inspector.view");
   return capability.ok;
+}
+
+function responseTimingsHeader(value: unknown): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+  const source = value as Record<string, unknown>;
+  const timings: Record<string, number> = {};
+  for (const key of RESPONSE_TIMING_KEYS) {
+    const number = Number(source[key]);
+    if (!Number.isFinite(number) || number < 0 || number > 600_000) continue;
+    timings[key] = Math.round(number);
+  }
+  if (!("backend_total_ms" in timings)) return "";
+  return Buffer.from(JSON.stringify(timings), "utf8").toString("base64url");
 }
 
 export async function POST(req: Request) {
@@ -185,11 +213,13 @@ export async function POST(req: Request) {
     let answer = raw;
     let answerId = "";
     let inspection: unknown = null;
+    let timingsHeader = "";
     try {
       const parsed = JSON.parse(raw);
       answer = String(parsed?.answer || "");
       answerId = String(parsed?.answer_id || "");
       inspection = parsed?.inspection || null;
+      timingsHeader = responseTimingsHeader(parsed?.timings);
     } catch {}
     if (!answer) {
       return new Response("Empty response", {
@@ -220,6 +250,9 @@ export async function POST(req: Request) {
         "X-VS-Response-Runtime": "resse_response_v0_2",
         ...voiceTurnHeaders(voiceTurn.value),
         ...(answerId ? { "X-VS-Answer-Id": answerId } : {}),
+        ...(timingsHeader
+          ? { "X-VS-Response-Timings": timingsHeader }
+          : {}),
         ...(boundedInspectionHeader
           ? { "X-VS-Inspection": boundedInspectionHeader }
           : {}),

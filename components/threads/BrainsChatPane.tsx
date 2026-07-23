@@ -48,6 +48,17 @@ type ChatResult = {
   inspect_error: string | null;
   answerId: string;
   requestId: string;
+  responseTimings: ResponseStageTimings | null;
+};
+
+type ResponseStageTimings = {
+  conversation_snapshot_ms?: number;
+  signal_classification_ms?: number;
+  memory_selection_ms?: number;
+  orchestration_ms?: number;
+  answer_generation_ms?: number;
+  persistence_ms?: number;
+  backend_total_ms?: number;
 };
 
 type VoiceSpeechMetrics = {
@@ -112,6 +123,27 @@ async function recordVoiceTurnTrace(payload: Record<string, unknown>) {
     });
   } catch {
     // Observability is non-blocking; it must never break the conversation.
+  }
+}
+
+function decodeResponseTimingsHeader(value: string | null): ResponseStageTimings | null {
+  if (!value) return null;
+  try {
+    const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const parsed = JSON.parse(
+      new TextDecoder().decode(
+        Uint8Array.from(
+          atob(padded),
+          (character) => character.charCodeAt(0),
+        ),
+      ),
+    );
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as ResponseStageTimings)
+      : null;
+  } catch {
+    return null;
   }
 }
 
@@ -963,6 +995,9 @@ export function BrainsChatPane() {
       text: responseText,
       answerId: String(r.headers.get("X-VS-Answer-Id") || ""),
       requestId: String(r.headers.get("x-request-id") || ""),
+      responseTimings: decodeResponseTimingsHeader(
+        r.headers.get("X-VS-Response-Timings"),
+      ),
       ...decodeResponseInspectionHeader(
         r.headers.get("X-VS-Inspection"),
         r.headers.get("X-VS-Inspection-Status"),
@@ -1249,6 +1284,17 @@ export function BrainsChatPane() {
           audio_bytes: turn.audioBytes,
           transcription_ms: turn.transcriptionMs,
           response_ms: responseMs,
+          response_backend_total_ms: reply.responseTimings?.backend_total_ms,
+          response_conversation_snapshot_ms:
+            reply.responseTimings?.conversation_snapshot_ms,
+          response_classifier_ms:
+            reply.responseTimings?.signal_classification_ms,
+          response_memory_ms: reply.responseTimings?.memory_selection_ms,
+          response_orchestration_ms:
+            reply.responseTimings?.orchestration_ms,
+          response_generation_ms:
+            reply.responseTimings?.answer_generation_ms,
+          response_persistence_ms: reply.responseTimings?.persistence_ms,
           tts_first_audio_ms: speechMetrics?.firstAudioMs,
           speech_to_first_audio_ms:
             speechMetrics?.firstAudioAtMs == null

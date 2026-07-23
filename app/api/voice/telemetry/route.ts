@@ -104,6 +104,17 @@ export async function POST(req: Request) {
     audio_bytes: boundedInteger(body?.audio_bytes, 8 * 1024 * 1024),
     transcription_ms: boundedInteger(body?.transcription_ms),
     response_ms: boundedInteger(body?.response_ms),
+    response_backend_total_ms: boundedInteger(body?.response_backend_total_ms),
+    response_conversation_snapshot_ms: boundedInteger(
+      body?.response_conversation_snapshot_ms,
+    ),
+    response_classifier_ms: boundedInteger(body?.response_classifier_ms),
+    response_memory_ms: boundedInteger(body?.response_memory_ms),
+    response_orchestration_ms: boundedInteger(
+      body?.response_orchestration_ms,
+    ),
+    response_generation_ms: boundedInteger(body?.response_generation_ms),
+    response_persistence_ms: boundedInteger(body?.response_persistence_ms),
     tts_first_audio_ms: boundedInteger(body?.tts_first_audio_ms),
     speech_to_first_audio_ms: boundedInteger(body?.speech_to_first_audio_ms),
     tts_total_ms: boundedInteger(body?.tts_total_ms, 3_600_000),
