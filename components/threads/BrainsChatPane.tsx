@@ -955,6 +955,26 @@ export function BrainsChatPane() {
               voiceConversationEpochRef.current === conversationEpoch,
           });
         },
+        onTranscriptionFailure: async (voiceTurn) => {
+          await recordVoiceTurnTrace({
+            voice_turn_id: voiceTurn.voiceTurnId,
+            status: "failed",
+            failure_stage: "transcription",
+            speech_ms: voiceTurn.speechMs,
+            audio_bytes: voiceTurn.audioBytes,
+            transcription_ms: voiceTurn.transcriptionMs,
+            total_turn_ms: Math.max(
+              0,
+              Math.round(
+                performance.now() - voiceTurn.turnStartedAtMs,
+              ),
+            ),
+            transcription_request_id:
+              voiceTurn.transcriptionRequestId,
+            transcription_provider_request_id:
+              voiceTurn.transcriptionProviderRequestId,
+          });
+        },
       });
     } catch (e: any) {
       alert(e?.message || String(e));

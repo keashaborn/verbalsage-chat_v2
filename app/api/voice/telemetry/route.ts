@@ -70,7 +70,20 @@ export async function POST(req: Request) {
   const answerId = String(body?.answer_id || "")
     .trim()
     .toLowerCase();
-  if (!voiceTurnId || !UUID_RE.test(threadId)) {
+  const status = STATUSES.has(String(body?.status))
+    ? String(body.status)
+    : "failed";
+  const failureStage = FAILURE_STAGES.has(String(body?.failure_stage))
+    ? String(body.failure_stage)
+    : status === "completed"
+      ? "none"
+      : "response";
+  const allowsMissingThread =
+    status === "failed" && failureStage === "transcription";
+  if (
+    !voiceTurnId ||
+    (threadId ? !UUID_RE.test(threadId) : !allowsMissingThread)
+  ) {
     return NextResponse.json(
       { ok: false, error: "invalid_voice_trace_identity" },
       { status: 400, headers: { "x-request-id": rid } },
@@ -82,15 +95,6 @@ export async function POST(req: Request) {
       { status: 400, headers: { "x-request-id": rid } },
     );
   }
-
-  const status = STATUSES.has(String(body?.status))
-    ? String(body.status)
-    : "failed";
-  const failureStage = FAILURE_STAGES.has(String(body?.failure_stage))
-    ? String(body.failure_stage)
-    : status === "completed"
-      ? "none"
-      : "response";
 
   const payload = {
     contract_version: "voice_turn_trace_v1",
@@ -146,7 +150,7 @@ export async function POST(req: Request) {
     event_type: "voice.turn.trace",
     subject_type: "voice_turn",
     subject_id: voiceTurnId,
-    thread_id: threadId,
+    thread_id: threadId || null,
     turn_id: voiceTurnId,
     target_model_id: payload.tts_model || null,
     target_model_version: null,

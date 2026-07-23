@@ -31,10 +31,23 @@ export type GovernedVoiceTurnContext = {
   turnStartedAtMs: number;
 };
 
+export type GovernedVoiceTurnFailureContext = {
+  voiceTurnId: string;
+  speechMs: number;
+  audioBytes: number;
+  transcriptionMs: number | null;
+  transcriptionRequestId: string;
+  transcriptionProviderRequestId: string;
+  turnStartedAtMs: number;
+};
+
 type StartOptions = {
   onTranscript: (
     transcript: string,
     context: GovernedVoiceTurnContext,
+  ) => Promise<void>;
+  onTranscriptionFailure?: (
+    context: GovernedVoiceTurnFailureContext,
   ) => Promise<void>;
 };
 
@@ -96,6 +109,9 @@ export function useGovernedRealtimeVoice() {
   const speechStartedAtRef = useRef<number | null>(null);
   const lastSpeechAtRef = useRef<number | null>(null);
   const onTranscriptRef = useRef<StartOptions["onTranscript"] | null>(null);
+  const onTranscriptionFailureRef = useRef<
+    StartOptions["onTranscriptionFailure"] | null
+  >(null);
 
   const [status, setStatus] = useState<GovernedRealtimeVoiceStatus>("idle");
   const [lastError, setLastError] = useState("");
@@ -114,6 +130,7 @@ export function useGovernedRealtimeVoice() {
     speechStartedAtRef.current = null;
     lastSpeechAtRef.current = null;
     onTranscriptRef.current = null;
+    onTranscriptionFailureRef.current = null;
 
     if (animationRef.current != null) {
       window.cancelAnimationFrame(animationRef.current);
@@ -147,7 +164,7 @@ export function useGovernedRealtimeVoice() {
   }, []);
 
   const start = useCallback(
-    async ({ onTranscript }: StartOptions) => {
+    async ({ onTranscript, onTranscriptionFailure }: StartOptions) => {
       if (startingRef.current || (status !== "idle" && status !== "error"))
         return;
       if (activeOwner !== ownerRef.current) activeStop?.();
@@ -158,6 +175,7 @@ export function useGovernedRealtimeVoice() {
       const generation = generationRef.current;
       startingRef.current = true;
       onTranscriptRef.current = onTranscript;
+      onTranscriptionFailureRef.current = onTranscriptionFailure || null;
       setLastError("");
       setStatus("requesting");
 
@@ -226,6 +244,10 @@ export function useGovernedRealtimeVoice() {
         processingRef.current = true;
         setInputEnabled(false);
         setStatus("transcribing");
+        let audioBytes = 0;
+        let transcriptionStartedAt: number | null = null;
+        let transcriptionRequestId = "";
+        let transcriptionProviderRequestId = "";
 
         try {
           await new Promise<void>((resolve, reject) => {
@@ -247,12 +269,13 @@ export function useGovernedRealtimeVoice() {
             recorder.mimeType || chunksRef.current[0]?.type || "audio/webm";
           const audio = new Blob(chunksRef.current, { type: contentType });
           chunksRef.current = [];
+          audioBytes = audio.size;
           if (!audio.size) {
             resumeListening();
             return;
           }
 
-          const transcriptionStartedAt = performance.now();
+          transcriptionStartedAt = performance.now();
           const response = await authFetch("/api/voice/openai/transcribe", {
             method: "POST",
             headers: {
@@ -263,6 +286,14 @@ export function useGovernedRealtimeVoice() {
           });
           const payload = await response.json().catch(() => ({}));
           const transcriptionCompletedAt = performance.now();
+          transcriptionRequestId = String(
+            response.headers.get("x-request-id") || "",
+          ).slice(0, 128);
+          transcriptionProviderRequestId = String(
+            payload?.provider_request_id ||
+              payload?.detail?.provider_request_id ||
+              "",
+          ).slice(0, 128);
           assertCurrent();
           if (!response.ok) throw new Error(transcriptionError(payload));
           if (response.headers.get(VOICE_TURN_HEADER) !== voiceTurnId) {
@@ -283,7 +314,7 @@ export function useGovernedRealtimeVoice() {
           await onTranscriptRef.current?.(transcript, {
             voiceTurnId,
             speechMs: Math.max(0, Math.round(speechEndedAt - speechStartedAt)),
-            audioBytes: audio.size,
+            audioBytes,
             transcriptionMs: Math.max(
               0,
               Math.round(transcriptionCompletedAt - transcriptionStartedAt),
@@ -303,18 +334,38 @@ export function useGovernedRealtimeVoice() {
             transcriptionLowConfidenceTokenCount: optionalFiniteNumber(
               payload?.confidence?.low_confidence_token_count,
             ),
-            transcriptionRequestId: String(
-              response.headers.get("x-request-id") || "",
-            ).slice(0, 128),
-            transcriptionProviderRequestId: String(
-              payload?.provider_request_id || "",
-            ).slice(0, 128),
+            transcriptionRequestId,
+            transcriptionProviderRequestId,
             turnStartedAtMs: speechStartedAt,
           });
           assertCurrent();
           resumeListening();
         } catch (error: any) {
           if (error?.name === "AbortError") return;
+          try {
+            await onTranscriptionFailureRef.current?.({
+              voiceTurnId,
+              speechMs: Math.max(
+                0,
+                Math.round(speechEndedAt - speechStartedAt),
+              ),
+              audioBytes,
+              transcriptionMs:
+                transcriptionStartedAt == null
+                  ? null
+                  : Math.max(
+                    0,
+                    Math.round(
+                      performance.now() - transcriptionStartedAt,
+                    ),
+                  ),
+              transcriptionRequestId,
+              transcriptionProviderRequestId,
+              turnStartedAtMs: speechStartedAt,
+            });
+          } catch {
+            // Operational telemetry must not replace the voice error.
+          }
           failSession(
             String(error?.message || error || "Continuous voice failed."),
           );
