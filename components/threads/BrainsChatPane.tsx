@@ -36,6 +36,7 @@ import {
   storeVoicePrivacyNoticeAcceptance,
   VOICE_PRIVACY_NOTICE_VERSION,
 } from "@/lib/voicePrivacy";
+import { splitForSpeech } from "@/lib/voiceSpeech";
 
 type ChatResult = {
   text: string;
@@ -95,52 +96,6 @@ function getLS<T>(key: string, fallback: T): T {
   } catch {
     return fallback;
   }
-}
-
-function splitForSpeech(
-  text: string,
-  firstChunkCharacters = 320,
-  followingChunkCharacters = 900,
-): string[] {
-  const words = String(text || "")
-    .replace(/\r/g, "")
-    .replace(/\n+/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-  const chunks: string[] = [];
-  let current = "";
-
-  const currentLimit = () =>
-    chunks.length === 0 ? firstChunkCharacters : followingChunkCharacters;
-  const flush = () => {
-    if (current) {
-      chunks.push(current);
-      current = "";
-    }
-  };
-
-  for (let word of words) {
-    while (word.length > currentLimit()) {
-      flush();
-      const limit = currentLimit();
-      chunks.push(word.slice(0, limit));
-      word = word.slice(limit);
-    }
-    if (!word) continue;
-
-    const candidate = current ? `${current} ${word}` : word;
-    if (candidate.length <= currentLimit()) {
-      current = candidate;
-    } else {
-      flush();
-      if (word.length <= currentLimit()) {
-        current = word;
-      }
-    }
-  }
-
-  flush();
-  return chunks;
 }
 
 async function recordVoiceTurnTrace(payload: Record<string, unknown>) {
@@ -965,12 +920,9 @@ export function BrainsChatPane() {
             transcription_ms: voiceTurn.transcriptionMs,
             total_turn_ms: Math.max(
               0,
-              Math.round(
-                performance.now() - voiceTurn.turnStartedAtMs,
-              ),
+              Math.round(performance.now() - voiceTurn.turnStartedAtMs),
             ),
-            transcription_request_id:
-              voiceTurn.transcriptionRequestId,
+            transcription_request_id: voiceTurn.transcriptionRequestId,
             transcription_provider_request_id:
               voiceTurn.transcriptionProviderRequestId,
           });
@@ -1555,13 +1507,13 @@ export function BrainsChatPane() {
 
           <div className="space-y-3 text-sm leading-6">
             <p>
-              Your microphone audio is sent to OpenAI for transcription.
-              Verbal Sage does not store the raw microphone audio.
+              Your microphone audio is sent to OpenAI for transcription. Verbal
+              Sage does not store the raw microphone audio.
             </p>
             <p>
-              The transcript and assistant reply are saved to your account
-              chat history and follow the same safeguards and governed memory
-              rules as typed messages.
+              The transcript and assistant reply are saved to your account chat
+              history and follow the same safeguards and governed memory rules
+              as typed messages.
             </p>
             <p>
               Operational voice metadata is retained for up to 30 days. The

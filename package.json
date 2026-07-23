@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:voice": "node --experimental-strip-types --test tests/voiceSpeech.test.ts",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write ."
   },
