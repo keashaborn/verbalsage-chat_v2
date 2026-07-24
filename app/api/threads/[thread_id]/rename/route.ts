@@ -43,14 +43,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ thread
   const r = await fetch(`${BRAINS}/threads/${encodeURIComponent(tid)}/rename`, {
     method: "POST",
     headers: brainsUpstreamHeaders(requestId, user_id, { "Content-Type": "application/json" }),
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, title_source: "manual" }),
     cache: "no-store",
   });
 
   const txt = await r.text().catch(() => "");
   if (!r.ok) {
     return NextResponse.json(
-      { error: `brains HTTP ${r.status}`, details: txt },
+      { error: `brains HTTP ${r.status}` },
       { status: 502, headers: { "x-request-id": requestId } }
     );
   }
