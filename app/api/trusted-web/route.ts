@@ -20,7 +20,7 @@ const ALLOWED_SOURCE_DOMAINS = new Set([
   "pmc.ncbi.nlm.nih.gov",
   "bacb.com",
 ]);
-const RESPONSE_HEADERS = {
+const ERROR_RESPONSE_HEADERS = {
   "Content-Type": "text/plain; charset=utf-8",
   "Cache-Control": "private, no-store, max-age=0, must-revalidate",
   Pragma: "no-cache",
@@ -86,6 +86,38 @@ function sourceUrlAllowed(raw: unknown): boolean {
   }
 }
 
+
+const JSON_RESPONSE_HEADERS = {
+  "Content-Type": "application/json; charset=utf-8",
+  "Cache-Control": "private, no-store, max-age=0, must-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+  "X-Content-Type-Options": "nosniff",
+};
+
+function sourceText(value: unknown, maxLength: number): string {
+  return typeof value === "string" && value.trim().length <= maxLength
+    ? value.trim()
+    : "";
+}
+
+function normalizeSource(source: any) {
+  const url = sourceText(source?.url, 4_096);
+  const title = sourceText(source?.title, 500);
+  const authorityType = sourceText(source?.authority_type, 80);
+  const evidenceType = sourceText(source?.evidence_type, 80);
+  const sourceId = sourceText(source?.source_id, 120);
+  if (!url || !title || !authorityType || !evidenceType) return null;
+  if (!sourceUrlAllowed(url)) return null;
+  return {
+    url,
+    title,
+    authority_type: authorityType,
+    evidence_type: evidenceType,
+    source_id: sourceId,
+  };
+}
+
 function boundedRetryAfter(value: string | null): string {
   const seconds = Number(value);
   return Number.isInteger(seconds) && seconds >= 1 && seconds <= 300
@@ -100,7 +132,7 @@ export async function POST(req: Request) {
     if (!query) {
       return new Response("Invalid trusted web request", {
         status: 400,
-        headers: { ...RESPONSE_HEADERS, "x-request-id": rid },
+        headers: { ...ERROR_RESPONSE_HEADERS, "x-request-id": rid },
       });
     }
 
@@ -111,7 +143,7 @@ export async function POST(req: Request) {
         capability.status === 403 ? "capability required" : "unauthorized",
         {
           status: capability.status,
-          headers: { ...RESPONSE_HEADERS, "x-request-id": rid },
+          headers: { ...ERROR_RESPONSE_HEADERS, "x-request-id": rid },
         },
       );
     }
@@ -120,7 +152,7 @@ export async function POST(req: Request) {
     if (!UUID_RE.test(userId)) {
       return new Response("unauthorized", {
         status: 401,
-        headers: { ...RESPONSE_HEADERS, "x-request-id": rid },
+        headers: { ...ERROR_RESPONSE_HEADERS, "x-request-id": rid },
       });
     }
 
@@ -136,7 +168,7 @@ export async function POST(req: Request) {
     if (raw.length > 65_536) {
       return new Response("Trusted web response unavailable", {
         status: 502,
-        headers: { ...RESPONSE_HEADERS, "x-request-id": rid },
+        headers: { ...ERROR_RESPONSE_HEADERS, "x-request-id": rid },
       });
     }
     if (!upstream.ok) {
@@ -157,7 +189,7 @@ export async function POST(req: Request) {
         {
           status,
           headers: {
-            ...RESPONSE_HEADERS,
+            ...ERROR_RESPONSE_HEADERS,
             "x-request-id": rid,
             ...(status === 429
               ? {
@@ -177,13 +209,16 @@ export async function POST(req: Request) {
     } catch {
       return new Response("Trusted web response unavailable", {
         status: 502,
-        headers: { ...RESPONSE_HEADERS, "x-request-id": rid },
+        headers: { ...ERROR_RESPONSE_HEADERS, "x-request-id": rid },
       });
     }
     const answer = String(parsed?.answer || "").trim();
     const searchId = String(parsed?.search_id || "").trim();
     const topic = String(parsed?.topic || "").trim();
-    const sources = Array.isArray(parsed?.sources) ? parsed.sources : null;
+    const rawSources = Array.isArray(parsed?.sources) ? parsed.sources : null;
+    const sources = rawSources
+      ? rawSources.map(normalizeSource).filter(Boolean)
+      : null;
     if (
       !answer ||
       answer.length > 40_000 ||
@@ -192,26 +227,34 @@ export async function POST(req: Request) {
       topic.length > 100 ||
       typeof parsed?.searched !== "boolean" ||
       !sources ||
-      sources.length > 50 ||
-      !sources.every((source: any) => sourceUrlAllowed(source?.url))
+      sources.length > 50
     ) {
       return new Response("Trusted web response unavailable", {
         status: 502,
-        headers: { ...RESPONSE_HEADERS, "x-request-id": rid },
+        headers: { ...ERROR_RESPONSE_HEADERS, "x-request-id": rid },
       });
     }
 
-    return new Response(answer, {
-      status: 200,
-      headers: {
-        ...RESPONSE_HEADERS,
-        "x-request-id": rid,
-        "X-VS-Response-Runtime": "trusted_web_v1",
-        "X-VS-Search-Id": searchId,
-        "X-VS-Web-Topic": topic,
-        "X-VS-Web-Searched": parsed.searched ? "1" : "0",
+    return Response.json(
+      {
+        answer,
+        search_id: searchId,
+        topic,
+        searched: Boolean(parsed.searched),
+        sources,
       },
-    });
+      {
+        status: 200,
+        headers: {
+          ...JSON_RESPONSE_HEADERS,
+          "x-request-id": rid,
+          "X-VS-Response-Runtime": "trusted_web_v1",
+          "X-VS-Search-Id": searchId,
+          "X-VS-Web-Topic": topic,
+          "X-VS-Web-Searched": parsed.searched ? "1" : "0",
+        },
+      },
+    );
   } catch (error: unknown) {
     const timedOut = isAbortLike(error);
     return new Response(
@@ -220,7 +263,7 @@ export async function POST(req: Request) {
         : "Trusted web search unavailable",
       {
         status: timedOut ? 504 : 502,
-        headers: { ...RESPONSE_HEADERS, "x-request-id": rid },
+        headers: { ...ERROR_RESPONSE_HEADERS, "x-request-id": rid },
       },
     );
   }

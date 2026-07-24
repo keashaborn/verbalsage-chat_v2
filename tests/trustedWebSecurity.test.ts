@@ -49,7 +49,8 @@ test("BFF revalidates returned source domains", () => {
   assert.match(route, /parsed\.protocol !== "https:"/);
   assert.match(route, /parsed\.username/);
   assert.match(route, /parsed\.port/);
-  assert.match(route, /sources\.every/);
+  assert.match(route, /normalizeSource/);
+  assert.match(route, /sourceUrlAllowed\(url\)/);
 });
 
 test("composer search is explicit, off by default, and disabled for voice", () => {
@@ -63,4 +64,26 @@ test("composer search is explicit, off by default, and disabled for voice", () =
   assert.match(pane, /Trusted sources · Not saved to memory/);
   assert.match(pane, /setWebSearchEnabled\(false\)/);
   assert.doesNotMatch(pane, /localStorage.*webSearchEnabled/);
+});
+
+
+test("trusted web preserves structured source metadata for source cards", () => {
+  const route = source("app/api/trusted-web/route.ts");
+  const pane = source("components/threads/BrainsChatPane.tsx");
+  assert.match(route, /Response\.json/);
+  assert.match(route, /normalizeSource/);
+  assert.match(route, /authority_type/);
+  assert.match(route, /evidence_type/);
+  assert.match(pane, /type TrustedWebSource/);
+  assert.match(pane, /TrustedWebSourceCards/);
+  assert.match(pane, /trusted_web_sources/);
+  assert.match(pane, /official_public_guidance/);
+  assert.match(pane, /pubmed_research/);
+});
+
+test("trusted web source cards replace plain trailing source list", () => {
+  const pane = source("components/threads/BrainsChatPane.tsx");
+  assert.match(pane, /stripTrustedWebSourceList/);
+  assert.match(pane, /Sources:/);
+  assert.match(pane, /Trusted sources/);
 });

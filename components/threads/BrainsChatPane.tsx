@@ -56,6 +56,14 @@ import {
   splitForSpeech,
 } from "@/lib/voiceSpeech";
 
+type TrustedWebSource = {
+  url: string;
+  title: string;
+  authority_type: string;
+  evidence_type: string;
+  source_id?: string;
+};
+
 type ChatResult = {
   text: string;
   inspect: ResponseInspection | null;
@@ -64,6 +72,7 @@ type ChatResult = {
   requestId: string;
   responseTimings: ResponseStageTimings | null;
   trustedWeb: boolean;
+  trustedWebSources: TrustedWebSource[];
 };
 
 type ResponseStageTimings = {
@@ -119,7 +128,90 @@ type Msg = {
   inspect?: ResponseInspection | null;
   inspect_error?: string | null;
   web_search?: boolean;
+  trusted_web_sources?: TrustedWebSource[];
 };
+
+
+function normalizeTrustedWebSources(value: unknown): TrustedWebSource[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((source): TrustedWebSource | null => {
+      if (!source || typeof source !== "object") return null;
+      const record = source as Record<string, unknown>;
+      const url = String(record.url || "").trim();
+      const title = String(record.title || "").trim();
+      const authorityType = String(record.authority_type || "").trim();
+      const evidenceType = String(record.evidence_type || "").trim();
+      const sourceId = String(record.source_id || "").trim();
+      if (!url || !title || !authorityType || !evidenceType) return null;
+      return {
+        url,
+        title,
+        authority_type: authorityType,
+        evidence_type: evidenceType,
+        ...(sourceId ? { source_id: sourceId } : {}),
+      };
+    })
+    .filter((source): source is TrustedWebSource => Boolean(source));
+}
+
+function stripTrustedWebSourceList(markdown: string): string {
+  return String(markdown || "")
+    .replace(/\n\s*Sources:\s*\n(?:\s*[-*]\s+\[[^\]]+\]\([^\)]+\)\s*\n?)+\s*$/i, "")
+    .trim();
+}
+
+function trustedWebAuthorityLabel(source: TrustedWebSource): string {
+  if (source.authority_type === "official_public_guidance") return "NIH ODS";
+  if (source.authority_type === "pubmed_research") return "PubMed";
+  return "Trusted source";
+}
+
+function trustedWebEvidenceLabel(source: TrustedWebSource): string {
+  const value = source.evidence_type.replace(/_/g, " ").trim();
+  return value ? value.replace(/\b\w/g, (char) => char.toUpperCase()) : "Evidence";
+}
+
+function trustedWebSourceMeta(source: TrustedWebSource): string {
+  const parts = [trustedWebEvidenceLabel(source)];
+  if (source.source_id) parts.push(source.source_id);
+  return parts.join(" · ");
+}
+
+function TrustedWebSourceCards({ sources }: { sources?: TrustedWebSource[] }) {
+  const visible = (sources || []).filter((source) => source.url && source.title);
+  if (!visible.length) return null;
+  return (
+    <div className="mt-4 space-y-2" aria-label="Trusted web sources">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        Trusted sources
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {visible.map((source, index) => (
+          <a
+            key={`${source.url}:${index}`}
+            href={source.url}
+            target="_blank"
+            rel="noreferrer"
+            className="group block rounded-2xl border bg-muted/20 p-3 text-left transition hover:bg-muted/40"
+          >
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border bg-background px-2 py-0.5 text-[11px] font-medium">
+                {trustedWebAuthorityLabel(source)}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {trustedWebSourceMeta(source)}
+              </span>
+            </div>
+            <div className="line-clamp-2 text-xs font-medium leading-5 underline-offset-4 group-hover:underline">
+              {source.title}
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return authFetchJson<T>(url, init);
@@ -1100,8 +1192,24 @@ export function BrainsChatPane() {
     if (voiceTurnId && r.headers.get(VOICE_TURN_HEADER) !== voiceTurnId) {
       throw new Error("Voice turn correlation was not preserved by chat.");
     }
+    let trustedWebSources: TrustedWebSource[] = [];
+    let responseBodyText = responseText;
+    if (trustedWeb) {
+      try {
+        const trustedPayload = JSON.parse(responseText) as {
+          answer?: unknown;
+          sources?: unknown;
+        };
+        responseBodyText = stripTrustedWebSourceList(
+          String(trustedPayload.answer || ""),
+        );
+        trustedWebSources = normalizeTrustedWebSources(trustedPayload.sources);
+      } catch {
+        responseBodyText = stripTrustedWebSourceList(responseText);
+      }
+    }
     return {
-      text: responseText,
+      text: responseBodyText,
       answerId: String(r.headers.get("X-VS-Answer-Id") || ""),
       requestId: String(r.headers.get("x-request-id") || ""),
       responseTimings: decodeResponseTimingsHeader(
@@ -1109,6 +1217,7 @@ export function BrainsChatPane() {
       ),
       trustedWeb:
         r.headers.get("X-VS-Response-Runtime") === "trusted_web_v1",
+      trustedWebSources,
       ...decodeResponseInspectionHeader(
         r.headers.get("X-VS-Inspection"),
         r.headers.get("X-VS-Inspection-Status"),
@@ -1163,6 +1272,7 @@ export function BrainsChatPane() {
               inspect: reply.inspect,
               inspect_error: reply.inspect_error,
               web_search: reply.trustedWeb,
+              trusted_web_sources: reply.trustedWebSources,
             },
           ];
         }
@@ -1176,6 +1286,7 @@ export function BrainsChatPane() {
           inspect: reply.inspect,
           inspect_error: reply.inspect_error,
           web_search: reply.trustedWeb,
+          trusted_web_sources: reply.trustedWebSources,
         };
         return next;
       });
@@ -1399,6 +1510,7 @@ export function BrainsChatPane() {
             inspect: reply.inspect,
             inspect_error: reply.inspect_error,
             web_search: reply.trustedWeb,
+            trusted_web_sources: reply.trustedWebSources,
           },
         ];
         const idx = next.length - 1;
@@ -1682,7 +1794,14 @@ export function BrainsChatPane() {
                   }
                 >
                   {m.role === "assistant" ? (
-                    <MarkdownMessage>{m.content}</MarkdownMessage>
+                    <>
+                      <MarkdownMessage>{m.content}</MarkdownMessage>
+                      {m.web_search && (
+                        <TrustedWebSourceCards
+                          sources={m.trusted_web_sources}
+                        />
+                      )}
+                    </>
                   ) : (
                     m.content
                   )}
