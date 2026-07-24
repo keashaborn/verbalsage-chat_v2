@@ -302,3 +302,164 @@
     transform: none;
   }
 }
+
+@keyframes vs-realtime-orb-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes vs-realtime-orb-turn-reverse {
+  to {
+    transform: scale(0.965) rotate(-360deg);
+  }
+}
+
+@keyframes vs-realtime-orb-breathe {
+  0%,
+  100% {
+    transform: scale(0.985);
+  }
+  50% {
+    transform: scale(1.025);
+  }
+}
+
+@keyframes vs-realtime-orb-speak {
+  0%,
+  100% {
+    transform: scale(0.975);
+  }
+  42% {
+    transform: scale(1.045);
+  }
+  72% {
+    transform: scale(1.01);
+  }
+}
+
+@keyframes vs-realtime-orb-glow {
+  0%,
+  100% {
+    opacity: 0.035;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.085;
+    transform: scale(1.08);
+  }
+}
+
+.vs-realtime-orb {
+  position: relative;
+  width: min(65vw, 16rem);
+  aspect-ratio: 1;
+  isolation: isolate;
+  animation: vs-realtime-orb-breathe 5.6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.vs-realtime-orb__halo {
+  position: absolute;
+  inset: 6%;
+  z-index: -1;
+  border-radius: 9999px;
+  background: currentColor;
+  filter: blur(2rem);
+  opacity: 0.05;
+  animation: vs-realtime-orb-glow 4.8s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.vs-realtime-orb__symbol {
+  position: absolute;
+  inset: 0;
+  background: center / contain no-repeat
+    url("/brand/lifeswitch/voice-symbol-dark-1024.png");
+  will-change: transform, opacity;
+}
+
+.graphite .vs-realtime-orb__symbol,
+.dark .vs-realtime-orb__symbol {
+  background-image: url("/brand/lifeswitch/voice-symbol-light-1024.png");
+}
+
+.vs-realtime-orb__symbol--front {
+  opacity: 0.72;
+  animation: vs-realtime-orb-turn 18s linear infinite;
+}
+
+.vs-realtime-orb__symbol--back {
+  opacity: 0.14;
+  transform: scale(0.965);
+  animation: vs-realtime-orb-turn-reverse 24s linear infinite;
+}
+
+.vs-realtime-orb[data-realtime-state="connecting"] {
+  animation-duration: 4.8s;
+}
+
+.vs-realtime-orb[data-realtime-state="connecting"]
+  .vs-realtime-orb__symbol--front {
+  animation-duration: 12s;
+}
+
+.vs-realtime-orb[data-realtime-state="processing"] {
+  animation-duration: 2.4s;
+}
+
+.vs-realtime-orb[data-realtime-state="processing"]
+  .vs-realtime-orb__symbol--front {
+  animation-duration: 4.5s;
+}
+
+.vs-realtime-orb[data-realtime-state="processing"]
+  .vs-realtime-orb__symbol--back {
+  animation-duration: 6.5s;
+}
+
+.vs-realtime-orb[data-realtime-state="processing"] .vs-realtime-orb__halo {
+  animation-duration: 1.8s;
+}
+
+.vs-realtime-orb[data-realtime-state="speaking"] {
+  animation-name: vs-realtime-orb-speak;
+  animation-duration: 1.8s;
+}
+
+.vs-realtime-orb[data-realtime-state="speaking"]
+  .vs-realtime-orb__symbol--front {
+  animation-duration: 8s;
+}
+
+.vs-realtime-orb[data-realtime-state="speaking"]
+  .vs-realtime-orb__symbol--back {
+  animation-duration: 11s;
+}
+
+.vs-realtime-orb[data-realtime-state="speaking"] .vs-realtime-orb__halo {
+  animation-duration: 1.8s;
+}
+
+.vs-realtime-orb[data-realtime-state="error"],
+.vs-realtime-orb[data-realtime-state="error"] .vs-realtime-orb__halo,
+.vs-realtime-orb[data-realtime-state="error"] .vs-realtime-orb__symbol {
+  animation: none;
+}
+
+.vs-realtime-orb[data-realtime-state="error"] .vs-realtime-orb__symbol {
+  opacity: 0.38;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vs-realtime-orb,
+  .vs-realtime-orb__halo,
+  .vs-realtime-orb__symbol {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .vs-realtime-orb__symbol--back {
+    display: none;
+  }
+}

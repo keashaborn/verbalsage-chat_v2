@@ -32,9 +32,24 @@ test("settings keep governed voice default and expose the authorized preview", (
 
 test("preview overlay hides transcript content", () => {
   const overlay = source("components/voice/RealtimeVoiceOverlay.tsx");
-  assert.match(overlay, /voice-symbol-light-1024\.png/);
+  assert.match(overlay, /data-realtime-state=\{state\}/);
+  assert.match(overlay, /vs-realtime-orb__symbol--front/);
+  assert.match(overlay, /vs-realtime-orb__symbol--back/);
   assert.doesNotMatch(overlay, /transcript\s*:/i);
   assert.match(overlay, /AI-generated voice/);
+});
+
+test("preview overlay motion is state-aware and accessibility bounded", () => {
+  const styles = source("app/globals.css");
+  assert.match(styles, /@keyframes vs-realtime-orb-turn/);
+  assert.match(styles, /@keyframes vs-realtime-orb-speak/);
+  assert.match(styles, /data-realtime-state="connecting"/);
+  assert.match(styles, /data-realtime-state="processing"/);
+  assert.match(styles, /data-realtime-state="speaking"/);
+  assert.match(
+    styles,
+    /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.vs-realtime-orb/,
+  );
 });
 
 test("browser route requires fresh capability and forwards only to Brains", () => {

@@ -61,20 +61,13 @@ export function RealtimeVoiceOverlay({
 
       <div className="flex flex-1 flex-col items-center justify-center gap-8">
         <div
-          className={[
-            "relative grid h-64 w-64 max-w-[65vw] place-items-center rounded-full",
-            state === "listening" || state === "speaking"
-              ? "motion-safe:animate-pulse"
-              : "",
-          ].join(" ")}
+          className="vs-realtime-orb"
+          data-realtime-state={state}
           aria-hidden="true"
         >
-          <div className="absolute inset-0 rounded-full bg-foreground/[0.035] blur-2xl" />
-          <img
-            src="/brand/lifeswitch/voice-symbol-light-1024.png"
-            alt=""
-            className="relative h-full w-full object-contain opacity-70 dark:opacity-85"
-          />
+          <div className="vs-realtime-orb__halo" />
+          <div className="vs-realtime-orb__symbol vs-realtime-orb__symbol--back" />
+          <div className="vs-realtime-orb__symbol vs-realtime-orb__symbol--front" />
         </div>
 
         <div className="min-h-16 text-center">
