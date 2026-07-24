@@ -5,6 +5,10 @@ import { supabase } from "@/lib/supabaseClient";
 import { authFetch } from "@/lib/authFetch";
 import { applyTheme, normalizeThemeValue } from "@/lib/theme";
 import {
+  cacheVoiceMode,
+  voiceModeFromUserMetadata,
+} from "@/lib/voiceMode";
+import {
   VOICE_PRIVACY_NOTICE_STORAGE_KEY,
   VOICE_PRIVACY_NOTICE_VERSION,
 } from "@/lib/voicePrivacy";
@@ -88,6 +92,8 @@ function applyProfileCookiesFromSession(session: any): boolean {
   try {
     const md: any = session?.user?.user_metadata || {};
     applyThemeFromMetadata(md);
+    const cloudVoiceMode = voiceModeFromUserMetadata(md);
+    if (cloudVoiceMode) cacheVoiceMode(cloudVoiceMode);
 
     // Voice preferences are independent of the versioned profile-cookie bundle.
     if (md.vs_voice_engine === "openai_tts") {

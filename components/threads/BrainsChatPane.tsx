@@ -32,9 +32,12 @@ import {
 import { VOICE_TURN_HEADER } from "@/lib/voiceObservability";
 import { VOICE_SESSION_HEADER } from "@/lib/voiceSession";
 import {
+  cacheVoiceMode,
   DEFAULT_VOICE_MODE,
   normalizeVoiceMode,
+  VOICE_MODE_CHANGED_EVENT,
   VOICE_MODE_STORAGE_KEY,
+  voiceModeFromUserMetadata,
   type VoiceMode,
 } from "@/lib/voiceMode";
 import {
@@ -375,9 +378,11 @@ export function BrainsChatPane() {
     syncVoiceMode();
     window.addEventListener("storage", syncVoiceMode);
     window.addEventListener("focus", syncVoiceMode);
+    window.addEventListener(VOICE_MODE_CHANGED_EVENT, syncVoiceMode);
     return () => {
       window.removeEventListener("storage", syncVoiceMode);
       window.removeEventListener("focus", syncVoiceMode);
+      window.removeEventListener(VOICE_MODE_CHANGED_EVENT, syncVoiceMode);
     };
   }, []);
 
@@ -388,11 +393,18 @@ export function BrainsChatPane() {
       try {
         const { data } = await supabase.auth.getUser();
         const role = (data?.user as any)?.app_metadata?.role;
+        const cloudVoiceMode = voiceModeFromUserMetadata(
+          (data?.user as any)?.user_metadata,
+        );
         const nextIsAdmin =
           role === "owner" || role === "admin" || role === "developer";
         if (!mounted) return;
 
         setIsAdmin(nextIsAdmin);
+        if (cloudVoiceMode) {
+          cacheVoiceMode(cloudVoiceMode);
+          setVoiceMode(cloudVoiceMode);
+        }
 
         // Clear stale Inspector payloads when switching from an admin account
         // to a non-admin account in the same browser session.
@@ -424,10 +436,12 @@ export function BrainsChatPane() {
     const { data: sub } = supabase.auth.onAuthStateChange(() => {
       void refreshAdminFlag();
     });
+    window.addEventListener("focus", refreshAdminFlag);
 
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
+      window.removeEventListener("focus", refreshAdminFlag);
     };
   }, []);
 

@@ -21,6 +21,8 @@ test("preview capability is owner/admin/developer only", () => {
 test("settings keep governed voice default and expose the authorized preview", () => {
   const panel = source("components/admin/VoicePanel.tsx");
   const modes = source("lib/voiceMode.ts");
+  const authGate = source("components/auth/AuthGate.tsx");
+  const chat = source("components/threads/BrainsChatPane.tsx");
   assert.match(panel, /Conversation mode/);
   assert.match(modes, /Governed voice — Recommended/);
   assert.match(modes, /Realtime conversation — Preview/);
@@ -28,6 +30,11 @@ test("settings keep governed voice default and expose the authorized preview", (
   assert.match(panel, /VOICE_MODE_STORAGE_KEY/);
   assert.match(panel, /normalizeVoiceMode/);
   assert.match(panel, /disabled=\{!option\.enabled\}/);
+  assert.match(panel, /updateUser\(\{\s*data:\s*\{\s*vs_voice_mode:/);
+  assert.match(authGate, /voiceModeFromUserMetadata/);
+  assert.match(chat, /voiceModeFromUserMetadata/);
+  assert.match(chat, /app_metadata\?\.role/);
+  assert.match(modes, /VOICE_MODE_CHANGED_EVENT/);
 });
 
 test("preview overlay hides transcript content", () => {
@@ -119,6 +126,13 @@ test("preview barge-in is local, sustained, and echo guarded", () => {
   const hook = source("hooks/useRealtimeVoicePreview.ts");
   assert.match(hook, /BARGE_IN_START_RMS\s*=\s*0\.06/);
   assert.match(hook, /BARGE_IN_HOLD_MS\s*=\s*180/);
+  assert.match(hook, /NORMAL_END_SILENCE_MS\s*=\s*1_200/);
+  assert.match(hook, /BARGE_IN_END_SILENCE_MS\s*=\s*1_800/);
+  assert.match(hook, /turnStartedAsBargeInRef/);
+  assert.match(
+    hook,
+    /turnStartedAsBargeInRef\.current\s*\?\s*BARGE_IN_END_SILENCE_MS\s*:\s*NORMAL_END_SILENCE_MS/,
+  );
   assert.match(hook, /echoCancellation:\s*true/);
   assert.match(hook, /assistantSpeakingRef/);
   assert.match(hook, /onSpeechStartRef\.current\?\.\(\)/);
