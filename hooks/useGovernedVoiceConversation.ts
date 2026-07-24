@@ -7,6 +7,7 @@ import {
   BROWSER_TRANSCRIPTION_TIMEOUT_MS,
   withRequestDeadline,
 } from "@/lib/requestDeadline";
+import { voiceErrorMessage } from "@/lib/voiceError";
 
 export type GovernedVoiceConversationStatus =
   | "idle"
@@ -406,9 +407,7 @@ export function useGovernedVoiceConversation() {
           } catch {
             // Operational telemetry must not replace the voice error.
           }
-          failSession(
-            String(error?.message || error || "Continuous voice failed."),
-          );
+          failSession(voiceErrorMessage(error, "Continuous voice failed."));
         }
       };
 
@@ -489,9 +488,7 @@ export function useGovernedVoiceConversation() {
       } catch (error: any) {
         startingRef.current = false;
         if (error?.name === "AbortError") return;
-        const message = String(
-          error?.message || error || "Continuous voice failed.",
-        );
+        const message = voiceErrorMessage(error, "Continuous voice failed.");
         stop();
         setLastError(message);
         setStatus("error");

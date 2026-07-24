@@ -222,10 +222,10 @@ export function BrainsChatPane() {
               : voiceStatus === "responding"
                 ? "Preparing and speaking reply…"
                 : voiceHasError
-                  ? governedVoice.lastError
-                    ? `Voice error: ${governedVoice.lastError}`
-                    : "Voice error"
+                  ? "Voice unavailable"
                   : "Voice off";
+  const visibleRequestError =
+    requestError || (voiceHasError ? governedVoice.lastError : "");
   const didAutoScrollForThreadRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
@@ -1848,16 +1848,19 @@ export function BrainsChatPane() {
             </div>
           )}
           <div className="rounded-3xl border bg-background px-4 py-3">
-            {requestError && (
+            {visibleRequestError && (
               <div
                 className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs"
                 role="alert"
               >
-                <span>{requestError}</span>
+                <span>{visibleRequestError}</span>
                 <button
                   type="button"
                   className="shrink-0 rounded-md border px-2 py-1"
-                  onClick={() => setRequestError("")}
+                  onClick={() => {
+                    setRequestError("");
+                    if (voiceHasError) governedVoice.stop();
+                  }}
                 >
                   Dismiss
                 </button>
