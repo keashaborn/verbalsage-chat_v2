@@ -4,9 +4,11 @@ import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch, authFetchJson } from "@/lib/authFetch";
 import {
+  ArrowUp,
   ChevronDown,
   Copy,
   RefreshCw,
+  X,
   Volume2,
   Loader2,
   Pause,
@@ -205,15 +207,6 @@ export function BrainsChatPane() {
     voiceStatus === "responding";
   const voiceHasError = voiceStatus === "error";
   const voiceConversationEpochRef = React.useRef(0);
-
-  const voiceButtonLabel =
-    voiceStatus === "requesting"
-      ? "Requesting microphone…"
-      : voiceStatus === "connecting"
-        ? "Connecting…"
-        : voiceIsActive
-          ? "End conversation"
-          : "Talk";
 
   const voiceStatusLabel =
     voiceStatus === "requesting"
@@ -1188,17 +1181,28 @@ export function BrainsChatPane() {
   }
 
   function handleVoiceButton() {
-    if (voiceIsActive) {
+    if (voiceIsActive || voiceIsConnecting) {
       void stopListeningAndRespond();
       return;
     }
-    if (voiceIsConnecting) return;
     if (!hasAcceptedVoicePrivacyNotice()) {
       setVoicePrivacyError("");
       setVoicePrivacyOpen(true);
       return;
     }
     void startListening();
+  }
+
+  async function handleComposerAction() {
+    const composerValue = editingMessageId ? editingText : text;
+    if (composerValue.trim()) {
+      if (voiceIsActive || voiceIsConnecting) {
+        await stopListeningAndRespond();
+      }
+      await sendMessage();
+      return;
+    }
+    handleVoiceButton();
   }
 
   async function acceptVoicePrivacyNotice() {
@@ -1516,8 +1520,27 @@ export function BrainsChatPane() {
 
   const lastAIdx = lastAssistantIndex(msgs);
 
+  const composerValue = editingMessageId ? editingText : text;
+  const composerHasText = composerValue.trim().length > 0;
+  const voiceSessionVisible = voiceIsConnecting || voiceIsActive;
+  const voicePresentationState =
+    playbackState?.status === "playing"
+      ? "assistant-speaking"
+      : playbackState?.status === "paused"
+        ? "paused"
+        : playbackState?.status === "loading"
+          ? "processing"
+          : voiceStatus;
+  const composerActionLabel = sending
+    ? "Sending message"
+    : composerHasText
+      ? "Send message"
+      : voiceSessionVisible
+        ? "End voice conversation"
+        : "Start voice conversation";
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       {/* keep-awake video (hidden) */}
       <video
         ref={keepAwakeVideoRef}
@@ -1535,6 +1558,23 @@ export function BrainsChatPane() {
           pointerEvents: "none",
         }}
       />
+
+      {voiceSessionVisible && (
+        <div
+          className="vs-voice-stage pointer-events-none absolute inset-x-0 top-10 bottom-40 z-[1] flex items-center justify-center overflow-hidden px-8"
+          data-voice-state={voicePresentationState}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <div className="flex max-w-full flex-col items-center">
+            <div className="vs-voice-watermark" aria-hidden="true" />
+            <span className="mt-3 max-w-[20rem] truncate rounded-full border bg-background/75 px-3 py-1 text-center text-xs text-muted-foreground shadow-sm backdrop-blur">
+              {voiceStatusLabel}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div
         ref={scrollRef}
@@ -1838,28 +1878,12 @@ export function BrainsChatPane() {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  sendMessage();
+                  void handleComposerAction();
                 }
               }}
             />
             <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={handleVoiceButton}
-                disabled={voiceIsConnecting}
-                className={[
-                  "rounded-xl border px-3 py-2 text-xs disabled:opacity-50",
-                  voiceIsActive || voiceIsConnecting
-                    ? "bg-muted"
-                    : "bg-background",
-                ].join(" ")}
-                aria-label={voiceButtonLabel}
-                title={voiceStatusLabel}
-              >
-                {voiceButtonLabel}
-              </button>
-
-              <span className="text-[11px] text-muted-foreground">
+              <span className="min-w-0 flex-1 text-[11px] text-muted-foreground">
                 OpenAI transcription · AI-generated reply · {voiceStatusLabel}
                 {governedVoice.partialTranscript
                   ? ` · ${governedVoice.partialTranscript}`
@@ -1867,17 +1891,35 @@ export function BrainsChatPane() {
               </span>
 
               <button
-                onClick={() => sendMessage()}
-                disabled={
-                  sending || ttsLoadingIdx != null || ttsPlayingIdx != null
-                }
-                className="rounded-xl bg-muted px-3 py-2 text-xs disabled:opacity-50"
+                type="button"
+                data-contextual-composer-action
+                onClick={() => void handleComposerAction()}
+                disabled={sending}
+                className={[
+                  "relative inline-flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border transition-[background-color,color,transform] active:scale-95 disabled:opacity-50",
+                  composerHasText || voiceSessionVisible
+                    ? "border-foreground bg-foreground text-background"
+                    : "bg-background text-foreground",
+                ].join(" ")}
+                aria-label={composerActionLabel}
+                title={composerActionLabel}
               >
-                {sending
-                  ? "Sending…"
-                  : ttsLoadingIdx != null || ttsPlayingIdx != null
-                    ? "Speaking…"
-                    : "Send"}
+                {sending ? (
+                  <Loader2
+                    className="h-5 w-5 animate-spin"
+                    aria-hidden="true"
+                  />
+                ) : composerHasText ? (
+                  <ArrowUp className="h-5 w-5" aria-hidden="true" />
+                ) : voiceSessionVisible ? (
+                  <X className="h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <span
+                    className="vs-voice-action-symbol h-8 w-8"
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="sr-only">{composerActionLabel}</span>
               </button>
             </div>
           </div>

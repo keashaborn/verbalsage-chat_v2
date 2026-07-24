@@ -41,7 +41,8 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --animate-shimmer: shimmer-sweep var(--shimmer-duration, 1000ms) linear infinite both;
+  --animate-shimmer: shimmer-sweep var(--shimmer-duration, 1000ms) linear
+    infinite both;
 
   @keyframes shimmer-sweep {
     from {
@@ -120,14 +121,14 @@
 
 .graphite {
   color-scheme: dark;
-  --background: oklch(0.20 0.003 285.823);
+  --background: oklch(0.2 0.003 285.823);
   --foreground: oklch(0.91 0.002 285.823);
   --card: oklch(0.255 0.004 285.823);
   --card-foreground: oklch(0.91 0.002 285.823);
   --popover: oklch(0.255 0.004 285.823);
   --popover-foreground: oklch(0.91 0.002 285.823);
   --primary: oklch(0.88 0.004 286.32);
-  --primary-foreground: oklch(0.20 0.004 285.823);
+  --primary-foreground: oklch(0.2 0.004 285.823);
   --secondary: oklch(0.32 0.004 285.823);
   --secondary-foreground: oklch(0.91 0.002 285.823);
   --muted: oklch(0.32 0.004 285.823);
@@ -140,7 +141,7 @@
   --sidebar: oklch(0.23 0.003 285.823);
   --sidebar-foreground: oklch(0.91 0.002 285.823);
   --sidebar-primary: oklch(0.88 0.004 286.32);
-  --sidebar-primary-foreground: oklch(0.20 0.004 285.823);
+  --sidebar-primary-foreground: oklch(0.2 0.004 285.823);
   --sidebar-accent: oklch(0.32 0.004 285.823);
   --sidebar-accent-foreground: oklch(0.91 0.002 285.823);
   --sidebar-border: oklch(1 0 0 / 18%);
@@ -180,5 +181,124 @@
     min-height: 100dvh;
     /* stabilize viewport height */
     @apply bg-background text-foreground;
+  }
+}
+
+@keyframes vs-voice-breathe {
+  0%,
+  100% {
+    opacity: var(--vs-voice-opacity-low);
+    transform: scale(0.975) rotate(-1deg);
+  }
+  50% {
+    opacity: var(--vs-voice-opacity);
+    transform: scale(1.025) rotate(1deg);
+  }
+}
+
+@keyframes vs-voice-hearing {
+  0%,
+  100% {
+    opacity: var(--vs-voice-opacity-low);
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: var(--vs-voice-opacity-high);
+    transform: scale(1.045);
+  }
+}
+
+@keyframes vs-voice-processing {
+  0% {
+    opacity: var(--vs-voice-opacity-low);
+    transform: scale(0.99) rotate(0deg);
+  }
+  50% {
+    opacity: var(--vs-voice-opacity);
+    transform: scale(1.015) rotate(180deg);
+  }
+  100% {
+    opacity: var(--vs-voice-opacity-low);
+    transform: scale(0.99) rotate(360deg);
+  }
+}
+
+@keyframes vs-voice-reply {
+  0%,
+  100% {
+    opacity: var(--vs-voice-opacity-low);
+    transform: scale(0.985) rotate(-0.75deg);
+  }
+  35% {
+    opacity: var(--vs-voice-opacity-high);
+    transform: scale(1.035) rotate(0.5deg);
+  }
+  70% {
+    opacity: var(--vs-voice-opacity);
+    transform: scale(1.005) rotate(0deg);
+  }
+}
+
+.vs-voice-stage {
+  --vs-voice-opacity-low: 0.072;
+  --vs-voice-opacity: 0.1;
+  --vs-voice-opacity-high: 0.12;
+}
+
+.graphite .vs-voice-stage,
+.dark .vs-voice-stage {
+  --vs-voice-opacity-low: 0.13;
+  --vs-voice-opacity: 0.18;
+  --vs-voice-opacity-high: 0.22;
+}
+
+.vs-voice-watermark {
+  width: min(68vw, 22rem);
+  aspect-ratio: 1;
+  background: center / contain no-repeat
+    url("/brand/lifeswitch/voice-symbol-dark-1024.png");
+  animation: vs-voice-breathe 5.5s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.graphite .vs-voice-watermark,
+.dark .vs-voice-watermark {
+  background-image: url("/brand/lifeswitch/voice-symbol-light-1024.png");
+}
+
+[data-voice-state="speaking"] .vs-voice-watermark {
+  animation: vs-voice-hearing 1.25s ease-in-out infinite;
+}
+
+[data-voice-state="transcribing"] .vs-voice-watermark,
+[data-voice-state="responding"] .vs-voice-watermark,
+[data-voice-state="processing"] .vs-voice-watermark {
+  animation: vs-voice-processing 9s linear infinite;
+}
+
+[data-voice-state="assistant-speaking"] .vs-voice-watermark {
+  animation: vs-voice-reply 1.8s ease-in-out infinite;
+}
+
+[data-voice-state="paused"] .vs-voice-watermark {
+  animation-play-state: paused;
+}
+
+.vs-voice-action-symbol {
+  display: block;
+  background: center / contain no-repeat
+    url("/brand/lifeswitch/symbol-dark-48.png");
+}
+
+.graphite .vs-voice-action-symbol,
+.dark .vs-voice-action-symbol {
+  background-image: url("/brand/lifeswitch/symbol-light-128.png");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vs-voice-watermark {
+    animation: none !important;
+    opacity: var(--vs-voice-opacity);
+    transform: none;
   }
 }
