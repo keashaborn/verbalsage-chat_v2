@@ -214,10 +214,10 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "own_account",
     access: "use",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: ["owner", "admin", "developer"],
     backendEnforced: true,
     notes:
-      "Requires a fresh Supabase user check, the Verbal Sage BFF, the Brains service boundary, actor/owner matching, and the backend kill switch.",
+      "Canary-limited by role. Requires a fresh Supabase user check, the Verbal Sage BFF, the Brains service boundary, actor/owner matching, and the backend kill switch.",
   },
 
   // Memory
