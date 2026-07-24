@@ -10,6 +10,13 @@ function source(overrides: Record<string, unknown> = {}) {
     contract_version: "voice_slo_v1",
     overall_status: "pass",
     latest_sample_at: "2026-07-23T12:00:00Z",
+    current: {
+      status: "pass",
+      consecutive_successes: 30,
+      latest_failure_at: null,
+      latest_failure_stage: null,
+      latest_failure_code: null,
+    },
     window_days: 30,
     minimum_samples: 30,
     sample: {
@@ -65,6 +72,36 @@ test("returns healthy only when SLO and sample freshness pass", () => {
   assert.equal(result.freshness.status, "pass");
   assert.equal(result.freshness.age_minutes, 60);
   assert.equal(result.sample.completed, 30);
+  assert.equal(result.current.consecutive_successes, 30);
+});
+
+test("keeps current health distinct from retained historical failures", () => {
+  const result = buildAdminVoiceHealth(
+    source({
+      overall_status: "fail",
+      latest_sample_at: "2026-07-24T21:45:24Z",
+      current: {
+        status: "pass",
+        consecutive_successes: 1,
+        latest_failure_at: "2026-07-24T21:02:00Z",
+        latest_failure_stage: "tts",
+        latest_failure_code: null,
+      },
+      sample: {
+        total: 64,
+        evaluated_turns: 64,
+        completed: 57,
+        failed: 7,
+        cancelled: 0,
+      },
+    }),
+    Date.parse("2026-07-24T22:00:00Z"),
+  );
+
+  assert.equal(result.status, "pass");
+  assert.equal(result.source_status, "fail");
+  assert.equal(result.current.consecutive_successes, 1);
+  assert.equal(result.current.latest_failure_stage, "tts");
 });
 
 test("marks a passing historical SLO unhealthy when the canary is stale", () => {

@@ -22,6 +22,13 @@ export type AdminVoiceHealth = {
   ok: true;
   status: VoiceHealthStatus;
   source_status: VoiceHealthStatus;
+  current: {
+    status: VoiceHealthStatus;
+    consecutive_successes: number;
+    latest_failure_at: string | null;
+    latest_failure_stage: string | null;
+    latest_failure_code: string | null;
+  };
   checked_at: string;
   latest_sample_at: string | null;
   window_days: number;
@@ -78,6 +85,31 @@ function finiteNumber(value: unknown, nullable = false): number | null {
   return value;
 }
 
+function nullableTimestamp(value: unknown, label: string): string | null {
+  if (value === null) return null;
+  if (typeof value !== "string") {
+    throw new Error(`invalid ${label} timestamp`);
+  }
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`invalid ${label} timestamp`);
+  }
+  return new Date(parsed).toISOString();
+}
+
+function nullableLabel(value: unknown): string | null {
+  if (value === null) return null;
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.length > 120 ||
+    /[\u0000-\u001f\u007f]/u.test(value)
+  ) {
+    throw new Error("invalid voice health failure label");
+  }
+  return value;
+}
+
 export function buildAdminVoiceHealth(
   raw: unknown,
   nowMs = Date.now(),
@@ -88,6 +120,29 @@ export function buildAdminVoiceHealth(
   }
 
   const sourceStatus = status(source.overall_status);
+  const currentSource =
+    source.current === undefined ? null : record(source.current);
+  const currentStatus = currentSource
+    ? status(currentSource.status)
+    : sourceStatus;
+  const current = {
+    status: currentStatus,
+    consecutive_successes: currentSource
+      ? count(currentSource.consecutive_successes)
+      : 0,
+    latest_failure_at: currentSource
+      ? nullableTimestamp(
+          currentSource.latest_failure_at,
+          "latest voice failure",
+        )
+      : null,
+    latest_failure_stage: currentSource
+      ? nullableLabel(currentSource.latest_failure_stage)
+      : null,
+    latest_failure_code: currentSource
+      ? nullableLabel(currentSource.latest_failure_code)
+      : null,
+  };
   const sampleSource = record(source.sample);
   const checksSource = record(source.checks);
   const checks = {} as Record<VoiceHealthCheckKey, VoiceHealthCheck>;
@@ -126,9 +181,9 @@ export function buildAdminVoiceHealth(
   }
 
   const overallStatus: VoiceHealthStatus =
-    sourceStatus === "fail" || freshnessStatus === "fail"
+    currentStatus === "fail" || freshnessStatus === "fail"
       ? "fail"
-      : sourceStatus === "insufficient_data" ||
+      : currentStatus === "insufficient_data" ||
           freshnessStatus === "insufficient_data"
         ? "insufficient_data"
         : "pass";
@@ -137,6 +192,7 @@ export function buildAdminVoiceHealth(
     ok: true,
     status: overallStatus,
     source_status: sourceStatus,
+    current,
     checked_at: new Date(nowMs).toISOString(),
     latest_sample_at: latestSampleAt,
     window_days: count(source.window_days),

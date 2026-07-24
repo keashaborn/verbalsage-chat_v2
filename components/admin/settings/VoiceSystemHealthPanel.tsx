@@ -46,6 +46,12 @@ function statusLabel(status: VoiceHealthStatus): string {
   return "Collecting data";
 }
 
+function historicalStatusLabel(status: VoiceHealthStatus): string {
+  if (status === "pass") return "SLO met";
+  if (status === "fail") return "Below objective";
+  return "Collecting data";
+}
+
 function statusClass(status: VoiceHealthStatus): string {
   if (status === "pass") {
     return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
@@ -112,8 +118,8 @@ export function VoiceSystemHealthPanel() {
         <div className="min-w-0">
           <div className="text-sm font-semibold">Voice System Health</div>
           <div className="mt-1 text-xs text-muted-foreground">
-            Governed voice reliability and latency from the hourly synthetic
-            check.
+            Current governed-voice availability and retained 30-day reliability
+            history.
           </div>
         </div>
         <button
@@ -135,18 +141,35 @@ export function VoiceSystemHealthPanel() {
       {health ? (
         <div className="mt-3 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium">Current canary</span>
             <span
               className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClass(health.status)}`}
             >
               {statusLabel(health.status)}
             </span>
             <span className="text-xs text-muted-foreground">
-              {health.sample.completed} of {health.sample.evaluated_turns}{" "}
-              evaluated turns succeeded
+              {health.current.consecutive_successes} consecutive successful{" "}
+              {health.current.consecutive_successes === 1 ? "check" : "checks"}
             </span>
           </div>
 
           <div className="overflow-hidden rounded-lg border">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
+              <div>
+                <div className="text-xs font-semibold">
+                  Historical {health.window_days}-day SLO
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  {health.sample.completed} of{" "}
+                  {health.sample.evaluated_turns} evaluated turns succeeded
+                </div>
+              </div>
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${statusClass(health.source_status)}`}
+              >
+                {historicalStatusLabel(health.source_status)}
+              </span>
+            </div>
             <div className="divide-y">
               {CHECK_ROWS.map((row) => {
                 const check = health.checks[row.key];
@@ -197,6 +220,20 @@ export function VoiceSystemHealthPanel() {
                   : `${health.freshness.age_minutes} minutes old`}
               </div>
             </div>
+            {health.current.latest_failure_at ? (
+              <div className="rounded-lg border p-2 sm:col-span-2">
+                <div className="font-medium">Last retained failure</div>
+                <div className="mt-0.5 text-muted-foreground">
+                  {timeLabel(health.current.latest_failure_at)}
+                  {health.current.latest_failure_stage
+                    ? ` · ${health.current.latest_failure_stage}`
+                    : ""}
+                  {health.current.latest_failure_code
+                    ? ` · ${health.current.latest_failure_code}`
+                    : ""}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="text-[11px] text-muted-foreground">
