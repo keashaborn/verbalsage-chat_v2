@@ -1316,7 +1316,7 @@ export function BrainsChatPane() {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`,
               },
-              body: JSON.stringify({ input: msg }),
+              body: "{}",
             },
           );
 
