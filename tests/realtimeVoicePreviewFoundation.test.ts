@@ -18,12 +18,15 @@ test("preview capability is owner/admin/developer only", () => {
   );
 });
 
-test("settings keep governed voice recommended and preview disabled", () => {
+test("settings keep governed voice default and expose the authorized preview", () => {
   const panel = source("components/admin/VoicePanel.tsx");
   const modes = source("lib/voiceMode.ts");
   assert.match(panel, /Conversation mode/);
   assert.match(modes, /Governed voice — Recommended/);
   assert.match(modes, /Realtime conversation — Preview/);
+  assert.match(modes, /value:\s*"realtime_preview"[\s\S]*?enabled:\s*true/);
+  assert.match(panel, /VOICE_MODE_STORAGE_KEY/);
+  assert.match(panel, /normalizeVoiceMode/);
   assert.match(panel, /disabled=\{!option\.enabled\}/);
 });
 
@@ -82,9 +85,29 @@ test("preview controller uses WebRTC audio but only governed BFF answers", () =>
   assert.doesNotMatch(hook, /\/vantage\/query/);
 });
 
-test("production chat remains on the governed hook", () => {
+test("chat selects preview explicitly while governed voice remains available", () => {
   const chat = source("components/threads/BrainsChatPane.tsx");
   assert.match(chat, /useGovernedVoiceConversation/);
+  assert.match(chat, /useRealtimeVoicePreview/);
+  assert.match(chat, /voiceMode === "realtime_preview"\s*&&\s*isAdmin/);
+  assert.match(chat, /RealtimeVoiceOverlay/);
+  assert.match(chat, /requestAutoTitle\(tid\)/);
+  assert.match(chat, /turn\.voiceSessionId/);
+  assert.match(chat, /realtimeVoice\.setAssistantSpeaking\(true\)/);
+  assert.match(chat, /onSpeechStart:/);
+  assert.match(chat, /stopTTS\(\)/);
   assert.doesNotMatch(chat, /useStreamingVoicePreview/);
-  assert.doesNotMatch(chat, /RealtimeVoiceOverlay/);
+  assert.doesNotMatch(chat, /\/api\/chat.*realtime/i);
+});
+
+test("preview barge-in is local, sustained, and echo guarded", () => {
+  const hook = source("hooks/useRealtimeVoicePreview.ts");
+  assert.match(hook, /BARGE_IN_START_RMS\s*=\s*0\.06/);
+  assert.match(hook, /BARGE_IN_HOLD_MS\s*=\s*180/);
+  assert.match(hook, /echoCancellation:\s*true/);
+  assert.match(hook, /assistantSpeakingRef/);
+  assert.match(hook, /onSpeechStartRef\.current\?\.\(\)/);
+  assert.match(hook, /setAssistantSpeaking/);
+  assert.doesNotMatch(hook, /response\.cancel/);
+  assert.doesNotMatch(hook, /conversation\.item\.truncate/);
 });

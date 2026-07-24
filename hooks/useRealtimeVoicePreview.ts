@@ -20,6 +20,7 @@ export type RealtimeVoicePreviewTurn = {
   answer: string;
   answerId: string;
   voiceTurnId: string;
+  voiceSessionId: string;
   requestId: string;
   sequence: number;
 };
@@ -27,6 +28,7 @@ export type RealtimeVoicePreviewTurn = {
 type StartOptions = {
   threadId: string;
   onResponse: (turn: RealtimeVoicePreviewTurn) => void | Promise<void>;
+  onSpeechStart?: () => void;
   onLeaseLost?: () => void;
 };
 
@@ -45,6 +47,8 @@ type PreviewEvent = {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SPEECH_START_RMS = 0.025;
+const BARGE_IN_START_RMS = 0.06;
+const BARGE_IN_HOLD_MS = 180;
 const SPEECH_END_RMS = 0.018;
 const END_SILENCE_MS = 700;
 const MIN_SPEECH_MS = 250;
@@ -80,11 +84,14 @@ export function useRealtimeVoicePreview() {
   const previewSessionIdRef = useRef("");
   const voiceSessionIdRef = useRef("");
   const crossTabOwnerRef = useRef("");
+  const assistantSpeakingRef = useRef(false);
+  const speechCandidateAtRef = useRef<number | null>(null);
   const speechStartedAtRef = useRef<number | null>(null);
   const lastSpeechAtRef = useRef<number | null>(null);
   const commitInFlightRef = useRef(false);
   const eventCursorRef = useRef(0);
   const onResponseRef = useRef<StartOptions["onResponse"] | null>(null);
+  const onSpeechStartRef = useRef<StartOptions["onSpeechStart"] | null>(null);
   const onLeaseLostRef = useRef<StartOptions["onLeaseLost"] | null>(null);
 
   const [status, setStatus] = useState<RealtimeVoicePreviewStatus>("idle");
@@ -94,9 +101,12 @@ export function useRealtimeVoicePreview() {
     generationRef.current += 1;
     startingRef.current = false;
     commitInFlightRef.current = false;
+    assistantSpeakingRef.current = false;
+    speechCandidateAtRef.current = null;
     speechStartedAtRef.current = null;
     lastSpeechAtRef.current = null;
     onResponseRef.current = null;
+    onSpeechStartRef.current = null;
     onLeaseLostRef.current = null;
 
     if (animationRef.current != null) {
@@ -186,7 +196,12 @@ export function useRealtimeVoicePreview() {
   );
 
   const start = useCallback(
-    async ({ threadId, onResponse, onLeaseLost }: StartOptions) => {
+    async ({
+      threadId,
+      onResponse,
+      onSpeechStart,
+      onLeaseLost,
+    }: StartOptions) => {
       if (startingRef.current || (status !== "idle" && status !== "error")) {
         return;
       }
@@ -198,6 +213,7 @@ export function useRealtimeVoicePreview() {
       const voiceSessionId = crypto.randomUUID();
       startingRef.current = true;
       onResponseRef.current = onResponse;
+      onSpeechStartRef.current = onSpeechStart || null;
       onLeaseLostRef.current = onLeaseLost || null;
       setLastError("");
       setStatus("requesting");
@@ -361,6 +377,7 @@ export function useRealtimeVoicePreview() {
                 answer: String(event.answer || "").trim(),
                 answerId: String(event.answer_id || ""),
                 voiceTurnId: String(event.voice_turn_id || ""),
+                voiceSessionId,
                 requestId: String(event.request_id || ""),
                 sequence: Number(event.sequence || 0),
               };
@@ -495,10 +512,28 @@ export function useRealtimeVoicePreview() {
           const rms = Math.sqrt(sumSquares / samples.length);
           const now = performance.now();
           if (speechStartedAtRef.current == null) {
-            if (rms >= SPEECH_START_RMS) {
-              speechStartedAtRef.current = now;
-              lastSpeechAtRef.current = now;
-              setStatus("listening");
+            const assistantWasSpeaking = assistantSpeakingRef.current;
+            const startThreshold = assistantWasSpeaking
+              ? BARGE_IN_START_RMS
+              : SPEECH_START_RMS;
+            if (rms < startThreshold) {
+              speechCandidateAtRef.current = null;
+              return;
+            }
+            if (speechCandidateAtRef.current == null) {
+              speechCandidateAtRef.current = now;
+            }
+            const requiredHoldMs = assistantWasSpeaking ? BARGE_IN_HOLD_MS : 0;
+            if (now - speechCandidateAtRef.current < requiredHoldMs) {
+              return;
+            }
+            speechCandidateAtRef.current = null;
+            speechStartedAtRef.current = now;
+            lastSpeechAtRef.current = now;
+            setStatus("listening");
+            if (assistantWasSpeaking) {
+              assistantSpeakingRef.current = false;
+              onSpeechStartRef.current?.();
             }
             return;
           }
@@ -558,5 +593,9 @@ export function useRealtimeVoicePreview() {
     lastError,
     start,
     stop,
+    setAssistantSpeaking(value: boolean) {
+      assistantSpeakingRef.current = value;
+      if (!value) speechCandidateAtRef.current = null;
+    },
   };
 }

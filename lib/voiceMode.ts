@@ -25,7 +25,7 @@ export const VOICE_MODE_OPTIONS: ReadonlyArray<{
     value: "realtime_preview",
     label: "Realtime conversation — Preview",
     description:
-      "Interruptible fullscreen conversation. Available after isolated security and device testing.",
-    enabled: false,
+      "Interruptible fullscreen conversation with governed answers and hidden live transcripts.",
+    enabled: true,
   },
 ];

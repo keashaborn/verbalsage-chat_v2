@@ -24,8 +24,19 @@ import {
   useGovernedVoiceConversation,
   type GovernedVoiceTurnContext,
 } from "@/hooks/useGovernedVoiceConversation";
+import { useRealtimeVoicePreview } from "@/hooks/useRealtimeVoicePreview";
+import {
+  RealtimeVoiceOverlay,
+  type RealtimeVoiceOverlayState,
+} from "@/components/voice/RealtimeVoiceOverlay";
 import { VOICE_TURN_HEADER } from "@/lib/voiceObservability";
 import { VOICE_SESSION_HEADER } from "@/lib/voiceSession";
+import {
+  DEFAULT_VOICE_MODE,
+  normalizeVoiceMode,
+  VOICE_MODE_STORAGE_KEY,
+  type VoiceMode,
+} from "@/lib/voiceMode";
 import {
   BROWSER_RESPONSE_TIMEOUT_MS,
   RequestDeadlineError,
@@ -292,17 +303,28 @@ export function BrainsChatPane() {
   const [voicePrivacySaving, setVoicePrivacySaving] = React.useState(false);
   const [voicePrivacyError, setVoicePrivacyError] = React.useState("");
   const [requestError, setRequestError] = React.useState("");
+  const [voiceMode, setVoiceMode] = React.useState<VoiceMode>(DEFAULT_VOICE_MODE);
   const governedVoice = useGovernedVoiceConversation();
+  const realtimeVoice = useRealtimeVoicePreview();
 
-  const voiceStatus = governedVoice.status;
+  const effectiveVoiceMode =
+    voiceMode === "realtime_preview" && isAdmin
+      ? "realtime_preview"
+      : "governed";
+  const voiceStatus =
+    effectiveVoiceMode === "realtime_preview"
+      ? realtimeVoice.status
+      : governedVoice.status;
   const voiceIsConnecting =
     voiceStatus === "requesting" || voiceStatus === "connecting";
   const voiceIsActive =
     voiceStatus === "listening" ||
     voiceStatus === "speaking" ||
+    voiceStatus === "processing" ||
     voiceStatus === "transcribing" ||
     voiceStatus === "responding";
-  const voiceHasError = voiceStatus === "error";
+  const governedVoiceHasError =
+    effectiveVoiceMode === "governed" && governedVoice.status === "error";
   const voiceConversationEpochRef = React.useRef(0);
 
   const voiceStatusLabel =
@@ -318,12 +340,29 @@ export function BrainsChatPane() {
               ? "Transcribing…"
               : voiceStatus === "responding"
                 ? "Preparing and speaking reply…"
-                : voiceHasError
+                : voiceStatus === "processing"
+                  ? "Preparing reply…"
+                  : voiceStatus === "error"
                   ? "Voice unavailable"
-                  : "Voice off";
+                  : effectiveVoiceMode === "realtime_preview"
+                    ? "Realtime preview ready"
+                    : "Voice off";
   const visibleRequestError =
-    requestError || (voiceHasError ? governedVoice.lastError : "");
+    requestError || (governedVoiceHasError ? governedVoice.lastError : "");
   const didAutoScrollForThreadRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    const syncVoiceMode = () => {
+      setVoiceMode(normalizeVoiceMode(localStorage.getItem(VOICE_MODE_STORAGE_KEY)));
+    };
+    syncVoiceMode();
+    window.addEventListener("storage", syncVoiceMode);
+    window.addEventListener("focus", syncVoiceMode);
+    return () => {
+      window.removeEventListener("storage", syncVoiceMode);
+      window.removeEventListener("focus", syncVoiceMode);
+    };
+  }, []);
 
   React.useEffect(() => {
     let mounted = true;
@@ -605,6 +644,19 @@ export function BrainsChatPane() {
     setTtsPlayingIdx(null);
     setPlaybackState(null);
   }
+
+  React.useEffect(() => {
+    voiceConversationEpochRef.current += 1;
+    stopTTS();
+    if (effectiveVoiceMode === "realtime_preview") {
+      governedVoice.stop();
+    } else {
+      realtimeVoice.setAssistantSpeaking(false);
+      realtimeVoice.stop();
+    }
+    // Only a saved mode transition should tear down the inactive controller.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveVoiceMode]);
 
   function togglePlaybackPause() {
     const audio = nativeAudioRef.current;
@@ -1101,6 +1153,32 @@ export function BrainsChatPane() {
     return active.thread_id;
   }
 
+  function requestAutoTitle(tid: string) {
+    void (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token;
+        if (!token) return;
+
+        const response = await fetch(
+          `/api/threads/${encodeURIComponent(tid)}/auto-title`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: "{}",
+          },
+        );
+
+        if (response.ok) window.dispatchEvent(new Event("vs_threads_refresh"));
+      } catch {
+        // Naming is non-critical and must not fail a conversation turn.
+      }
+    })();
+  }
+
   React.useEffect(() => {
     let mounted = true;
 
@@ -1111,6 +1189,9 @@ export function BrainsChatPane() {
 
     const onSelect = (e: any) => {
       stopTTS();
+      governedVoice.stop();
+      realtimeVoice.setAssistantSpeaking(false);
+      realtimeVoice.stop();
       const tid = e?.detail?.thread_id || null;
       setThreadId(tid);
       setMsgs([]);
@@ -1299,7 +1380,7 @@ export function BrainsChatPane() {
     }
   }
 
-  async function startListening() {
+  async function startGovernedListening() {
     stopTTS();
     setWebSearchEnabled(false);
     unlockAudioForSafari();
@@ -1342,6 +1423,80 @@ export function BrainsChatPane() {
         String(e?.message || "Voice could not start. Please try again."),
       );
     }
+  }
+
+  async function startRealtimeListening() {
+    stopTTS();
+    setWebSearchEnabled(false);
+    unlockAudioForSafari();
+    voiceConversationEpochRef.current += 1;
+    const conversationEpoch = voiceConversationEpochRef.current;
+
+    try {
+      const tid = await ensureThread();
+      await realtimeVoice.start({
+        threadId: tid,
+        onSpeechStart: () => {
+          realtimeVoice.setAssistantSpeaking(false);
+          stopTTS();
+        },
+        onResponse: async (turn) => {
+          if (voiceConversationEpochRef.current !== conversationEpoch) return;
+
+          requestAutoTitle(tid);
+          window.dispatchEvent(new Event("vs_threads_refresh"));
+          void loadMessages(tid);
+
+          realtimeVoice.setAssistantSpeaking(true);
+          let speechMetrics: VoiceSpeechMetrics | null = null;
+          try {
+            speechMetrics = await speak(
+              turn.answer,
+              Number.MAX_SAFE_INTEGER - turn.sequence,
+              turn.voiceTurnId,
+              turn.voiceSessionId,
+            );
+          } finally {
+            realtimeVoice.setAssistantSpeaking(false);
+          }
+
+          if (voiceConversationEpochRef.current !== conversationEpoch) return;
+          await loadMessages(tid);
+
+          const traceStatus = speechMetrics?.status || "cancelled";
+          await recordVoiceTurnTrace({
+            voice_turn_id: turn.voiceTurnId,
+            thread_id: tid,
+            answer_id: turn.answerId,
+            status: traceStatus,
+            failure_stage: traceStatus === "completed" ? "none" : "tts",
+            tts_first_audio_ms: speechMetrics?.firstAudioMs,
+            tts_total_ms: speechMetrics?.totalMs,
+            tts_segment_count: speechMetrics?.segmentCount || 0,
+            response_request_id: turn.requestId,
+            tts_model: speechMetrics?.model || "",
+            tts_voice: speechMetrics?.voice || "",
+            tts_request_ids: speechMetrics?.requestIds || [],
+            tts_provider_request_ids: speechMetrics?.providerRequestIds || [],
+          });
+        },
+        onLeaseLost: () => {
+          voiceConversationEpochRef.current += 1;
+          realtimeVoice.setAssistantSpeaking(false);
+          stopTTS();
+        },
+      });
+    } catch (e: any) {
+      setRequestError(String(e?.message || "Realtime voice could not start."));
+    }
+  }
+
+  async function startListening() {
+    if (effectiveVoiceMode === "realtime_preview") {
+      await startRealtimeListening();
+      return;
+    }
+    await startGovernedListening();
   }
 
   function handleVoiceButton() {
@@ -1396,6 +1551,8 @@ export function BrainsChatPane() {
   async function stopListeningAndRespond() {
     voiceConversationEpochRef.current += 1;
     governedVoice.stop();
+    realtimeVoice.setAssistantSpeaking(false);
+    realtimeVoice.stop();
     stopTTS();
   }
 
@@ -1476,29 +1633,7 @@ export function BrainsChatPane() {
         Math.round(performance.now() - responseStartedAt),
       );
 
-      if (!useTrustedWeb) void (async () => {
-        try {
-          const { data } = await supabase.auth.getSession();
-          const token = data?.session?.access_token;
-          if (!token) return;
-
-          const r = await fetch(
-            `/api/threads/${encodeURIComponent(tid)}/auto-title`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: "{}",
-            },
-          );
-
-          if (r.ok) window.dispatchEvent(new Event("vs_threads_refresh"));
-        } catch {
-          // Auto-title is non-critical; chat should never fail because naming failed.
-        }
-      })();
+      if (!useTrustedWeb) requestAutoTitle(tid);
 
       setMsgs((prev): Msg[] => {
         const next: Msg[] = [
@@ -1704,6 +1839,20 @@ export function BrainsChatPane() {
   const composerValue = editingMessageId ? editingText : text;
   const composerHasText = composerValue.trim().length > 0;
   const voiceSessionVisible = voiceIsConnecting || voiceIsActive;
+  const realtimeOverlayOpen =
+    effectiveVoiceMode === "realtime_preview" &&
+    realtimeVoice.status !== "idle";
+  const realtimeOverlayState: RealtimeVoiceOverlayState =
+    realtimeVoice.status === "requesting" ||
+    realtimeVoice.status === "connecting"
+      ? "connecting"
+      : realtimeVoice.status === "processing"
+        ? "processing"
+        : realtimeVoice.status === "speaking"
+          ? "speaking"
+          : realtimeVoice.status === "error"
+            ? "error"
+            : "listening";
   const voicePresentationState =
     playbackState?.status === "playing"
       ? "assistant-speaking"
@@ -1740,7 +1889,14 @@ export function BrainsChatPane() {
         }}
       />
 
-      {voiceSessionVisible && (
+      <RealtimeVoiceOverlay
+        open={realtimeOverlayOpen}
+        state={realtimeOverlayState}
+        error={realtimeVoice.lastError}
+        onClose={() => void stopListeningAndRespond()}
+      />
+
+      {voiceSessionVisible && effectiveVoiceMode === "governed" && (
         <div
           className="vs-voice-stage pointer-events-none absolute inset-x-0 top-10 bottom-40 z-[1] flex items-center justify-center overflow-hidden px-8"
           data-voice-state={voicePresentationState}
@@ -2047,7 +2203,7 @@ export function BrainsChatPane() {
                   className="shrink-0 rounded-md border px-2 py-1"
                   onClick={() => {
                     setRequestError("");
-                    if (voiceHasError) governedVoice.stop();
+                    if (governedVoiceHasError) governedVoice.stop();
                   }}
                 >
                   Dismiss
@@ -2109,7 +2265,9 @@ export function BrainsChatPane() {
                   {webSearchEnabled
                     ? "Trusted sources · Not saved to memory"
                     : `OpenAI transcription · AI-generated reply · ${voiceStatusLabel}`}
-                  {!webSearchEnabled && governedVoice.partialTranscript
+                  {!webSearchEnabled &&
+                  effectiveVoiceMode === "governed" &&
+                  governedVoice.partialTranscript
                     ? ` · ${governedVoice.partialTranscript}`
                     : ""}
                 </span>

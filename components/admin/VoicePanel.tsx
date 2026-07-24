@@ -3,7 +3,13 @@
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch } from "@/lib/authFetch";
-import { VOICE_MODE_OPTIONS } from "@/lib/voiceMode";
+import {
+  DEFAULT_VOICE_MODE,
+  normalizeVoiceMode,
+  VOICE_MODE_OPTIONS,
+  VOICE_MODE_STORAGE_KEY,
+  type VoiceMode,
+} from "@/lib/voiceMode";
 
 type TTSModelCapability = {
   id: string;
@@ -165,6 +171,7 @@ function SliderRow({
 }
 
 export function VoicePanel() {
+  const [voiceMode, setVoiceMode] = React.useState<VoiceMode>(DEFAULT_VOICE_MODE);
   const [voice, setVoice] = React.useState<string>("marin");
   const [speed, setSpeed] = React.useState<number>(1.0);
   const [model, setModel] = React.useState<string>("gpt-4o-mini-tts");
@@ -191,6 +198,7 @@ export function VoicePanel() {
 
   React.useEffect(() => {
     let cancelled = false;
+    setVoiceMode(normalizeVoiceMode(localStorage.getItem(VOICE_MODE_STORAGE_KEY)));
 
     const local = normalizeVoiceSettings({
       vs_voice: getLS<string>("vs_voice", "marin"),
@@ -342,16 +350,21 @@ export function VoicePanel() {
     <div className="space-y-4">
       <Group
         title="Conversation mode"
-        footer="Governed voice remains the production default. Realtime preview cannot be activated until its isolated security and device checks pass."
+        footer="Governed voice remains the default. Realtime preview is limited to authorized preview accounts and saves turns through the same governed chat path."
       >
         <Row
           left="Voice experience"
           right={
             <select
               className="w-[260px] rounded-lg border bg-background px-2 py-1.5 text-sm"
-              value="governed"
+              value={voiceMode}
               aria-label="Voice conversation mode"
-              onChange={() => {}}
+              onChange={(event) => {
+                const nextMode = normalizeVoiceMode(event.target.value);
+                localStorage.setItem(VOICE_MODE_STORAGE_KEY, nextMode);
+                setVoiceMode(nextMode);
+                setStatus("Conversation mode saved on this device.");
+              }}
             >
               {VOICE_MODE_OPTIONS.map((option) => (
                 <option
@@ -366,7 +379,8 @@ export function VoicePanel() {
           }
         >
           <div className="text-xs text-muted-foreground">
-            {VOICE_MODE_OPTIONS[0].description}
+            {VOICE_MODE_OPTIONS.find((option) => option.value === voiceMode)
+              ?.description || VOICE_MODE_OPTIONS[0].description}
           </div>
         </Row>
       </Group>
