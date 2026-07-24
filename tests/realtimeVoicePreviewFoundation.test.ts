@@ -40,6 +40,7 @@ test("browser route requires fresh capability and forwards only to Brains", () =
   assert.match(route, /"voice\.realtime_preview"/);
   assert.match(route, /\/voice\/realtime-preview\/call/);
   assert.match(route, /voiceSessionIdFromRequest/);
+  assert.match(route, /x-vs-thread-id/);
   assert.doesNotMatch(route, /OPENAI_API_KEY/);
   assert.doesNotMatch(route, /api\.openai\.com/);
   assert.doesNotMatch(route, /v1\/realtime\/calls/);
@@ -49,8 +50,36 @@ test("browser route requires fresh capability and forwards only to Brains", () =
   );
   assert.match(closeRoute, /requireFreshCapability/);
   assert.match(closeRoute, /"voice\.realtime_preview"/);
+  assert.match(closeRoute, /method:\s*"GET"/);
+  assert.match(closeRoute, /\/events\?after=/);
   assert.match(closeRoute, /method:\s*"DELETE"/);
   assert.doesNotMatch(closeRoute, /OPENAI_API_KEY/);
+
+  const commitRoute = source(
+    "app/api/voice/realtime-preview/session/[sessionId]/commit/route.ts",
+  );
+  assert.match(commitRoute, /requireFreshCapability/);
+  assert.match(commitRoute, /"voice\.realtime_preview"/);
+  assert.match(commitRoute, /\/commit/);
+  assert.match(commitRoute, /method:\s*"POST"/);
+  assert.doesNotMatch(commitRoute, /OPENAI_API_KEY/);
+  assert.doesNotMatch(commitRoute, /api\.openai\.com/);
+});
+
+test("preview controller uses WebRTC audio but only governed BFF answers", () => {
+  const hook = source("hooks/useRealtimeVoicePreview.ts");
+  assert.match(hook, /getUserMedia/);
+  assert.match(hook, /RTCPeerConnection/);
+  assert.match(hook, /\/api\/voice\/realtime-preview\/call/);
+  assert.match(hook, /x-vs-thread-id/);
+  assert.match(hook, /\/commit/);
+  assert.match(hook, /\?after=\$\{eventCursorRef\.current\}/);
+  assert.match(hook, /response\.completed/);
+  assert.match(hook, /voiceSessionId/);
+  assert.doesNotMatch(hook, /OPENAI_API_KEY/);
+  assert.doesNotMatch(hook, /api\.openai\.com/);
+  assert.doesNotMatch(hook, /\/api\/chat/);
+  assert.doesNotMatch(hook, /\/vantage\/query/);
 });
 
 test("production chat remains on the governed hook", () => {

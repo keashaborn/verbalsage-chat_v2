@@ -51,8 +51,15 @@ export async function POST(req: Request) {
   }
 
   const voiceSession = voiceSessionIdFromRequest(req);
-  if (!voiceSession.supplied || !voiceSession.value) {
-    return errorResponse(requestId, 400, "invalid_voice_session_id");
+  const threadId = String(req.headers.get("x-vs-thread-id") || "")
+    .trim()
+    .toLowerCase();
+  if (
+    !voiceSession.supplied ||
+    !voiceSession.value ||
+    !UUID_RE.test(threadId)
+  ) {
+    return errorResponse(requestId, 400, "invalid_voice_session_context");
   }
 
   const contentType = String(req.headers.get("content-type") || "")
@@ -82,6 +89,7 @@ export async function POST(req: Request) {
       headers: brainsUpstreamHeaders(requestId, userId, {
         "content-type": "application/sdp",
         "x-vs-owner-user-id": userId,
+        "x-vs-thread-id": threadId,
         [VOICE_SESSION_HEADER]: voiceSession.value,
       }),
       body: sdp,
