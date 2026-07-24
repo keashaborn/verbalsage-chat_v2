@@ -204,6 +204,20 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
     backendEnforced: true,
   },
+  {
+    key: "voice.realtime_preview",
+    label: "Use Realtime Voice Preview",
+    description:
+      "Create a transcription-only WebRTC session for isolated Realtime voice testing.",
+    category: "voice",
+    scope: "own_account",
+    access: "use",
+    risk: "critical",
+    defaultRoles: ["owner", "admin", "developer"],
+    backendEnforced: true,
+    notes:
+      "Preview only. The Realtime session may transcribe audio but cannot generate the canonical assistant answer.",
+  },
 
   {
     key: "web_search.use",

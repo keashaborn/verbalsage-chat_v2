@@ -10,7 +10,7 @@ function source(path: string): string {
   return readFileSync(join(root, path), "utf8");
 }
 
-test("only governed batch transcription remains exposed", () => {
+test("legacy Realtime surface remains retired", () => {
   assert.equal(
     existsSync(
       join(
@@ -28,6 +28,10 @@ test("only governed batch transcription remains exposed", () => {
     source("app/api/voice/openai/transcribe/route.ts"),
     /voice\.realtime_token/,
   );
+  assert.match(
+    source("app/api/voice/realtime-preview/call/route.ts"),
+    /voice\.realtime_preview/,
+  );
 });
 
 test("active conversation code contains no obsolete Realtime names", () => {
@@ -41,5 +45,6 @@ test("active conversation code contains no obsolete Realtime names", () => {
   assert.doesNotMatch(chat, /useGovernedRealtimeVoice/);
   assert.doesNotMatch(auth, /vs_realtime_voice/);
   assert.match(permissions, /voice\.transcription/);
+  assert.match(permissions, /voice\.realtime_preview/);
   assert.doesNotMatch(permissions, /voice\.realtime_token/);
 });

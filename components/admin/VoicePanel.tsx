@@ -3,6 +3,7 @@
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch } from "@/lib/authFetch";
+import { VOICE_MODE_OPTIONS } from "@/lib/voiceMode";
 
 type TTSModelCapability = {
   id: string;
@@ -339,6 +340,37 @@ export function VoicePanel() {
 
   return (
     <div className="space-y-4">
+      <Group
+        title="Conversation mode"
+        footer="Governed voice remains the production default. Realtime preview cannot be activated until its isolated security and device checks pass."
+      >
+        <Row
+          left="Voice experience"
+          right={
+            <select
+              className="w-[260px] rounded-lg border bg-background px-2 py-1.5 text-sm"
+              value="governed"
+              aria-label="Voice conversation mode"
+              onChange={() => {}}
+            >
+              {VOICE_MODE_OPTIONS.map((option) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                  disabled={!option.enabled}
+                >
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          }
+        >
+          <div className="text-xs text-muted-foreground">
+            {VOICE_MODE_OPTIONS[0].description}
+          </div>
+        </Row>
+      </Group>
+
       <Group
         title="Spoken replies"
         footer={
