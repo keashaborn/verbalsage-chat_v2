@@ -184,43 +184,60 @@ function trustedWebEvidenceLabel(source: TrustedWebSource): string {
 }
 
 function trustedWebSourceMeta(source: TrustedWebSource): string {
-  const parts = [trustedWebEvidenceLabel(source)];
-  if (source.source_id) parts.push(source.source_id);
-  return parts.join(" · ");
+  const evidence = trustedWebEvidenceLabel(source);
+  if (source.source_id?.startsWith("PMID:")) {
+    return `${evidence} · ${source.source_id}`;
+  }
+  return evidence;
+}
+
+function trustedWebHostLabel(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "trusted source";
+  }
 }
 
 function TrustedWebSourceCards({ sources }: { sources?: TrustedWebSource[] }) {
   const visible = (sources || []).filter((source) => source.url && source.title);
   if (!visible.length) return null;
   return (
-    <div className="mt-4 space-y-2" aria-label="Trusted web sources">
+    <section className="mt-4 space-y-2" aria-label="Trusted web sources">
       <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         Trusted sources
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="space-y-2">
         {visible.map((source, index) => (
           <a
             key={`${source.url}:${index}`}
             href={source.url}
             target="_blank"
             rel="noreferrer"
-            className="group block rounded-2xl border bg-muted/20 p-3 text-left transition hover:bg-muted/40"
+            className="group block rounded-2xl border bg-muted/20 p-3 text-left no-underline transition hover:bg-muted/40"
           >
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="rounded-full border bg-background px-2 py-0.5 text-[11px] font-medium">
-                {trustedWebAuthorityLabel(source)}
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border bg-background px-2 py-0.5 text-[11px] font-medium leading-4">
+                    {trustedWebAuthorityLabel(source)}
+                  </span>
+                  <span className="text-[11px] leading-4 text-muted-foreground">
+                    {trustedWebSourceMeta(source)}
+                  </span>
+                </div>
+                <div className="line-clamp-2 text-xs font-medium leading-5 text-foreground underline-offset-4 group-hover:underline">
+                  {source.title}
+                </div>
+              </div>
+              <span className="shrink-0 pt-0.5 text-[11px] text-muted-foreground">
+                {trustedWebHostLabel(source.url)}
               </span>
-              <span className="text-[11px] text-muted-foreground">
-                {trustedWebSourceMeta(source)}
-              </span>
-            </div>
-            <div className="line-clamp-2 text-xs font-medium leading-5 underline-offset-4 group-hover:underline">
-              {source.title}
             </div>
           </a>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
