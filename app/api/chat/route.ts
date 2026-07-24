@@ -16,6 +16,10 @@ import {
   voiceTurnIdFromRequest,
 } from "@/lib/voiceObservability";
 import {
+  voiceSessionHeaders,
+  voiceSessionIdFromRequest,
+} from "@/lib/voiceSession";
+import {
   inspectorSessionCookieName,
   inspectorSessionEnabled,
 } from "@/lib/inspectorSession";
@@ -138,6 +142,16 @@ export async function POST(req: Request) {
         headers: { "x-request-id": rid },
       });
     }
+    const voiceSession = voiceSessionIdFromRequest(req);
+    if (
+      voiceTurn.value &&
+      (!voiceSession.supplied || !voiceSession.value)
+    ) {
+      return new Response("invalid_or_missing_voice_session_id", {
+        status: 409,
+        headers: { "x-request-id": rid },
+      });
+    }
 
     const rawThread = String(body?.thread_id || "").trim();
     const threadId = UUID_RE.test(rawThread) ? rawThread : null;
@@ -161,6 +175,7 @@ export async function POST(req: Request) {
         headers: brainsUpstreamHeaders(rid, userId, {
           "Content-Type": "application/json",
           ...voiceTurnHeaders(voiceTurn.value),
+          ...voiceSessionHeaders(voiceSession.value),
         }),
         body: JSON.stringify({
           user_id: userId,
@@ -174,7 +189,7 @@ export async function POST(req: Request) {
       });
       if (!log.ok) {
         return new Response("Transcript write unavailable", {
-          status: 503,
+          status: log.status === 409 ? 409 : 503,
           headers: { "x-request-id": rid },
         });
       }
@@ -185,6 +200,7 @@ export async function POST(req: Request) {
       headers: brainsUpstreamHeaders(rid, userId, {
         "Content-Type": "application/json",
         ...voiceTurnHeaders(voiceTurn.value),
+        ...voiceSessionHeaders(voiceSession.value),
       }),
       body: JSON.stringify({
         user_id: userId,
@@ -199,10 +215,15 @@ export async function POST(req: Request) {
     const raw = await upstream.text().catch(() => "");
     if (!upstream.ok) {
       const timedOut = upstream.status === 504;
+      const leaseLost = upstream.status === 409;
       return new Response(
-        timedOut ? "Response timed out" : "Response unavailable",
+        timedOut
+          ? "Response timed out"
+          : leaseLost
+            ? "Voice session moved to another client"
+            : "Response unavailable",
         {
-          status: timedOut ? 504 : 502,
+          status: timedOut ? 504 : leaseLost ? 409 : 502,
           headers: {
             "Content-Type": "text/plain; charset=utf-8",
             "x-request-id": rid,

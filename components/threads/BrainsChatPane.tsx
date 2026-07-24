@@ -24,6 +24,7 @@ import {
   type GovernedVoiceTurnContext,
 } from "@/hooks/useGovernedVoiceConversation";
 import { VOICE_TURN_HEADER } from "@/lib/voiceObservability";
+import { VOICE_SESSION_HEADER } from "@/lib/voiceSession";
 import {
   BROWSER_RESPONSE_TIMEOUT_MS,
   RequestDeadlineError,
@@ -608,6 +609,7 @@ export function BrainsChatPane() {
     textToSpeak: string,
     idx: number,
     voiceTurnId?: string,
+    voiceSessionId?: string,
   ): Promise<VoiceSpeechMetrics | null> {
     const text = (textToSpeak || "").trim();
     if (!text) return null;
@@ -680,6 +682,9 @@ export function BrainsChatPane() {
             headers: {
               "Content-Type": "application/json",
               ...(voiceTurnId ? { [VOICE_TURN_HEADER]: voiceTurnId } : {}),
+              ...(voiceSessionId
+                ? { [VOICE_SESSION_HEADER]: voiceSessionId }
+                : {}),
               "x-vs-tts-segment-index": String(segmentIndex),
               "x-vs-tts-segment-count": String(chunks.length),
             },
@@ -1030,6 +1035,7 @@ export function BrainsChatPane() {
     regen = false,
     noStore = false,
     voiceTurnId?: string,
+    voiceSessionId?: string,
   ): Promise<ChatResult> {
     const { response: r, responseText } = await withRequestDeadline(
       async (signal) => {
@@ -1038,6 +1044,9 @@ export function BrainsChatPane() {
           headers: {
             "Content-Type": "application/json",
             ...(voiceTurnId ? { [VOICE_TURN_HEADER]: voiceTurnId } : {}),
+            ...(voiceSessionId
+              ? { [VOICE_SESSION_HEADER]: voiceSessionId }
+              : {}),
           },
           body: JSON.stringify({ input, thread_id: tid, regen, noStore }),
           signal,
@@ -1057,6 +1066,9 @@ export function BrainsChatPane() {
       }
       if (r.status === 401) {
         throw new Error("Your session expired. Please sign in again.");
+      }
+      if (r.status === 409 && voiceTurnId) {
+        throw new Error("Voice moved to another window.");
       }
       throw new Error("The response could not be completed. Please try again.");
     }
@@ -1171,6 +1183,10 @@ export function BrainsChatPane() {
             transcription_provider_request_id:
               voiceTurn.transcriptionProviderRequestId,
           });
+        },
+        onLeaseLost: () => {
+          voiceConversationEpochRef.current += 1;
+          stopTTS();
         },
       });
     } catch (e: any) {
@@ -1296,6 +1312,7 @@ export function BrainsChatPane() {
         false,
         false,
         options.voiceTurn?.voiceTurnId,
+        options.voiceTurn?.voiceSessionId,
       );
       const responseMs = Math.max(
         0,
@@ -1354,6 +1371,7 @@ export function BrainsChatPane() {
           reply.text,
           Number.MAX_SAFE_INTEGER,
           options.voiceTurn?.voiceTurnId,
+          options.voiceTurn?.voiceSessionId,
         );
       }
       if (options.voiceTurn) {

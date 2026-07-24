@@ -11,6 +11,10 @@ import {
   voiceTurnHeaders,
   voiceTurnIdFromRequest,
 } from "@/lib/voiceObservability";
+import {
+  voiceSessionHeaders,
+  voiceSessionIdFromRequest,
+} from "@/lib/voiceSession";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,6 +79,16 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { ok: false, error: "invalid_voice_turn_id" },
         { status: 400, headers: { "x-request-id": requestId } },
+      );
+    }
+    const voiceSession = voiceSessionIdFromRequest(req);
+    if (
+      voiceTurn.value &&
+      (!voiceSession.supplied || !voiceSession.value)
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "invalid_or_missing_voice_session_id" },
+        { status: 409, headers: { "x-request-id": requestId } },
       );
     }
     const segmentHeaders = ttsSegmentHeaders(req);
@@ -147,6 +161,7 @@ export async function POST(req: Request) {
           headers: brainsUpstreamHeaders(requestId, userId, {
             "content-type": "application/json; charset=utf-8",
             ...voiceTurnHeaders(voiceTurn.value),
+            ...voiceSessionHeaders(voiceSession.value),
             ...segmentHeaders,
           }),
           body: upstreamBody,

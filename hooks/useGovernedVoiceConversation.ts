@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authFetch } from "@/lib/authFetch";
 import { VOICE_TURN_HEADER } from "@/lib/voiceObservability";
+import { VOICE_SESSION_HEADER } from "@/lib/voiceSession";
 import {
   BROWSER_TRANSCRIPTION_TIMEOUT_MS,
   withRequestDeadline,
@@ -21,6 +22,7 @@ export type GovernedVoiceConversationStatus =
 
 export type GovernedVoiceTurnContext = {
   voiceTurnId: string;
+  voiceSessionId: string;
   speechMs: number;
   audioBytes: number;
   transcriptionMs: number;
@@ -39,6 +41,7 @@ export type GovernedVoiceTurnContext = {
 
 export type GovernedVoiceTurnFailureContext = {
   voiceTurnId: string;
+  voiceSessionId: string;
   speechMs: number;
   audioBytes: number;
   transcriptionMs: number | null;
@@ -55,6 +58,7 @@ type StartOptions = {
   onTranscriptionFailure?: (
     context: GovernedVoiceTurnFailureContext,
   ) => Promise<void>;
+  onLeaseLost?: () => void;
 };
 
 const MIME_TYPE_PREFERENCES = [
@@ -69,6 +73,7 @@ const END_SILENCE_MS = 900;
 const MIN_SPEECH_MS = 250;
 const MAX_TURN_MS = 90_000;
 const VOICE_SESSION_OWNER_KEY = "vs_active_voice_session_v1";
+const VOICE_LEASE_HEARTBEAT_MS = 2_000;
 
 let activeOwner: symbol | null = null;
 let activeStop: (() => void) | null = null;
@@ -119,8 +124,11 @@ export function useGovernedVoiceConversation() {
   const onTranscriptionFailureRef = useRef<
     StartOptions["onTranscriptionFailure"] | null
   >(null);
+  const onLeaseLostRef = useRef<StartOptions["onLeaseLost"] | null>(null);
   const transcriptionAbortRef = useRef<AbortController | null>(null);
   const crossTabOwnerRef = useRef("");
+  const voiceSessionIdRef = useRef("");
+  const leaseHeartbeatRef = useRef<number | null>(null);
 
   const [status, setStatus] = useState<GovernedVoiceConversationStatus>("idle");
   const [lastError, setLastError] = useState("");
@@ -140,8 +148,24 @@ export function useGovernedVoiceConversation() {
     lastSpeechAtRef.current = null;
     onTranscriptRef.current = null;
     onTranscriptionFailureRef.current = null;
+    onLeaseLostRef.current = null;
     transcriptionAbortRef.current?.abort();
     transcriptionAbortRef.current = null;
+
+    if (leaseHeartbeatRef.current != null) {
+      window.clearInterval(leaseHeartbeatRef.current);
+      leaseHeartbeatRef.current = null;
+    }
+    const voiceSessionId = voiceSessionIdRef.current;
+    voiceSessionIdRef.current = "";
+    if (voiceSessionId) {
+      void authFetch("/api/voice/session/release", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: voiceSessionId }),
+        keepalive: true,
+      }).catch(() => {});
+    }
 
     try {
       if (
@@ -184,8 +208,18 @@ export function useGovernedVoiceConversation() {
     }
   }, []);
 
+  const stopForOwnershipLoss = useCallback(() => {
+    const callback = onLeaseLostRef.current;
+    stop();
+    callback?.();
+  }, [stop]);
+
   const start = useCallback(
-    async ({ onTranscript, onTranscriptionFailure }: StartOptions) => {
+    async ({
+      onTranscript,
+      onTranscriptionFailure,
+      onLeaseLost,
+    }: StartOptions) => {
       if (startingRef.current || (status !== "idle" && status !== "error"))
         return;
       if (activeOwner !== ownerRef.current) activeStop?.();
@@ -198,9 +232,11 @@ export function useGovernedVoiceConversation() {
         localStorage.setItem(VOICE_SESSION_OWNER_KEY, crossTabOwnerRef.current);
       } catch {}
       const generation = generationRef.current;
+      const voiceSessionId = crypto.randomUUID();
       startingRef.current = true;
       onTranscriptRef.current = onTranscript;
       onTranscriptionFailureRef.current = onTranscriptionFailure || null;
+      onLeaseLostRef.current = onLeaseLost || null;
       setLastError("");
       setStatus("requesting");
 
@@ -212,6 +248,18 @@ export function useGovernedVoiceConversation() {
         if (generationRef.current !== generation) return;
         stop();
         setLastError(message);
+        setStatus("error");
+      };
+
+      const loseLease = () => {
+        if (generationRef.current !== generation) return;
+        stopForOwnershipLoss();
+      };
+
+      const failLeaseConnection = () => {
+        if (generationRef.current !== generation) return;
+        stopForOwnershipLoss();
+        setLastError("The voice connection was lost.");
         setStatus("error");
       };
 
@@ -311,6 +359,7 @@ export function useGovernedVoiceConversation() {
                 headers: {
                   "Content-Type": contentType,
                   [VOICE_TURN_HEADER]: voiceTurnId,
+                  [VOICE_SESSION_HEADER]: voiceSessionId,
                 },
                 body: audio,
                 signal,
@@ -355,6 +404,7 @@ export function useGovernedVoiceConversation() {
           setStatus("responding");
           await onTranscriptRef.current?.(transcript, {
             voiceTurnId,
+            voiceSessionId,
             speechMs: Math.max(0, Math.round(speechEndedAt - speechStartedAt)),
             audioBytes,
             transcriptionMs: Math.max(
@@ -388,6 +438,7 @@ export function useGovernedVoiceConversation() {
           try {
             await onTranscriptionFailureRef.current?.({
               voiceTurnId,
+              voiceSessionId,
               speechMs: Math.max(
                 0,
                 Math.round(speechEndedAt - speechStartedAt),
@@ -419,6 +470,44 @@ export function useGovernedVoiceConversation() {
         ) {
           throw new Error("Continuous voice is not available in this browser.");
         }
+
+        voiceSessionIdRef.current = voiceSessionId;
+        const leaseResponse = await authFetch("/api/voice/session/acquire", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: voiceSessionId }),
+        });
+        assertCurrent();
+        if (!leaseResponse.ok) {
+          throw new Error(
+            leaseResponse.status === 401
+              ? "Your session expired. Please sign in again."
+              : "Voice is temporarily unavailable.",
+          );
+        }
+
+        leaseHeartbeatRef.current = window.setInterval(() => {
+          void authFetch("/api/voice/session/heartbeat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: voiceSessionId }),
+          })
+            .then((response) => {
+              if (generationRef.current !== generation) return;
+              if (response.status === 409) {
+                loseLease();
+                return;
+              }
+              if (!response.ok) {
+                failLeaseConnection();
+              }
+            })
+            .catch(() => {
+              if (generationRef.current === generation) {
+                failLeaseConnection();
+              }
+            });
+        }, VOICE_LEASE_HEARTBEAT_MS);
 
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
@@ -495,7 +584,7 @@ export function useGovernedVoiceConversation() {
         throw new Error(message);
       }
     },
-    [setInputEnabled, status, stop],
+    [setInputEnabled, status, stop, stopForOwnershipLoss],
   );
 
   useEffect(() => {
@@ -506,7 +595,7 @@ export function useGovernedVoiceConversation() {
         event.newValue &&
         event.newValue !== crossTabOwnerRef.current
       ) {
-        stop();
+        stopForOwnershipLoss();
       }
     };
     window.addEventListener("pagehide", stopOnPageHide);
@@ -516,7 +605,7 @@ export function useGovernedVoiceConversation() {
       window.removeEventListener("storage", stopForOtherTab);
       stop();
     };
-  }, [stop]);
+  }, [stop, stopForOwnershipLoss]);
 
   return {
     status,

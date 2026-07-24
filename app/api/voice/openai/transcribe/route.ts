@@ -11,6 +11,10 @@ import {
   voiceTurnHeaders,
   voiceTurnIdFromRequest,
 } from "@/lib/voiceObservability";
+import {
+  voiceSessionHeaders,
+  voiceSessionIdFromRequest,
+} from "@/lib/voiceSession";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,6 +73,13 @@ export async function POST(req: Request) {
       { status: 400, headers: { "x-request-id": requestId } },
     );
   }
+  const voiceSession = voiceSessionIdFromRequest(req);
+  if (!voiceSession.supplied || !voiceSession.value) {
+    return NextResponse.json(
+      { ok: false, error: "invalid_or_missing_voice_session_id" },
+      { status: 409, headers: { "x-request-id": requestId } },
+    );
+  }
 
   const contentType = normalizedAudioType(req.headers.get("content-type"));
   if (!SUPPORTED_AUDIO_TYPES.has(contentType)) {
@@ -117,6 +128,7 @@ export async function POST(req: Request) {
         "content-type": contentType,
         "x-vs-owner-user-id": userId,
         ...voiceTurnHeaders(voiceTurn.value),
+        ...voiceSessionHeaders(voiceSession.value),
       }),
       body: audio,
       signal: requestDeadlineSignal(
