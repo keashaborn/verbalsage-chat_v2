@@ -1276,6 +1276,9 @@ export function BrainsChatPane() {
       },
       BROWSER_RESPONSE_TIMEOUT_MS,
     );
+    if (trustedWeb && r.headers.get("X-VS-Trusted-Web-Fallback") === "chat") {
+      return callChat(input, tid, regen, noStore, voiceTurnId, voiceSessionId, false);
+    }
     if (!r.ok) {
       if (r.status === 504) {
         throw new RequestDeadlineError(
@@ -1664,7 +1667,7 @@ export function BrainsChatPane() {
         Math.round(performance.now() - responseStartedAt),
       );
 
-      if (!useTrustedWeb) requestAutoTitle(tid);
+      if (!reply.trustedWeb) requestAutoTitle(tid);
 
       setMsgs((prev): Msg[] => {
         const next: Msg[] = [
@@ -1684,7 +1687,7 @@ export function BrainsChatPane() {
         return next;
       });
 
-      if (!useTrustedWeb) {
+      if (!reply.trustedWeb) {
         window.dispatchEvent(new Event("vs_threads_refresh"));
         await loadMessages(tid, {
           inspect: reply.inspect,

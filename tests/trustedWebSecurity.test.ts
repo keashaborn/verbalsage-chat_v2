@@ -98,3 +98,15 @@ test("trusted web source cards use a single link per source", () => {
   assert.match(block, /trustedWebHostLabel/);
   assert.match(block, /no-underline/);
 });
+
+
+test("trusted web non-search responses fall back to normal chat", () => {
+  const route = source("app/api/trusted-web/route.ts");
+  const pane = source("components/threads/BrainsChatPane.tsx");
+  assert.match(route, /FALLBACK_TO_CHAT_STATUS = 200/);
+  assert.match(route, /parsed\.searched !== true/);
+  assert.match(route, /X-VS-Trusted-Web-Fallback/);
+  assert.match(pane, /X-VS-Trusted-Web-Fallback/);
+  assert.match(pane, /callChat\(input, tid, regen, noStore, voiceTurnId, voiceSessionId, false\)/);
+  assert.match(pane, /if \(!reply\.trustedWeb\)/);
+});

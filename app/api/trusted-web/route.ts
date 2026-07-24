@@ -9,6 +9,7 @@ import { isAbortLike, requestDeadlineSignal } from "@/lib/requestDeadline";
 const TRUSTED_WEB_TIMEOUT_MS = 55_000;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const FALLBACK_TO_CHAT_STATUS = 200;
 const ALLOWED_SOURCE_DOMAINS = new Set([
   "ods.od.nih.gov",
   "medlineplus.gov",
@@ -233,6 +234,28 @@ export async function POST(req: Request) {
         status: 502,
         headers: { ...ERROR_RESPONSE_HEADERS, "x-request-id": rid },
       });
+    }
+
+
+    if (parsed.searched !== true) {
+      return Response.json(
+        {
+          fallback: "chat",
+          reason: String(parsed?.reason || "trusted_web_not_used").slice(0, 100),
+          topic,
+          searched: false,
+        },
+        {
+          status: FALLBACK_TO_CHAT_STATUS,
+          headers: {
+            ...JSON_RESPONSE_HEADERS,
+            "x-request-id": rid,
+            "X-VS-Trusted-Web-Fallback": "chat",
+            "X-VS-Web-Topic": topic,
+            "X-VS-Web-Searched": "0",
+          },
+        },
+      );
     }
 
     return Response.json(
