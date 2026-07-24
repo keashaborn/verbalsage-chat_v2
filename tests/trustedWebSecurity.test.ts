@@ -111,5 +111,7 @@ test("trusted web non-search responses fall back to normal chat", () => {
   assert.match(pane, /trustedWebFallback: false/);
   assert.match(pane, /if \(reply\.trustedWebFallback\)/);
   assert.match(pane, /void loadMessages\(tid/);
+  assert.match(pane, /trusted_web_fallback: true/);
+  assert.match(pane, /Web search was not used because this question was outside trusted-source scope\./);
   assert.match(pane, /if \(!reply\.trustedWeb\)/);
 });

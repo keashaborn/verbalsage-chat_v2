@@ -143,6 +143,7 @@ type Msg = {
   inspect?: ResponseInspection | null;
   inspect_error?: string | null;
   web_search?: boolean;
+  trusted_web_fallback?: boolean;
   trusted_web_sources?: TrustedWebSource[];
 };
 
@@ -1133,6 +1134,7 @@ export function BrainsChatPane() {
     attach?: {
       inspect: ResponseInspection | null;
       inspect_error: string | null;
+      trusted_web_fallback?: boolean;
     },
   ) {
     setLoading(true);
@@ -1151,6 +1153,7 @@ export function BrainsChatPane() {
             ...normalized[idx],
             inspect: attach.inspect,
             inspect_error: attach.inspect_error,
+            trusted_web_fallback: attach.trusted_web_fallback === true,
           };
         }
       }
@@ -1398,6 +1401,7 @@ export function BrainsChatPane() {
               inspect: reply.inspect,
               inspect_error: reply.inspect_error,
               web_search: reply.trustedWeb,
+              trusted_web_fallback: reply.trustedWebFallback,
               trusted_web_sources: reply.trustedWebSources,
             },
           ];
@@ -1412,6 +1416,7 @@ export function BrainsChatPane() {
           inspect: reply.inspect,
           inspect_error: reply.inspect_error,
           web_search: reply.trustedWeb,
+          trusted_web_fallback: reply.trustedWebFallback,
           trusted_web_sources: reply.trustedWebSources,
         };
         return next;
@@ -1690,6 +1695,7 @@ export function BrainsChatPane() {
             inspect: reply.inspect,
             inspect_error: reply.inspect_error,
             web_search: reply.trustedWeb,
+            trusted_web_fallback: reply.trustedWebFallback,
             trusted_web_sources: reply.trustedWebSources,
           },
         ];
@@ -1705,6 +1711,7 @@ export function BrainsChatPane() {
           void loadMessages(tid, {
             inspect: reply.inspect,
             inspect_error: reply.inspect_error,
+            trusted_web_fallback: true,
           });
         } else {
           await loadMessages(tid, {
@@ -2009,6 +2016,11 @@ export function BrainsChatPane() {
                         <TrustedWebSourceCards
                           sources={m.trusted_web_sources}
                         />
+                      )}
+                      {m.trusted_web_fallback && (
+                        <div className="mt-4 text-xs text-muted-foreground">
+                          Web search was not used because this question was outside trusted-source scope.
+                        </div>
                       )}
                     </>
                   ) : (
