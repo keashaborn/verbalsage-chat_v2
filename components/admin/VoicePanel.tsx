@@ -4,10 +4,12 @@ import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch } from "@/lib/authFetch";
 import {
+  cacheVoiceMode,
   DEFAULT_VOICE_MODE,
   normalizeVoiceMode,
   VOICE_MODE_OPTIONS,
   VOICE_MODE_STORAGE_KEY,
+  voiceModeFromUserMetadata,
   type VoiceMode,
 } from "@/lib/voiceMode";
 
@@ -196,6 +198,21 @@ export function VoicePanel() {
     });
   }
 
+  function saveVoiceMode(nextMode: VoiceMode) {
+    cacheVoiceMode(nextMode);
+    setVoiceMode(nextMode);
+    setStatus("Conversation mode saved. Syncing to your account…");
+    void supabase.auth
+      .updateUser({ data: { vs_voice_mode: nextMode } })
+      .then(({ error }) => {
+        setStatus(
+          error
+            ? "Saved on this device, but account sync failed."
+            : "Conversation mode synced to your account.",
+        );
+      });
+  }
+
   React.useEffect(() => {
     let cancelled = false;
     setVoiceMode(normalizeVoiceMode(localStorage.getItem(VOICE_MODE_STORAGE_KEY)));
@@ -212,6 +229,11 @@ export function VoicePanel() {
     void (async () => {
       const { data } = await supabase.auth.getUser();
       const md: any = data?.user?.user_metadata || {};
+      const cloudVoiceMode = voiceModeFromUserMetadata(md);
+      if (cloudVoiceMode && !cancelled) {
+        cacheVoiceMode(cloudVoiceMode);
+        setVoiceMode(cloudVoiceMode);
+      }
       const hasCloud =
         md.vs_voice != null ||
         md.vs_voice_speed != null ||
@@ -361,9 +383,7 @@ export function VoicePanel() {
               aria-label="Voice conversation mode"
               onChange={(event) => {
                 const nextMode = normalizeVoiceMode(event.target.value);
-                localStorage.setItem(VOICE_MODE_STORAGE_KEY, nextMode);
-                setVoiceMode(nextMode);
-                setStatus("Conversation mode saved on this device.");
+                saveVoiceMode(nextMode);
               }}
             >
               {VOICE_MODE_OPTIONS.map((option) => (
