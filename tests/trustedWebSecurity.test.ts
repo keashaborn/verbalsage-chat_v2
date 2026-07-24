@@ -107,6 +107,9 @@ test("trusted web non-search responses fall back to normal chat", () => {
   assert.match(route, /parsed\.searched !== true/);
   assert.match(route, /X-VS-Trusted-Web-Fallback/);
   assert.match(pane, /X-VS-Trusted-Web-Fallback/);
-  assert.match(pane, /callChat\(input, tid, regen, noStore, voiceTurnId, voiceSessionId, false\)/);
+  assert.match(pane, /trustedWebFallback: true/);
+  assert.match(pane, /trustedWebFallback: false/);
+  assert.match(pane, /if \(reply\.trustedWebFallback\)/);
+  assert.match(pane, /void loadMessages\(tid/);
   assert.match(pane, /if \(!reply\.trustedWeb\)/);
 });

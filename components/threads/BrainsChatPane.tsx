@@ -86,6 +86,7 @@ type ChatResult = {
   requestId: string;
   responseTimings: ResponseStageTimings | null;
   trustedWeb: boolean;
+  trustedWebFallback: boolean;
   trustedWebSources: TrustedWebSource[];
 };
 
@@ -1277,7 +1278,16 @@ export function BrainsChatPane() {
       BROWSER_RESPONSE_TIMEOUT_MS,
     );
     if (trustedWeb && r.headers.get("X-VS-Trusted-Web-Fallback") === "chat") {
-      return callChat(input, tid, regen, noStore, voiceTurnId, voiceSessionId, false);
+      const fallbackReply = await callChat(
+        input,
+        tid,
+        regen,
+        noStore,
+        voiceTurnId,
+        voiceSessionId,
+        false,
+      );
+      return { ...fallbackReply, trustedWebFallback: true };
     }
     if (!r.ok) {
       if (r.status === 504) {
@@ -1332,6 +1342,7 @@ export function BrainsChatPane() {
       ),
       trustedWeb:
         r.headers.get("X-VS-Response-Runtime") === "trusted_web_v1",
+      trustedWebFallback: false,
       trustedWebSources,
       ...decodeResponseInspectionHeader(
         r.headers.get("X-VS-Inspection"),
@@ -1689,10 +1700,18 @@ export function BrainsChatPane() {
 
       if (!reply.trustedWeb) {
         window.dispatchEvent(new Event("vs_threads_refresh"));
-        await loadMessages(tid, {
-          inspect: reply.inspect,
-          inspect_error: reply.inspect_error,
-        });
+        if (reply.trustedWebFallback) {
+          requestAnimationFrame(() => scrollToBottom("smooth"));
+          void loadMessages(tid, {
+            inspect: reply.inspect,
+            inspect_error: reply.inspect_error,
+          });
+        } else {
+          await loadMessages(tid, {
+            inspect: reply.inspect,
+            inspect_error: reply.inspect_error,
+          });
+        }
       } else {
         requestAnimationFrame(() => scrollToBottom("smooth"));
       }
