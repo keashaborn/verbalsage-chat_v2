@@ -50,8 +50,7 @@ const SPEECH_START_RMS = 0.025;
 const BARGE_IN_START_RMS = 0.06;
 const BARGE_IN_HOLD_MS = 180;
 const SPEECH_END_RMS = 0.018;
-const NORMAL_END_SILENCE_MS = 1_200;
-const BARGE_IN_END_SILENCE_MS = 1_800;
+const END_SILENCE_MS = 700;
 const MIN_SPEECH_MS = 250;
 const MAX_TURN_MS = 90_000;
 const VOICE_LEASE_HEARTBEAT_MS = 2_000;
@@ -89,7 +88,6 @@ export function useRealtimeVoicePreview() {
   const speechCandidateAtRef = useRef<number | null>(null);
   const speechStartedAtRef = useRef<number | null>(null);
   const lastSpeechAtRef = useRef<number | null>(null);
-  const turnStartedAsBargeInRef = useRef(false);
   const commitInFlightRef = useRef(false);
   const eventCursorRef = useRef(0);
   const onResponseRef = useRef<StartOptions["onResponse"] | null>(null);
@@ -107,7 +105,6 @@ export function useRealtimeVoicePreview() {
     speechCandidateAtRef.current = null;
     speechStartedAtRef.current = null;
     lastSpeechAtRef.current = null;
-    turnStartedAsBargeInRef.current = false;
     onResponseRef.current = null;
     onSpeechStartRef.current = null;
     onLeaseLostRef.current = null;
@@ -471,7 +468,6 @@ export function useRealtimeVoicePreview() {
           commitInFlightRef.current = true;
           speechStartedAtRef.current = null;
           lastSpeechAtRef.current = null;
-          turnStartedAsBargeInRef.current = false;
           try {
             const response = await authFetch(
               `/api/voice/realtime-preview/session/${encodeURIComponent(
@@ -534,7 +530,6 @@ export function useRealtimeVoicePreview() {
             speechCandidateAtRef.current = null;
             speechStartedAtRef.current = now;
             lastSpeechAtRef.current = now;
-            turnStartedAsBargeInRef.current = assistantWasSpeaking;
             setStatus("listening");
             if (assistantWasSpeaking) {
               assistantSpeakingRef.current = false;
@@ -545,12 +540,9 @@ export function useRealtimeVoicePreview() {
           if (rms >= SPEECH_END_RMS) lastSpeechAtRef.current = now;
           const speechMs = now - speechStartedAtRef.current;
           const silenceMs = now - (lastSpeechAtRef.current || now);
-          const requiredSilenceMs = turnStartedAsBargeInRef.current
-            ? BARGE_IN_END_SILENCE_MS
-            : NORMAL_END_SILENCE_MS;
           if (
             speechMs >= MAX_TURN_MS ||
-            (speechMs >= MIN_SPEECH_MS && silenceMs >= requiredSilenceMs)
+            (speechMs >= MIN_SPEECH_MS && silenceMs >= END_SILENCE_MS)
           ) {
             void commitTurn();
           }
