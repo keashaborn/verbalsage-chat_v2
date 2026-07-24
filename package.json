@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test:voice": "node --experimental-strip-types --test tests/voiceSpeech.test.ts",
+    "test:trusted-web": "node --experimental-strip-types --test tests/trustedWebSecurity.test.ts",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write ."
   },

@@ -17,6 +17,7 @@ import {
   RotateCw,
   Square,
   Check,
+  Globe2,
 } from "lucide-react";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
 import {
@@ -62,6 +63,7 @@ type ChatResult = {
   answerId: string;
   requestId: string;
   responseTimings: ResponseStageTimings | null;
+  trustedWeb: boolean;
 };
 
 type ResponseStageTimings = {
@@ -116,6 +118,7 @@ type Msg = {
   v?: number;
   inspect?: ResponseInspection | null;
   inspect_error?: string | null;
+  web_search?: boolean;
 };
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -191,6 +194,7 @@ export function BrainsChatPane() {
   const [editingText, setEditingText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [voicePrivacyOpen, setVoicePrivacyOpen] = React.useState(false);
   const [voicePrivacySaving, setVoicePrivacySaving] = React.useState(false);
@@ -1036,21 +1040,31 @@ export function BrainsChatPane() {
     noStore = false,
     voiceTurnId?: string,
     voiceSessionId?: string,
+    trustedWeb = false,
   ): Promise<ChatResult> {
     const { response: r, responseText } = await withRequestDeadline(
       async (signal) => {
-        const response = await authFetch("/api/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(voiceTurnId ? { [VOICE_TURN_HEADER]: voiceTurnId } : {}),
-            ...(voiceSessionId
-              ? { [VOICE_SESSION_HEADER]: voiceSessionId }
-              : {}),
+        const response = await authFetch(
+          trustedWeb ? "/api/trusted-web" : "/api/chat",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(!trustedWeb && voiceTurnId
+                ? { [VOICE_TURN_HEADER]: voiceTurnId }
+                : {}),
+              ...(!trustedWeb && voiceSessionId
+                ? { [VOICE_SESSION_HEADER]: voiceSessionId }
+                : {}),
+            },
+            body: JSON.stringify(
+              trustedWeb
+                ? { query: input }
+                : { input, thread_id: tid, regen, noStore },
+            ),
+            signal,
           },
-          body: JSON.stringify({ input, thread_id: tid, regen, noStore }),
-          signal,
-        });
+        );
         return {
           response,
           responseText: await response.text(),
@@ -1070,6 +1084,17 @@ export function BrainsChatPane() {
       if (r.status === 409 && voiceTurnId) {
         throw new Error("Voice moved to another window.");
       }
+      if (r.status === 403 && trustedWeb) {
+        throw new Error("Trusted web search is not enabled for this account.");
+      }
+      if (r.status === 429 && trustedWeb) {
+        throw new Error(
+          "Trusted web search reached its rate limit. Please wait and try again.",
+        );
+      }
+      if (r.status === 503 && trustedWeb) {
+        throw new Error("Trusted web search is currently unavailable.");
+      }
       throw new Error("The response could not be completed. Please try again.");
     }
     if (voiceTurnId && r.headers.get(VOICE_TURN_HEADER) !== voiceTurnId) {
@@ -1082,6 +1107,8 @@ export function BrainsChatPane() {
       responseTimings: decodeResponseTimingsHeader(
         r.headers.get("X-VS-Response-Timings"),
       ),
+      trustedWeb:
+        r.headers.get("X-VS-Response-Runtime") === "trusted_web_v1",
       ...decodeResponseInspectionHeader(
         r.headers.get("X-VS-Inspection"),
         r.headers.get("X-VS-Inspection-Status"),
@@ -1102,11 +1129,10 @@ export function BrainsChatPane() {
 
   async function regenerateLast() {
     stopTTS();
-    const lastUser =
-      [...msgs]
-        .reverse()
-        .find((m) => m.role === "user")
-        ?.content?.trim() || "";
+    const lastUserMessage = [...msgs]
+      .reverse()
+      .find((m) => m.role === "user");
+    const lastUser = lastUserMessage?.content?.trim() || "";
     if (!lastUser) return;
 
     let tid = threadId;
@@ -1114,7 +1140,15 @@ export function BrainsChatPane() {
 
     setSending(true);
     try {
-      const reply = await callChat(lastUser, tid!, true);
+      const reply = await callChat(
+        lastUser,
+        tid!,
+        true,
+        false,
+        undefined,
+        undefined,
+        lastUserMessage?.web_search === true,
+      );
 
       setMsgs((prev) => {
         const idx = lastAssistantIndex(prev);
@@ -1128,6 +1162,7 @@ export function BrainsChatPane() {
               v: 1,
               inspect: reply.inspect,
               inspect_error: reply.inspect_error,
+              web_search: reply.trustedWeb,
             },
           ];
         }
@@ -1140,6 +1175,7 @@ export function BrainsChatPane() {
           v: curV + 1,
           inspect: reply.inspect,
           inspect_error: reply.inspect_error,
+          web_search: reply.trustedWeb,
         };
         return next;
       });
@@ -1154,6 +1190,7 @@ export function BrainsChatPane() {
 
   async function startListening() {
     stopTTS();
+    setWebSearchEnabled(false);
     unlockAudioForSafari();
     voiceConversationEpochRef.current += 1;
     const conversationEpoch = voiceConversationEpochRef.current;
@@ -1272,6 +1309,11 @@ export function BrainsChatPane() {
 
     const editMessageId = editingMessageId;
     const isEditing = !!editMessageId;
+    const useTrustedWeb =
+      webSearchEnabled &&
+      overrideText == null &&
+      !isEditing &&
+      !options.voiceTurn;
 
     setSending(true);
     setRequestError("");
@@ -1302,7 +1344,10 @@ export function BrainsChatPane() {
       return;
     }
 
-    setMsgs((prev) => [...prev, { role: "user", content: msg }]);
+    setMsgs((prev) => [
+      ...prev,
+      { role: "user", content: msg, web_search: useTrustedWeb },
+    ]);
 
     const responseStartedAt = performance.now();
     try {
@@ -1313,13 +1358,14 @@ export function BrainsChatPane() {
         false,
         options.voiceTurn?.voiceTurnId,
         options.voiceTurn?.voiceSessionId,
+        useTrustedWeb,
       );
       const responseMs = Math.max(
         0,
         Math.round(performance.now() - responseStartedAt),
       );
 
-      void (async () => {
+      if (!useTrustedWeb) void (async () => {
         try {
           const { data } = await supabase.auth.getSession();
           const token = data?.session?.access_token;
@@ -1352,6 +1398,7 @@ export function BrainsChatPane() {
             v: 1,
             inspect: reply.inspect,
             inspect_error: reply.inspect_error,
+            web_search: reply.trustedWeb,
           },
         ];
         const idx = next.length - 1;
@@ -1359,11 +1406,15 @@ export function BrainsChatPane() {
         return next;
       });
 
-      window.dispatchEvent(new Event("vs_threads_refresh"));
-      await loadMessages(tid, {
-        inspect: reply.inspect,
-        inspect_error: reply.inspect_error,
-      });
+      if (!useTrustedWeb) {
+        window.dispatchEvent(new Event("vs_threads_refresh"));
+        await loadMessages(tid, {
+          inspect: reply.inspect,
+          inspect_error: reply.inspect_error,
+        });
+      } else {
+        requestAnimationFrame(() => scrollToBottom("smooth"));
+      }
       setSending(false);
       let speechMetrics: VoiceSpeechMetrics | null = null;
       if (options.speakReply && (options.shouldSpeak?.() ?? true)) {
@@ -1904,12 +1955,46 @@ export function BrainsChatPane() {
               }}
             />
             <div className="flex items-center justify-between gap-2">
-              <span className="min-w-0 flex-1 text-[11px] text-muted-foreground">
-                OpenAI transcription · AI-generated reply · {voiceStatusLabel}
-                {governedVoice.partialTranscript
-                  ? ` · ${governedVoice.partialTranscript}`
-                  : ""}
-              </span>
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <button
+                  type="button"
+                  data-trusted-web-toggle
+                  aria-pressed={webSearchEnabled}
+                  aria-label={
+                    webSearchEnabled
+                      ? "Turn trusted web search off"
+                      : "Turn trusted web search on"
+                  }
+                  title="Search only approved nutrition, lifting, physique, supplement, and behavior-change sources"
+                  disabled={
+                    sending ||
+                    !!editingMessageId ||
+                    voiceIsActive ||
+                    voiceIsConnecting
+                  }
+                  onClick={() => {
+                    setRequestError("");
+                    setWebSearchEnabled((enabled) => !enabled);
+                  }}
+                  className={[
+                    "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors disabled:opacity-50",
+                    webSearchEnabled
+                      ? "border-foreground bg-foreground text-background"
+                      : "bg-background text-muted-foreground",
+                  ].join(" ")}
+                >
+                  <Globe2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  {webSearchEnabled ? "Web on" : "Web"}
+                </button>
+                <span className="min-w-0 flex-1 text-[11px] text-muted-foreground">
+                  {webSearchEnabled
+                    ? "Trusted sources · Not saved to memory"
+                    : `OpenAI transcription · AI-generated reply · ${voiceStatusLabel}`}
+                  {!webSearchEnabled && governedVoice.partialTranscript
+                    ? ` · ${governedVoice.partialTranscript}`
+                    : ""}
+                </span>
+              </div>
 
               <button
                 type="button"

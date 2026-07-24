@@ -22,6 +22,28 @@ function bearerToken(req: Request): string {
   return auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
 }
 
+function supabaseAuthEndpoint(): { url: string; apiKey: string } | null {
+  const rawUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const apiKey = String(
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      "",
+  ).trim();
+  if (!rawUrl || !apiKey) return null;
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
+      return null;
+    }
+    parsed.pathname = `${parsed.pathname.replace(/\/+$/, "")}/auth/v1/user`;
+    parsed.search = "";
+    parsed.hash = "";
+    return { url: parsed.toString(), apiKey };
+  } catch {
+    return null;
+  }
+}
+
 async function verifiedSupabasePayload(req: Request): Promise<SupabaseJwtPayload | null> {
   if (!JWKS || !ISSUER) return null;
 
@@ -81,4 +103,47 @@ export async function getSupabaseAuthContextFromRequest(req: Request): Promise<S
     is_admin: role === "admin",
     payload,
   };
+}
+
+export async function getFreshSupabaseAuthContextFromRequest(
+  req: Request,
+): Promise<SupabaseRequestAuth | null> {
+  const payload = await verifiedSupabasePayload(req);
+  const token = bearerToken(req);
+  const endpoint = supabaseAuthEndpoint();
+  if (!payload || !token || !endpoint) return null;
+
+  try {
+    const response = await fetch(endpoint.url, {
+      method: "GET",
+      headers: {
+        apikey: endpoint.apiKey,
+        authorization: `Bearer ${token}`,
+        accept: "application/json",
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) return null;
+    const raw = await response.text();
+    if (!raw || raw.length > 65_536) return null;
+    const user = JSON.parse(raw);
+    if (
+      !user ||
+      typeof user !== "object" ||
+      String(user.id || "") !== payload.sub
+    ) {
+      return null;
+    }
+    const appRole = user.app_metadata?.role;
+    const role = typeof appRole === "string" ? appRole : null;
+    return {
+      user_id: payload.sub,
+      role,
+      is_admin: role === "admin",
+      payload,
+    };
+  } catch {
+    return null;
+  }
 }

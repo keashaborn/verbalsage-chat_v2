@@ -29,6 +29,7 @@ export type PermissionCategory =
   | "inspection"
   | "diagnostics"
   | "voice"
+  | "web_search"
   | "memory"
   | "admin_console"
   | "account_data"
@@ -202,6 +203,21 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     risk: "high",
     defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
     backendEnforced: true,
+  },
+
+  {
+    key: "web_search.use",
+    label: "Use Trusted Web Search",
+    description:
+      "Run bounded evidence searches against the server-owned nutrition, lifting, physique, and behavior-change source allowlist.",
+    category: "web_search",
+    scope: "own_account",
+    access: "use",
+    risk: "medium",
+    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    backendEnforced: true,
+    notes:
+      "Requires a fresh Supabase user check, the Verbal Sage BFF, the Brains service boundary, actor/owner matching, and the backend kill switch.",
   },
 
   // Memory
