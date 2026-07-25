@@ -70,6 +70,17 @@ import {
   splitForSpeech,
 } from "@/lib/voiceSpeech";
 
+type WebMode = "off" | "trusted_health" | "current_news";
+
+const webModeTrustedHealthEnabled = (mode: WebMode): boolean =>
+  mode === "trusted_health";
+
+const webModeStatusLabel = (mode: WebMode): string => {
+  if (mode === "trusted_health") return "Trusted sources · Not saved to memory";
+  if (mode === "current_news") return "Current sources · Not saved to memory";
+  return "";
+};
+
 type TrustedWebSource = {
   url: string;
   title: string;
@@ -319,7 +330,8 @@ export function BrainsChatPane() {
   const [editingText, setEditingText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
-  const [webSearchEnabled, setWebSearchEnabled] = React.useState(false);
+  const [webMode, setWebMode] = React.useState<WebMode>("off");
+  const webSearchEnabled = webModeTrustedHealthEnabled(webMode);
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [voicePrivacyOpen, setVoicePrivacyOpen] = React.useState(false);
   const [voicePrivacySaving, setVoicePrivacySaving] = React.useState(false);
@@ -1432,7 +1444,7 @@ export function BrainsChatPane() {
 
   async function startGovernedListening() {
     stopTTS();
-    setWebSearchEnabled(false);
+    setWebMode("off");
     unlockAudioForSafari();
     voiceConversationEpochRef.current += 1;
     const conversationEpoch = voiceConversationEpochRef.current;
@@ -1477,7 +1489,7 @@ export function BrainsChatPane() {
 
   async function startRealtimeListening() {
     stopTTS();
-    setWebSearchEnabled(false);
+    setWebMode("off");
     unlockAudioForSafari();
     voiceConversationEpochRef.current += 1;
     const conversationEpoch = voiceConversationEpochRef.current;
@@ -2314,7 +2326,9 @@ export function BrainsChatPane() {
                   }
                   onClick={() => {
                     setRequestError("");
-                    setWebSearchEnabled((enabled) => !enabled);
+                    setWebMode((mode) =>
+                      mode === "trusted_health" ? "off" : "trusted_health",
+                    );
                   }}
                   className={[
                     "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors disabled:opacity-50",
@@ -2328,7 +2342,7 @@ export function BrainsChatPane() {
                 </button>
                 <span className="min-w-0 flex-1 text-[11px] text-muted-foreground">
                   {webSearchEnabled
-                    ? "Trusted sources · Not saved to memory"
+                    ? webModeStatusLabel(webMode)
                     : `OpenAI transcription · AI-generated reply · ${voiceStatusLabel}`}
                   {!webSearchEnabled &&
                   effectiveVoiceMode === "governed" &&

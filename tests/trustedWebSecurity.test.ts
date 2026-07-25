@@ -55,15 +55,18 @@ test("BFF revalidates returned source domains", () => {
 
 test("composer search is explicit, off by default, and disabled for voice", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
+  assert.match(pane, /type WebMode = "off" \| "trusted_health" \| "current_news"/);
   assert.match(
     pane,
-    /const \[webSearchEnabled, setWebSearchEnabled\] = React\.useState\(false\)/,
+    /const \[webMode, setWebMode\] = React\.useState<WebMode>\("off"\)/,
   );
+  assert.match(pane, /webModeTrustedHealthEnabled\(webMode\)/);
   assert.match(pane, /data-trusted-web-toggle/);
   assert.match(pane, /aria-pressed=\{webSearchEnabled\}/);
   assert.match(pane, /Trusted sources · Not saved to memory/);
-  assert.match(pane, /setWebSearchEnabled\(false\)/);
-  assert.doesNotMatch(pane, /localStorage.*webSearchEnabled/);
+  assert.match(pane, /Current sources · Not saved to memory/);
+  assert.match(pane, /setWebMode\("off"\)/);
+  assert.doesNotMatch(pane, /localStorage.*webMode/);
 });
 
 
