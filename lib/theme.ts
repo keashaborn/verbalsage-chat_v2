@@ -1,8 +1,8 @@
-export type VSTheme = "graphite" | "paper";
+export type VSTheme = "graphite" | "slate" | "mist" | "paper";
 
 export const DEFAULT_THEME: VSTheme = "graphite";
 
-const LEGACY_THEME_CLASSES = ["dark", "dark-hc", "paper", "graphite", "carbon"];
+const LEGACY_THEME_CLASSES = ["dark", "dark-hc", "paper", "graphite", "carbon", "slate", "mist"];
 
 export function normalizeThemeValue(raw: unknown): VSTheme | null {
   let value = raw;
@@ -23,6 +23,8 @@ export function normalizeThemeValue(raw: unknown): VSTheme | null {
 
   const theme = String(value || "").trim().toLowerCase();
   if (theme === "paper" || theme === "light") return "paper";
+  if (theme === "mist") return "mist";
+  if (theme === "slate") return "slate";
   if (["graphite", "dark", "carbon", "dark-hc"].includes(theme)) return "graphite";
   return null;
 }
@@ -47,6 +49,14 @@ export function applyTheme(theme: VSTheme) {
     root.classList.add("paper");
     root.style.colorScheme = "light";
     root.style.backgroundColor = "#f7f5f0";
+  } else if (theme === "mist") {
+    root.classList.add("mist");
+    root.style.colorScheme = "light";
+    root.style.backgroundColor = "#f1f4f7";
+  } else if (theme === "slate") {
+    root.classList.add("dark", "slate");
+    root.style.colorScheme = "dark";
+    root.style.backgroundColor = "#171c24";
   } else {
     root.classList.add("dark", "graphite");
     root.style.colorScheme = "dark";

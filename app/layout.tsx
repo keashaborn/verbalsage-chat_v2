@@ -51,17 +51,29 @@ export default function RootLayout({
   try {
     var raw = localStorage.getItem("vs_theme");
     var value = raw ? (raw[0] === '"' ? JSON.parse(raw) : raw) : "graphite";
-    var t = (value === "paper" || value === "light") ? "paper" : "graphite";
+    var normalized = String(value || "").trim().toLowerCase();
+    var t = (normalized === "paper" || normalized === "light") ? "paper"
+      : normalized === "mist" ? "mist"
+      : normalized === "slate" ? "slate"
+      : "graphite";
     var root = document.documentElement;
 
     localStorage.setItem("vs_theme", JSON.stringify(t));
-    root.classList.remove("dark", "dark-hc", "paper", "graphite", "carbon");
+    root.classList.remove("dark", "dark-hc", "paper", "graphite", "carbon", "slate", "mist");
     root.dataset.theme = t;
 
     if (t === "paper") {
       root.classList.add("paper");
       root.style.colorScheme = "light";
       root.style.backgroundColor = "#f7f5f0";
+    } else if (t === "mist") {
+      root.classList.add("mist");
+      root.style.colorScheme = "light";
+      root.style.backgroundColor = "#f1f4f7";
+    } else if (t === "slate") {
+      root.classList.add("dark", "slate");
+      root.style.colorScheme = "dark";
+      root.style.backgroundColor = "#171c24";
     } else {
       root.classList.add("dark", "graphite");
       root.style.colorScheme = "dark";

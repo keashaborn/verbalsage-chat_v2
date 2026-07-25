@@ -52,11 +52,13 @@ export function PersonalizationPanel() {
           }}
         >
           <option value="graphite">Graphite</option>
+          <option value="slate">Slate</option>
+          <option value="mist">Mist</option>
           <option value="paper">Paper</option>
         </select>
 
         <div className="text-xs text-muted-foreground">
-          Graphite is the default. Paper is a softer light theme. Your choice syncs to your account.
+          Graphite is the default. Slate and Mist add subtle cool alternatives; Paper remains softly neutral. Your choice syncs to your account.
         </div>
       </div>
     </div>

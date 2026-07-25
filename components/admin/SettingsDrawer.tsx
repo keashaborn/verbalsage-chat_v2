@@ -49,7 +49,16 @@ const PAGE_TITLES: Record<PageId, string> = {
 };
 
 function prettyThemeLabel(raw: string | null) {
-  return normalizeThemeValue(raw) === "paper" ? "Paper" : "Graphite";
+  switch (normalizeThemeValue(raw)) {
+    case "slate":
+      return "Slate";
+    case "mist":
+      return "Mist";
+    case "paper":
+      return "Paper";
+    default:
+      return "Graphite";
+  }
 }
 
 
