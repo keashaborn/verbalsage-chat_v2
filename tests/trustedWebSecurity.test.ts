@@ -61,10 +61,12 @@ test("composer search is explicit, off by default, and disabled for voice", () =
     /const \[webMode, setWebMode\] = React\.useState<WebMode>\("off"\)/,
   );
   assert.match(pane, /webModeTrustedHealthEnabled\(webMode\)/);
-  assert.match(pane, /data-trusted-web-toggle/);
-  assert.match(pane, /aria-pressed=\{webSearchEnabled\}/);
+  assert.match(pane, /data-web-mode-selector/);
+  assert.match(pane, /value=\{webMode\}/);
   assert.match(pane, /Trusted sources · Not saved to memory/);
   assert.match(pane, /Current sources · Not saved to memory/);
+  assert.match(pane, /Current news soon/);
+  assert.match(pane, /nextMode === \"current_news\" \? \"off\" : nextMode/);
   assert.match(pane, /setWebMode\("off"\)/);
   assert.doesNotMatch(pane, /localStorage.*webMode/);
 });

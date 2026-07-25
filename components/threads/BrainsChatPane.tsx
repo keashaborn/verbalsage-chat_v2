@@ -2308,38 +2308,42 @@ export function BrainsChatPane() {
             />
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 flex-1 items-center gap-2">
-                <button
-                  type="button"
-                  data-trusted-web-toggle
-                  aria-pressed={webSearchEnabled}
-                  aria-label={
-                    webSearchEnabled
-                      ? "Turn trusted web search off"
-                      : "Turn trusted web search on"
-                  }
-                  title="Search only approved nutrition, lifting, physique, supplement, and behavior-change sources"
-                  disabled={
-                    sending ||
-                    !!editingMessageId ||
-                    voiceIsActive ||
-                    voiceIsConnecting
-                  }
-                  onClick={() => {
-                    setRequestError("");
-                    setWebMode((mode) =>
-                      mode === "trusted_health" ? "off" : "trusted_health",
-                    );
-                  }}
+                <label
                   className={[
                     "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors disabled:opacity-50",
-                    webSearchEnabled
+                    webMode !== "off"
                       ? "border-foreground bg-foreground text-background"
                       : "bg-background text-muted-foreground",
                   ].join(" ")}
+                  title="Choose the bounded web mode for the next message"
                 >
                   <Globe2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  {webSearchEnabled ? "Web on" : "Web"}
-                </button>
+                  <select
+                    data-web-mode-selector
+                    aria-label="Web mode"
+                    value={webMode}
+                    disabled={
+                      sending ||
+                      !!editingMessageId ||
+                      voiceIsActive ||
+                      voiceIsConnecting
+                    }
+                    onChange={(event) => {
+                      setRequestError("");
+                      const nextMode = event.target.value as WebMode;
+                      setWebMode(
+                        nextMode === "current_news" ? "off" : nextMode,
+                      );
+                    }}
+                    className="cursor-pointer appearance-none bg-transparent pr-1 text-inherit outline-none disabled:cursor-not-allowed"
+                  >
+                    <option value="off">Web off</option>
+                    <option value="trusted_health">Trusted health</option>
+                    <option value="current_news" disabled>
+                      Current news soon
+                    </option>
+                  </select>
+                </label>
                 <span className="min-w-0 flex-1 text-[11px] text-muted-foreground">
                   {webSearchEnabled
                     ? webModeStatusLabel(webMode)
