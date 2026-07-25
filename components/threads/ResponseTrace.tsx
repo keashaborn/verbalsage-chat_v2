@@ -182,7 +182,14 @@ export function ResponseTrace({
                   {traceV2.execution.web_searched && (
                     <>
                       <span className="text-muted-foreground">Sources</span>
-                      <span>{traceV2.execution.source_count}</span>
+                      <span>
+                        {typeof traceV2.execution.cited_source_count ===
+                          "number" &&
+                        typeof traceV2.execution.consulted_source_count ===
+                          "number"
+                          ? `${traceV2.execution.cited_source_count} cited · ${traceV2.execution.consulted_source_count} consulted`
+                          : traceV2.execution.source_count}
+                      </span>
                     </>
                   )}
                 </div>

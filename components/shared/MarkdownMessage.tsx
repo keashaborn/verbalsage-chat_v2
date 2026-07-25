@@ -4,6 +4,7 @@ import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
+import { canonicalWebSourceUrl } from "@/lib/webSourceProvenanceV2";
 
 export function MarkdownMessage({
   children,
@@ -17,38 +18,11 @@ export function MarkdownMessage({
   const linkAllowed = (href: string | undefined): boolean => {
     if (allowedLinkUrls === undefined) return true;
     if (!href) return false;
-    try {
-      const target = new URL(href);
-      if (
-        target.protocol !== "https:" ||
-        target.username ||
-        target.password ||
-        target.port
-      ) {
-        return false;
-      }
-      const targetHost = target.hostname.toLowerCase().replace(/\.$/, "");
-      return allowedLinkUrls.some((sourceUrl) => {
-        try {
-          const source = new URL(sourceUrl);
-          if (
-            source.protocol !== "https:" ||
-            source.username ||
-            source.password ||
-            source.port
-          ) {
-            return false;
-          }
-          return (
-            source.hostname.toLowerCase().replace(/\.$/, "") === targetHost
-          );
-        } catch {
-          return false;
-        }
-      });
-    } catch {
-      return false;
-    }
+    const target = canonicalWebSourceUrl(href);
+    if (!target) return false;
+    return allowedLinkUrls.some(
+      (sourceUrl) => canonicalWebSourceUrl(sourceUrl) === target,
+    );
   };
 
   return (
