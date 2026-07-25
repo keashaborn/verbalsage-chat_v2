@@ -75,8 +75,10 @@ test("composer search has auto mode and remains disabled for voice", () => {
   assert.match(pane, /<option value="current_news">News<\/option>/);
   assert.match(pane, /currentNews\s*\? "\/api\/current-news"/);
   assert.match(pane, /buildCurrentNewsContextualQuery\(input, msgs\)/);
-  assert.match(pane, /what's going on with/);
-  assert.match(pane, /what is happening with/);
+  assert.match(pane, /any current news/);
+  assert.match(pane, /search the web/);
+  assert.doesNotMatch(pane, /AUTO_CURRENT_NEWS_INTENT_TERMS = \[[\s\S]*what's going on with[\s\S]*\]/);
+  assert.doesNotMatch(pane, /AUTO_CURRENT_NEWS_INTENT_TERMS = \[[\s\S]*what is happening with[\s\S]*\]/);
   assert.match(pane, /CURRENT_NEWS_CONTEXT_MAX_CHARS = 1_850/);
   assert.match(pane, /replace\(\/https\?:/);
   assert.match(pane, /setWebMode\("off"\)/);
