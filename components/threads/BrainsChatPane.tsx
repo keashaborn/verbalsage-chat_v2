@@ -258,22 +258,41 @@ function trustedWebHostLabel(url: string): string {
   }
 }
 
+function trustedWebSourceSummary(sources: TrustedWebSource[]): string {
+  const labels = Array.from(
+    new Set(
+      sources
+        .map((source) => {
+          const title = source.title.trim();
+          if (title && title.length <= 32 && !/^source$/i.test(title)) return title;
+          return trustedWebHostLabel(source.url);
+        })
+        .filter(Boolean),
+    ),
+  ).slice(0, 3);
+  const suffix = sources.length === 1 ? "1 source" : `${sources.length} sources`;
+  return labels.length ? `${labels.join(", ")} · ${suffix}` : suffix;
+}
+
 function TrustedWebSourceCards({ sources }: { sources?: TrustedWebSource[] }) {
   const visible = (sources || []).filter((source) => source.url && source.title);
   if (!visible.length) return null;
   return (
-    <section className="mt-4 space-y-2" aria-label="Trusted web sources">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        Trusted sources
-      </div>
-      <div className="space-y-2">
+    <details className="mt-4 rounded-2xl border bg-muted/10 text-xs" aria-label="Trusted web sources">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-muted-foreground marker:hidden">
+        <span className="min-w-0 truncate">
+          Sources: {trustedWebSourceSummary(visible)}
+        </span>
+        <span className="shrink-0 text-[11px]">Details</span>
+      </summary>
+      <div className="space-y-2 border-t px-3 py-3">
         {visible.map((source, index) => (
           <a
             key={`${source.url}:${index}`}
             href={source.url}
             target="_blank"
             rel="noreferrer"
-            className="group block rounded-2xl border bg-muted/20 p-3 text-left no-underline transition hover:bg-muted/40"
+            className="group block rounded-xl border bg-background/40 p-3 text-left no-underline transition hover:bg-muted/40"
           >
             <div className="flex min-w-0 items-start justify-between gap-3">
               <div className="min-w-0">
@@ -296,7 +315,7 @@ function TrustedWebSourceCards({ sources }: { sources?: TrustedWebSource[] }) {
           </a>
         ))}
       </div>
-    </section>
+    </details>
   );
 }
 

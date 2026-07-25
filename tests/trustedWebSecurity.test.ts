@@ -98,7 +98,9 @@ test("trusted web source cards replace plain trailing source list", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
   assert.match(pane, /stripTrustedWebSourceList/);
   assert.match(pane, /Sources:/);
-  assert.match(pane, /Trusted sources/);
+  assert.match(pane, /Sources: \{trustedWebSourceSummary\(visible\)\}/);
+  assert.match(pane, /<details/);
+  assert.match(pane, /<summary/);
 });
 
 
@@ -108,6 +110,7 @@ test("trusted web source cards use a single link per source", () => {
   const end = pane.indexOf("async function fetchJson", start);
   const block = pane.slice(start, end);
   assert.equal((block.match(/<a\b/g) || []).length, 1);
+  assert.match(block, /trustedWebSourceSummary/);
   assert.match(block, /trustedWebHostLabel/);
   assert.match(block, /no-underline/);
 });
