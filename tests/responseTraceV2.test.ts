@@ -95,6 +95,8 @@ const trace: ResponseTraceV2 = {
   execution: {
     web_searched: false,
     source_count: 0,
+    cited_source_count: 0,
+    consulted_source_count: 0,
     validation: "passed",
   },
   timings: { backend_total_ms: 850, answer_generation_ms: 500 },
@@ -110,6 +112,8 @@ test("trace v2 preserves server authority and the strict backend inspection", ()
     "supabase_fresh_user_lookup",
   );
   assert.equal(trace.routing.executed_external_web_access, false);
+  assert.equal(trace.execution.cited_source_count, 0);
+  assert.equal(trace.execution.consulted_source_count, 0);
   assert.equal(
     trace.response_inspection?.contract_version,
     "response_inspection_v1",

@@ -98,6 +98,8 @@ type TrustedWebSource = {
   authority_type: string;
   evidence_type: string;
   source_id?: string;
+  publisher?: string;
+  published_at?: string;
 };
 
 type ChatResult = {
@@ -110,6 +112,7 @@ type ChatResult = {
   trustedWeb: boolean;
   trustedWebFallback: boolean;
   trustedWebSources: TrustedWebSource[];
+  trustedWebConsultedSources: TrustedWebSource[];
 };
 
 type ResponseStageTimings = {
@@ -167,6 +170,7 @@ type Msg = {
   web_search?: boolean;
   trusted_web_fallback?: boolean;
   trusted_web_sources?: TrustedWebSource[];
+  trusted_web_consulted_sources?: TrustedWebSource[];
 };
 
 function normalizeTrustedWebSources(value: unknown): TrustedWebSource[] {
@@ -180,6 +184,8 @@ function normalizeTrustedWebSources(value: unknown): TrustedWebSource[] {
       const authorityType = String(record.authority_type || "").trim();
       const evidenceType = String(record.evidence_type || "").trim();
       const sourceId = String(record.source_id || "").trim();
+      const publisher = String(record.publisher || "").trim();
+      const publishedAt = String(record.published_at || "").trim();
       if (!url || !title || !authorityType || !evidenceType) return null;
       return {
         url,
@@ -187,6 +193,8 @@ function normalizeTrustedWebSources(value: unknown): TrustedWebSource[] {
         authority_type: authorityType,
         evidence_type: evidenceType,
         ...(sourceId ? { source_id: sourceId } : {}),
+        ...(publisher ? { publisher } : {}),
+        ...(publishedAt ? { published_at: publishedAt } : {}),
       };
     })
     .filter((source): source is TrustedWebSource => Boolean(source));
@@ -216,6 +224,9 @@ function trustedWebSourceMeta(source: TrustedWebSource): string {
   if (source.source_id?.startsWith("PMID:")) {
     return `${evidence} · ${source.source_id}`;
   }
+  if (source.published_at) {
+    return `${evidence} · ${source.published_at}`;
+  }
   return evidence;
 }
 
@@ -227,62 +238,138 @@ function trustedWebHostLabel(url: string): string {
   }
 }
 
-function trustedWebSourceSummary(sources: TrustedWebSource[]): string {
+function trustedWebSourceDisplayTitle(source: TrustedWebSource): string {
+  const title = source.title.trim();
+  const host = trustedWebHostLabel(source.url);
+  const genericTitles = new Set(
+    ["source", host, source.publisher || ""]
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  if (title && !genericTitles.has(title.toLowerCase())) return title;
+  try {
+    const parsed = new URL(source.url);
+    const path = decodeURIComponent(parsed.pathname || "/");
+    return `${host}${path === "/" ? "" : path}`;
+  } catch {
+    return title || host;
+  }
+}
+
+function trustedWebSourceSummary(
+  citedSources: TrustedWebSource[],
+  consultedSources: TrustedWebSource[],
+): string {
+  const summarySources = citedSources.length ? citedSources : consultedSources;
   const labels = Array.from(
     new Set(
-      sources
-        .map((source) => {
-          const title = source.title.trim();
-          if (title && title.length <= 32 && !/^source$/i.test(title)) return title;
-          return trustedWebHostLabel(source.url);
-        })
+      summarySources
+        .map(
+          (source) =>
+            source.publisher?.trim() || trustedWebHostLabel(source.url),
+        )
         .filter(Boolean),
     ),
   ).slice(0, 3);
-  const suffix = sources.length === 1 ? "1 source" : `${sources.length} sources`;
+  const suffix = `${citedSources.length} cited · ${consultedSources.length} consulted`;
   return labels.length ? `${labels.join(", ")} · ${suffix}` : suffix;
 }
 
-function TrustedWebSourceCards({ sources }: { sources?: TrustedWebSource[] }) {
-  const visible = (sources || []).filter((source) => source.url && source.title);
-  if (!visible.length) return null;
+function TrustedWebSourceCard({
+  source,
+  provenance,
+}: {
+  source: TrustedWebSource;
+  provenance: "Cited" | "Consulted";
+}) {
   return (
-    <details className="mt-4 rounded-2xl border bg-muted/10 text-xs" aria-label="Trusted web sources">
+    <a
+      href={source.url}
+      target="_blank"
+      rel="noreferrer"
+      className="group block rounded-xl border bg-background/40 p-3 text-left no-underline transition hover:bg-muted/40"
+    >
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <span className="rounded-full border bg-background px-2 py-0.5 text-[11px] font-medium leading-4">
+              {trustedWebAuthorityLabel(source)}
+            </span>
+            <span className="rounded-full border px-2 py-0.5 text-[11px] leading-4 text-muted-foreground">
+              {provenance}
+            </span>
+            <span className="text-[11px] leading-4 text-muted-foreground">
+              {trustedWebSourceMeta(source)}
+            </span>
+          </div>
+          <div className="line-clamp-2 text-xs font-medium leading-5 text-foreground underline-offset-4 group-hover:underline">
+            {trustedWebSourceDisplayTitle(source)}
+          </div>
+        </div>
+        <span className="shrink-0 pt-0.5 text-[11px] text-muted-foreground">
+          {trustedWebHostLabel(source.url)}
+        </span>
+      </div>
+    </a>
+  );
+}
+
+function TrustedWebSourceCards({
+  citedSources,
+  consultedSources,
+}: {
+  citedSources?: TrustedWebSource[];
+  consultedSources?: TrustedWebSource[];
+}) {
+  const cited = (citedSources || []).filter(
+    (source) => source.url && source.title,
+  );
+  const consulted = (consultedSources || []).filter(
+    (source) => source.url && source.title,
+  );
+  const citedUrls = new Set(cited.map((source) => source.url));
+  const additionalConsulted = consulted.filter(
+    (source) => !citedUrls.has(source.url),
+  );
+  if (!cited.length && !consulted.length) return null;
+  return (
+    <details
+      className="mt-4 rounded-2xl border bg-muted/10 text-xs"
+      aria-label="Web source provenance"
+    >
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-muted-foreground marker:hidden">
         <span className="min-w-0 truncate">
-          Sources: {trustedWebSourceSummary(visible)}
+          Sources: {trustedWebSourceSummary(cited, consulted)}
         </span>
         <span className="shrink-0 text-[11px]">Details</span>
       </summary>
       <div className="space-y-2 border-t px-3 py-3">
-        {visible.map((source, index) => (
-          <a
-            key={`${source.url}:${index}`}
-            href={source.url}
-            target="_blank"
-            rel="noreferrer"
-            className="group block rounded-xl border bg-background/40 p-3 text-left no-underline transition hover:bg-muted/40"
-          >
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="mb-1 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border bg-background px-2 py-0.5 text-[11px] font-medium leading-4">
-                    {trustedWebAuthorityLabel(source)}
-                  </span>
-                  <span className="text-[11px] leading-4 text-muted-foreground">
-                    {trustedWebSourceMeta(source)}
-                  </span>
-                </div>
-                <div className="line-clamp-2 text-xs font-medium leading-5 text-foreground underline-offset-4 group-hover:underline">
-                  {source.title}
-                </div>
-              </div>
-              <span className="shrink-0 pt-0.5 text-[11px] text-muted-foreground">
-                {trustedWebHostLabel(source.url)}
-              </span>
-            </div>
-          </a>
+        <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Cited in this answer
+        </div>
+        {cited.map((source) => (
+          <TrustedWebSourceCard
+            key={`cited:${source.url}`}
+            source={source}
+            provenance="Cited"
+          />
         ))}
+        {additionalConsulted.length > 0 && (
+          <details className="rounded-xl border bg-background/20">
+            <summary className="cursor-pointer px-3 py-2 text-[11px] text-muted-foreground">
+              Additional sources consulted ({additionalConsulted.length})
+            </summary>
+            <div className="space-y-2 border-t p-2">
+              {additionalConsulted.map((source) => (
+                <TrustedWebSourceCard
+                  key={`consulted:${source.url}`}
+                  source={source}
+                  provenance="Consulted"
+                />
+              ))}
+            </div>
+          </details>
+        )}
       </div>
     </details>
   );
@@ -1426,17 +1513,25 @@ export function BrainsChatPane() {
       throw new Error("Voice turn correlation was not preserved by chat.");
     }
     let trustedWebSources: TrustedWebSource[] = [];
+    let trustedWebConsultedSources: TrustedWebSource[] = [];
     let responseBodyText = responseText;
     if (externalWeb) {
       try {
         const trustedPayload = JSON.parse(responseText) as {
           answer?: unknown;
           sources?: unknown;
+          cited_sources?: unknown;
+          consulted_sources?: unknown;
         };
         responseBodyText = stripTrustedWebSourceList(
           String(trustedPayload.answer || ""),
         );
-        trustedWebSources = normalizeTrustedWebSources(trustedPayload.sources);
+        trustedWebSources = normalizeTrustedWebSources(
+          trustedPayload.cited_sources ?? trustedPayload.sources,
+        );
+        trustedWebConsultedSources = normalizeTrustedWebSources(
+          trustedPayload.consulted_sources ?? trustedPayload.sources,
+        );
       } catch {
         responseBodyText = stripTrustedWebSourceList(responseText);
       }
@@ -1453,6 +1548,7 @@ export function BrainsChatPane() {
         r.headers.get("X-VS-Response-Runtime") === "current_news_v1",
       trustedWebFallback: false,
       trustedWebSources,
+      trustedWebConsultedSources,
       ...decodeResponseInspectionHeader(
         r.headers.get("X-VS-Inspection"),
         r.headers.get("X-VS-Inspection-Status"),
@@ -1509,6 +1605,8 @@ export function BrainsChatPane() {
               web_search: reply.trustedWeb,
               trusted_web_fallback: reply.trustedWebFallback,
               trusted_web_sources: reply.trustedWebSources,
+              trusted_web_consulted_sources:
+                reply.trustedWebConsultedSources,
             },
           ];
         }
@@ -1524,6 +1622,8 @@ export function BrainsChatPane() {
           web_search: reply.trustedWeb,
           trusted_web_fallback: reply.trustedWebFallback,
           trusted_web_sources: reply.trustedWebSources,
+          trusted_web_consulted_sources:
+            reply.trustedWebConsultedSources,
         };
         return next;
       });
@@ -1803,6 +1903,8 @@ export function BrainsChatPane() {
             web_search: reply.trustedWeb,
             trusted_web_fallback: reply.trustedWebFallback,
             trusted_web_sources: reply.trustedWebSources,
+            trusted_web_consulted_sources:
+              reply.trustedWebConsultedSources,
           },
         ];
         const idx = next.length - 1;
@@ -2130,7 +2232,10 @@ export function BrainsChatPane() {
                       </MarkdownMessage>
                       {m.web_search && (
                         <TrustedWebSourceCards
-                          sources={m.trusted_web_sources}
+                          citedSources={m.trusted_web_sources}
+                          consultedSources={
+                            m.trusted_web_consulted_sources
+                          }
                         />
                       )}
                       {m.trusted_web_fallback && (
