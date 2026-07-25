@@ -304,9 +304,13 @@ test("trusted web source cards use a single link per source", () => {
   const end = pane.indexOf("function TrustedWebSourceCards", start);
   const block = pane.slice(start, end);
   assert.equal((block.match(/<a\b/g) || []).length, 1);
-  assert.match(block, /trustedWebSourceDisplayTitle/);
+  assert.match(block, /return \(\s*<div\b/);
+  assert.doesNotMatch(block, /return \(\s*<a\b/);
+  assert.match(
+    block,
+    /<a[\s\S]*trustedWebSourceDisplayTitle\(source\)[\s\S]*<\/a>/,
+  );
   assert.match(block, /trustedWebHostLabel/);
-  assert.match(block, /no-underline/);
 });
 
 

@@ -283,12 +283,7 @@ function TrustedWebSourceCard({
   provenance: "Cited" | "Consulted";
 }) {
   return (
-    <a
-      href={source.url}
-      target="_blank"
-      rel="noreferrer"
-      className="group block rounded-xl border bg-background/40 p-3 text-left no-underline transition hover:bg-muted/40"
-    >
+    <div className="rounded-xl border bg-background/40 p-3 text-left">
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="mb-1 flex flex-wrap items-center gap-2">
@@ -302,15 +297,20 @@ function TrustedWebSourceCard({
               {trustedWebSourceMeta(source)}
             </span>
           </div>
-          <div className="line-clamp-2 text-xs font-medium leading-5 text-foreground underline-offset-4 group-hover:underline">
+          <a
+            href={source.url}
+            target="_blank"
+            rel="noreferrer"
+            className="line-clamp-2 text-xs font-medium leading-5 text-foreground underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none"
+          >
             {trustedWebSourceDisplayTitle(source)}
-          </div>
+          </a>
         </div>
         <span className="shrink-0 pt-0.5 text-[11px] text-muted-foreground">
           {trustedWebHostLabel(source.url)}
         </span>
       </div>
-    </a>
+    </div>
   );
 }
 
