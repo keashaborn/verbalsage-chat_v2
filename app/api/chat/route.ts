@@ -188,7 +188,7 @@ function automaticSearchTraceV2({
     contract_version: "response_trace_v2",
     authorities: {
       identity: "supabase",
-      routing: "verbalsage_server_authority_v1",
+      routing: "seebx_search_plan_v1",
       response_runtime: responseRuntime,
     },
     request: {
@@ -261,7 +261,7 @@ function routedSearchResponse(
   includeInspection: boolean,
 ): Response {
   const headers = new Headers(response.headers);
-  headers.set("X-VS-Search-Authority", SERVER_SEARCH_AUTHORITY_VERSION);
+  headers.set("X-VS-Search-Authority", "seebx_search_plan_v1");
   headers.set("X-VS-Search-Decision", decision.decision);
   headers.set("X-VS-Search-Policy", decision.policy_pack);
   headers.set("X-VS-Search-Route", route);
@@ -472,7 +472,10 @@ function ordinaryResponseTraceV2({
     contract_version: "response_trace_v2",
     authorities: {
       identity: "supabase",
-      routing: "verbalsage_server_authority_v1",
+      routing:
+        !manualOverride && automaticDecision
+          ? "seebx_search_plan_v1"
+          : "verbalsage_server_authority_v1",
       response_runtime: "resse_response_v0_2",
     },
     request: {
@@ -771,7 +774,10 @@ export async function POST(req: Request) {
         ...(answerId ? { "X-VS-Answer-Id": answerId } : {}),
         ...(timingsHeader ? { "X-VS-Response-Timings": timingsHeader } : {}),
         ...traceHeaders,
-        "X-VS-Search-Authority": SERVER_SEARCH_AUTHORITY_VERSION,
+        "X-VS-Search-Authority":
+          !manualOverride && automaticDecision
+            ? "seebx_search_plan_v1"
+            : SERVER_SEARCH_AUTHORITY_VERSION,
         "X-VS-Search-Decision": manualOverride
           ? "manual_override"
           : automaticDecision?.decision || "no_search",

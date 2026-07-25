@@ -336,6 +336,7 @@ test("server routes enforced decisions after fresh Supabase authorization", asyn
   assert.doesNotMatch(chat, /postCurrentNews/);
   assert.doesNotMatch(chat, /postTrustedWeb/);
   assert.match(chat, /SERVER_SEARCH_AUTHORITY_VERSION/);
+  assert.match(chat, /seebx_search_plan_v1/);
   assert.match(chat, /"X-VS-Search-Route": "normal_chat"/);
   assert.match(chat, /manualOverride/);
   assert.match(health, /requireFreshCapability/);

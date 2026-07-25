@@ -78,7 +78,10 @@ export type ResponseTraceV2 = {
   contract_version: typeof RESPONSE_TRACE_VERSION;
   authorities: {
     identity: "supabase";
-    routing: "verbalsage_server_v1" | "verbalsage_server_authority_v1";
+    routing:
+      | "verbalsage_server_v1"
+      | "verbalsage_server_authority_v1"
+      | "seebx_search_plan_v1";
     response_runtime:
       | "resse_response_v0_2"
       | "trusted_web_v1"
