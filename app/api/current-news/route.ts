@@ -17,6 +17,7 @@ import {
 } from "@/app/api/_trusted-web/searchInvocation";
 import { recordSearchDecisionShadowV1 } from "@/lib/searchDecisionV1";
 import { isAbortLike, requestDeadlineSignal } from "@/lib/requestDeadline";
+import { WEB_SOURCE_PROVENANCE_CONTRACT } from "@/lib/webSourceProvenanceV2";
 
 const CURRENT_NEWS_TIMEOUT_MS = 25_000;
 const UUID_RE =
@@ -109,12 +110,27 @@ function sourceText(value: unknown, maxLength: number): string {
     : "";
 }
 
-function normalizeSource(source: any) {
-  const url = sourceText(source?.url, 4_096);
-  const title = sourceText(source?.title, 500);
-  const publisher = sourceText(source?.publisher, 120);
-  const publishedAt = sourceText(source?.published_at, 40);
-  const sourceType = sourceText(source?.source_type, 80);
+type CurrentNewsSource = {
+  url: string;
+  title: string;
+  publisher: string;
+  published_at: string;
+  source_type: string;
+  authority_type: string;
+  evidence_type: "current_news";
+  source_id?: string;
+};
+
+function normalizeSource(source: unknown): CurrentNewsSource | null {
+  const record =
+    source && typeof source === "object"
+      ? (source as Record<string, unknown>)
+      : null;
+  const url = sourceText(record?.url, 4_096);
+  const title = sourceText(record?.title, 500);
+  const publisher = sourceText(record?.publisher, 120);
+  const publishedAt = sourceText(record?.published_at, 40);
+  const sourceType = sourceText(record?.source_type, 80);
   if (!url || !title || !publisher || !sourceType) return null;
   if (!sourceUrlAllowed(url)) return null;
   return {
@@ -127,6 +143,14 @@ function normalizeSource(source: any) {
     evidence_type: "current_news",
     ...(publishedAt ? { source_id: publishedAt } : {}),
   };
+}
+
+function citedSourcesBelongToConsultedSources(
+  citedSources: Array<{ url: string }>,
+  consultedSources: Array<{ url: string }>,
+): boolean {
+  const consultedUrls = new Set(consultedSources.map((source) => source.url));
+  return citedSources.every((source) => consultedUrls.has(source.url));
 }
 
 function boundedRetryAfter(value: string | null): string {
@@ -270,9 +294,26 @@ export async function POST(req: Request, invocation?: unknown) {
     const searchId = String(parsed?.search_id || "").trim();
     const topic = String(parsed?.topic || "").trim();
     const reason = String(parsed?.reason || "").trim();
-    const rawSources = Array.isArray(parsed?.sources) ? parsed.sources : null;
-    const sources = rawSources
-      ? rawSources.map(normalizeSource).filter(Boolean)
+    const sourceContract = String(parsed?.source_contract || "").trim();
+    const rawCitedSources: unknown[] | null = Array.isArray(
+      parsed?.cited_sources,
+    )
+      ? (parsed.cited_sources as unknown[])
+      : null;
+    const rawConsultedSources: unknown[] | null = Array.isArray(
+      parsed?.consulted_sources,
+    )
+      ? (parsed.consulted_sources as unknown[])
+      : null;
+    const citedSources = rawCitedSources
+      ? rawCitedSources
+          .map(normalizeSource)
+          .filter((source): source is CurrentNewsSource => source !== null)
+      : null;
+    const consultedSources = rawConsultedSources
+      ? rawConsultedSources
+          .map(normalizeSource)
+          .filter((source): source is CurrentNewsSource => source !== null)
       : null;
     if (
       !answer ||
@@ -282,9 +323,21 @@ export async function POST(req: Request, invocation?: unknown) {
       topic.length > 100 ||
       reason.length > 120 ||
       typeof parsed?.searched !== "boolean" ||
-      !sources ||
-      sources.length > 50 ||
-      !answerLinksAllowed(answer, sourceUrlAllowed)
+      sourceContract !== WEB_SOURCE_PROVENANCE_CONTRACT ||
+      !citedSources ||
+      !consultedSources ||
+      citedSources.length > 50 ||
+      consultedSources.length > 50 ||
+      (parsed.searched === true && citedSources.length < 1) ||
+      !citedSourcesBelongToConsultedSources(
+        citedSources,
+        consultedSources,
+      ) ||
+      !answerLinksAllowed(
+        answer,
+        sourceUrlAllowed,
+        citedSources.map((source) => source.url),
+      )
     ) {
       return new Response("Current news response unavailable", {
         status: 502,
@@ -299,7 +352,10 @@ export async function POST(req: Request, invocation?: unknown) {
         topic,
         reason,
         searched: Boolean(parsed.searched),
-        sources,
+        source_contract: sourceContract,
+        sources: citedSources,
+        cited_sources: citedSources,
+        consulted_sources: consultedSources,
       },
       {
         status: 200,
@@ -310,14 +366,20 @@ export async function POST(req: Request, invocation?: unknown) {
           "X-VS-Search-Id": searchId,
           "X-VS-Web-Topic": topic,
           "X-VS-Web-Searched": parsed.searched ? "1" : "0",
-          "X-VS-Web-Source-Count": String(sources.length),
+          "X-VS-Web-Source-Count": String(consultedSources.length),
+          "X-VS-Web-Cited-Source-Count": String(citedSources.length),
+          "X-VS-Web-Consulted-Source-Count": String(
+            consultedSources.length,
+          ),
           ...(includeInspection
             ? responseTraceHeadersV2(
                 manualSearchResponseTraceV2({
                   rid,
                   route: "current_news",
                   searched: Boolean(parsed.searched),
-                  sourceCount: sources.length,
+                  sourceCount: consultedSources.length,
+                  citedSourceCount: citedSources.length,
+                  consultedSourceCount: consultedSources.length,
                 }),
               )
             : {}),

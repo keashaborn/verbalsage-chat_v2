@@ -139,8 +139,10 @@ test("BFF revalidates returned source domains", () => {
   assert.match(route, /parsed\.port/);
   assert.match(route, /normalizeSource/);
   assert.match(route, /sourceUrlAllowed\(url\)/);
-  assert.match(route, /answerLinksAllowed\(answer, sourceUrlAllowed\)/);
-  assert.match(newsRoute, /answerLinksAllowed\(answer, sourceUrlAllowed\)/);
+  assert.match(route, /answerLinksAllowed\(/);
+  assert.match(route, /citedSources\.map\(\(source\) => source\.url\)/);
+  assert.match(newsRoute, /answerLinksAllowed\(/);
+  assert.match(newsRoute, /citedSources\.map\(\(source\) => source\.url\)/);
 });
 
 test("answer links fail closed outside the server allowlist", () => {
@@ -172,6 +174,22 @@ test("answer links fail closed outside the server allowlist", () => {
   assert.equal(answerLinksAllowed("Visit www.example.com.", allowed), false);
   assert.equal(
     answerLinksAllowed("Contact attacker@example.com.", allowed),
+    false,
+  );
+  assert.equal(
+    answerLinksAllowed(
+      "See [the source](https://openai.com/news/example/?utm_source=openai).",
+      allowed,
+      ["https://openai.com/news/example"],
+    ),
+    true,
+  );
+  assert.equal(
+    answerLinksAllowed(
+      "See [another page](https://openai.com/news/other).",
+      allowed,
+      ["https://openai.com/news/example"],
+    ),
     false,
   );
 });
@@ -228,15 +246,15 @@ test("composer keeps test modes while Auto delegates routing to the server", () 
   assert.doesNotMatch(pane, /localStorage.*webMode/);
 });
 
-test("trusted-search markdown links are restricted to returned source hosts", () => {
+test("trusted-search markdown links are restricted to exact cited URLs", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
   const markdown = source("components/shared/MarkdownMessage.tsx");
   assert.match(pane, /allowedLinkUrls=\{/);
   assert.match(pane, /m\.web_search/);
   assert.match(pane, /m\.trusted_web_sources/);
   assert.match(markdown, /allowedLinkUrls\?: readonly string\[\]/);
-  assert.match(markdown, /target\.protocol !== "https:"/);
-  assert.match(markdown, /source\.hostname/);
+  assert.match(markdown, /canonicalWebSourceUrl\(href\)/);
+  assert.match(markdown, /canonicalWebSourceUrl\(sourceUrl\) === target/);
   assert.match(markdown, /linkAllowed\(href\)/);
 });
 
@@ -244,13 +262,20 @@ test("trusted-search markdown links are restricted to returned source hosts", ()
 test("trusted web preserves structured source metadata for source cards", () => {
   const route = source("app/api/trusted-web/route.ts");
   const pane = source("components/threads/BrainsChatPane.tsx");
+  const provenance = source("lib/webSourceProvenanceV2.ts");
   assert.match(route, /Response\.json/);
   assert.match(route, /normalizeSource/);
   assert.match(route, /authority_type/);
   assert.match(route, /evidence_type/);
+  assert.match(route, /WEB_SOURCE_PROVENANCE_CONTRACT/);
+  assert.match(provenance, /web_source_provenance_v2/);
+  assert.match(route, /cited_sources: citedSources/);
+  assert.match(route, /consulted_sources: consultedSources/);
+  assert.match(route, /citedSourcesBelongToConsultedSources/);
   assert.match(pane, /type TrustedWebSource/);
   assert.match(pane, /TrustedWebSourceCards/);
   assert.match(pane, /trusted_web_sources/);
+  assert.match(pane, /trusted_web_consulted_sources/);
   assert.match(pane, /official_public_guidance/);
   assert.match(pane, /pubmed_research/);
   assert.match(pane, /Official source/);
@@ -261,7 +286,13 @@ test("trusted web source cards replace plain trailing source list", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
   assert.match(pane, /stripTrustedWebSourceList/);
   assert.match(pane, /Sources:/);
-  assert.match(pane, /Sources: \{trustedWebSourceSummary\(visible\)\}/);
+  assert.match(
+    pane,
+    /Sources: \{trustedWebSourceSummary\(cited, consulted\)\}/,
+  );
+  assert.match(pane, /Cited in this answer/);
+  assert.match(pane, /Additional sources consulted/);
+  assert.match(pane, /trustedWebSourceDisplayTitle/);
   assert.match(pane, /<details/);
   assert.match(pane, /<summary/);
 });
@@ -269,11 +300,11 @@ test("trusted web source cards replace plain trailing source list", () => {
 
 test("trusted web source cards use a single link per source", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
-  const start = pane.indexOf("function TrustedWebSourceCards");
-  const end = pane.indexOf("async function fetchJson", start);
+  const start = pane.indexOf("function TrustedWebSourceCard");
+  const end = pane.indexOf("function TrustedWebSourceCards", start);
   const block = pane.slice(start, end);
   assert.equal((block.match(/<a\b/g) || []).length, 1);
-  assert.match(block, /trustedWebSourceSummary/);
+  assert.match(block, /trustedWebSourceDisplayTitle/);
   assert.match(block, /trustedWebHostLabel/);
   assert.match(block, /no-underline/);
 });

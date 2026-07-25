@@ -216,6 +216,14 @@ function automaticSearchTraceV2({
         response.headers.get("X-VS-Web-Source-Count"),
         50,
       ),
+      cited_source_count: boundedHeaderInteger(
+        response.headers.get("X-VS-Web-Cited-Source-Count"),
+        50,
+      ),
+      consulted_source_count: boundedHeaderInteger(
+        response.headers.get("X-VS-Web-Consulted-Source-Count"),
+        50,
+      ),
       validation: response.ok ? "passed" : "failed",
     },
     timings: null,
