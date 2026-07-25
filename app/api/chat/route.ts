@@ -138,6 +138,22 @@ function boundedHeaderInteger(value: string | null, maximum: number): number {
     : 0;
 }
 
+function searchExecutionResponseHeaders(upstream: Headers): Headers {
+  const headers = new Headers({
+    "Cache-Control": "no-store",
+    "Content-Type": "application/json; charset=utf-8",
+  });
+
+  for (const [name, value] of upstream.entries()) {
+    const normalized = name.toLowerCase();
+    if (normalized === "x-request-id" || normalized.startsWith("x-vs-")) {
+      headers.set(name, value);
+    }
+  }
+
+  return headers;
+}
+
 function serverSearchExecutionRequest(
   req: Request,
   rid: string,
@@ -402,7 +418,7 @@ async function runServerSearchPlan(
       terminalResponse: null,
     };
   }
-  const headers = new Headers(upstream.headers);
+  const headers = searchExecutionResponseHeaders(upstream.headers);
   headers.set("X-VS-Request-Channel", voice ? "voice" : "text");
   headers.set(
     "X-VS-Transcript-Persistence",

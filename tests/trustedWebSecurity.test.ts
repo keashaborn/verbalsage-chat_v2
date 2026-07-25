@@ -218,6 +218,12 @@ test("composer hides test modes and delegates every normal request to the server
   assert.match(chatRoute, /manualOverride/);
   assert.match(chatRoute, /serverSearchExecutionRequest/);
   assert.match(chatRoute, /\/search\/execute/);
+  assert.match(chatRoute, /function searchExecutionResponseHeaders/);
+  assert.match(chatRoute, /normalized\.startsWith\("x-vs-"\)/);
+  assert.doesNotMatch(
+    chatRoute,
+    /const headers = new Headers\(upstream\.headers\)/,
+  );
   assert.match(chatRoute, /runServerSearchPlan/);
   assert.doesNotMatch(chatRoute, /selectAutomaticSearchRouteV1/);
   assert.doesNotMatch(chatRoute, /runAutomaticSearch/);
