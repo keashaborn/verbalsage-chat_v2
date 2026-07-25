@@ -164,6 +164,41 @@ type Msg = {
   trusted_web_sources?: TrustedWebSource[];
 };
 
+const CURRENT_NEWS_CONTEXT_MAX_CHARS = 1_850;
+const CURRENT_NEWS_CONTEXT_MESSAGES = 6;
+const CURRENT_NEWS_CONTEXT_SNIPPET_CHARS = 280;
+
+function compactCurrentNewsText(value: string, maxLength: number): string {
+  const normalized = String(value || "")
+    .replace(/https?:\/\/\S+/gi, "[url]")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
+}
+
+function buildCurrentNewsContextualQuery(
+  input: string,
+  messages: Msg[],
+): string {
+  const question = compactCurrentNewsText(input, 500);
+  const context = messages
+    .filter((message) => message.role === "user" || message.role === "assistant")
+    .slice(-CURRENT_NEWS_CONTEXT_MESSAGES)
+    .map((message) => {
+      const snippet = compactCurrentNewsText(
+        message.content,
+        CURRENT_NEWS_CONTEXT_SNIPPET_CHARS,
+      );
+      return snippet ? `${message.role}: ${snippet}` : "";
+    })
+    .filter(Boolean)
+    .join(" | ");
+  const query = context
+    ? `Current news follow-up. Recent conversation context: ${context}. Current question: ${question}`
+    : question;
+  return compactCurrentNewsText(query, CURRENT_NEWS_CONTEXT_MAX_CHARS);
+}
 
 function normalizeTrustedWebSources(value: unknown): TrustedWebSource[] {
   if (!Array.isArray(value)) return [];
@@ -1276,6 +1311,9 @@ export function BrainsChatPane() {
       : trustedWeb
         ? "/api/trusted-web"
         : "/api/chat";
+    const requestQuery = currentNews
+      ? buildCurrentNewsContextualQuery(input, msgs)
+      : input;
     const { response: r, responseText } = await withRequestDeadline(
       async (signal) => {
         const response = await authFetch(
@@ -1293,7 +1331,7 @@ export function BrainsChatPane() {
             },
             body: JSON.stringify(
               externalWeb
-                ? { query: input }
+                ? { query: requestQuery }
                 : { input, thread_id: tid, regen, noStore },
             ),
             signal,

@@ -29,7 +29,7 @@ test("browser request cannot choose model, domains, topic, or storage", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
   assert.match(route, /Object\.keys\(record\)\.length !== 1/);
   assert.match(route, /hasOwnProperty\.call\(record, "query"\)/);
-  assert.match(pane, /externalWeb\s*\n\s*\? \{ query: input \}/);
+  assert.match(pane, /externalWeb\s*\n\s*\? \{ query: requestQuery \}/);
   assert.doesNotMatch(pane, /allowed_domains/);
   assert.doesNotMatch(pane, /external_web_access/);
 });
@@ -70,6 +70,9 @@ test("composer search is explicit, off by default, and disabled for voice", () =
   assert.match(pane, /<option value="trusted_health">Health<\/option>/);
   assert.match(pane, /<option value="current_news">News<\/option>/);
   assert.match(pane, /currentNews\s*\? "\/api\/current-news"/);
+  assert.match(pane, /buildCurrentNewsContextualQuery\(input, msgs\)/);
+  assert.match(pane, /CURRENT_NEWS_CONTEXT_MAX_CHARS = 1_850/);
+  assert.match(pane, /replace\(\/https\?:/);
   assert.match(pane, /setWebMode\("off"\)/);
   assert.doesNotMatch(pane, /localStorage.*webMode/);
 });
