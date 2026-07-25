@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { isSearchExplicitlyProhibitedV1 } from "@/lib/searchDecisionV1";
 import { authFetch, authFetchJson } from "@/lib/authFetch";
 import {
   ArrowUp,
@@ -164,113 +163,6 @@ type Msg = {
   trusted_web_fallback?: boolean;
   trusted_web_sources?: TrustedWebSource[];
 };
-
-const AUTO_CURRENT_NEWS_ENTITY_TERMS = [
-  "openai",
-  "hugging face",
-  "huggingface",
-  "anthropic",
-  "google deepmind",
-  "deepmind",
-  "nvidia",
-  "meta ai",
-  "mistral",
-  "usda",
-  "fda",
-  "ftc",
-  "nist",
-];
-
-const AUTO_CURRENT_NEWS_INTENT_TERMS = [
-  "latest",
-  "recent",
-  "current",
-  "current news",
-  "news about",
-  "any news",
-  "any current news",
-  "just happened",
-  "what happened",
-  "what just happened",
-  "any updates on",
-  "updates on",
-  "look up",
-  "search for",
-  "search the web",
-  "search online",
-  "up to date",
-  "up-to-date",
-  "is this still true",
-  "is that still true",
-  "still accurate",
-  "still current",
-  "this week",
-  "today",
-  "yesterday",
-  "breaking",
-];
-
-const AUTO_HEALTH_TOPIC_TERMS = [
-  "creatine",
-  "supplement",
-  "supplements",
-  "caffeine",
-  "beta alanine",
-  "beta-alanine",
-  "citrulline",
-  "fish oil",
-  "omega-3",
-  "magnesium",
-  "zinc",
-  "vitamin",
-  "mineral",
-  "pre workout",
-  "pre-workout",
-];
-
-const AUTO_HEALTH_EVIDENCE_INTENT_TERMS = [
-  "evidence",
-  "study",
-  "studies",
-  "research",
-  "source",
-  "sources",
-  "safety",
-  "safe",
-  "contraindication",
-  "contraindications",
-  "interaction",
-  "interactions",
-  "side effect",
-  "side effects",
-  "worthwhile",
-  "worth it",
-  "up to date",
-  "up-to-date",
-];
-
-function includesAnyTerm(value: string, terms: string[]): boolean {
-  return terms.some((term) => value.includes(term));
-}
-
-function classifyAutoWebMode(input: string): WebMode {
-  const normalized = String(input || "").toLowerCase().replace(/\s+/g, " ").trim();
-  if (isSearchExplicitlyProhibitedV1(input)) return "off";
-  if (!normalized) return "off";
-  if (
-    includesAnyTerm(normalized, AUTO_CURRENT_NEWS_INTENT_TERMS) &&
-    includesAnyTerm(normalized, AUTO_CURRENT_NEWS_ENTITY_TERMS)
-  ) {
-    return "current_news";
-  }
-  if (
-    includesAnyTerm(normalized, AUTO_HEALTH_TOPIC_TERMS) &&
-    includesAnyTerm(normalized, AUTO_HEALTH_EVIDENCE_INTENT_TERMS)
-  ) {
-    return "trusted_health";
-  }
-  return "off";
-}
 
 function normalizeTrustedWebSources(value: unknown): TrustedWebSource[] {
   if (!Array.isArray(value)) return [];
@@ -1396,12 +1288,13 @@ export function BrainsChatPane() {
     voiceSessionId?: string,
     selectedWebMode: WebMode = "off",
   ): Promise<ChatResult> {
-    const trustedWeb = webModeTrustedHealthEnabled(selectedWebMode);
-    const currentNews = webModeCurrentNewsEnabled(selectedWebMode);
-    const externalWeb = trustedWeb || currentNews;
-    const endpoint = currentNews
+    const autoSearch = selectedWebMode === "auto";
+    const requestedTrustedWeb = webModeTrustedHealthEnabled(selectedWebMode);
+    const requestedCurrentNews = webModeCurrentNewsEnabled(selectedWebMode);
+    const requestExternalWeb = requestedTrustedWeb || requestedCurrentNews;
+    const endpoint = requestedCurrentNews
       ? "/api/current-news"
-      : trustedWeb
+      : requestedTrustedWeb
         ? "/api/trusted-web"
         : "/api/chat";
     const requestQuery = input;
@@ -1413,17 +1306,23 @@ export function BrainsChatPane() {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              ...(!externalWeb && voiceTurnId
+              ...(!requestExternalWeb && voiceTurnId
                 ? { [VOICE_TURN_HEADER]: voiceTurnId }
                 : {}),
-              ...(!externalWeb && voiceSessionId
+              ...(!requestExternalWeb && voiceSessionId
                 ? { [VOICE_SESSION_HEADER]: voiceSessionId }
                 : {}),
             },
             body: JSON.stringify(
-              externalWeb
+              requestExternalWeb
                 ? { query: requestQuery }
-                : { input, thread_id: tid, regen, noStore },
+                : {
+                    input,
+                    thread_id: tid,
+                    regen,
+                    noStore,
+                    search_mode: autoSearch ? "auto" : "off",
+                  },
             ),
             signal,
           },
@@ -1435,8 +1334,14 @@ export function BrainsChatPane() {
       },
       BROWSER_RESPONSE_TIMEOUT_MS,
     );
+    const routedSearchRoute = r.headers.get("X-VS-Search-Route");
+    const trustedWeb =
+      requestedTrustedWeb || routedSearchRoute === "trusted_health";
+    const currentNews =
+      requestedCurrentNews || routedSearchRoute === "current_news";
+    const externalWeb = trustedWeb || currentNews;
     if (
-      externalWeb &&
+      requestExternalWeb &&
       r.status === 409 &&
       r.headers.get("X-VS-Search-Decision") === "no_search"
     ) {
@@ -1806,13 +1711,9 @@ export function BrainsChatPane() {
     const isEditing = !!editMessageId;
     const selectedWebMode =
       overrideText == null && !isEditing && !options.voiceTurn
-        ? webMode === "auto"
-          ? classifyAutoWebMode(msg)
-          : webSearchEnabled
-            ? webMode
-            : "off"
+        ? webMode
         : "off";
-    const useTrustedWeb = selectedWebMode !== "off";
+    const useTrustedWeb = webModeExternalEnabled(selectedWebMode);
 
     setSending(true);
     setRequestError("");

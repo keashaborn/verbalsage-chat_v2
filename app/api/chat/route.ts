@@ -9,8 +9,20 @@ import {
 } from "@/lib/requestDeadline";
 import { cookies } from "next/headers";
 import { requireCapability } from "@/app/api/_auth/requireCapability";
-import { getSupabaseAuthContextFromRequest } from "@/app/api/_auth/supabaseUser";
-import { recordSearchDecisionShadowV1 } from "@/lib/searchDecisionV1";
+import {
+  getSupabaseAuthContextFromRequest,
+  getSupabaseBearerAuthorizationFromRequest,
+} from "@/app/api/_auth/supabaseUser";
+import {
+  decideSearchV1,
+  recordSearchDecisionShadowV1,
+  recordSearchRoutingEnforcedV1,
+  selectAutomaticSearchRouteV1,
+  type AutomaticSearchRouteV1,
+  type SearchDecisionV1,
+} from "@/lib/searchDecisionV1";
+import { POST as postCurrentNews } from "@/app/api/current-news/route";
+import { POST as postTrustedWeb } from "@/app/api/trusted-web/route";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
   voiceTurnHeaders,
@@ -42,6 +54,7 @@ const RESPONSE_TIMING_KEYS = [
   "persistence_ms",
   "backend_total_ms",
 ] as const;
+type SearchMode = "off" | "auto";
 
 function requestId(req: Request): string {
   const raw = (
@@ -89,6 +102,12 @@ function shouldAvoidStorage(body: any, message: string): boolean {
   );
 }
 
+function searchModeFromBody(body: any): SearchMode | null {
+  const raw = body?.search_mode;
+  if (raw === undefined) return "off";
+  return raw === "off" || raw === "auto" ? raw : null;
+}
+
 async function responseInspectionAllowed(req: Request): Promise<boolean> {
   const capability = await requireCapability(req, "inspector.view");
   if (!capability.ok) return false;
@@ -109,6 +128,67 @@ function responseTimingsHeader(value: unknown): string {
   return Buffer.from(JSON.stringify(timings), "utf8").toString("base64url");
 }
 
+function automaticSearchRequest(
+  req: Request,
+  rid: string,
+  route: Exclude<AutomaticSearchRouteV1, "normal_chat">,
+  query: string,
+): Request | null {
+  const authorization = getSupabaseBearerAuthorizationFromRequest(req);
+  if (!authorization) return null;
+  return new Request(`https://verbalsage.internal/api/${route}`, {
+    method: "POST",
+    headers: {
+      authorization,
+      "content-type": "application/json",
+      "x-request-id": rid,
+    },
+    body: JSON.stringify({ query }),
+    cache: "no-store",
+    signal: req.signal,
+  });
+}
+
+function routedSearchResponse(
+  response: Response,
+  route: Exclude<AutomaticSearchRouteV1, "normal_chat">,
+  decision: SearchDecisionV1,
+): Response {
+  const headers = new Headers(response.headers);
+  headers.set("X-VS-Search-Authority", "server_v1");
+  headers.set("X-VS-Search-Decision", decision.decision);
+  headers.set("X-VS-Search-Policy", decision.policy_pack);
+  headers.set("X-VS-Search-Route", route);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+async function runAutomaticSearch(
+  req: Request,
+  rid: string,
+  route: AutomaticSearchRouteV1,
+  decision: SearchDecisionV1,
+  message: string,
+): Promise<Response | null> {
+  if (route === "normal_chat") return null;
+  const delegated = automaticSearchRequest(req, rid, route, message);
+  if (!delegated) return null;
+  const response =
+    route === "current_news"
+      ? await postCurrentNews(delegated)
+      : await postTrustedWeb(delegated);
+  if (
+    route === "trusted_health" &&
+    response.headers.get("X-VS-Trusted-Web-Fallback") === "chat"
+  ) {
+    return null;
+  }
+  return routedSearchResponse(response, route, decision);
+}
+
 export async function POST(req: Request) {
   const rid = requestId(req);
   try {
@@ -120,6 +200,13 @@ export async function POST(req: Request) {
       "";
     if (!message.trim()) {
       return new Response("Missing user message", {
+        status: 400,
+        headers: { "x-request-id": rid },
+      });
+    }
+    const searchMode = searchModeFromBody(body);
+    if (!searchMode) {
+      return new Response("Invalid search mode", {
         status: 400,
         headers: { "x-request-id": rid },
       });
@@ -154,7 +241,41 @@ export async function POST(req: Request) {
     const rawThread = String(body?.thread_id || "").trim();
     const threadId = UUID_RE.test(rawThread) ? rawThread : null;
     const noStore = shouldAvoidStorage(body, message);
-    if (!noStore) {
+    if (!noStore && !threadId) {
+      return new Response("thread_id required", {
+        status: 400,
+        headers: { "x-request-id": rid },
+      });
+    }
+
+    let automaticDecision: SearchDecisionV1 | null = null;
+    if (
+      searchMode === "auto" &&
+      !noStore &&
+      !voiceTurn.value &&
+      !voiceSession.value
+    ) {
+      automaticDecision = decideSearchV1(message);
+      let selectedRoute = selectAutomaticSearchRouteV1(automaticDecision);
+      if (!getSupabaseBearerAuthorizationFromRequest(req)) {
+        selectedRoute = "normal_chat";
+      }
+      recordSearchRoutingEnforcedV1({
+        actorUserId: userId,
+        requestId: rid,
+        selectedRoute,
+        input: message,
+        decision: automaticDecision,
+      });
+      const searchResponse = await runAutomaticSearch(
+        req,
+        rid,
+        selectedRoute,
+        automaticDecision,
+        message,
+      );
+      if (searchResponse) return searchResponse;
+    } else if (!noStore) {
       recordSearchDecisionShadowV1({
         actorUserId: userId,
         requestId: rid,
@@ -163,12 +284,6 @@ export async function POST(req: Request) {
       });
     }
     const includeInspection = await responseInspectionAllowed(req);
-    if (!noStore && !threadId) {
-      return new Response("thread_id required", {
-        status: 400,
-        headers: { "x-request-id": rid },
-      });
-    }
 
     const brains = process.env.BRAINS_URL || "http://172.31.32.171:8088";
     const upstreamSignal = requestDeadlineSignal(
@@ -293,6 +408,16 @@ export async function POST(req: Request) {
           : {}),
         ...(includeInspection
           ? { "X-VS-Inspection-Status": inspectionStatus }
+          : {}),
+        ...(searchMode === "auto"
+          ? {
+              "X-VS-Search-Authority": "server_v1",
+              "X-VS-Search-Decision":
+                automaticDecision?.decision || "no_search",
+              "X-VS-Search-Policy":
+                automaticDecision?.policy_pack || "none",
+              "X-VS-Search-Route": "normal_chat",
+            }
           : {}),
       },
     });

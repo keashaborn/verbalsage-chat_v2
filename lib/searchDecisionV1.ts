@@ -45,6 +45,11 @@ export type SearchDecisionObservedRouteV1 =
   | "trusted_health"
   | "current_news";
 
+export type AutomaticSearchRouteV1 =
+  | "normal_chat"
+  | "trusted_health"
+  | "current_news";
+
 const NO_SEARCH_PATTERNS = [
   /\bdo not (?:search|browse|look online|use the web)\b/,
   /\bdon't (?:search|browse|look online|use the web)\b/,
@@ -382,6 +387,21 @@ export function decideSearchV1(input: string): SearchDecisionV1 {
   );
 }
 
+export function selectAutomaticSearchRouteV1(
+  decision: SearchDecisionV1,
+): AutomaticSearchRouteV1 {
+  if (decision.decision === "no_search") return "normal_chat";
+  if (decision.policy_pack === "health") return "trusted_health";
+  if (
+    decision.decision !== "research" &&
+    (decision.policy_pack === "current_news" ||
+      decision.policy_pack === "software_security")
+  ) {
+    return "current_news";
+  }
+  return "normal_chat";
+}
+
 function inputCharsBucket(input: string): string {
   const length = String(input || "").length;
   if (length === 0) return "0";
@@ -390,6 +410,44 @@ function inputCharsBucket(input: string): string {
   if (length <= 800) return "241-800";
   if (length <= 2_000) return "801-2000";
   return "2001+";
+}
+
+export function recordSearchRoutingEnforcedV1({
+  actorUserId,
+  requestId,
+  selectedRoute,
+  input,
+  decision = decideSearchV1(input),
+}: {
+  actorUserId: string;
+  requestId: string;
+  selectedRoute: AutomaticSearchRouteV1;
+  input: string;
+  decision?: SearchDecisionV1;
+}): SearchDecisionV1 {
+  if (
+    process.env.SEARCH_DECISION_AUDIT_ENABLED !== "1" &&
+    process.env.SEARCH_DECISION_SHADOW_ENABLED !== "1"
+  ) {
+    return decision;
+  }
+
+  try {
+    console.info(
+      JSON.stringify({
+        event: "search_routing_enforced_v1",
+        request_id: requestId,
+        actor_user_id: actorUserId,
+        authority: "server",
+        selected_route: selectedRoute,
+        input_chars_bucket: inputCharsBucket(input),
+        ...decision,
+      }),
+    );
+  } catch {
+    // Routing observability must never affect the user response path.
+  }
+  return decision;
 }
 
 export function recordSearchDecisionShadowV1({

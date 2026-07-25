@@ -36,7 +36,7 @@ test("browser request cannot choose model, domains, topic, or storage", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
   assert.match(route, /Object\.keys\(record\)\.length !== 1/);
   assert.match(route, /hasOwnProperty\.call\(record, "query"\)/);
-  assert.match(pane, /externalWeb\s*\n\s*\? \{ query: requestQuery \}/);
+  assert.match(pane, /requestExternalWeb\s*\n\s*\? \{ query: requestQuery \}/);
   assert.doesNotMatch(pane, /allowed_domains/);
   assert.doesNotMatch(pane, /external_web_access/);
 });
@@ -96,29 +96,30 @@ test("answer links fail closed outside the server allowlist", () => {
   );
 });
 
-test("composer search has auto mode and remains disabled for voice", () => {
+test("composer keeps test modes while Auto delegates routing to the server", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
+  const chatRoute = source("app/api/chat/route.ts");
   assert.match(pane, /type WebMode = "auto" \| "off" \| "trusted_health" \| "current_news"/);
   assert.match(
     pane,
     /const \[webMode, setWebMode\] = React\.useState<WebMode>\("auto"\)/,
   );
   assert.match(pane, /webModeExternalEnabled\(webMode\)/);
-  assert.match(pane, /classifyAutoWebMode\(msg\)/);
-  assert.match(pane, /AUTO_CURRENT_NEWS_INTENT_TERMS/);
-  assert.match(pane, /AUTO_HEALTH_EVIDENCE_INTENT_TERMS/);
-  const prohibitionIndex = pane.indexOf(
-    'if (isSearchExplicitlyProhibitedV1(input)) return "off"',
-  );
-  const newsDecisionIndex = pane.indexOf(
-    "includesAnyTerm(normalized, AUTO_CURRENT_NEWS_INTENT_TERMS)",
-  );
-  assert.ok(prohibitionIndex >= 0);
-  assert.ok(prohibitionIndex < newsDecisionIndex);
+  assert.doesNotMatch(pane, /classifyAutoWebMode/);
+  assert.doesNotMatch(pane, /AUTO_CURRENT_NEWS_INTENT_TERMS/);
+  assert.doesNotMatch(pane, /AUTO_HEALTH_EVIDENCE_INTENT_TERMS/);
+  assert.doesNotMatch(pane, /isSearchExplicitlyProhibitedV1/);
+  assert.match(pane, /\? webMode\s*: "off"/);
+  assert.match(pane, /search_mode: autoSearch \? "auto" : "off"/);
+  assert.match(pane, /r\.headers\.get\("X-VS-Search-Route"\)/);
   assert.match(
     pane,
     /r\.status === 409[\s\S]*X-VS-Search-Decision[\s\S]*"off"/,
   );
+  assert.match(chatRoute, /searchMode === "auto"/);
+  assert.match(chatRoute, /selectAutomaticSearchRouteV1/);
+  assert.match(chatRoute, /runAutomaticSearch/);
+  assert.match(chatRoute, /getSupabaseBearerAuthorizationFromRequest/);
   assert.match(pane, /webModeTrustedHealthEnabled\(selectedWebMode\)/);
   assert.match(pane, /webModeCurrentNewsEnabled\(selectedWebMode\)/);
   assert.match(pane, /data-web-mode-selector/);
@@ -128,14 +129,10 @@ test("composer search has auto mode and remains disabled for voice", () => {
   assert.match(pane, /<option value="auto">Auto<\/option>/);
   assert.match(pane, /<option value="trusted_health">Health<\/option>/);
   assert.match(pane, /<option value="current_news">News<\/option>/);
-  assert.match(pane, /currentNews\s*\? "\/api\/current-news"/);
+  assert.match(pane, /requestedCurrentNews\s*\n\s*\? "\/api\/current-news"/);
   assert.match(pane, /const requestQuery = input/);
   assert.doesNotMatch(pane, /buildCurrentNewsContextualQuery/);
   assert.doesNotMatch(pane, /Recent conversation context/);
-  assert.match(pane, /any current news/);
-  assert.match(pane, /search the web/);
-  assert.doesNotMatch(pane, /AUTO_CURRENT_NEWS_INTENT_TERMS = \[[\s\S]*what's going on with[\s\S]*\]/);
-  assert.doesNotMatch(pane, /AUTO_CURRENT_NEWS_INTENT_TERMS = \[[\s\S]*what is happening with[\s\S]*\]/);
   assert.doesNotMatch(pane, /CURRENT_NEWS_CONTEXT_MAX_CHARS/);
   assert.doesNotMatch(pane, /CURRENT_NEWS_CONTEXT_MESSAGES/);
   assert.match(pane, /setWebMode\("off"\)/);

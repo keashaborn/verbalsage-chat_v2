@@ -5,7 +5,9 @@ import {
   decideSearchV1,
   isSearchExplicitlyProhibitedV1,
   recordSearchDecisionShadowV1,
+  recordSearchRoutingEnforcedV1,
   SEARCH_DECISION_POLICY_VERSION,
+  selectAutomaticSearchRouteV1,
 } from "../lib/searchDecisionV1.ts";
 
 const cases = [
@@ -117,6 +119,70 @@ test("uses bounded budgets for every decision class", () => {
   });
 });
 
+test("selects only server-supported automatic search routes", () => {
+  const cases = [
+    ["What is the capital of France?", "normal_chat"],
+    ["What just happened with OpenAI?", "current_news"],
+    ["Search the web for OpenAI documentation.", "current_news"],
+    ["Search the web for the history of monism.", "normal_chat"],
+    ["Is creatine safe with kidney disease? Cite studies.", "trusted_health"],
+    ["Deep research the long-term evidence for creatine.", "trusted_health"],
+    ["Deep research OpenAI safety.", "normal_chat"],
+  ] as const;
+  for (const [input, expectedRoute] of cases) {
+    assert.equal(
+      selectAutomaticSearchRouteV1(decideSearchV1(input)),
+      expectedRoute,
+    );
+  }
+});
+
+test("enforced routing audit is server-owned and excludes prompt text", () => {
+  const originalInfo = console.info;
+  const originalAuditFlag = process.env.SEARCH_DECISION_AUDIT_ENABLED;
+  const originalShadowFlag = process.env.SEARCH_DECISION_SHADOW_ENABLED;
+  const logged: string[] = [];
+  console.info = (...values: unknown[]) => {
+    logged.push(values.map(String).join(" "));
+  };
+  process.env.SEARCH_DECISION_AUDIT_ENABLED = "1";
+  delete process.env.SEARCH_DECISION_SHADOW_ENABLED;
+  const secretPrompt =
+    "What just happened with unique-enforced-routing-secret OpenAI?";
+
+  try {
+    const decision = decideSearchV1(secretPrompt);
+    recordSearchRoutingEnforcedV1({
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      requestId: "request-enforced-1",
+      selectedRoute: "current_news",
+      input: secretPrompt,
+      decision,
+    });
+  } finally {
+    console.info = originalInfo;
+    if (originalAuditFlag === undefined) {
+      delete process.env.SEARCH_DECISION_AUDIT_ENABLED;
+    } else {
+      process.env.SEARCH_DECISION_AUDIT_ENABLED = originalAuditFlag;
+    }
+    if (originalShadowFlag === undefined) {
+      delete process.env.SEARCH_DECISION_SHADOW_ENABLED;
+    } else {
+      process.env.SEARCH_DECISION_SHADOW_ENABLED = originalShadowFlag;
+    }
+  }
+
+  assert.equal(logged.length, 1);
+  const event = JSON.parse(logged[0]);
+  assert.equal(event.event, "search_routing_enforced_v1");
+  assert.equal(event.authority, "server");
+  assert.equal(event.selected_route, "current_news");
+  assert.equal(event.decision, "live");
+  assert.equal(event.input_chars_bucket, "1-80");
+  assert.doesNotMatch(logged[0], /unique-enforced-routing-secret/);
+});
+
 test("shadow record contains verified actor metadata but never prompt text", () => {
   const originalInfo = console.info;
   const originalFlag = process.env.SEARCH_DECISION_SHADOW_ENABLED;
@@ -200,6 +266,13 @@ test("server routes record shadow decisions after Supabase authorization", async
   );
 
   assert.match(chat, /getSupabaseAuthContextFromRequest/);
+  assert.match(chat, /searchModeFromBody/);
+  assert.match(chat, /selectAutomaticSearchRouteV1/);
+  assert.match(chat, /recordSearchRoutingEnforcedV1/);
+  assert.match(chat, /postCurrentNews/);
+  assert.match(chat, /postTrustedWeb/);
+  assert.match(chat, /"X-VS-Search-Authority": "server_v1"/);
+  assert.match(chat, /"X-VS-Search-Route": "normal_chat"/);
   assert.match(chat, /observedRoute: "normal_chat"/);
   assert.match(chat, /if \(!noStore\)/);
   assert.match(health, /requireFreshCapability/);
@@ -209,6 +282,19 @@ test("server routes record shadow decisions after Supabase authorization", async
   for (const route of [chat, health, news]) {
     assert.match(route, /recordSearchDecisionShadowV1/);
   }
+  const authIndex = chat.indexOf(
+    "const auth = await getSupabaseAuthContextFromRequest(req)",
+  );
+  const threadIndex = chat.indexOf('new Response("thread_id required"');
+  const routingIndex = chat.indexOf(
+    "automaticDecision = decideSearchV1(message)",
+  );
+  const dispatchIndex = chat.indexOf(
+    "const searchResponse = await runAutomaticSearch",
+  );
+  assert.ok(authIndex >= 0 && authIndex < threadIndex);
+  assert.ok(threadIndex < routingIndex);
+  assert.ok(routingIndex < dispatchIndex);
   for (const route of [health, news]) {
     const authIndex = route.indexOf(
       "const actorAuthorization = getSupabaseBearerAuthorizationFromRequest",
