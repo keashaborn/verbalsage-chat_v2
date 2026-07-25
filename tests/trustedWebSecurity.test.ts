@@ -225,6 +225,11 @@ test("composer hides test modes and delegates every normal request to the server
     /const headers = new Headers\(upstream\.headers\)/,
   );
   assert.match(chatRoute, /runServerSearchPlan/);
+  assert.match(
+    chatRoute,
+    /Object\.entries\(voiceTurnHeaders\(voiceTurnId\)\)/,
+  );
+  assert.match(chatRoute, /includeInspection,\s+voiceTurn\.value/);
   assert.doesNotMatch(chatRoute, /selectAutomaticSearchRouteV1/);
   assert.doesNotMatch(chatRoute, /runAutomaticSearch/);
   assert.match(chatRoute, /getSupabaseBearerAuthorizationFromRequest/);

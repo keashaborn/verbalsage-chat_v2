@@ -275,12 +275,16 @@ function routedSearchResponse(
   decision: SearchDecisionV1,
   rid: string,
   includeInspection: boolean,
+  voiceTurnId: string | null,
 ): Response {
   const headers = new Headers(response.headers);
   headers.set("X-VS-Search-Authority", "seebx_search_plan_v1");
   headers.set("X-VS-Search-Decision", decision.decision);
   headers.set("X-VS-Search-Policy", decision.policy_pack);
   headers.set("X-VS-Search-Route", route);
+  for (const [name, value] of Object.entries(voiceTurnHeaders(voiceTurnId))) {
+    headers.set(name, value);
+  }
   if (includeInspection) {
     const traceHeaders = responseTraceHeadersV2(
       automaticSearchTraceV2({ response, route, decision, rid }),
@@ -664,6 +668,7 @@ export async function POST(req: Request) {
           automaticDecision,
           rid,
           includeInspection,
+          voiceTurn.value,
         );
       }
     }
