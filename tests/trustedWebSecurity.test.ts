@@ -53,24 +53,30 @@ test("BFF revalidates returned source domains", () => {
   assert.match(route, /sourceUrlAllowed\(url\)/);
 });
 
-test("composer search is explicit, off by default, and disabled for voice", () => {
+test("composer search has auto mode and remains disabled for voice", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
-  assert.match(pane, /type WebMode = "off" \| "trusted_health" \| "current_news"/);
+  assert.match(pane, /type WebMode = "auto" \| "off" \| "trusted_health" \| "current_news"/);
   assert.match(
     pane,
-    /const \[webMode, setWebMode\] = React\.useState<WebMode>\("off"\)/,
+    /const \[webMode, setWebMode\] = React\.useState<WebMode>\("auto"\)/,
   );
   assert.match(pane, /webModeExternalEnabled\(webMode\)/);
+  assert.match(pane, /classifyAutoWebMode\(msg\)/);
+  assert.match(pane, /AUTO_CURRENT_NEWS_INTENT_TERMS/);
+  assert.match(pane, /AUTO_HEALTH_EVIDENCE_INTENT_TERMS/);
   assert.match(pane, /webModeTrustedHealthEnabled\(selectedWebMode\)/);
   assert.match(pane, /webModeCurrentNewsEnabled\(selectedWebMode\)/);
   assert.match(pane, /data-web-mode-selector/);
   assert.match(pane, /value=\{webMode\}/);
   assert.match(pane, /Trusted sources · Not saved to memory/);
   assert.equal((pane.match(/Trusted sources · Not saved to memory/g) || []).length, 2);
+  assert.match(pane, /<option value="auto">Auto<\/option>/);
   assert.match(pane, /<option value="trusted_health">Health<\/option>/);
   assert.match(pane, /<option value="current_news">News<\/option>/);
   assert.match(pane, /currentNews\s*\? "\/api\/current-news"/);
   assert.match(pane, /buildCurrentNewsContextualQuery\(input, msgs\)/);
+  assert.match(pane, /what's going on with/);
+  assert.match(pane, /what is happening with/);
   assert.match(pane, /CURRENT_NEWS_CONTEXT_MAX_CHARS = 1_850/);
   assert.match(pane, /replace\(\/https\?:/);
   assert.match(pane, /setWebMode\("off"\)/);

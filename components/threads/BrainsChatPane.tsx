@@ -70,7 +70,7 @@ import {
   splitForSpeech,
 } from "@/lib/voiceSpeech";
 
-type WebMode = "off" | "trusted_health" | "current_news";
+type WebMode = "auto" | "off" | "trusted_health" | "current_news";
 
 const webModeTrustedHealthEnabled = (mode: WebMode): boolean =>
   mode === "trusted_health";
@@ -79,7 +79,7 @@ const webModeCurrentNewsEnabled = (mode: WebMode): boolean =>
   mode === "current_news";
 
 const webModeExternalEnabled = (mode: WebMode): boolean =>
-  mode !== "off";
+  mode === "trusted_health" || mode === "current_news";
 
 const webModeStatusLabel = (mode: WebMode): string => {
   if (mode === "trusted_health") return "Trusted sources · Not saved to memory";
@@ -167,6 +167,117 @@ type Msg = {
 const CURRENT_NEWS_CONTEXT_MAX_CHARS = 1_850;
 const CURRENT_NEWS_CONTEXT_MESSAGES = 6;
 const CURRENT_NEWS_CONTEXT_SNIPPET_CHARS = 280;
+
+const AUTO_CURRENT_NEWS_ENTITY_TERMS = [
+  "openai",
+  "hugging face",
+  "huggingface",
+  "anthropic",
+  "google deepmind",
+  "deepmind",
+  "nvidia",
+  "meta ai",
+  "mistral",
+  "usda",
+  "fda",
+  "ftc",
+  "nist",
+];
+
+const AUTO_CURRENT_NEWS_INTENT_TERMS = [
+  "latest",
+  "recent",
+  "current",
+  "news",
+  "just happened",
+  "what happened",
+  "what's going on with",
+  "whats going on with",
+  "what is going on with",
+  "what's happening with",
+  "whats happening with",
+  "what is happening with",
+  "what's the situation with",
+  "whats the situation with",
+  "what is the situation with",
+  "what's up with",
+  "whats up with",
+  "what is up with",
+  "what's new with",
+  "whats new with",
+  "what is new with",
+  "any updates on",
+  "updates on",
+  "is this still true",
+  "is that still true",
+  "still accurate",
+  "still current",
+  "this week",
+  "today",
+  "yesterday",
+  "breaking",
+];
+
+const AUTO_HEALTH_TOPIC_TERMS = [
+  "creatine",
+  "supplement",
+  "supplements",
+  "caffeine",
+  "beta alanine",
+  "beta-alanine",
+  "citrulline",
+  "fish oil",
+  "omega-3",
+  "magnesium",
+  "zinc",
+  "vitamin",
+  "mineral",
+  "pre workout",
+  "pre-workout",
+];
+
+const AUTO_HEALTH_EVIDENCE_INTENT_TERMS = [
+  "evidence",
+  "study",
+  "studies",
+  "research",
+  "source",
+  "sources",
+  "safety",
+  "safe",
+  "contraindication",
+  "contraindications",
+  "interaction",
+  "interactions",
+  "side effect",
+  "side effects",
+  "worthwhile",
+  "worth it",
+  "up to date",
+  "up-to-date",
+];
+
+function includesAnyTerm(value: string, terms: string[]): boolean {
+  return terms.some((term) => value.includes(term));
+}
+
+function classifyAutoWebMode(input: string): WebMode {
+  const normalized = String(input || "").toLowerCase().replace(/\s+/g, " ").trim();
+  if (!normalized) return "off";
+  if (
+    includesAnyTerm(normalized, AUTO_CURRENT_NEWS_INTENT_TERMS) &&
+    includesAnyTerm(normalized, AUTO_CURRENT_NEWS_ENTITY_TERMS)
+  ) {
+    return "current_news";
+  }
+  if (
+    includesAnyTerm(normalized, AUTO_HEALTH_TOPIC_TERMS) &&
+    includesAnyTerm(normalized, AUTO_HEALTH_EVIDENCE_INTENT_TERMS)
+  ) {
+    return "trusted_health";
+  }
+  return "off";
+}
 
 function compactCurrentNewsText(value: string, maxLength: number): string {
   const normalized = String(value || "")
@@ -392,7 +503,7 @@ export function BrainsChatPane() {
   const [editingText, setEditingText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
-  const [webMode, setWebMode] = React.useState<WebMode>("off");
+  const [webMode, setWebMode] = React.useState<WebMode>("auto");
   const webSearchEnabled = webModeExternalEnabled(webMode);
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [voicePrivacyOpen, setVoicePrivacyOpen] = React.useState(false);
@@ -1720,11 +1831,12 @@ export function BrainsChatPane() {
     const editMessageId = editingMessageId;
     const isEditing = !!editMessageId;
     const selectedWebMode =
-      webSearchEnabled &&
-      overrideText == null &&
-      !isEditing &&
-      !options.voiceTurn
-        ? webMode
+      overrideText == null && !isEditing && !options.voiceTurn
+        ? webMode === "auto"
+          ? classifyAutoWebMode(msg)
+          : webSearchEnabled
+            ? webMode
+            : "off"
         : "off";
     const useTrustedWeb = selectedWebMode !== "off";
 
@@ -2418,6 +2530,7 @@ export function BrainsChatPane() {
                     }}
                     className="cursor-pointer appearance-none bg-transparent pr-1 text-inherit outline-none disabled:cursor-not-allowed"
                   >
+                    <option value="auto">Auto</option>
                     <option value="off">Web off</option>
                     <option value="trusted_health">Health</option>
                     <option value="current_news">News</option>
