@@ -1,0 +1,73 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+import {
+  resolveServerSearchControlV1,
+  SERVER_SEARCH_AUTHORITY_VERSION,
+} from "../lib/serverSearchAuthorityV1.ts";
+
+const source = (path: string) =>
+  readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+
+test("legacy browser modes never control the server decision", () => {
+  for (const body of [{}, { search_mode: "auto" }, { search_mode: "off" }]) {
+    const control = resolveServerSearchControlV1(body);
+    assert.ok(control);
+    assert.equal(control.effective_mode, "auto");
+    assert.equal(control.requested_override, null);
+  }
+
+  assert.deepEqual(
+    resolveServerSearchControlV1({ search_mode: "off" })
+      ?.ignored_legacy_request_fields,
+    ["search_mode"],
+  );
+});
+
+test("only the new explicit override field can request manual web off", () => {
+  const control = resolveServerSearchControlV1({
+    search_mode: "off",
+    search_override: "off",
+  });
+  assert.ok(control);
+  assert.equal(control.effective_mode, "manual_override");
+  assert.equal(control.requested_override, "off");
+});
+
+test("invalid client search controls fail closed", () => {
+  for (const body of [
+    null,
+    [],
+    { search_mode: "health" },
+    { search_override: "auto" },
+    { search_override: true },
+  ]) {
+    assert.equal(resolveServerSearchControlV1(body), null);
+  }
+});
+
+test("chat route owns routing and uses fresh Supabase authorization", () => {
+  const route = source("app/api/chat/route.ts");
+  const pane = source("components/threads/BrainsChatPane.tsx");
+
+  assert.equal(SERVER_SEARCH_AUTHORITY_VERSION, "server_search_authority_v1");
+  assert.match(route, /resolveServerSearchControlV1\(body\)/);
+  assert.match(route, /getFreshSupabaseAuthContextFromRequest\(req\)/);
+  assert.doesNotMatch(route, /searchMode === "auto"/);
+  assert.doesNotMatch(
+    route,
+    /searchControl\.effective_mode === "auto"\s*&&\s*!noStore/,
+  );
+  assert.match(route, /capabilityAllowsRole\("web_search\.override", role\)/);
+  assert.match(route, /recordManualSearchOverrideV1/);
+  assert.match(route, /SERVER_SEARCH_AUTHORITY_VERSION/);
+
+  assert.match(pane, /search_override: "off"/);
+  assert.match(pane, /selectedWebMode === "off"/);
+  assert.doesNotMatch(pane, /search_mode:/);
+  assert.match(
+    pane,
+    /canOverrideWebSearch[\s\S]*?<option value="off">Web off<\/option>/,
+  );
+});

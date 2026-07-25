@@ -303,7 +303,7 @@ test("shadow logging requires explicit enablement", () => {
   assert.equal(logged.length, 0);
 });
 
-test("server routes record shadow decisions after Supabase authorization", async () => {
+test("server routes enforced decisions after fresh Supabase authorization", async () => {
   const { readFile } = await import("node:fs/promises");
   const chat = await readFile(
     new URL("../app/api/chat/route.ts", import.meta.url),
@@ -318,25 +318,24 @@ test("server routes record shadow decisions after Supabase authorization", async
     "utf8",
   );
 
-  assert.match(chat, /getSupabaseAuthContextFromRequest/);
-  assert.match(chat, /searchModeFromBody/);
+  assert.match(chat, /getFreshSupabaseAuthContextFromRequest/);
+  assert.match(chat, /resolveServerSearchControlV1/);
   assert.match(chat, /selectAutomaticSearchRouteV1/);
   assert.match(chat, /recordSearchRoutingEnforcedV1/);
   assert.match(chat, /postCurrentNews/);
   assert.match(chat, /postTrustedWeb/);
-  assert.match(chat, /"X-VS-Search-Authority": "server_v1"/);
+  assert.match(chat, /SERVER_SEARCH_AUTHORITY_VERSION/);
   assert.match(chat, /"X-VS-Search-Route": "normal_chat"/);
-  assert.match(chat, /observedRoute: "normal_chat"/);
-  assert.match(chat, /if \(!noStore\)/);
+  assert.match(chat, /manualOverride/);
   assert.match(health, /requireFreshCapability/);
   assert.match(health, /observedRoute: "trusted_health"/);
   assert.match(news, /requireFreshCapability/);
   assert.match(news, /observedRoute: "current_news"/);
-  for (const route of [chat, health, news]) {
+  for (const route of [health, news]) {
     assert.match(route, /recordSearchDecisionShadowV1/);
   }
   const authIndex = chat.indexOf(
-    "const auth = await getSupabaseAuthContextFromRequest(req)",
+    "const auth = await getFreshSupabaseAuthContextFromRequest(req)",
   );
   const threadIndex = chat.indexOf('new Response("thread_id required"');
   const routingIndex = chat.indexOf(

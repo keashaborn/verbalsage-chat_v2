@@ -189,14 +189,17 @@ test("composer keeps test modes while Auto delegates routing to the server", () 
   assert.doesNotMatch(pane, /AUTO_CURRENT_NEWS_INTENT_TERMS/);
   assert.doesNotMatch(pane, /AUTO_HEALTH_EVIDENCE_INTENT_TERMS/);
   assert.doesNotMatch(pane, /isSearchExplicitlyProhibitedV1/);
-  assert.match(pane, /\? webMode\s*: "off"/);
-  assert.match(pane, /search_mode: autoSearch \? "auto" : "off"/);
+  assert.match(pane, /\? webMode\s*: "auto"/);
+  assert.doesNotMatch(pane, /search_mode:/);
+  assert.match(pane, /search_override: "off"/);
   assert.match(pane, /r\.headers\.get\("X-VS-Search-Route"\)/);
   assert.match(
     pane,
     /r\.status === 409[\s\S]*X-VS-Search-Decision[\s\S]*"off"/,
   );
-  assert.match(chatRoute, /searchMode === "auto"/);
+  assert.doesNotMatch(chatRoute, /searchMode === "auto"/);
+  assert.match(chatRoute, /resolveServerSearchControlV1/);
+  assert.match(chatRoute, /manualOverride/);
   assert.match(chatRoute, /selectAutomaticSearchRouteV1/);
   assert.match(chatRoute, /runAutomaticSearch/);
   assert.match(chatRoute, /getSupabaseBearerAuthorizationFromRequest/);

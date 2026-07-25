@@ -153,6 +153,7 @@ test("Inspector uses cookie-gated fresh Supabase verification", () => {
   );
   assert.ok(cookieIndex >= 0 && cookieIndex < freshIndex);
   assert.match(chat, /responseTraceAccessAllowedV2\(req\)/);
+  assert.match(chat, /getFreshSupabaseAuthContextFromRequest\(req\)/);
   assert.doesNotMatch(chat, /requireCapability\(req, "inspector\.view"\)/);
   assert.match(access, /MAX_RESPONSE_TRACE_HEADER_BYTES = 6_000/);
   assert.match(access, /private, no-store/);

@@ -503,7 +503,7 @@ export function BrainsChatPane() {
   }, []);
 
   React.useEffect(() => {
-    if (!canOverrideWebSearch && webModeExternalEnabled(webMode)) {
+    if (!canOverrideWebSearch && webMode !== "auto") {
       setWebMode("auto");
     }
   }, [canOverrideWebSearch, webMode]);
@@ -1309,9 +1309,8 @@ export function BrainsChatPane() {
     noStore = false,
     voiceTurnId?: string,
     voiceSessionId?: string,
-    selectedWebMode: WebMode = "off",
+    selectedWebMode: WebMode = "auto",
   ): Promise<ChatResult> {
-    const autoSearch = selectedWebMode === "auto";
     const requestedTrustedWeb = webModeTrustedHealthEnabled(selectedWebMode);
     const requestedCurrentNews = webModeCurrentNewsEnabled(selectedWebMode);
     const requestExternalWeb = requestedTrustedWeb || requestedCurrentNews;
@@ -1344,7 +1343,9 @@ export function BrainsChatPane() {
                     thread_id: tid,
                     regen,
                     noStore,
-                    search_mode: autoSearch ? "auto" : "off",
+                    ...(selectedWebMode === "off"
+                      ? { search_override: "off" }
+                      : {}),
                   },
             ),
             signal,
@@ -1735,7 +1736,7 @@ export function BrainsChatPane() {
     const selectedWebMode =
       overrideText == null && !isEditing && !options.voiceTurn
         ? webMode
-        : "off";
+        : "auto";
     const useTrustedWeb = webModeExternalEnabled(selectedWebMode);
 
     setSending(true);
@@ -2445,9 +2446,9 @@ export function BrainsChatPane() {
                     className="cursor-pointer appearance-none bg-transparent pr-1 text-inherit outline-none disabled:cursor-not-allowed"
                   >
                     <option value="auto">Auto</option>
-                    <option value="off">Web off</option>
                     {canOverrideWebSearch && (
                       <>
+                        <option value="off">Web off</option>
                         <option value="trusted_health">Health</option>
                         <option value="current_news">News</option>
                       </>

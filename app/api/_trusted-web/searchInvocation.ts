@@ -2,7 +2,10 @@ export const AUTOMATIC_SEARCH_INVOCATION_V1 = Symbol(
   "verbalsage.automatic-search-invocation.v1",
 );
 
-export type SearchInvocationRouteV1 = "current_news" | "trusted_health";
+export type SearchInvocationRouteV1 =
+  | "current_news"
+  | "trusted_health"
+  | "normal_chat";
 
 export function searchCapabilityForInvocationV1(
   invocation: unknown,
