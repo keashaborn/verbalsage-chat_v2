@@ -51,6 +51,7 @@ import {
   ResponseTrace,
   type ResponseInspection,
 } from "@/components/threads/ResponseTrace";
+import { safeResponseTraceForCopy } from "@/lib/responseTraceV2";
 import {
   Dialog,
   DialogContent,
@@ -2241,7 +2242,13 @@ export function BrainsChatPane() {
                         copied={copiedKey === `inspect:trace:${idx}`}
                         onCopy={() =>
                           copyText(
-                            JSON.stringify(inspect, null, 2),
+                            JSON.stringify(
+                              inspect
+                                ? safeResponseTraceForCopy(inspect)
+                                : null,
+                              null,
+                              2,
+                            ),
                             undefined,
                             `inspect:trace:${idx}`,
                           )

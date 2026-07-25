@@ -7,16 +7,20 @@ import {
   isAbortLike,
   requestDeadlineSignal,
 } from "@/lib/requestDeadline";
-import { cookies } from "next/headers";
-import { requireCapability } from "@/app/api/_auth/requireCapability";
 import {
   getSupabaseAuthContextFromRequest,
   getSupabaseBearerAuthorizationFromRequest,
 } from "@/app/api/_auth/supabaseUser";
 import {
+  responseTraceAccessAllowedV2,
+  responseTraceHeadersV2,
+} from "@/app/api/_inspection/responseTraceV2";
+import {
+  automaticSearchRouteUsesExternalWebV1,
   decideSearchV1,
   recordSearchDecisionShadowV1,
   recordSearchRoutingEnforcedV1,
+  SEARCH_DECISION_POLICY_VERSION,
   selectAutomaticSearchRouteV1,
   type AutomaticSearchRouteV1,
   type SearchDecisionV1,
@@ -34,9 +38,11 @@ import {
   voiceSessionIdFromRequest,
 } from "@/lib/voiceSession";
 import {
-  inspectorSessionCookieName,
-  inspectorSessionEnabled,
-} from "@/lib/inspectorSession";
+  responseInspectionV1FromValue,
+  type ResponseInspectionV1,
+  type ResponseTraceTimingV2,
+  type ResponseTraceV2,
+} from "@/lib/responseTraceV2";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -109,24 +115,31 @@ function searchModeFromBody(body: any): SearchMode | null {
   return raw === "off" || raw === "auto" ? raw : null;
 }
 
-async function responseInspectionAllowed(req: Request): Promise<boolean> {
-  const capability = await requireCapability(req, "inspector.view");
-  if (!capability.ok) return false;
-  const jar = await cookies();
-  return inspectorSessionEnabled(jar.get(inspectorSessionCookieName())?.value);
-}
-
-function responseTimingsHeader(value: unknown): string {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+function normalizedResponseTimings(
+  value: unknown,
+): ResponseTraceTimingV2 | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const source = value as Record<string, unknown>;
-  const timings: Record<string, number> = {};
+  const timings: ResponseTraceTimingV2 = {};
   for (const key of RESPONSE_TIMING_KEYS) {
     const number = Number(source[key]);
     if (!Number.isFinite(number) || number < 0 || number > 600_000) continue;
     timings[key] = Math.round(number);
   }
-  if (!("backend_total_ms" in timings)) return "";
-  return Buffer.from(JSON.stringify(timings), "utf8").toString("base64url");
+  return "backend_total_ms" in timings ? timings : null;
+}
+
+function responseTimingsHeader(timings: ResponseTraceTimingV2 | null): string {
+  return timings
+    ? Buffer.from(JSON.stringify(timings), "utf8").toString("base64url")
+    : "";
+}
+
+function boundedHeaderInteger(value: string | null, maximum: number): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= maximum
+    ? parsed
+    : 0;
 }
 
 function automaticSearchRequest(
@@ -150,16 +163,83 @@ function automaticSearchRequest(
   });
 }
 
+function automaticSearchTraceV2({
+  response,
+  route,
+  decision,
+  rid,
+}: {
+  response: Response;
+  route: Exclude<AutomaticSearchRouteV1, "normal_chat">;
+  decision: SearchDecisionV1;
+  rid: string;
+}): ResponseTraceV2 {
+  const webSearched = response.headers.get("X-VS-Web-Searched") === "1";
+  const responseRuntime =
+    route === "current_news" ? "current_news_v1" : "trusted_web_v1";
+  return {
+    contract_version: "response_trace_v2",
+    authorities: {
+      identity: "supabase",
+      routing: "verbalsage_server_v1",
+      response_runtime: responseRuntime,
+    },
+    request: {
+      request_id: rid,
+      channel: "text",
+      transcript_persistence: "skipped",
+    },
+    authorization: {
+      actor_verification: "supabase_fresh_user_lookup",
+      execution_authorization: "web_search.use",
+      inspection_capability: "inspector.view",
+      inspection_verification: "supabase_fresh_user_lookup",
+    },
+    routing: {
+      search_mode: "auto",
+      policy_version: decision.policy_version,
+      decision: decision.decision,
+      reason_codes: [...decision.reason_codes],
+      policy_pack: decision.policy_pack,
+      selected_route: route,
+      attempted_route: route,
+      executed_external_web_access: webSearched,
+      fallback_to_chat: false,
+      budget: { ...decision.budget },
+    },
+    execution: {
+      web_searched: webSearched,
+      source_count: boundedHeaderInteger(
+        response.headers.get("X-VS-Web-Source-Count"),
+        50,
+      ),
+      validation: response.ok ? "passed" : "failed",
+    },
+    timings: null,
+    response_inspection: null,
+  };
+}
+
 function routedSearchResponse(
   response: Response,
   route: Exclude<AutomaticSearchRouteV1, "normal_chat">,
   decision: SearchDecisionV1,
+  rid: string,
+  includeInspection: boolean,
 ): Response {
   const headers = new Headers(response.headers);
   headers.set("X-VS-Search-Authority", "server_v1");
   headers.set("X-VS-Search-Decision", decision.decision);
   headers.set("X-VS-Search-Policy", decision.policy_pack);
   headers.set("X-VS-Search-Route", route);
+  if (includeInspection) {
+    const traceHeaders = responseTraceHeadersV2(
+      automaticSearchTraceV2({ response, route, decision, rid }),
+    );
+    for (const [key, value] of Object.entries(traceHeaders)) {
+      headers.set(key, value);
+    }
+  }
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -167,16 +247,26 @@ function routedSearchResponse(
   });
 }
 
+type AutomaticSearchResult = Readonly<{
+  response: Response | null;
+  attemptedRoute: Exclude<AutomaticSearchRouteV1, "normal_chat"> | null;
+  fallbackToChat: boolean;
+}>;
+
 async function runAutomaticSearch(
   req: Request,
   rid: string,
   route: AutomaticSearchRouteV1,
   decision: SearchDecisionV1,
   message: string,
-): Promise<Response | null> {
-  if (route === "normal_chat") return null;
+): Promise<AutomaticSearchResult> {
+  if (route === "normal_chat") {
+    return { response: null, attemptedRoute: null, fallbackToChat: false };
+  }
   const delegated = automaticSearchRequest(req, rid, route, message);
-  if (!delegated) return null;
+  if (!delegated) {
+    return { response: null, attemptedRoute: null, fallbackToChat: false };
+  }
   const response =
     route === "current_news"
       ? await postCurrentNews(delegated, AUTOMATIC_SEARCH_INVOCATION_V1)
@@ -185,9 +275,85 @@ async function runAutomaticSearch(
     route === "trusted_health" &&
     response.headers.get("X-VS-Trusted-Web-Fallback") === "chat"
   ) {
-    return null;
+    return { response: null, attemptedRoute: route, fallbackToChat: true };
   }
-  return routedSearchResponse(response, route, decision);
+  return { response, attemptedRoute: route, fallbackToChat: false };
+}
+
+function ordinaryResponseTraceV2({
+  rid,
+  searchMode,
+  automaticDecision,
+  attemptedRoute,
+  fallbackToChat,
+  noStore,
+  voice,
+  timings,
+  responseInspection,
+}: {
+  rid: string;
+  searchMode: SearchMode;
+  automaticDecision: SearchDecisionV1 | null;
+  attemptedRoute: Exclude<AutomaticSearchRouteV1, "normal_chat"> | null;
+  fallbackToChat: boolean;
+  noStore: boolean;
+  voice: boolean;
+  timings: ResponseTraceTimingV2 | null;
+  responseInspection: ResponseInspectionV1 | null;
+}): ResponseTraceV2 {
+  const reasonCodes = automaticDecision
+    ? [...automaticDecision.reason_codes]
+    : [
+        searchMode === "off"
+          ? "search_mode_off"
+          : voice
+            ? "voice_search_disabled"
+            : noStore
+              ? "stateless_search_disabled"
+              : "search_not_evaluated",
+      ];
+  return {
+    contract_version: "response_trace_v2",
+    authorities: {
+      identity: "supabase",
+      routing: "verbalsage_server_v1",
+      response_runtime: "resse_response_v0_2",
+    },
+    request: {
+      request_id: rid,
+      channel: voice ? "voice" : "text",
+      transcript_persistence:
+        responseInspection?.after_openai.transcript_persistence ||
+        (noStore ? "skipped" : "persisted"),
+    },
+    authorization: {
+      actor_verification: "supabase_fresh_user_lookup",
+      execution_authorization: "supabase_authenticated",
+      inspection_capability: "inspector.view",
+      inspection_verification: "supabase_fresh_user_lookup",
+    },
+    routing: {
+      search_mode: searchMode,
+      policy_version:
+        automaticDecision?.policy_version || SEARCH_DECISION_POLICY_VERSION,
+      decision: automaticDecision?.decision || "not_evaluated",
+      reason_codes: reasonCodes,
+      policy_pack: automaticDecision?.policy_pack || "none",
+      selected_route: "normal_chat",
+      attempted_route: attemptedRoute,
+      executed_external_web_access:
+        automaticSearchRouteUsesExternalWebV1("normal_chat"),
+      fallback_to_chat: fallbackToChat,
+      budget: automaticDecision ? { ...automaticDecision.budget } : null,
+    },
+    execution: {
+      web_searched: false,
+      source_count: 0,
+      validation: "passed",
+    },
+    timings,
+    response_inspection: responseInspection,
+  };
 }
 
 export async function POST(req: Request) {
@@ -249,7 +415,13 @@ export async function POST(req: Request) {
       });
     }
 
+    const includeInspection = await responseTraceAccessAllowedV2(req);
     let automaticDecision: SearchDecisionV1 | null = null;
+    let automaticAttemptedRoute: Exclude<
+      AutomaticSearchRouteV1,
+      "normal_chat"
+    > | null = null;
+    let automaticFallbackToChat = false;
     if (
       searchMode === "auto" &&
       !noStore &&
@@ -268,14 +440,24 @@ export async function POST(req: Request) {
         input: message,
         decision: automaticDecision,
       });
-      const searchResponse = await runAutomaticSearch(
+      const searchResult = await runAutomaticSearch(
         req,
         rid,
         selectedRoute,
         automaticDecision,
         message,
       );
-      if (searchResponse) return searchResponse;
+      automaticAttemptedRoute = searchResult.attemptedRoute;
+      automaticFallbackToChat = searchResult.fallbackToChat;
+      if (searchResult.response && selectedRoute !== "normal_chat") {
+        return routedSearchResponse(
+          searchResult.response,
+          selectedRoute,
+          automaticDecision,
+          rid,
+          includeInspection,
+        );
+      }
     } else if (!noStore) {
       recordSearchDecisionShadowV1({
         actorUserId: userId,
@@ -284,7 +466,6 @@ export async function POST(req: Request) {
         input: message,
       });
     }
-    const includeInspection = await responseInspectionAllowed(req);
 
     const brains = process.env.BRAINS_URL || "http://172.31.32.171:8088";
     const upstreamSignal = requestDeadlineSignal(
@@ -365,14 +546,14 @@ export async function POST(req: Request) {
 
     let answer = raw;
     let answerId = "";
-    let inspection: unknown = null;
-    let timingsHeader = "";
+    let responseInspection: ResponseInspectionV1 | null = null;
+    let timings: ResponseTraceTimingV2 | null = null;
     try {
       const parsed = JSON.parse(raw);
       answer = String(parsed?.answer || "");
       answerId = String(parsed?.answer_id || "");
-      inspection = parsed?.inspection || null;
-      timingsHeader = responseTimingsHeader(parsed?.timings);
+      responseInspection = responseInspectionV1FromValue(parsed?.inspection);
+      timings = normalizedResponseTimings(parsed?.timings);
     } catch {}
     if (!answer) {
       return new Response("Empty response", {
@@ -381,19 +562,22 @@ export async function POST(req: Request) {
       });
     }
 
-    const inspectionHeader =
-      includeInspection && inspection
-        ? Buffer.from(JSON.stringify(inspection), "utf8").toString("base64url")
-        : "";
-    const boundedInspectionHeader =
-      inspectionHeader && Buffer.byteLength(inspectionHeader, "ascii") <= 6000
-        ? inspectionHeader
-        : "";
-    const inspectionStatus = includeInspection
-      ? boundedInspectionHeader
-        ? "available"
-        : "unavailable"
-      : "disabled";
+    const timingsHeader = responseTimingsHeader(timings);
+    const traceHeaders = includeInspection
+      ? responseTraceHeadersV2(
+          ordinaryResponseTraceV2({
+            rid,
+            searchMode,
+            automaticDecision,
+            attemptedRoute: automaticAttemptedRoute,
+            fallbackToChat: automaticFallbackToChat,
+            noStore,
+            voice: Boolean(voiceTurn.value),
+            timings,
+            responseInspection,
+          }),
+        )
+      : {};
 
     return new Response(answer, {
       status: 200,
@@ -404,19 +588,13 @@ export async function POST(req: Request) {
         ...voiceTurnHeaders(voiceTurn.value),
         ...(answerId ? { "X-VS-Answer-Id": answerId } : {}),
         ...(timingsHeader ? { "X-VS-Response-Timings": timingsHeader } : {}),
-        ...(boundedInspectionHeader
-          ? { "X-VS-Inspection": boundedInspectionHeader }
-          : {}),
-        ...(includeInspection
-          ? { "X-VS-Inspection-Status": inspectionStatus }
-          : {}),
+        ...traceHeaders,
         ...(searchMode === "auto"
           ? {
               "X-VS-Search-Authority": "server_v1",
               "X-VS-Search-Decision":
                 automaticDecision?.decision || "no_search",
-              "X-VS-Search-Policy":
-                automaticDecision?.policy_pack || "none",
+              "X-VS-Search-Policy": automaticDecision?.policy_pack || "none",
               "X-VS-Search-Route": "normal_chat",
             }
           : {}),

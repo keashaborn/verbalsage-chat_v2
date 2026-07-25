@@ -5,6 +5,11 @@ import { randomUUID } from "crypto";
 import { requireFreshCapability } from "@/app/api/_auth/requireCapability";
 import { getSupabaseBearerAuthorizationFromRequest } from "@/app/api/_auth/supabaseUser";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
+import {
+  manualSearchResponseTraceV2,
+  responseTraceAccessAllowedForFreshRoleV2,
+  responseTraceHeadersV2,
+} from "@/app/api/_inspection/responseTraceV2";
 import { answerLinksAllowed } from "@/app/api/_trusted-web/answerLinks";
 import {
   recordManualSearchOverrideV1,
@@ -164,6 +169,9 @@ export async function POST(req: Request, invocation?: unknown) {
         headers: { ...ERROR_RESPONSE_HEADERS, "x-request-id": rid },
       });
     }
+    const includeInspection = await responseTraceAccessAllowedForFreshRoleV2(
+      capability.role,
+    );
 
     recordManualSearchOverrideV1({
       actorUserId: userId,
@@ -178,12 +186,24 @@ export async function POST(req: Request, invocation?: unknown) {
       input: query,
     });
     if (searchDecision.reason_codes.includes("search_prohibited_by_user")) {
+      const traceHeaders = includeInspection
+        ? responseTraceHeadersV2(
+            manualSearchResponseTraceV2({
+              rid,
+              route: "trusted_health",
+              searched: false,
+              sourceCount: 0,
+              prohibited: true,
+            }),
+          )
+        : {};
       return new Response("Search prohibited by user", {
         status: 409,
         headers: {
           ...ERROR_RESPONSE_HEADERS,
           "x-request-id": rid,
           "X-VS-Search-Decision": "no_search",
+          ...traceHeaders,
         },
       });
     }
@@ -289,6 +309,18 @@ export async function POST(req: Request, invocation?: unknown) {
             "X-VS-Trusted-Web-Fallback": "chat",
             "X-VS-Web-Topic": topic,
             "X-VS-Web-Searched": "0",
+            "X-VS-Web-Source-Count": "0",
+            ...(includeInspection
+              ? responseTraceHeadersV2(
+                  manualSearchResponseTraceV2({
+                    rid,
+                    route: "trusted_health",
+                    searched: false,
+                    sourceCount: 0,
+                    fallbackToChat: true,
+                  }),
+                )
+              : {}),
           },
         },
       );
@@ -311,6 +343,17 @@ export async function POST(req: Request, invocation?: unknown) {
           "X-VS-Search-Id": searchId,
           "X-VS-Web-Topic": topic,
           "X-VS-Web-Searched": parsed.searched ? "1" : "0",
+          "X-VS-Web-Source-Count": String(sources.length),
+          ...(includeInspection
+            ? responseTraceHeadersV2(
+                manualSearchResponseTraceV2({
+                  rid,
+                  route: "trusted_health",
+                  searched: Boolean(parsed.searched),
+                  sourceCount: sources.length,
+                }),
+              )
+            : {}),
         },
       },
     );

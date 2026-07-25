@@ -313,7 +313,7 @@ test("server routes record shadow decisions after Supabase authorization", async
     "automaticDecision = decideSearchV1(message)",
   );
   const dispatchIndex = chat.indexOf(
-    "const searchResponse = await runAutomaticSearch",
+    "const searchResult = await runAutomaticSearch",
   );
   assert.ok(authIndex >= 0 && authIndex < threadIndex);
   assert.ok(threadIndex < routingIndex);
