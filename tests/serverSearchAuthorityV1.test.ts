@@ -64,10 +64,11 @@ test("chat route owns routing and uses fresh Supabase authorization", () => {
   assert.match(route, /SERVER_SEARCH_AUTHORITY_VERSION/);
 
   assert.match(pane, /search_override: "off"/);
-  assert.match(pane, /selectedWebMode === "off"/);
+  assert.match(pane, /searchControl === "off"/);
   assert.doesNotMatch(pane, /search_mode:/);
-  assert.match(
-    pane,
-    /canOverrideWebSearch[\s\S]*?<option value="off">Web off<\/option>/,
-  );
+  assert.doesNotMatch(pane, /data-web-mode-selector/);
+  assert.doesNotMatch(pane, /canOverrideWebSearch/);
+  assert.doesNotMatch(pane, /web_search\.override/);
+  assert.doesNotMatch(pane, /"\/api\/trusted-web"/);
+  assert.doesNotMatch(pane, /"\/api\/current-news"/);
 });

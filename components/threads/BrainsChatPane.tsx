@@ -17,7 +17,6 @@ import {
   RotateCw,
   Square,
   Check,
-  Globe2,
 } from "lucide-react";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
 import {
@@ -71,26 +70,7 @@ import {
   splitForSpeech,
 } from "@/lib/voiceSpeech";
 
-type WebMode = "auto" | "off" | "trusted_health" | "current_news";
-
-type CapabilityResponse = {
-  capabilities?: Array<{ key?: string }>;
-};
-
-const webModeTrustedHealthEnabled = (mode: WebMode): boolean =>
-  mode === "trusted_health";
-
-const webModeCurrentNewsEnabled = (mode: WebMode): boolean =>
-  mode === "current_news";
-
-const webModeExternalEnabled = (mode: WebMode): boolean =>
-  mode === "trusted_health" || mode === "current_news";
-
-const webModeStatusLabel = (mode: WebMode): string => {
-  if (mode === "trusted_health") return "Trusted sources · Not saved to memory";
-  if (mode === "current_news") return "Trusted sources · Not saved to memory";
-  return "";
-};
+type SearchControl = "auto" | "off";
 
 type TrustedWebSource = {
   url: string;
@@ -452,11 +432,7 @@ export function BrainsChatPane() {
   const [editingText, setEditingText] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
-  const [webMode, setWebMode] = React.useState<WebMode>("auto");
-  const webSearchEnabled = webModeExternalEnabled(webMode);
   const [isAdmin, setIsAdmin] = React.useState(false);
-  const [canOverrideWebSearch, setCanOverrideWebSearch] =
-    React.useState(false);
   const [voicePrivacyOpen, setVoicePrivacyOpen] = React.useState(false);
   const [voicePrivacySaving, setVoicePrivacySaving] = React.useState(false);
   const [voicePrivacyError, setVoicePrivacyError] = React.useState("");
@@ -529,25 +505,16 @@ export function BrainsChatPane() {
 
     async function refreshAdminFlag() {
       try {
-        const [{ data }, capabilityResponse] = await Promise.all([
-          supabase.auth.getUser(),
-          authFetchJson<CapabilityResponse>("/api/auth/capabilities").catch(
-            (): CapabilityResponse => ({ capabilities: [] }),
-          ),
-        ]);
+        const { data } = await supabase.auth.getUser();
         const role = (data?.user as any)?.app_metadata?.role;
         const cloudVoiceMode = voiceModeFromUserMetadata(
           (data?.user as any)?.user_metadata,
         );
         const nextIsAdmin =
           role === "owner" || role === "admin" || role === "developer";
-        const nextCanOverrideWebSearch = (
-          capabilityResponse.capabilities || []
-        ).some((capability) => capability.key === "web_search.override");
         if (!mounted) return;
 
         setIsAdmin(nextIsAdmin);
-        setCanOverrideWebSearch(nextCanOverrideWebSearch);
         if (cloudVoiceMode) {
           cacheVoiceMode(cloudVoiceMode);
           setVoiceMode(cloudVoiceMode);
@@ -567,7 +534,6 @@ export function BrainsChatPane() {
       } catch {
         if (mounted) {
           setIsAdmin(false);
-          setCanOverrideWebSearch(false);
           setMsgs((prev) =>
             prev.map((m) =>
               m.inspect || m.inspect_error
@@ -592,12 +558,6 @@ export function BrainsChatPane() {
       window.removeEventListener("focus", refreshAdminFlag);
     };
   }, []);
-
-  React.useEffect(() => {
-    if (!canOverrideWebSearch && webMode !== "auto") {
-      setWebMode("auto");
-    }
-  }, [canOverrideWebSearch, webMode]);
 
   const [text, setText] = React.useState("");
 
@@ -1400,45 +1360,32 @@ export function BrainsChatPane() {
     noStore = false,
     voiceTurnId?: string,
     voiceSessionId?: string,
-    selectedWebMode: WebMode = "auto",
+    searchControl: SearchControl = "auto",
   ): Promise<ChatResult> {
-    const requestedTrustedWeb = webModeTrustedHealthEnabled(selectedWebMode);
-    const requestedCurrentNews = webModeCurrentNewsEnabled(selectedWebMode);
-    const requestExternalWeb = requestedTrustedWeb || requestedCurrentNews;
-    const endpoint = requestedCurrentNews
-      ? "/api/current-news"
-      : requestedTrustedWeb
-        ? "/api/trusted-web"
-        : "/api/chat";
-    const requestQuery = input;
     const { response: r, responseText } = await withRequestDeadline(
       async (signal) => {
         const response = await authFetch(
-          endpoint,
+          "/api/chat",
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              ...(!requestExternalWeb && voiceTurnId
+              ...(voiceTurnId
                 ? { [VOICE_TURN_HEADER]: voiceTurnId }
                 : {}),
-              ...(!requestExternalWeb && voiceSessionId
+              ...(voiceSessionId
                 ? { [VOICE_SESSION_HEADER]: voiceSessionId }
                 : {}),
             },
-            body: JSON.stringify(
-              requestExternalWeb
-                ? { query: requestQuery }
-                : {
-                    input,
-                    thread_id: tid,
-                    regen,
-                    noStore,
-                    ...(selectedWebMode === "off"
-                      ? { search_override: "off" }
-                      : {}),
-                  },
-            ),
+            body: JSON.stringify({
+              input,
+              thread_id: tid,
+              regen,
+              noStore,
+              ...(searchControl === "off"
+                ? { search_override: "off" }
+                : {}),
+            }),
             signal,
           },
         );
@@ -1450,26 +1397,9 @@ export function BrainsChatPane() {
       BROWSER_RESPONSE_TIMEOUT_MS,
     );
     const routedSearchRoute = r.headers.get("X-VS-Search-Route");
-    const trustedWeb =
-      requestedTrustedWeb || routedSearchRoute === "trusted_health";
-    const currentNews =
-      requestedCurrentNews || routedSearchRoute === "current_news";
+    const trustedWeb = routedSearchRoute === "trusted_health";
+    const currentNews = routedSearchRoute === "current_news";
     const externalWeb = trustedWeb || currentNews;
-    if (
-      requestExternalWeb &&
-      r.status === 409 &&
-      r.headers.get("X-VS-Search-Decision") === "no_search"
-    ) {
-      return callChat(
-        input,
-        tid,
-        regen,
-        noStore,
-        voiceTurnId,
-        voiceSessionId,
-        "off",
-      );
-    }
     if (trustedWeb && r.headers.get("X-VS-Trusted-Web-Fallback") === "chat") {
       const fallbackReply = await callChat(
         input,
@@ -1589,9 +1519,6 @@ export function BrainsChatPane() {
         tid!,
         true,
         false,
-        undefined,
-        undefined,
-        lastUserMessage?.web_search === true ? "trusted_health" : "off",
       );
 
       setMsgs((prev) => {
@@ -1642,7 +1569,6 @@ export function BrainsChatPane() {
 
   async function startGovernedListening() {
     stopTTS();
-    setWebMode("off");
     unlockAudioForSafari();
     voiceConversationEpochRef.current += 1;
     const conversationEpoch = voiceConversationEpochRef.current;
@@ -1687,7 +1613,6 @@ export function BrainsChatPane() {
 
   async function startRealtimeListening() {
     stopTTS();
-    setWebMode("off");
     unlockAudioForSafari();
     voiceConversationEpochRef.current += 1;
     const conversationEpoch = voiceConversationEpochRef.current;
@@ -1837,12 +1762,6 @@ export function BrainsChatPane() {
 
     const editMessageId = editingMessageId;
     const isEditing = !!editMessageId;
-    const selectedWebMode =
-      overrideText == null && !isEditing && !options.voiceTurn
-        ? webMode
-        : "auto";
-    const useTrustedWeb = webModeExternalEnabled(selectedWebMode);
-
     setSending(true);
     setRequestError("");
     setText("");
@@ -1874,7 +1793,7 @@ export function BrainsChatPane() {
 
     setMsgs((prev) => [
       ...prev,
-      { role: "user", content: msg, web_search: useTrustedWeb },
+      { role: "user", content: msg, web_search: false },
     ]);
 
     const responseStartedAt = performance.now();
@@ -1886,7 +1805,6 @@ export function BrainsChatPane() {
         false,
         options.voiceTurn?.voiceTurnId,
         options.voiceTurn?.voiceSessionId,
-        selectedWebMode,
       );
       const responseMs = Math.max(
         0,
@@ -2527,49 +2445,9 @@ export function BrainsChatPane() {
             />
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 flex-1 items-center gap-2">
-                <label
-                  className={[
-                    "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors disabled:opacity-50",
-                    webMode !== "off"
-                      ? "border-foreground bg-foreground text-background"
-                      : "bg-background text-muted-foreground",
-                  ].join(" ")}
-                  title="Choose the bounded web mode for the next message"
-                >
-                  <Globe2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  <select
-                    data-web-mode-selector
-                    aria-label="Web mode"
-                    value={webMode}
-                    disabled={
-                      sending ||
-                      !!editingMessageId ||
-                      voiceIsActive ||
-                      voiceIsConnecting
-                    }
-                    onChange={(event) => {
-                      setRequestError("");
-                      const nextMode = event.target.value as WebMode;
-                      setWebMode(nextMode);
-                    }}
-                    className="cursor-pointer appearance-none bg-transparent pr-1 text-inherit outline-none disabled:cursor-not-allowed"
-                  >
-                    <option value="auto">Auto</option>
-                    {canOverrideWebSearch && (
-                      <>
-                        <option value="off">Web off</option>
-                        <option value="trusted_health">Health</option>
-                        <option value="current_news">News</option>
-                      </>
-                    )}
-                  </select>
-                </label>
                 <span className="min-w-0 flex-1 text-[11px] text-muted-foreground">
-                  {webSearchEnabled
-                    ? webModeStatusLabel(webMode)
-                    : `OpenAI transcription · AI-generated reply · ${voiceStatusLabel}`}
-                  {!webSearchEnabled &&
-                  effectiveVoiceMode === "governed" &&
+                  {`OpenAI transcription · AI-generated reply · ${voiceStatusLabel}`}
+                  {effectiveVoiceMode === "governed" &&
                   governedVoice.partialTranscript
                     ? ` · ${governedVoice.partialTranscript}`
                     : ""}

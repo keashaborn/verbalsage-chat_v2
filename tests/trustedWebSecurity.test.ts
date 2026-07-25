@@ -116,7 +116,9 @@ test("browser request cannot choose model, domains, topic, or storage", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
   assert.match(route, /Object\.keys\(record\)\.length !== 1/);
   assert.match(route, /hasOwnProperty\.call\(record, "query"\)/);
-  assert.match(pane, /requestExternalWeb\s*\n\s*\? \{ query: requestQuery \}/);
+  assert.match(pane, /authFetch\(\s*"\/api\/chat"/);
+  assert.doesNotMatch(pane, /authFetch\(\s*"\/api\/trusted-web"/);
+  assert.doesNotMatch(pane, /authFetch\(\s*"\/api\/current-news"/);
   assert.doesNotMatch(pane, /allowed_domains/);
   assert.doesNotMatch(pane, /external_web_access/);
 });
@@ -194,55 +196,38 @@ test("answer links fail closed outside the server allowlist", () => {
   );
 });
 
-test("composer keeps test modes while Auto delegates routing to the server", () => {
+test("composer hides test modes and delegates every normal request to the server", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
   const chatRoute = source("app/api/chat/route.ts");
-  assert.match(pane, /type WebMode = "auto" \| "off" \| "trusted_health" \| "current_news"/);
-  assert.match(
-    pane,
-    /const \[webMode, setWebMode\] = React\.useState<WebMode>\("auto"\)/,
-  );
-  assert.match(pane, /webModeExternalEnabled\(webMode\)/);
+  assert.match(pane, /type SearchControl = "auto" \| "off"/);
   assert.doesNotMatch(pane, /classifyAutoWebMode/);
   assert.doesNotMatch(pane, /AUTO_CURRENT_NEWS_INTENT_TERMS/);
   assert.doesNotMatch(pane, /AUTO_HEALTH_EVIDENCE_INTENT_TERMS/);
   assert.doesNotMatch(pane, /isSearchExplicitlyProhibitedV1/);
-  assert.match(pane, /\? webMode\s*: "auto"/);
   assert.doesNotMatch(pane, /search_mode:/);
+  assert.match(pane, /authFetch\(\s*"\/api\/chat"/);
   assert.match(pane, /search_override: "off"/);
   assert.match(pane, /r\.headers\.get\("X-VS-Search-Route"\)/);
-  assert.match(
-    pane,
-    /r\.status === 409[\s\S]*X-VS-Search-Decision[\s\S]*"off"/,
-  );
   assert.doesNotMatch(chatRoute, /searchMode === "auto"/);
   assert.match(chatRoute, /resolveServerSearchControlV1/);
   assert.match(chatRoute, /manualOverride/);
   assert.match(chatRoute, /selectAutomaticSearchRouteV1/);
   assert.match(chatRoute, /runAutomaticSearch/);
   assert.match(chatRoute, /getSupabaseBearerAuthorizationFromRequest/);
-  assert.match(pane, /webModeTrustedHealthEnabled\(selectedWebMode\)/);
-  assert.match(pane, /webModeCurrentNewsEnabled\(selectedWebMode\)/);
-  assert.match(pane, /data-web-mode-selector/);
-  assert.match(pane, /value=\{webMode\}/);
-  assert.match(
-    pane,
-    /authFetchJson<CapabilityResponse>\("\/api\/auth\/capabilities"\)/,
-  );
-  assert.match(pane, /capability\.key === "web_search\.override"/);
-  assert.match(pane, /\{canOverrideWebSearch && \(/);
-  assert.match(pane, /Trusted sources · Not saved to memory/);
-  assert.equal((pane.match(/Trusted sources · Not saved to memory/g) || []).length, 2);
-  assert.match(pane, /<option value="auto">Auto<\/option>/);
-  assert.match(pane, /<option value="trusted_health">Health<\/option>/);
-  assert.match(pane, /<option value="current_news">News<\/option>/);
-  assert.match(pane, /requestedCurrentNews\s*\n\s*\? "\/api\/current-news"/);
-  assert.match(pane, /const requestQuery = input/);
+  assert.doesNotMatch(pane, /data-web-mode-selector/);
+  assert.doesNotMatch(pane, /aria-label="Web mode"/);
+  assert.doesNotMatch(pane, /web_search\.override/);
+  assert.doesNotMatch(pane, /<option value="auto">Auto<\/option>/);
+  assert.doesNotMatch(pane, /<option value="trusted_health">Health<\/option>/);
+  assert.doesNotMatch(pane, /<option value="current_news">News<\/option>/);
+  assert.doesNotMatch(pane, /"\/api\/trusted-web"/);
+  assert.doesNotMatch(pane, /"\/api\/current-news"/);
   assert.doesNotMatch(pane, /buildCurrentNewsContextualQuery/);
   assert.doesNotMatch(pane, /Recent conversation context/);
   assert.doesNotMatch(pane, /CURRENT_NEWS_CONTEXT_MAX_CHARS/);
   assert.doesNotMatch(pane, /CURRENT_NEWS_CONTEXT_MESSAGES/);
-  assert.match(pane, /setWebMode\("off"\)/);
+  assert.doesNotMatch(pane, /setWebMode/);
+  assert.doesNotMatch(pane, /selectedWebMode/);
   assert.doesNotMatch(pane, /localStorage.*webMode/);
 });
 
