@@ -72,6 +72,10 @@ import {
 
 type WebMode = "auto" | "off" | "trusted_health" | "current_news";
 
+type CapabilityResponse = {
+  capabilities?: Array<{ key?: string }>;
+};
+
 const webModeTrustedHealthEnabled = (mode: WebMode): boolean =>
   mode === "trusted_health";
 
@@ -359,6 +363,8 @@ export function BrainsChatPane() {
   const [webMode, setWebMode] = React.useState<WebMode>("auto");
   const webSearchEnabled = webModeExternalEnabled(webMode);
   const [isAdmin, setIsAdmin] = React.useState(false);
+  const [canOverrideWebSearch, setCanOverrideWebSearch] =
+    React.useState(false);
   const [voicePrivacyOpen, setVoicePrivacyOpen] = React.useState(false);
   const [voicePrivacySaving, setVoicePrivacySaving] = React.useState(false);
   const [voicePrivacyError, setVoicePrivacyError] = React.useState("");
@@ -431,16 +437,25 @@ export function BrainsChatPane() {
 
     async function refreshAdminFlag() {
       try {
-        const { data } = await supabase.auth.getUser();
+        const [{ data }, capabilityResponse] = await Promise.all([
+          supabase.auth.getUser(),
+          authFetchJson<CapabilityResponse>("/api/auth/capabilities").catch(
+            (): CapabilityResponse => ({ capabilities: [] }),
+          ),
+        ]);
         const role = (data?.user as any)?.app_metadata?.role;
         const cloudVoiceMode = voiceModeFromUserMetadata(
           (data?.user as any)?.user_metadata,
         );
         const nextIsAdmin =
           role === "owner" || role === "admin" || role === "developer";
+        const nextCanOverrideWebSearch = (
+          capabilityResponse.capabilities || []
+        ).some((capability) => capability.key === "web_search.override");
         if (!mounted) return;
 
         setIsAdmin(nextIsAdmin);
+        setCanOverrideWebSearch(nextCanOverrideWebSearch);
         if (cloudVoiceMode) {
           cacheVoiceMode(cloudVoiceMode);
           setVoiceMode(cloudVoiceMode);
@@ -460,6 +475,7 @@ export function BrainsChatPane() {
       } catch {
         if (mounted) {
           setIsAdmin(false);
+          setCanOverrideWebSearch(false);
           setMsgs((prev) =>
             prev.map((m) =>
               m.inspect || m.inspect_error
@@ -484,6 +500,12 @@ export function BrainsChatPane() {
       window.removeEventListener("focus", refreshAdminFlag);
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!canOverrideWebSearch && webModeExternalEnabled(webMode)) {
+      setWebMode("auto");
+    }
+  }, [canOverrideWebSearch, webMode]);
 
   const [text, setText] = React.useState("");
 
@@ -2417,8 +2439,12 @@ export function BrainsChatPane() {
                   >
                     <option value="auto">Auto</option>
                     <option value="off">Web off</option>
-                    <option value="trusted_health">Health</option>
-                    <option value="current_news">News</option>
+                    {canOverrideWebSearch && (
+                      <>
+                        <option value="trusted_health">Health</option>
+                        <option value="current_news">News</option>
+                      </>
+                    )}
                   </select>
                 </label>
                 <span className="min-w-0 flex-1 text-[11px] text-muted-foreground">

@@ -3,6 +3,12 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 // @ts-expect-error Node's strip-types test runner loads the TypeScript file directly.
 import { answerLinksAllowed } from "../app/api/_trusted-web/answerLinks.ts";
+// @ts-expect-error Node's strip-types test runner loads the TypeScript file directly.
+import {
+  AUTOMATIC_SEARCH_INVOCATION_V1,
+  recordManualSearchOverrideV1,
+  searchCapabilityForInvocationV1,
+} from "../app/api/_trusted-web/searchInvocation.ts";
 
 const source = (path: string) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
@@ -12,16 +18,32 @@ test("trusted web capability is explicit and backend enforced", () => {
     "components/admin/settings/permissions/permissionRegistry.ts",
   );
   assert.match(registry, /key: "web_search\.use"/);
+  assert.match(registry, /key: "web_search\.override"/);
   assert.match(registry, /category: "web_search"/);
   assert.match(registry, /backendEnforced: true/);
 });
 
-test("trusted web BFF requires fresh Supabase authorization", () => {
+test("trusted web distinguishes automatic use from manual override", () => {
   const route = source("app/api/trusted-web/route.ts");
   const newsRoute = source("app/api/current-news/route.ts");
+  const chatRoute = source("app/api/chat/route.ts");
+  const invocation = source("app/api/_trusted-web/searchInvocation.ts");
   const auth = source("app/api/_auth/supabaseUser.ts");
-  assert.match(route, /requireFreshCapability\(req, "web_search\.use"\)/);
-  assert.match(newsRoute, /requireFreshCapability\(req, "web_search\.use"\)/);
+  assert.match(route, /searchCapabilityForInvocationV1\(invocation\)/);
+  assert.match(newsRoute, /searchCapabilityForInvocationV1\(invocation\)/);
+  assert.match(route, /requireFreshCapability\(req, requiredCapability\)/);
+  assert.match(newsRoute, /requireFreshCapability\(req, requiredCapability\)/);
+  assert.match(invocation, /AUTOMATIC_SEARCH_INVOCATION_V1 = Symbol/);
+  assert.match(invocation, /\? "web_search\.use"\s*: "web_search\.override"/);
+  assert.match(
+    chatRoute,
+    /postCurrentNews\(delegated, AUTOMATIC_SEARCH_INVOCATION_V1\)/,
+  );
+  assert.match(
+    chatRoute,
+    /postTrustedWeb\(delegated, AUTOMATIC_SEARCH_INVOCATION_V1\)/,
+  );
+  assert.doesNotMatch(invocation, /headers|get\(|body|query/);
   assert.match(auth, /\/auth\/v1\/user/);
   assert.match(auth, /cache: "no-store"/);
   assert.match(auth, /String\(user\.id \|\| ""\) !== payload\.sub/);
@@ -29,6 +51,64 @@ test("trusted web BFF requires fresh Supabase authorization", () => {
   assert.match(route, /authorization: actorAuthorization/);
   assert.match(newsRoute, /authorization: actorAuthorization/);
   assert.doesNotMatch(route, /user_metadata/);
+});
+
+test("manual override authority cannot be selected by HTTP input", () => {
+  assert.equal(
+    searchCapabilityForInvocationV1(AUTOMATIC_SEARCH_INVOCATION_V1),
+    "web_search.use",
+  );
+  for (const untrustedValue of [
+    undefined,
+    null,
+    "automatic",
+    Symbol.for("verbalsage.automatic-search-invocation.v1"),
+    { header: "automatic" },
+  ]) {
+    assert.equal(
+      searchCapabilityForInvocationV1(untrustedValue),
+      "web_search.override",
+    );
+  }
+});
+
+test("manual override audit is prompt-free and automatic routing is excluded", () => {
+  const originalInfo = console.info;
+  const originalAuditFlag = process.env.SEARCH_DECISION_AUDIT_ENABLED;
+  const logged: string[] = [];
+  console.info = (...values: unknown[]) => {
+    logged.push(values.map(String).join(" "));
+  };
+  process.env.SEARCH_DECISION_AUDIT_ENABLED = "1";
+
+  try {
+    recordManualSearchOverrideV1({
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      requestId: "manual-request-1",
+      route: "current_news",
+      invocation: undefined,
+    });
+    recordManualSearchOverrideV1({
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      requestId: "automatic-request-1",
+      route: "current_news",
+      invocation: AUTOMATIC_SEARCH_INVOCATION_V1,
+    });
+  } finally {
+    console.info = originalInfo;
+    if (originalAuditFlag === undefined) {
+      delete process.env.SEARCH_DECISION_AUDIT_ENABLED;
+    } else {
+      process.env.SEARCH_DECISION_AUDIT_ENABLED = originalAuditFlag;
+    }
+  }
+
+  assert.equal(logged.length, 1);
+  const event = JSON.parse(logged[0]);
+  assert.equal(event.event, "search_manual_override_v1");
+  assert.equal(event.capability, "web_search.override");
+  assert.equal(event.selected_route, "current_news");
+  assert.doesNotMatch(logged[0], /prompt|query|input/);
 });
 
 test("browser request cannot choose model, domains, topic, or storage", () => {
@@ -124,6 +204,12 @@ test("composer keeps test modes while Auto delegates routing to the server", () 
   assert.match(pane, /webModeCurrentNewsEnabled\(selectedWebMode\)/);
   assert.match(pane, /data-web-mode-selector/);
   assert.match(pane, /value=\{webMode\}/);
+  assert.match(
+    pane,
+    /authFetchJson<CapabilityResponse>\("\/api\/auth\/capabilities"\)/,
+  );
+  assert.match(pane, /capability\.key === "web_search\.override"/);
+  assert.match(pane, /\{canOverrideWebSearch && \(/);
   assert.match(pane, /Trusted sources · Not saved to memory/);
   assert.equal((pane.match(/Trusted sources · Not saved to memory/g) || []).length, 2);
   assert.match(pane, /<option value="auto">Auto<\/option>/);

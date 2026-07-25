@@ -5,9 +5,14 @@ import test from "node:test";
 const source = (path: string) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("current news BFF requires fresh Supabase authorization", () => {
+test("current news manual route requires fresh override authorization", () => {
   const route = source("app/api/current-news/route.ts");
-  assert.match(route, /requireFreshCapability\(req, "web_search\.use"\)/);
+  const invocation = source("app/api/_trusted-web/searchInvocation.ts");
+  assert.match(route, /searchCapabilityForInvocationV1\(invocation\)/);
+  assert.match(invocation, /"web_search\.use" \| "web_search\.override"/);
+  assert.match(invocation, /\? "web_search\.use"\s*: "web_search\.override"/);
+  assert.match(route, /requireFreshCapability\(req, requiredCapability\)/);
+  assert.match(route, /recordManualSearchOverrideV1/);
   assert.doesNotMatch(route, /user_metadata/);
 });
 

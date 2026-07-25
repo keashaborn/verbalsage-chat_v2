@@ -6,6 +6,10 @@ import { requireFreshCapability } from "@/app/api/_auth/requireCapability";
 import { getSupabaseBearerAuthorizationFromRequest } from "@/app/api/_auth/supabaseUser";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import { answerLinksAllowed } from "@/app/api/_trusted-web/answerLinks";
+import {
+  recordManualSearchOverrideV1,
+  searchCapabilityForInvocationV1,
+} from "@/app/api/_trusted-web/searchInvocation";
 import { recordSearchDecisionShadowV1 } from "@/lib/searchDecisionV1";
 import { isAbortLike, requestDeadlineSignal } from "@/lib/requestDeadline";
 
@@ -128,7 +132,7 @@ function boundedRetryAfter(value: string | null): string {
     : "60";
 }
 
-export async function POST(req: Request) {
+export async function POST(req: Request, invocation?: unknown) {
   const rid = requestId(req);
   try {
     const query = parseQuery(await req.json().catch(() => null));
@@ -139,7 +143,8 @@ export async function POST(req: Request) {
       });
     }
 
-    const capability = await requireFreshCapability(req, "web_search.use");
+    const requiredCapability = searchCapabilityForInvocationV1(invocation);
+    const capability = await requireFreshCapability(req, requiredCapability);
     const capabilityAuth = capability.auth;
     if (!capability.ok || !capabilityAuth) {
       return new Response(
@@ -160,6 +165,12 @@ export async function POST(req: Request) {
       });
     }
 
+    recordManualSearchOverrideV1({
+      actorUserId: userId,
+      requestId: rid,
+      route: "trusted_health",
+      invocation,
+    });
     const searchDecision = recordSearchDecisionShadowV1({
       actorUserId: userId,
       requestId: rid,

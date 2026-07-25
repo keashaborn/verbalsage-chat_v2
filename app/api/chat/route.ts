@@ -23,6 +23,7 @@ import {
 } from "@/lib/searchDecisionV1";
 import { POST as postCurrentNews } from "@/app/api/current-news/route";
 import { POST as postTrustedWeb } from "@/app/api/trusted-web/route";
+import { AUTOMATIC_SEARCH_INVOCATION_V1 } from "@/app/api/_trusted-web/searchInvocation";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
   voiceTurnHeaders,
@@ -178,8 +179,8 @@ async function runAutomaticSearch(
   if (!delegated) return null;
   const response =
     route === "current_news"
-      ? await postCurrentNews(delegated)
-      : await postTrustedWeb(delegated);
+      ? await postCurrentNews(delegated, AUTOMATIC_SEARCH_INVOCATION_V1)
+      : await postTrustedWeb(delegated, AUTOMATIC_SEARCH_INVOCATION_V1);
   if (
     route === "trusted_health" &&
     response.headers.get("X-VS-Trusted-Web-Fallback") === "chat"

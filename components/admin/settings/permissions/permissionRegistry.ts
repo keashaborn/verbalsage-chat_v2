@@ -223,7 +223,7 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     key: "web_search.use",
     label: "Use Trusted Web Search",
     description:
-      "Run bounded evidence searches against the server-owned nutrition, lifting, physique, and behavior-change source allowlist.",
+      "Allow the server to automatically run bounded evidence searches against approved source policies.",
     category: "web_search",
     scope: "own_account",
     access: "use",
@@ -232,6 +232,20 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     backendEnforced: true,
     notes:
       "Canary-limited by role. Requires a fresh Supabase user check, the Verbal Sage BFF, the Brains service boundary, actor/owner matching, and the backend kill switch.",
+  },
+  {
+    key: "web_search.override",
+    label: "Override Automatic Web Routing",
+    description:
+      "Expose temporary manual Health and News route controls for bounded testing.",
+    category: "web_search",
+    scope: "own_account",
+    access: "manage",
+    risk: "high",
+    defaultRoles: ["owner", "admin", "developer"],
+    backendEnforced: true,
+    notes:
+      "Testing only. Direct search endpoints require this fresh Supabase capability; automatic routing uses web_search.use instead.",
   },
 
   // Memory
