@@ -17,7 +17,6 @@ import {
 } from "@/app/api/_trusted-web/searchInvocation";
 import { recordSearchDecisionShadowV1 } from "@/lib/searchDecisionV1";
 import { isAbortLike, requestDeadlineSignal } from "@/lib/requestDeadline";
-import { WEB_SOURCE_PROVENANCE_CONTRACT } from "@/lib/webSourceProvenanceV2";
 
 const TRUSTED_WEB_TIMEOUT_MS = 55_000;
 const UUID_RE =
@@ -114,24 +113,12 @@ function sourceText(value: unknown, maxLength: number): string {
     : "";
 }
 
-type TrustedWebSource = {
-  url: string;
-  title: string;
-  authority_type: string;
-  evidence_type: string;
-  source_id: string;
-};
-
-function normalizeSource(source: unknown): TrustedWebSource | null {
-  const record =
-    source && typeof source === "object"
-      ? (source as Record<string, unknown>)
-      : null;
-  const url = sourceText(record?.url, 4_096);
-  const title = sourceText(record?.title, 500);
-  const authorityType = sourceText(record?.authority_type, 80);
-  const evidenceType = sourceText(record?.evidence_type, 80);
-  const sourceId = sourceText(record?.source_id, 120);
+function normalizeSource(source: any) {
+  const url = sourceText(source?.url, 4_096);
+  const title = sourceText(source?.title, 500);
+  const authorityType = sourceText(source?.authority_type, 80);
+  const evidenceType = sourceText(source?.evidence_type, 80);
+  const sourceId = sourceText(source?.source_id, 120);
   if (!url || !title || !authorityType || !evidenceType) return null;
   if (!sourceUrlAllowed(url)) return null;
   return {
@@ -141,14 +128,6 @@ function normalizeSource(source: unknown): TrustedWebSource | null {
     evidence_type: evidenceType,
     source_id: sourceId,
   };
-}
-
-function citedSourcesBelongToConsultedSources(
-  citedSources: Array<{ url: string }>,
-  consultedSources: Array<{ url: string }>,
-): boolean {
-  const consultedUrls = new Set(consultedSources.map((source) => source.url));
-  return citedSources.every((source) => consultedUrls.has(source.url));
 }
 
 function boundedRetryAfter(value: string | null): string {
@@ -290,26 +269,9 @@ export async function POST(req: Request, invocation?: unknown) {
     const answer = String(parsed?.answer || "").trim();
     const searchId = String(parsed?.search_id || "").trim();
     const topic = String(parsed?.topic || "").trim();
-    const sourceContract = String(parsed?.source_contract || "").trim();
-    const rawCitedSources: unknown[] | null = Array.isArray(
-      parsed?.cited_sources,
-    )
-      ? (parsed.cited_sources as unknown[])
-      : null;
-    const rawConsultedSources: unknown[] | null = Array.isArray(
-      parsed?.consulted_sources,
-    )
-      ? (parsed.consulted_sources as unknown[])
-      : null;
-    const citedSources = rawCitedSources
-      ? rawCitedSources
-          .map(normalizeSource)
-          .filter((source): source is TrustedWebSource => source !== null)
-      : null;
-    const consultedSources = rawConsultedSources
-      ? rawConsultedSources
-          .map(normalizeSource)
-          .filter((source): source is TrustedWebSource => source !== null)
+    const rawSources = Array.isArray(parsed?.sources) ? parsed.sources : null;
+    const sources = rawSources
+      ? rawSources.map(normalizeSource).filter(Boolean)
       : null;
     if (
       !answer ||
@@ -318,21 +280,9 @@ export async function POST(req: Request, invocation?: unknown) {
       !topic ||
       topic.length > 100 ||
       typeof parsed?.searched !== "boolean" ||
-      sourceContract !== WEB_SOURCE_PROVENANCE_CONTRACT ||
-      !citedSources ||
-      !consultedSources ||
-      citedSources.length > 50 ||
-      consultedSources.length > 50 ||
-      (parsed.searched === true && citedSources.length < 1) ||
-      !citedSourcesBelongToConsultedSources(
-        citedSources,
-        consultedSources,
-      ) ||
-      !answerLinksAllowed(
-        answer,
-        sourceUrlAllowed,
-        citedSources.map((source) => source.url),
-      )
+      !sources ||
+      sources.length > 50 ||
+      !answerLinksAllowed(answer, sourceUrlAllowed)
     ) {
       return new Response("Trusted web response unavailable", {
         status: 502,
@@ -360,8 +310,6 @@ export async function POST(req: Request, invocation?: unknown) {
             "X-VS-Web-Topic": topic,
             "X-VS-Web-Searched": "0",
             "X-VS-Web-Source-Count": "0",
-            "X-VS-Web-Cited-Source-Count": "0",
-            "X-VS-Web-Consulted-Source-Count": "0",
             ...(includeInspection
               ? responseTraceHeadersV2(
                   manualSearchResponseTraceV2({
@@ -384,10 +332,7 @@ export async function POST(req: Request, invocation?: unknown) {
         search_id: searchId,
         topic,
         searched: Boolean(parsed.searched),
-        source_contract: sourceContract,
-        sources: citedSources,
-        cited_sources: citedSources,
-        consulted_sources: consultedSources,
+        sources,
       },
       {
         status: 200,
@@ -398,20 +343,14 @@ export async function POST(req: Request, invocation?: unknown) {
           "X-VS-Search-Id": searchId,
           "X-VS-Web-Topic": topic,
           "X-VS-Web-Searched": parsed.searched ? "1" : "0",
-          "X-VS-Web-Source-Count": String(consultedSources.length),
-          "X-VS-Web-Cited-Source-Count": String(citedSources.length),
-          "X-VS-Web-Consulted-Source-Count": String(
-            consultedSources.length,
-          ),
+          "X-VS-Web-Source-Count": String(sources.length),
           ...(includeInspection
             ? responseTraceHeadersV2(
                 manualSearchResponseTraceV2({
                   rid,
                   route: "trusted_health",
                   searched: Boolean(parsed.searched),
-                  sourceCount: consultedSources.length,
-                  citedSourceCount: citedSources.length,
-                  consultedSourceCount: consultedSources.length,
+                  sourceCount: sources.length,
                 }),
               )
             : {}),

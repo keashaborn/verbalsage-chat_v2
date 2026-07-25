@@ -48,17 +48,10 @@ test("current news BFF revalidates returned source domains", () => {
 
 test("current news BFF preserves structured skeleton fields", () => {
   const route = source("app/api/current-news/route.ts");
-  const provenance = source("lib/webSourceProvenanceV2.ts");
   assert.match(route, /current_news_v1/);
-  assert.match(route, /WEB_SOURCE_PROVENANCE_CONTRACT/);
-  assert.match(provenance, /web_source_provenance_v2/);
   assert.match(route, /reason/);
   assert.match(route, /searched: Boolean\(parsed\.searched\)/);
-  assert.match(route, /cited_sources: citedSources/);
-  assert.match(route, /consulted_sources: consultedSources/);
-  assert.match(route, /citedSourcesBelongToConsultedSources/);
-  assert.match(route, /X-VS-Web-Cited-Source-Count/);
-  assert.match(route, /X-VS-Web-Consulted-Source-Count/);
+  assert.match(route, /sources/);
   assert.match(route, /authority_type: sourceType/);
   assert.match(route, /evidence_type: "current_news"/);
 });

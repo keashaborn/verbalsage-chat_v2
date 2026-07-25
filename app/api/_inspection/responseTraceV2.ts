@@ -65,8 +65,6 @@ export function manualSearchResponseTraceV2({
   route,
   searched,
   sourceCount,
-  citedSourceCount = sourceCount,
-  consultedSourceCount = sourceCount,
   prohibited = false,
   failed = false,
   fallbackToChat = false,
@@ -75,8 +73,6 @@ export function manualSearchResponseTraceV2({
   route: "trusted_health" | "current_news";
   searched: boolean;
   sourceCount: number;
-  citedSourceCount?: number;
-  consultedSourceCount?: number;
   prohibited?: boolean;
   failed?: boolean;
   fallbackToChat?: boolean;
@@ -118,8 +114,6 @@ export function manualSearchResponseTraceV2({
     execution: {
       web_searched: searched,
       source_count: sourceCount,
-      cited_source_count: citedSourceCount,
-      consulted_source_count: consultedSourceCount,
       validation: failed ? "failed" : "passed",
     },
     timings: null,
