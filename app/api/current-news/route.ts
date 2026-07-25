@@ -6,6 +6,7 @@ import { requireFreshCapability } from "@/app/api/_auth/requireCapability";
 import { getSupabaseBearerAuthorizationFromRequest } from "@/app/api/_auth/supabaseUser";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import { answerLinksAllowed } from "@/app/api/_trusted-web/answerLinks";
+import { recordSearchDecisionShadowV1 } from "@/lib/searchDecisionV1";
 import { isAbortLike, requestDeadlineSignal } from "@/lib/requestDeadline";
 
 const CURRENT_NEWS_TIMEOUT_MS = 25_000;
@@ -150,14 +151,20 @@ export async function POST(req: Request) {
     }
 
     const userId = capabilityAuth.user_id;
-    const actorAuthorization =
-      getSupabaseBearerAuthorizationFromRequest(req);
+    const actorAuthorization = getSupabaseBearerAuthorizationFromRequest(req);
     if (!UUID_RE.test(userId) || !actorAuthorization) {
       return new Response("unauthorized", {
         status: 401,
         headers: { ...ERROR_RESPONSE_HEADERS, "x-request-id": rid },
       });
     }
+
+    recordSearchDecisionShadowV1({
+      actorUserId: userId,
+      requestId: rid,
+      observedRoute: "current_news",
+      input: query,
+    });
 
     const brains = process.env.BRAINS_URL || "http://172.31.32.171:8088";
     const upstream = await fetch(`${brains}/current-news/query`, {

@@ -10,6 +10,7 @@ import {
 import { cookies } from "next/headers";
 import { requireCapability } from "@/app/api/_auth/requireCapability";
 import { getSupabaseAuthContextFromRequest } from "@/app/api/_auth/supabaseUser";
+import { recordSearchDecisionShadowV1 } from "@/lib/searchDecisionV1";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
   voiceTurnHeaders,
@@ -143,10 +144,7 @@ export async function POST(req: Request) {
       });
     }
     const voiceSession = voiceSessionIdFromRequest(req);
-    if (
-      voiceTurn.value &&
-      (!voiceSession.supplied || !voiceSession.value)
-    ) {
+    if (voiceTurn.value && (!voiceSession.supplied || !voiceSession.value)) {
       return new Response("invalid_or_missing_voice_session_id", {
         status: 409,
         headers: { "x-request-id": rid },
@@ -156,6 +154,14 @@ export async function POST(req: Request) {
     const rawThread = String(body?.thread_id || "").trim();
     const threadId = UUID_RE.test(rawThread) ? rawThread : null;
     const noStore = shouldAvoidStorage(body, message);
+    if (!noStore) {
+      recordSearchDecisionShadowV1({
+        actorUserId: userId,
+        requestId: rid,
+        observedRoute: "normal_chat",
+        input: message,
+      });
+    }
     const includeInspection = await responseInspectionAllowed(req);
     if (!noStore && !threadId) {
       return new Response("thread_id required", {

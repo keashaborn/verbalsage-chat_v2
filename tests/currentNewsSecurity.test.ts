@@ -21,7 +21,7 @@ test("current news browser request cannot choose model domains topic or storage"
 
 test("current news uses internal service boundary and no memory route", () => {
   const route = source("app/api/current-news/route.ts");
-  assert.match(route, /brainsUpstreamHeaders\(rid, userId\)/);
+  assert.match(route, /brainsUpstreamHeaders\(rid, userId, \{/);
   assert.match(route, /\/current-news\/query/);
   assert.doesNotMatch(route, /\/response\/query/);
   assert.doesNotMatch(route, /\/log/);

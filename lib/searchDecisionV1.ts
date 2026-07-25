@@ -1,0 +1,419 @@
+export const SEARCH_DECISION_POLICY_VERSION = "search_decision_v1_0";
+
+export type SearchDecisionClassV1 =
+  | "no_search"
+  | "indexed"
+  | "live"
+  | "research";
+
+export type SearchPolicyPackV1 =
+  | "none"
+  | "general"
+  | "current_news"
+  | "health"
+  | "software_security"
+  | "legal_financial";
+
+export type SearchDecisionReasonV1 =
+  | "search_prohibited_by_user"
+  | "specific_source_requested"
+  | "explicit_research"
+  | "explicit_web_request"
+  | "freshness_required"
+  | "evidence_requested"
+  | "high_stakes_verification"
+  | "internal_context_sufficient"
+  | "user_content_transform"
+  | "stable_knowledge_default";
+
+export type SearchDecisionV1 = Readonly<{
+  policy_version: typeof SEARCH_DECISION_POLICY_VERSION;
+  decision: SearchDecisionClassV1;
+  reason_codes: readonly SearchDecisionReasonV1[];
+  policy_pack: SearchPolicyPackV1;
+  query_context: "current_message_only";
+  external_web_access: boolean;
+  confidence: "high" | "medium";
+  budget: Readonly<{
+    max_searches: number;
+    max_sources: number;
+  }>;
+}>;
+
+export type SearchDecisionObservedRouteV1 =
+  | "normal_chat"
+  | "trusted_health"
+  | "current_news";
+
+const NO_SEARCH_PATTERNS = [
+  /\bdo not (?:search|browse|look online|use the web)\b/,
+  /\bdon't (?:search|browse|look online|use the web)\b/,
+  /\bwithout (?:searching|browsing|web search|internet access)\b/,
+  /\bweb off\b/,
+];
+
+const SPECIFIC_SOURCE_PATTERNS = [
+  /https?:\/\/\S+/,
+  /\b(?:open|read|check|review|summarize)\s+(?:this|the)\s+(?:page|url|link|website)\b/,
+];
+
+const RESEARCH_PATTERNS = [
+  /\bdeep research\b/,
+  /\bcomprehensive literature review\b/,
+  /\bsystematic review\b/,
+  /\binvestigate thoroughly\b/,
+  /\bexhaustive research\b/,
+];
+
+const EXPLICIT_WEB_PATTERNS = [
+  /\bsearch the web\b/,
+  /\bsearch online\b/,
+  /\blook (?:it )?up online\b/,
+  /\bbrowse the web\b/,
+  /\bfind (?:online |web )?sources\b/,
+  /\bcheck (?:online|the web)\b/,
+];
+
+const STRONG_FRESHNESS_PATTERNS = [
+  /\bwhat just happened\b/,
+  /\bjust happened\b/,
+  /\bbreaking (?:news|story|update)\b/,
+  /\bcurrent news\b/,
+  /\bnews (?:about|on)\b/,
+  /\bany (?:new|recent|current) (?:news|updates?)\b/,
+  /\bupdates? (?:about|on)\b/,
+  /\bis (?:this|that) still (?:true|accurate|current)\b/,
+  /\bup[- ]to[- ]date\b/,
+];
+
+const WEAK_FRESHNESS_PATTERNS = [
+  /\blatest\b/,
+  /\brecent\b/,
+  /\bcurrent\b/,
+  /\btoday\b/,
+  /\byesterday\b/,
+  /\bthis week\b/,
+  /\bright now\b/,
+];
+
+const VOLATILE_FACT_PATTERNS = [
+  /\bnews\b/,
+  /\bupdates?\b/,
+  /\breleases?\b/,
+  /\bversions?\b/,
+  /\bprices?\b/,
+  /\bcosts?\b/,
+  /\bweather\b/,
+  /\bforecasts?\b/,
+  /\bschedules?\b/,
+  /\bscores?\b/,
+  /\bstandings?\b/,
+  /\blaws?\b/,
+  /\bregulations?\b/,
+  /\bguidelines?\b/,
+  /\brecommendations?\b/,
+  /\bpolic(?:y|ies)\b/,
+  /\bceo\b/,
+  /\bpresident\b/,
+  /\bsecurity incidents?\b/,
+  /\bbreaches?\b/,
+  /\bcve-\d{4}-\d+\b/,
+  /\boutages?\b/,
+  /\bservice status\b/,
+  /\bavailability\b/,
+];
+
+const EVIDENCE_PATTERNS = [
+  /\bcite (?:a |your )?sources?\b/,
+  /\bcite (?:studies|research|evidence|papers?)\b/,
+  /\bwith citations?\b/,
+  /\bprovide sources?\b/,
+  /\bwhat (?:does|do) the evidence\b/,
+  /\bevidence[- ]based\b/,
+  /\bverify (?:this|that|the claim|whether)\b/,
+  /\bfact[- ]check\b/,
+  /\bis (?:this|that) true\b/,
+  /\bpeer[- ]reviewed\b/,
+  /\bwhat (?:does|do) the research\b/,
+  /\bfind (?:a |the )?(?:study|studies|paper|papers)\b/,
+];
+
+const TRANSFORM_PATTERNS = [
+  /\b(?:summarize|rewrite|edit|translate|proofread|reformat)\b[\s\S]*\b(?:the following|this text|below|above|provided|attached)\b/,
+  /\b(?:the following|this text|text below|text above)\b[\s\S]*\b(?:summarize|rewrite|edit|translate|proofread|reformat)\b/,
+];
+
+const INTERNAL_CONTEXT_PATTERNS = [
+  /\bwhat did i (?:say|tell you|ask)\b/,
+  /\b(?:my|our) (?:previous )?(?:message|messages|conversation|thread|notes|memory|memories)\b/,
+  /\b(?:my|our) (?:nutrition|workout|training|health|meal|exercise|project) (?:plan|plans|history|record|records|goals?|data)\b/,
+  /\bfrom (?:my|our) (?:records|memory|conversation|thread|notes)\b/,
+];
+
+const HEALTH_TOPIC_PATTERNS = [
+  /\bmedications?\b/,
+  /\bdrugs?\b/,
+  /\bdos(?:e|age|ing)\b/,
+  /\bside effects?\b/,
+  /\binteractions?\b/,
+  /\bcontraindications?\b/,
+  /\bsymptoms?\b/,
+  /\bdiagnos(?:is|e|tic)\b/,
+  /\btreatments?\b/,
+  /\bclinical\b/,
+  /\bcreatine\b/,
+  /\bsupplements?\b/,
+  /\bvitamins?\b/,
+  /\bminerals?\b/,
+  /\bnutrition\b/,
+  /\bpregnan(?:t|cy)\b/,
+  /\bkidney\b/,
+  /\bliver\b/,
+  /\bheart\b/,
+  /\bblood pressure\b/,
+];
+
+const HEALTH_RISK_PATTERNS = [
+  /\bis (?:it|this|that) safe\b/,
+  /\bis [a-z0-9 ,'-]{1,80} safe\b/,
+  /\bshould i (?:take|stop|start|use)\b/,
+  /\bhow much should i (?:take|use)\b/,
+  /\bwhat (?:dose|dosage)\b/,
+  /\bside effects?\b/,
+  /\binteractions?\b/,
+  /\bcontraindications?\b/,
+  /\bdiagnos(?:is|e)\b/,
+  /\btreatments?\b/,
+];
+
+const SOFTWARE_SECURITY_PATTERNS = [
+  /\bopenai\b/,
+  /\bsupabase\b/,
+  /\bnext\.?js\b/,
+  /\breact\b/,
+  /\bpostgres(?:ql)?\b/,
+  /\bqdrant\b/,
+  /\bapi\b/,
+  /\bsoftware\b/,
+  /\bsecurity\b/,
+  /\bvulnerabilit(?:y|ies)\b/,
+  /\bbreaches?\b/,
+  /\bcve-\d{4}-\d+\b/,
+];
+
+const LEGAL_FINANCIAL_PATTERNS = [
+  /\blaws?\b/,
+  /\blegal\b/,
+  /\bregulations?\b/,
+  /\btaxes?\b/,
+  /\bcompliance\b/,
+  /\bstocks?\b/,
+  /\bsecurities\b/,
+  /\binterest rates?\b/,
+  /\bexchange rates?\b/,
+  /\bfinancial\b/,
+];
+
+function normalizedInput(input: string): string {
+  return String(input || "")
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function matchesAny(value: string, patterns: readonly RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(value));
+}
+
+function uniqueReasons(
+  reasons: readonly SearchDecisionReasonV1[],
+): readonly SearchDecisionReasonV1[] {
+  return [...new Set(reasons)];
+}
+
+function policyPackFor(value: string): SearchPolicyPackV1 {
+  if (matchesAny(value, HEALTH_TOPIC_PATTERNS)) return "health";
+  if (matchesAny(value, SOFTWARE_SECURITY_PATTERNS)) {
+    return "software_security";
+  }
+  if (matchesAny(value, LEGAL_FINANCIAL_PATTERNS)) {
+    return "legal_financial";
+  }
+  return "general";
+}
+
+function budgetFor(decision: SearchDecisionClassV1) {
+  if (decision === "research") {
+    return { max_searches: 12, max_sources: 30 } as const;
+  }
+  if (decision === "live") {
+    return { max_searches: 4, max_sources: 10 } as const;
+  }
+  if (decision === "indexed") {
+    return { max_searches: 2, max_sources: 5 } as const;
+  }
+  return { max_searches: 0, max_sources: 0 } as const;
+}
+
+function decisionV1(
+  decision: SearchDecisionClassV1,
+  reasons: readonly SearchDecisionReasonV1[],
+  policyPack: SearchPolicyPackV1,
+  confidence: "high" | "medium",
+): SearchDecisionV1 {
+  return {
+    policy_version: SEARCH_DECISION_POLICY_VERSION,
+    decision,
+    reason_codes: uniqueReasons(reasons),
+    policy_pack: decision === "no_search" ? "none" : policyPack,
+    query_context: "current_message_only",
+    external_web_access: decision === "live" || decision === "research",
+    confidence,
+    budget: budgetFor(decision),
+  };
+}
+
+export function decideSearchV1(input: string): SearchDecisionV1 {
+  const value = normalizedInput(input);
+  if (!value) {
+    return decisionV1(
+      "no_search",
+      ["stable_knowledge_default"],
+      "none",
+      "high",
+    );
+  }
+
+  if (matchesAny(value, NO_SEARCH_PATTERNS)) {
+    return decisionV1(
+      "no_search",
+      ["search_prohibited_by_user"],
+      "none",
+      "high",
+    );
+  }
+
+  const policyPack = policyPackFor(value);
+  if (matchesAny(value, SPECIFIC_SOURCE_PATTERNS)) {
+    return decisionV1(
+      "live",
+      ["specific_source_requested"],
+      policyPack,
+      "high",
+    );
+  }
+
+  if (matchesAny(value, RESEARCH_PATTERNS)) {
+    return decisionV1("research", ["explicit_research"], policyPack, "high");
+  }
+
+  if (matchesAny(value, TRANSFORM_PATTERNS)) {
+    return decisionV1("no_search", ["user_content_transform"], "none", "high");
+  }
+
+  if (matchesAny(value, INTERNAL_CONTEXT_PATTERNS)) {
+    return decisionV1(
+      "no_search",
+      ["internal_context_sufficient"],
+      "none",
+      "high",
+    );
+  }
+
+  const explicitWeb = matchesAny(value, EXPLICIT_WEB_PATTERNS);
+  const strongFreshness = matchesAny(value, STRONG_FRESHNESS_PATTERNS);
+  const weakFreshness =
+    matchesAny(value, WEAK_FRESHNESS_PATTERNS) &&
+    matchesAny(value, VOLATILE_FACT_PATTERNS);
+  if (strongFreshness || weakFreshness) {
+    return decisionV1(
+      "live",
+      [
+        "freshness_required",
+        ...(explicitWeb ? (["explicit_web_request"] as const) : []),
+      ],
+      policyPack === "general" ? "current_news" : policyPack,
+      strongFreshness ? "high" : "medium",
+    );
+  }
+
+  if (explicitWeb) {
+    return decisionV1("indexed", ["explicit_web_request"], policyPack, "high");
+  }
+
+  const evidenceRequested = matchesAny(value, EVIDENCE_PATTERNS);
+  const highStakesHealth =
+    matchesAny(value, HEALTH_TOPIC_PATTERNS) &&
+    matchesAny(value, HEALTH_RISK_PATTERNS);
+  const highStakesOther =
+    matchesAny(value, LEGAL_FINANCIAL_PATTERNS) ||
+    (matchesAny(value, SOFTWARE_SECURITY_PATTERNS) &&
+      matchesAny(value, [
+        /\bsecurity\b/,
+        /\bvulnerabilit(?:y|ies)\b/,
+        /\bbreaches?\b/,
+        /\bcve-\d{4}-\d+\b/,
+      ]));
+  if (evidenceRequested || highStakesHealth || highStakesOther) {
+    return decisionV1(
+      "indexed",
+      [
+        ...(evidenceRequested ? (["evidence_requested"] as const) : []),
+        ...(highStakesHealth || highStakesOther
+          ? (["high_stakes_verification"] as const)
+          : []),
+      ],
+      policyPack,
+      evidenceRequested ? "high" : "medium",
+    );
+  }
+
+  return decisionV1(
+    "no_search",
+    ["stable_knowledge_default"],
+    "none",
+    "medium",
+  );
+}
+
+function inputCharsBucket(input: string): string {
+  const length = String(input || "").length;
+  if (length === 0) return "0";
+  if (length <= 80) return "1-80";
+  if (length <= 240) return "81-240";
+  if (length <= 800) return "241-800";
+  if (length <= 2_000) return "801-2000";
+  return "2001+";
+}
+
+export function recordSearchDecisionShadowV1({
+  actorUserId,
+  requestId,
+  observedRoute,
+  input,
+}: {
+  actorUserId: string;
+  requestId: string;
+  observedRoute: SearchDecisionObservedRouteV1;
+  input: string;
+}): SearchDecisionV1 {
+  const decision = decideSearchV1(input);
+  if (process.env.SEARCH_DECISION_SHADOW_ENABLED !== "1") return decision;
+
+  try {
+    console.info(
+      JSON.stringify({
+        event: "search_decision_shadow_v1",
+        request_id: requestId,
+        actor_user_id: actorUserId,
+        observed_route: observedRoute,
+        input_chars_bucket: inputCharsBucket(input),
+        ...decision,
+      }),
+    );
+  } catch {
+    // Shadow observability must never affect the user response path.
+  }
+  return decision;
+}
