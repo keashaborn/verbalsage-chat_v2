@@ -112,7 +112,7 @@ type ChatResult = {
   trustedWeb: boolean;
   trustedWebFallback: boolean;
   trustedWebSources: TrustedWebSource[];
-  trustedWebConsultedSources: TrustedWebSource[];
+  trustedWebAdmittedSources: TrustedWebSource[];
 };
 
 type ResponseStageTimings = {
@@ -170,7 +170,7 @@ type Msg = {
   web_search?: boolean;
   trusted_web_fallback?: boolean;
   trusted_web_sources?: TrustedWebSource[];
-  trusted_web_consulted_sources?: TrustedWebSource[];
+  trusted_web_admitted_sources?: TrustedWebSource[];
 };
 
 function normalizeTrustedWebSources(value: unknown): TrustedWebSource[] {
@@ -258,9 +258,9 @@ function trustedWebSourceDisplayTitle(source: TrustedWebSource): string {
 
 function trustedWebSourceSummary(
   citedSources: TrustedWebSource[],
-  consultedSources: TrustedWebSource[],
+  admittedSources: TrustedWebSource[],
 ): string {
-  const summarySources = citedSources.length ? citedSources : consultedSources;
+  const summarySources = citedSources.length ? citedSources : admittedSources;
   const labels = Array.from(
     new Set(
       summarySources
@@ -271,7 +271,11 @@ function trustedWebSourceSummary(
         .filter(Boolean),
     ),
   ).slice(0, 3);
-  const suffix = `${citedSources.length} cited · ${consultedSources.length} consulted`;
+  const supportingCount = Math.max(
+    0,
+    admittedSources.length - citedSources.length,
+  );
+  const suffix = `${citedSources.length} cited · ${supportingCount} supporting`;
   return labels.length ? `${labels.join(", ")} · ${suffix}` : suffix;
 }
 
@@ -280,7 +284,7 @@ function TrustedWebSourceCard({
   provenance,
 }: {
   source: TrustedWebSource;
-  provenance: "Cited" | "Consulted";
+  provenance: "Cited" | "Supporting";
 }) {
   return (
     <div className="rounded-xl border bg-background/40 p-3 text-left">
@@ -316,22 +320,22 @@ function TrustedWebSourceCard({
 
 function TrustedWebSourceCards({
   citedSources,
-  consultedSources,
+  admittedSources,
 }: {
   citedSources?: TrustedWebSource[];
-  consultedSources?: TrustedWebSource[];
+  admittedSources?: TrustedWebSource[];
 }) {
   const cited = (citedSources || []).filter(
     (source) => source.url && source.title,
   );
-  const consulted = (consultedSources || []).filter(
+  const admitted = (admittedSources || []).filter(
     (source) => source.url && source.title,
   );
   const citedUrls = new Set(cited.map((source) => source.url));
-  const additionalConsulted = consulted.filter(
+  const additionalSupporting = admitted.filter(
     (source) => !citedUrls.has(source.url),
   );
-  if (!cited.length && !consulted.length) return null;
+  if (!cited.length && !admitted.length) return null;
   return (
     <details
       className="mt-4 rounded-2xl border bg-muted/10 text-xs"
@@ -339,7 +343,7 @@ function TrustedWebSourceCards({
     >
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-muted-foreground marker:hidden">
         <span className="min-w-0 truncate">
-          Sources: {trustedWebSourceSummary(cited, consulted)}
+          Sources: {trustedWebSourceSummary(cited, admitted)}
         </span>
         <span className="shrink-0 text-[11px]">Details</span>
       </summary>
@@ -354,17 +358,17 @@ function TrustedWebSourceCards({
             provenance="Cited"
           />
         ))}
-        {additionalConsulted.length > 0 && (
+        {additionalSupporting.length > 0 && (
           <details className="rounded-xl border bg-background/20">
             <summary className="cursor-pointer px-3 py-2 text-[11px] text-muted-foreground">
-              Additional sources consulted ({additionalConsulted.length})
+              Additional supporting sources ({additionalSupporting.length})
             </summary>
             <div className="space-y-2 border-t p-2">
-              {additionalConsulted.map((source) => (
+              {additionalSupporting.map((source) => (
                 <TrustedWebSourceCard
-                  key={`consulted:${source.url}`}
+                  key={`supporting:${source.url}`}
                   source={source}
-                  provenance="Consulted"
+                  provenance="Supporting"
                 />
               ))}
             </div>
@@ -1513,7 +1517,7 @@ export function BrainsChatPane() {
       throw new Error("Voice turn correlation was not preserved by chat.");
     }
     let trustedWebSources: TrustedWebSource[] = [];
-    let trustedWebConsultedSources: TrustedWebSource[] = [];
+    let trustedWebAdmittedSources: TrustedWebSource[] = [];
     let responseBodyText = responseText;
     if (externalWeb) {
       try {
@@ -1521,7 +1525,7 @@ export function BrainsChatPane() {
           answer?: unknown;
           sources?: unknown;
           cited_sources?: unknown;
-          consulted_sources?: unknown;
+          admitted_sources?: unknown;
         };
         responseBodyText = stripTrustedWebSourceList(
           String(trustedPayload.answer || ""),
@@ -1529,8 +1533,8 @@ export function BrainsChatPane() {
         trustedWebSources = normalizeTrustedWebSources(
           trustedPayload.cited_sources ?? trustedPayload.sources,
         );
-        trustedWebConsultedSources = normalizeTrustedWebSources(
-          trustedPayload.consulted_sources ?? trustedPayload.sources,
+        trustedWebAdmittedSources = normalizeTrustedWebSources(
+          trustedPayload.admitted_sources ?? trustedPayload.sources,
         );
       } catch {
         responseBodyText = stripTrustedWebSourceList(responseText);
@@ -1548,7 +1552,7 @@ export function BrainsChatPane() {
         r.headers.get("X-VS-Response-Runtime") === "current_news_v1",
       trustedWebFallback: false,
       trustedWebSources,
-      trustedWebConsultedSources,
+      trustedWebAdmittedSources,
       ...decodeResponseInspectionHeader(
         r.headers.get("X-VS-Inspection"),
         r.headers.get("X-VS-Inspection-Status"),
@@ -1605,8 +1609,8 @@ export function BrainsChatPane() {
               web_search: reply.trustedWeb,
               trusted_web_fallback: reply.trustedWebFallback,
               trusted_web_sources: reply.trustedWebSources,
-              trusted_web_consulted_sources:
-                reply.trustedWebConsultedSources,
+              trusted_web_admitted_sources:
+                reply.trustedWebAdmittedSources,
             },
           ];
         }
@@ -1622,8 +1626,8 @@ export function BrainsChatPane() {
           web_search: reply.trustedWeb,
           trusted_web_fallback: reply.trustedWebFallback,
           trusted_web_sources: reply.trustedWebSources,
-          trusted_web_consulted_sources:
-            reply.trustedWebConsultedSources,
+          trusted_web_admitted_sources:
+            reply.trustedWebAdmittedSources,
         };
         return next;
       });
@@ -1903,8 +1907,8 @@ export function BrainsChatPane() {
             web_search: reply.trustedWeb,
             trusted_web_fallback: reply.trustedWebFallback,
             trusted_web_sources: reply.trustedWebSources,
-            trusted_web_consulted_sources:
-              reply.trustedWebConsultedSources,
+            trusted_web_admitted_sources:
+              reply.trustedWebAdmittedSources,
           },
         ];
         const idx = next.length - 1;
@@ -2233,8 +2237,8 @@ export function BrainsChatPane() {
                       {m.web_search && (
                         <TrustedWebSourceCards
                           citedSources={m.trusted_web_sources}
-                          consultedSources={
-                            m.trusted_web_consulted_sources
+                          admittedSources={
+                            m.trusted_web_admitted_sources
                           }
                         />
                       )}

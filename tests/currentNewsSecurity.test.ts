@@ -55,9 +55,15 @@ test("current news BFF preserves structured skeleton fields", () => {
   assert.match(route, /reason/);
   assert.match(route, /searched: Boolean\(parsed\.searched\)/);
   assert.match(route, /cited_sources: citedSources/);
-  assert.match(route, /consulted_sources: consultedSources/);
-  assert.match(route, /citedSourcesBelongToConsultedSources/);
+  assert.match(route, /admitted_sources: admittedSources/);
+  assert.doesNotMatch(route, /consulted_sources: providerConsultedSources/);
+  assert.match(route, /sourcesBelongToSources/);
+  assert.match(route, /WEB_EVIDENCE_ADMISSION_CONTRACT/);
+  assert.match(route, /CURRENT_NEWS_MAX_ADMITTED_SOURCES/);
   assert.match(route, /X-VS-Web-Cited-Source-Count/);
+  assert.match(route, /X-VS-Web-Admitted-Source-Count/);
+  assert.match(route, /X-VS-Web-Provider-Consulted-Source-Count/);
+  assert.match(route, /X-VS-Web-Rejected-Source-Count/);
   assert.match(route, /X-VS-Web-Consulted-Source-Count/);
   assert.match(route, /authority_type: sourceType/);
   assert.match(route, /evidence_type: "current_news"/);

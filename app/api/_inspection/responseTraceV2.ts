@@ -66,7 +66,9 @@ export function manualSearchResponseTraceV2({
   searched,
   sourceCount,
   citedSourceCount = sourceCount,
+  admittedSourceCount = sourceCount,
   consultedSourceCount = sourceCount,
+  rejectedSourceCount = 0,
   prohibited = false,
   failed = false,
   fallbackToChat = false,
@@ -76,7 +78,9 @@ export function manualSearchResponseTraceV2({
   searched: boolean;
   sourceCount: number;
   citedSourceCount?: number;
+  admittedSourceCount?: number;
   consultedSourceCount?: number;
+  rejectedSourceCount?: number;
   prohibited?: boolean;
   failed?: boolean;
   fallbackToChat?: boolean;
@@ -119,7 +123,10 @@ export function manualSearchResponseTraceV2({
       web_searched: searched,
       source_count: sourceCount,
       cited_source_count: citedSourceCount,
+      admitted_source_count: admittedSourceCount,
+      provider_consulted_source_count: consultedSourceCount,
       consulted_source_count: consultedSourceCount,
+      rejected_source_count: rejectedSourceCount,
       validation: failed ? "failed" : "passed",
     },
     timings: null,

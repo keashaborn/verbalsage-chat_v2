@@ -220,8 +220,20 @@ function automaticSearchTraceV2({
         response.headers.get("X-VS-Web-Cited-Source-Count"),
         50,
       ),
+      admitted_source_count: boundedHeaderInteger(
+        response.headers.get("X-VS-Web-Admitted-Source-Count"),
+        50,
+      ),
+      provider_consulted_source_count: boundedHeaderInteger(
+        response.headers.get("X-VS-Web-Provider-Consulted-Source-Count"),
+        50,
+      ),
       consulted_source_count: boundedHeaderInteger(
         response.headers.get("X-VS-Web-Consulted-Source-Count"),
+        50,
+      ),
+      rejected_source_count: boundedHeaderInteger(
+        response.headers.get("X-VS-Web-Rejected-Source-Count"),
         50,
       ),
       validation: response.ok ? "passed" : "failed",

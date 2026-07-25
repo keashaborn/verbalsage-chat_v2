@@ -18,6 +18,10 @@ import {
 import { recordSearchDecisionShadowV1 } from "@/lib/searchDecisionV1";
 import { isAbortLike, requestDeadlineSignal } from "@/lib/requestDeadline";
 import { WEB_SOURCE_PROVENANCE_CONTRACT } from "@/lib/webSourceProvenanceV2";
+import {
+  TRUSTED_HEALTH_MAX_ADMITTED_SOURCES,
+  WEB_EVIDENCE_ADMISSION_CONTRACT,
+} from "@/lib/webEvidenceAdmissionV1";
 
 const TRUSTED_WEB_TIMEOUT_MS = 55_000;
 const UUID_RE =
@@ -143,12 +147,21 @@ function normalizeSource(source: unknown): TrustedWebSource | null {
   };
 }
 
-function citedSourcesBelongToConsultedSources(
-  citedSources: Array<{ url: string }>,
-  consultedSources: Array<{ url: string }>,
+function sourcesBelongToSources(
+  childSources: Array<{ url: string }>,
+  parentSources: Array<{ url: string }>,
 ): boolean {
-  const consultedUrls = new Set(consultedSources.map((source) => source.url));
-  return citedSources.every((source) => consultedUrls.has(source.url));
+  const parentUrls = new Set(parentSources.map((source) => source.url));
+  return childSources.every((source) => parentUrls.has(source.url));
+}
+
+function boundedSourceCount(value: unknown): number | null {
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= 50
+    ? value
+    : null;
 }
 
 function boundedRetryAfter(value: string | null): string {
@@ -291,12 +304,18 @@ export async function POST(req: Request, invocation?: unknown) {
     const searchId = String(parsed?.search_id || "").trim();
     const topic = String(parsed?.topic || "").trim();
     const sourceContract = String(parsed?.source_contract || "").trim();
+    const admissionContract = String(parsed?.admission_contract || "").trim();
     const rawCitedSources: unknown[] | null = Array.isArray(
       parsed?.cited_sources,
     )
       ? (parsed.cited_sources as unknown[])
       : null;
-    const rawConsultedSources: unknown[] | null = Array.isArray(
+    const rawAdmittedSources: unknown[] | null = Array.isArray(
+      parsed?.admitted_sources,
+    )
+      ? (parsed.admitted_sources as unknown[])
+      : null;
+    const rawProviderConsultedSources: unknown[] | null = Array.isArray(
       parsed?.consulted_sources,
     )
       ? (parsed.consulted_sources as unknown[])
@@ -306,11 +325,26 @@ export async function POST(req: Request, invocation?: unknown) {
           .map(normalizeSource)
           .filter((source): source is TrustedWebSource => source !== null)
       : null;
-    const consultedSources = rawConsultedSources
-      ? rawConsultedSources
+    const admittedSources = rawAdmittedSources
+      ? rawAdmittedSources
           .map(normalizeSource)
           .filter((source): source is TrustedWebSource => source !== null)
       : null;
+    const providerConsultedSources = rawProviderConsultedSources
+      ? rawProviderConsultedSources
+          .map(normalizeSource)
+          .filter((source): source is TrustedWebSource => source !== null)
+      : null;
+    const providerConsultedSourceCount = boundedSourceCount(
+      parsed?.provider_consulted_source_count,
+    );
+    const admittedSourceCount = boundedSourceCount(
+      parsed?.admitted_source_count,
+    );
+    const rejectedSourceCount = boundedSourceCount(
+      parsed?.rejected_source_count,
+    );
+    const maxAdmittedSources = boundedSourceCount(parsed?.max_admitted_sources);
     if (
       !answer ||
       answer.length > 40_000 ||
@@ -319,15 +353,21 @@ export async function POST(req: Request, invocation?: unknown) {
       topic.length > 100 ||
       typeof parsed?.searched !== "boolean" ||
       sourceContract !== WEB_SOURCE_PROVENANCE_CONTRACT ||
+      admissionContract !== WEB_EVIDENCE_ADMISSION_CONTRACT ||
       !citedSources ||
-      !consultedSources ||
+      !admittedSources ||
+      !providerConsultedSources ||
       citedSources.length > 50 ||
-      consultedSources.length > 50 ||
+      admittedSources.length > TRUSTED_HEALTH_MAX_ADMITTED_SOURCES ||
+      providerConsultedSources.length > 50 ||
+      maxAdmittedSources !== TRUSTED_HEALTH_MAX_ADMITTED_SOURCES ||
+      providerConsultedSourceCount !== providerConsultedSources.length ||
+      admittedSourceCount !== admittedSources.length ||
+      rejectedSourceCount !==
+        providerConsultedSources.length - admittedSources.length ||
       (parsed.searched === true && citedSources.length < 1) ||
-      !citedSourcesBelongToConsultedSources(
-        citedSources,
-        consultedSources,
-      ) ||
+      !sourcesBelongToSources(citedSources, admittedSources) ||
+      !sourcesBelongToSources(admittedSources, providerConsultedSources) ||
       !answerLinksAllowed(
         answer,
         sourceUrlAllowed,
@@ -361,7 +401,10 @@ export async function POST(req: Request, invocation?: unknown) {
             "X-VS-Web-Searched": "0",
             "X-VS-Web-Source-Count": "0",
             "X-VS-Web-Cited-Source-Count": "0",
+            "X-VS-Web-Admitted-Source-Count": "0",
+            "X-VS-Web-Provider-Consulted-Source-Count": "0",
             "X-VS-Web-Consulted-Source-Count": "0",
+            "X-VS-Web-Rejected-Source-Count": "0",
             ...(includeInspection
               ? responseTraceHeadersV2(
                   manualSearchResponseTraceV2({
@@ -385,9 +428,13 @@ export async function POST(req: Request, invocation?: unknown) {
         topic,
         searched: Boolean(parsed.searched),
         source_contract: sourceContract,
+        admission_contract: admissionContract,
         sources: citedSources,
         cited_sources: citedSources,
-        consulted_sources: consultedSources,
+        admitted_sources: admittedSources,
+        provider_consulted_source_count: providerConsultedSourceCount,
+        admitted_source_count: admittedSourceCount,
+        rejected_source_count: rejectedSourceCount,
       },
       {
         status: 200,
@@ -398,20 +445,27 @@ export async function POST(req: Request, invocation?: unknown) {
           "X-VS-Search-Id": searchId,
           "X-VS-Web-Topic": topic,
           "X-VS-Web-Searched": parsed.searched ? "1" : "0",
-          "X-VS-Web-Source-Count": String(consultedSources.length),
+          "X-VS-Web-Source-Count": String(admittedSources.length),
           "X-VS-Web-Cited-Source-Count": String(citedSources.length),
-          "X-VS-Web-Consulted-Source-Count": String(
-            consultedSources.length,
+          "X-VS-Web-Admitted-Source-Count": String(admittedSources.length),
+          "X-VS-Web-Provider-Consulted-Source-Count": String(
+            providerConsultedSources.length,
           ),
+          "X-VS-Web-Consulted-Source-Count": String(
+            providerConsultedSources.length,
+          ),
+          "X-VS-Web-Rejected-Source-Count": String(rejectedSourceCount),
           ...(includeInspection
             ? responseTraceHeadersV2(
                 manualSearchResponseTraceV2({
                   rid,
                   route: "trusted_health",
                   searched: Boolean(parsed.searched),
-                  sourceCount: consultedSources.length,
+                  sourceCount: admittedSources.length,
                   citedSourceCount: citedSources.length,
-                  consultedSourceCount: consultedSources.length,
+                  admittedSourceCount: admittedSources.length,
+                  consultedSourceCount: providerConsultedSources.length,
+                  rejectedSourceCount,
                 }),
               )
             : {}),

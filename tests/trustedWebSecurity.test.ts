@@ -270,12 +270,16 @@ test("trusted web preserves structured source metadata for source cards", () => 
   assert.match(route, /WEB_SOURCE_PROVENANCE_CONTRACT/);
   assert.match(provenance, /web_source_provenance_v2/);
   assert.match(route, /cited_sources: citedSources/);
-  assert.match(route, /consulted_sources: consultedSources/);
-  assert.match(route, /citedSourcesBelongToConsultedSources/);
+  assert.match(route, /admitted_sources: admittedSources/);
+  assert.doesNotMatch(route, /consulted_sources: providerConsultedSources/);
+  assert.match(route, /sourcesBelongToSources/);
+  assert.match(route, /WEB_EVIDENCE_ADMISSION_CONTRACT/);
+  assert.match(route, /TRUSTED_HEALTH_MAX_ADMITTED_SOURCES/);
   assert.match(pane, /type TrustedWebSource/);
   assert.match(pane, /TrustedWebSourceCards/);
   assert.match(pane, /trusted_web_sources/);
-  assert.match(pane, /trusted_web_consulted_sources/);
+  assert.match(pane, /trusted_web_admitted_sources/);
+  assert.doesNotMatch(pane, /trusted_web_consulted_sources/);
   assert.match(pane, /official_public_guidance/);
   assert.match(pane, /pubmed_research/);
   assert.match(pane, /Official source/);
@@ -288,10 +292,10 @@ test("trusted web source cards replace plain trailing source list", () => {
   assert.match(pane, /Sources:/);
   assert.match(
     pane,
-    /Sources: \{trustedWebSourceSummary\(cited, consulted\)\}/,
+    /Sources: \{trustedWebSourceSummary\(cited, admitted\)\}/,
   );
   assert.match(pane, /Cited in this answer/);
-  assert.match(pane, /Additional sources consulted/);
+  assert.match(pane, /Additional supporting sources/);
   assert.match(pane, /trustedWebSourceDisplayTitle/);
   assert.match(pane, /<details/);
   assert.match(pane, /<summary/);
@@ -326,6 +330,9 @@ test("trusted web non-search responses fall back to normal chat", () => {
   assert.match(pane, /if \(reply\.trustedWebFallback\)/);
   assert.match(pane, /void loadMessages\(tid/);
   assert.match(pane, /trusted_web_fallback: true/);
-  assert.match(pane, /Web search was not used because this question was outside trusted-source scope\./);
+  assert.match(
+    pane,
+    /Web search was not used because this question was\s+outside trusted-source scope\./,
+  );
   assert.match(pane, /if \(!reply\.trustedWeb\)/);
 });

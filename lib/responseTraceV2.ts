@@ -117,7 +117,10 @@ export type ResponseTraceV2 = {
     web_searched: boolean;
     source_count: number;
     cited_source_count?: number;
+    admitted_source_count?: number;
+    provider_consulted_source_count?: number;
     consulted_source_count?: number;
+    rejected_source_count?: number;
     validation: "passed" | "failed";
   };
   timings: ResponseTraceTimingV2 | null;

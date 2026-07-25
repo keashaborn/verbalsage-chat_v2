@@ -96,7 +96,10 @@ const trace: ResponseTraceV2 = {
     web_searched: false,
     source_count: 0,
     cited_source_count: 0,
+    admitted_source_count: 0,
+    provider_consulted_source_count: 0,
     consulted_source_count: 0,
+    rejected_source_count: 0,
     validation: "passed",
   },
   timings: { backend_total_ms: 850, answer_generation_ms: 500 },
@@ -113,7 +116,10 @@ test("trace v2 preserves server authority and the strict backend inspection", ()
   );
   assert.equal(trace.routing.executed_external_web_access, false);
   assert.equal(trace.execution.cited_source_count, 0);
+  assert.equal(trace.execution.admitted_source_count, 0);
+  assert.equal(trace.execution.provider_consulted_source_count, 0);
   assert.equal(trace.execution.consulted_source_count, 0);
+  assert.equal(trace.execution.rejected_source_count, 0);
   assert.equal(
     trace.response_inspection?.contract_version,
     "response_inspection_v1",

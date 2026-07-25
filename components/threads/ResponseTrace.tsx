@@ -185,9 +185,16 @@ export function ResponseTrace({
                       <span>
                         {typeof traceV2.execution.cited_source_count ===
                           "number" &&
-                        typeof traceV2.execution.consulted_source_count ===
-                          "number"
-                          ? `${traceV2.execution.cited_source_count} cited · ${traceV2.execution.consulted_source_count} consulted`
+                        typeof traceV2.execution.admitted_source_count ===
+                          "number" &&
+                        typeof traceV2.execution
+                          .provider_consulted_source_count === "number"
+                          ? `${traceV2.execution.cited_source_count} cited · ${traceV2.execution.admitted_source_count} admitted · ${traceV2.execution.provider_consulted_source_count} provider-consulted${
+                              typeof traceV2.execution.rejected_source_count ===
+                              "number"
+                                ? ` · ${traceV2.execution.rejected_source_count} rejected`
+                                : ""
+                            }`
                           : traceV2.execution.source_count}
                       </span>
                     </>
