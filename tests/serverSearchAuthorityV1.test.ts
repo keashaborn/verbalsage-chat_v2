@@ -59,7 +59,18 @@ test("chat route owns routing and uses fresh Supabase authorization", () => {
     route,
     /searchControl\.effective_mode === "auto"\s*&&\s*!noStore/,
   );
-  assert.match(route, /capabilityAllowsRole\("web_search\.override", role\)/);
+  assert.match(
+    route,
+    /capabilityAllowsRole\("web_search\.override", permissionRole\)/,
+  );
+  assert.match(
+    route,
+    /capabilityAllowsRole\("web_search\.use", permissionRole\)/,
+  );
+  assert.match(
+    route,
+    /"x-vs-web-search-authorization": "supabase_fresh_web_search_v1"/,
+  );
   assert.match(route, /recordManualSearchOverrideV1/);
   assert.match(route, /SERVER_SEARCH_AUTHORITY_VERSION/);
 

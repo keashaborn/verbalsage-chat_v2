@@ -35,14 +35,19 @@ test("trusted web distinguishes automatic use from manual override", () => {
   assert.match(newsRoute, /requireFreshCapability\(req, requiredCapability\)/);
   assert.match(invocation, /AUTOMATIC_SEARCH_INVOCATION_V1 = Symbol/);
   assert.match(invocation, /\? "web_search\.use"\s*: "web_search\.override"/);
+  assert.match(chatRoute, /serverSearchExecutionRequest/);
+  assert.match(chatRoute, /\/search\/execute/);
+  assert.match(chatRoute, /authorization,/);
   assert.match(
     chatRoute,
-    /postCurrentNews\(delegated, AUTOMATIC_SEARCH_INVOCATION_V1\)/,
+    /"x-vs-web-search-authorization": "supabase_fresh_web_search_v1"/,
   );
   assert.match(
     chatRoute,
-    /postTrustedWeb\(delegated, AUTOMATIC_SEARCH_INVOCATION_V1\)/,
+    /capabilityAllowsRole\("web_search\.use", permissionRole\)/,
   );
+  assert.doesNotMatch(chatRoute, /postCurrentNews/);
+  assert.doesNotMatch(chatRoute, /postTrustedWeb/);
   assert.doesNotMatch(invocation, /headers|get\(|body|query/);
   assert.match(auth, /\/auth\/v1\/user/);
   assert.match(auth, /cache: "no-store"/);
@@ -211,8 +216,11 @@ test("composer hides test modes and delegates every normal request to the server
   assert.doesNotMatch(chatRoute, /searchMode === "auto"/);
   assert.match(chatRoute, /resolveServerSearchControlV1/);
   assert.match(chatRoute, /manualOverride/);
-  assert.match(chatRoute, /selectAutomaticSearchRouteV1/);
-  assert.match(chatRoute, /runAutomaticSearch/);
+  assert.match(chatRoute, /serverSearchExecutionRequest/);
+  assert.match(chatRoute, /\/search\/execute/);
+  assert.match(chatRoute, /runServerSearchPlan/);
+  assert.doesNotMatch(chatRoute, /selectAutomaticSearchRouteV1/);
+  assert.doesNotMatch(chatRoute, /runAutomaticSearch/);
   assert.match(chatRoute, /getSupabaseBearerAuthorizationFromRequest/);
   assert.doesNotMatch(pane, /data-web-mode-selector/);
   assert.doesNotMatch(pane, /aria-label="Web mode"/);

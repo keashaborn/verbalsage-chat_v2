@@ -1,7 +1,10 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
-import { requireFreshCapability } from "@/app/api/_auth/requireCapability";
+import {
+  capabilityAllowsRole,
+  requireFreshCapability,
+} from "@/app/api/_auth/requireCapability";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
   VOICE_SESSION_HEADER,
@@ -75,6 +78,10 @@ export async function POST(
         headers: brainsUpstreamHeaders(requestId, userId, {
           "content-type": "application/json",
           "x-vs-owner-user-id": userId,
+          "x-vs-web-search-authorization": capability.role &&
+            capabilityAllowsRole("web_search.use", capability.role)
+            ? "supabase_fresh_voice_lease_v1"
+            : "not_authorized",
           [VOICE_SESSION_HEADER]: voiceSession.value,
         }),
         body: "{}",

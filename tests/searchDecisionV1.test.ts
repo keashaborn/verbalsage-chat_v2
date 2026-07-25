@@ -320,10 +320,21 @@ test("server routes enforced decisions after fresh Supabase authorization", asyn
 
   assert.match(chat, /getFreshSupabaseAuthContextFromRequest/);
   assert.match(chat, /resolveServerSearchControlV1/);
-  assert.match(chat, /selectAutomaticSearchRouteV1/);
+  assert.match(chat, /serverSearchExecutionRequest/);
+  assert.match(chat, /\/search\/execute/);
+  assert.match(
+    chat,
+    /"x-vs-web-search-authorization": "supabase_fresh_web_search_v1"/,
+  );
+  assert.match(
+    chat,
+    /capabilityAllowsRole\("web_search\.use", permissionRole\)/,
+  );
+  assert.match(chat, /runServerSearchPlan/);
   assert.match(chat, /recordSearchRoutingEnforcedV1/);
-  assert.match(chat, /postCurrentNews/);
-  assert.match(chat, /postTrustedWeb/);
+  assert.doesNotMatch(chat, /selectAutomaticSearchRouteV1/);
+  assert.doesNotMatch(chat, /postCurrentNews/);
+  assert.doesNotMatch(chat, /postTrustedWeb/);
   assert.match(chat, /SERVER_SEARCH_AUTHORITY_VERSION/);
   assert.match(chat, /"X-VS-Search-Route": "normal_chat"/);
   assert.match(chat, /manualOverride/);
@@ -338,15 +349,11 @@ test("server routes enforced decisions after fresh Supabase authorization", asyn
     "const auth = await getFreshSupabaseAuthContextFromRequest(req)",
   );
   const threadIndex = chat.indexOf('new Response("thread_id required"');
-  const routingIndex = chat.indexOf(
-    "automaticDecision = decideSearchV1(message)",
-  );
   const dispatchIndex = chat.indexOf(
-    "const searchResult = await runAutomaticSearch",
+    "const searchResult = await runServerSearchPlan",
   );
   assert.ok(authIndex >= 0 && authIndex < threadIndex);
-  assert.ok(threadIndex < routingIndex);
-  assert.ok(routingIndex < dispatchIndex);
+  assert.ok(threadIndex < dispatchIndex);
   for (const route of [health, news]) {
     const authIndex = route.indexOf(
       "const actorAuthorization = getSupabaseBearerAuthorizationFromRequest",

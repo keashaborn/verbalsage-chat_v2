@@ -21,19 +21,12 @@ import {
 } from "@/app/api/_inspection/responseTraceV2";
 import {
   automaticSearchRouteUsesExternalWebV1,
-  decideSearchV1,
   recordSearchRoutingEnforcedV1,
   SEARCH_DECISION_POLICY_VERSION,
-  selectAutomaticSearchRouteV1,
   type AutomaticSearchRouteV1,
   type SearchDecisionV1,
 } from "@/lib/searchDecisionV1";
-import { POST as postCurrentNews } from "@/app/api/current-news/route";
-import { POST as postTrustedWeb } from "@/app/api/trusted-web/route";
-import {
-  AUTOMATIC_SEARCH_INVOCATION_V1,
-  recordManualSearchOverrideV1,
-} from "@/app/api/_trusted-web/searchInvocation";
+import { recordManualSearchOverrideV1 } from "@/app/api/_trusted-web/searchInvocation";
 import {
   resolveServerSearchControlV1,
   SERVER_SEARCH_AUTHORITY_VERSION,
@@ -145,22 +138,33 @@ function boundedHeaderInteger(value: string | null, maximum: number): number {
     : 0;
 }
 
-function automaticSearchRequest(
+function serverSearchExecutionRequest(
   req: Request,
   rid: string,
-  route: Exclude<AutomaticSearchRouteV1, "normal_chat">,
+  brains: string,
+  userId: string,
+  threadId: string | null,
   query: string,
+  noStore: boolean,
+  voice: boolean,
 ): Request | null {
   const authorization = getSupabaseBearerAuthorizationFromRequest(req);
   if (!authorization) return null;
-  return new Request(`https://verbalsage.internal/api/${route}`, {
+  return new Request(`${brains}/search/execute`, {
     method: "POST",
     headers: {
+      ...brainsUpstreamHeaders(rid, userId),
       authorization,
       "content-type": "application/json",
-      "x-request-id": rid,
+      "x-vs-web-search-authorization": "supabase_fresh_web_search_v1",
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({
+      user_id: userId,
+      thread_id: threadId,
+      query,
+      channel: voice ? "voice" : "text",
+      persist_transcript: !noStore,
+    }),
     cache: "no-store",
     signal: req.signal,
   });
@@ -189,8 +193,14 @@ function automaticSearchTraceV2({
     },
     request: {
       request_id: rid,
-      channel: "text",
-      transcript_persistence: "skipped",
+      channel:
+        response.headers.get("X-VS-Request-Channel") === "voice"
+          ? "voice"
+          : "text",
+      transcript_persistence:
+        response.headers.get("X-VS-Transcript-Persistence") === "persisted"
+          ? "persisted"
+          : "skipped",
     },
     authorization: {
       actor_verification: "supabase_fresh_user_lookup",
@@ -274,33 +284,154 @@ type AutomaticSearchResult = Readonly<{
   response: Response | null;
   attemptedRoute: Exclude<AutomaticSearchRouteV1, "normal_chat"> | null;
   fallbackToChat: boolean;
+  decision: SearchDecisionV1 | null;
+  terminalResponse: Response | null;
 }>;
 
-async function runAutomaticSearch(
+function searchDecisionFromPlan(value: any): SearchDecisionV1 | null {
+  if (!value || typeof value !== "object") return null;
+  const decision = String(value.decision || "");
+  const policyVersion = String(value.policy_version || "");
+  const policyPack = String(value.policy_pack || "");
+  const reasonCodes = Array.isArray(value.reason_codes)
+    ? value.reason_codes.map((item: unknown) => String(item))
+    : null;
+  const budget = value.budget;
+  if (
+    !["no_search", "indexed", "live", "research"].includes(decision) ||
+    policyVersion !== SEARCH_DECISION_POLICY_VERSION ||
+    !reasonCodes ||
+    !budget ||
+    !Number.isInteger(budget.max_searches) ||
+    !Number.isInteger(budget.max_sources)
+  ) {
+    return null;
+  }
+  return {
+    policy_version: SEARCH_DECISION_POLICY_VERSION,
+    decision: decision as SearchDecisionV1["decision"],
+    reason_codes: reasonCodes as SearchDecisionV1["reason_codes"],
+    policy_pack: policyPack as SearchDecisionV1["policy_pack"],
+    query_context: "current_message_only",
+    external_web_access: Boolean(value.external_web_access),
+    confidence: value.confidence === "high" ? "high" : "medium",
+    budget: {
+      max_searches: budget.max_searches,
+      max_sources: budget.max_sources,
+    },
+  };
+}
+
+async function runServerSearchPlan(
   req: Request,
   rid: string,
-  route: AutomaticSearchRouteV1,
-  decision: SearchDecisionV1,
+  brains: string,
+  userId: string,
+  threadId: string | null,
   message: string,
+  noStore: boolean,
+  voice: boolean,
 ): Promise<AutomaticSearchResult> {
-  if (route === "normal_chat") {
-    return { response: null, attemptedRoute: null, fallbackToChat: false };
-  }
-  const delegated = automaticSearchRequest(req, rid, route, message);
+  const delegated = serverSearchExecutionRequest(
+    req,
+    rid,
+    brains,
+    userId,
+    threadId,
+    message,
+    noStore,
+    voice,
+  );
   if (!delegated) {
-    return { response: null, attemptedRoute: null, fallbackToChat: false };
+    return {
+      response: null,
+      attemptedRoute: null,
+      fallbackToChat: false,
+      decision: null,
+      terminalResponse: null,
+    };
   }
-  const response =
-    route === "current_news"
-      ? await postCurrentNews(delegated, AUTOMATIC_SEARCH_INVOCATION_V1)
-      : await postTrustedWeb(delegated, AUTOMATIC_SEARCH_INVOCATION_V1);
+  const upstream = await fetch(delegated);
+  const raw = await upstream.text().catch(() => "");
+  if (!upstream.ok) {
+    return {
+      response: null,
+      attemptedRoute: null,
+      fallbackToChat: false,
+      decision: null,
+      terminalResponse: new Response(raw || "Search execution unavailable", {
+        status: upstream.status,
+        headers: upstream.headers,
+      }),
+    };
+  }
+  let payload: any = null;
+  try {
+    payload = JSON.parse(raw);
+  } catch {}
+  const decision = searchDecisionFromPlan(payload?.plan);
+  const selectedRoute = String(payload?.plan?.selected_route || "");
   if (
-    route === "trusted_health" &&
-    response.headers.get("X-VS-Trusted-Web-Fallback") === "chat"
+    !decision ||
+    !["normal_chat", "trusted_health", "current_news"].includes(selectedRoute)
   ) {
-    return { response: null, attemptedRoute: route, fallbackToChat: true };
+    return {
+      response: null,
+      attemptedRoute: null,
+      fallbackToChat: false,
+      decision: null,
+      terminalResponse: new Response("Invalid server search plan", {
+        status: 502,
+      }),
+    };
   }
-  return { response, attemptedRoute: route, fallbackToChat: false };
+  const route = selectedRoute as AutomaticSearchRouteV1;
+  recordSearchRoutingEnforcedV1({
+    actorUserId: userId,
+    requestId: rid,
+    selectedRoute: route,
+    input: message,
+    decision,
+  });
+  if (payload?.executed !== true || route === "normal_chat") {
+    return {
+      response: null,
+      attemptedRoute: route === "normal_chat" ? null : route,
+      fallbackToChat: payload?.fallback_to_chat === true,
+      decision,
+      terminalResponse: null,
+    };
+  }
+  const headers = new Headers(upstream.headers);
+  headers.set("X-VS-Request-Channel", voice ? "voice" : "text");
+  headers.set(
+    "X-VS-Transcript-Persistence",
+    payload?.transcript_persistence === "persisted_memory_ineligible"
+      ? "persisted"
+      : "skipped",
+  );
+  if (UUID_RE.test(String(payload?.answer_id || ""))) {
+    headers.set("X-VS-Answer-Id", String(payload.answer_id));
+  }
+  return {
+    response: new Response(
+      JSON.stringify({
+        answer: payload?.answer,
+        sources: payload?.sources || [],
+        cited_sources: payload?.cited_sources || payload?.sources || [],
+        admitted_sources: payload?.admitted_sources || payload?.sources || [],
+        consulted_sources: payload?.consulted_sources || [],
+      }),
+      {
+        status: 200,
+        headers,
+      },
+    ),
+    attemptedRoute: route,
+    fallbackToChat: false,
+    decision,
+    terminalResponse: null,
+  };
 }
 
 function ordinaryResponseTraceV2({
@@ -423,9 +554,15 @@ export async function POST(req: Request) {
     }
     const manualOverride =
       searchControl.effective_mode === "manual_override";
+    const permissionRole = normalizePermissionRole(auth?.role);
+    const automaticSearchAuthorized = Boolean(
+      auth && capabilityAllowsRole("web_search.use", permissionRole),
+    );
     if (manualOverride) {
-      const role = normalizePermissionRole(auth?.role);
-      if (!auth || !capabilityAllowsRole("web_search.override", role)) {
+      if (
+        !auth ||
+        !capabilityAllowsRole("web_search.override", permissionRole)
+      ) {
         return new Response("capability required", {
           status: 403,
           headers: {
@@ -468,35 +605,40 @@ export async function POST(req: Request) {
     }
 
     const includeInspection = await responseTraceAccessAllowedV2(req);
+    const brains = process.env.BRAINS_URL || "http://172.31.32.171:8088";
     let automaticDecision: SearchDecisionV1 | null = null;
     let automaticAttemptedRoute: Exclude<
       AutomaticSearchRouteV1,
       "normal_chat"
     > | null = null;
     let automaticFallbackToChat = false;
-    if (!manualOverride && !voiceTurn.value && !voiceSession.value) {
-      automaticDecision = decideSearchV1(message);
-      let selectedRoute = selectAutomaticSearchRouteV1(automaticDecision);
-      if (!getSupabaseBearerAuthorizationFromRequest(req)) {
-        selectedRoute = "normal_chat";
-      }
-      recordSearchRoutingEnforcedV1({
-        actorUserId: userId,
-        requestId: rid,
-        selectedRoute,
-        input: message,
-        decision: automaticDecision,
-      });
-      const searchResult = await runAutomaticSearch(
+    if (!manualOverride && automaticSearchAuthorized) {
+      const searchResult = await runServerSearchPlan(
         req,
         rid,
-        selectedRoute,
-        automaticDecision,
+        brains,
+        userId,
+        threadId,
         message,
+        noStore,
+        Boolean(voiceTurn.value || voiceSession.value),
       );
+      if (searchResult.terminalResponse) {
+        return searchResult.terminalResponse;
+      }
+      automaticDecision = searchResult.decision;
       automaticAttemptedRoute = searchResult.attemptedRoute;
       automaticFallbackToChat = searchResult.fallbackToChat;
-      if (searchResult.response && selectedRoute !== "normal_chat") {
+      const selectedRoute = String(
+        searchResult.response?.headers.get("X-VS-Search-Route") ||
+          searchResult.attemptedRoute ||
+          "normal_chat",
+      ) as AutomaticSearchRouteV1;
+      if (
+        searchResult.response &&
+        selectedRoute !== "normal_chat" &&
+        automaticDecision
+      ) {
         return routedSearchResponse(
           searchResult.response,
           selectedRoute,
@@ -507,7 +649,6 @@ export async function POST(req: Request) {
       }
     }
 
-    const brains = process.env.BRAINS_URL || "http://172.31.32.171:8088";
     const upstreamSignal = requestDeadlineSignal(
       BRAINS_RESPONSE_TIMEOUT_MS,
       req.signal,
