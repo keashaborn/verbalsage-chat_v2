@@ -37,7 +37,7 @@ function clampInt(x: any, lo: number, hi: number, d: number) {
 function sanitizeLimits(raw: any): { Y: number; R: number; C: number; S: number } | null {
   if (!raw || typeof raw !== "object") return null;
 
-  // Defaults must match UI (components/admin/settings/VantageProfilePage.tsx + store.tsx)
+  // Legacy diagnostic defaults. Ordinary chat does not read these controls.
   const r: any = raw as any;
   return {
     Y: clamp01(r.Y, 0.1),
@@ -64,7 +64,7 @@ function sanitizeRouting(
 function sanitizeMix(raw: any): any | null {
   if (!raw || typeof raw !== "object") return null;
 
-  // Defaults must match UI (components/admin/settings/VantageProfilePage.tsx + store.tsx)
+  // Legacy diagnostic defaults. Ordinary chat does not read these controls.
   const m: any = raw as any;
   return {
     conversation: clamp01(m.conversation, 0.6),
