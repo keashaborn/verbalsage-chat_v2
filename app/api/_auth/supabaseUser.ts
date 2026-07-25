@@ -19,7 +19,23 @@ const UUID_PATTERN =
 
 function bearerToken(req: Request): string {
   const auth = req.headers.get("authorization") || "";
-  return auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
+  if (!auth.toLowerCase().startsWith("bearer ")) return "";
+  const token = auth.slice(7).trim();
+  if (
+    !token ||
+    token.length > 16_384 ||
+    [...token].some((char) => /\s/.test(char))
+  ) {
+    return "";
+  }
+  return token;
+}
+
+export function getSupabaseBearerAuthorizationFromRequest(
+  req: Request,
+): string | null {
+  const token = bearerToken(req);
+  return token ? `Bearer ${token}` : null;
 }
 
 function supabaseAuthEndpoint(): { url: string; apiKey: string } | null {

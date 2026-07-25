@@ -8,10 +8,49 @@ import { cn } from "@/lib/utils";
 export function MarkdownMessage({
   children,
   className = "",
+  allowedLinkUrls,
 }: {
   children: string;
   className?: string;
+  allowedLinkUrls?: readonly string[];
 }) {
+  const linkAllowed = (href: string | undefined): boolean => {
+    if (allowedLinkUrls === undefined) return true;
+    if (!href) return false;
+    try {
+      const target = new URL(href);
+      if (
+        target.protocol !== "https:" ||
+        target.username ||
+        target.password ||
+        target.port
+      ) {
+        return false;
+      }
+      const targetHost = target.hostname.toLowerCase().replace(/\.$/, "");
+      return allowedLinkUrls.some((sourceUrl) => {
+        try {
+          const source = new URL(sourceUrl);
+          if (
+            source.protocol !== "https:" ||
+            source.username ||
+            source.password ||
+            source.port
+          ) {
+            return false;
+          }
+          return (
+            source.hostname.toLowerCase().replace(/\.$/, "") === targetHost
+          );
+        } catch {
+          return false;
+        }
+      });
+    } catch {
+      return false;
+    }
+  };
+
   return (
     <div className={cn("min-w-0 max-w-full overflow-hidden break-words [overflow-wrap:anywhere]", className)}>
       <ReactMarkdown
@@ -62,14 +101,25 @@ export function MarkdownMessage({
               {...props}
             />
           ),
-          a: ({ className, ...props }) => (
-            <a
-              className={cn("break-all text-primary underline underline-offset-4", className)}
-              target="_blank"
-              rel="noreferrer"
-              {...props}
-            />
-          ),
+          a: ({ className, href, children: linkChildren, ...props }) =>
+            linkAllowed(href) ? (
+              <a
+                className={cn(
+                  "break-all text-primary underline underline-offset-4",
+                  className,
+                )}
+                target="_blank"
+                rel="noreferrer"
+                href={href}
+                {...props}
+              >
+                {linkChildren}
+              </a>
+            ) : (
+              <span className={cn("break-all", className)}>
+                {linkChildren}
+              </span>
+            ),
         }}
       >
         {children}

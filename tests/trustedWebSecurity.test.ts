@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+// @ts-expect-error Node's strip-types test runner loads the TypeScript file directly.
+import { answerLinksAllowed } from "../app/api/_trusted-web/answerLinks.ts";
 
 const source = (path: string) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
@@ -16,11 +18,16 @@ test("trusted web capability is explicit and backend enforced", () => {
 
 test("trusted web BFF requires fresh Supabase authorization", () => {
   const route = source("app/api/trusted-web/route.ts");
+  const newsRoute = source("app/api/current-news/route.ts");
   const auth = source("app/api/_auth/supabaseUser.ts");
   assert.match(route, /requireFreshCapability\(req, "web_search\.use"\)/);
+  assert.match(newsRoute, /requireFreshCapability\(req, "web_search\.use"\)/);
   assert.match(auth, /\/auth\/v1\/user/);
   assert.match(auth, /cache: "no-store"/);
   assert.match(auth, /String\(user\.id \|\| ""\) !== payload\.sub/);
+  assert.match(auth, /getSupabaseBearerAuthorizationFromRequest/);
+  assert.match(route, /authorization: actorAuthorization/);
+  assert.match(newsRoute, /authorization: actorAuthorization/);
   assert.doesNotMatch(route, /user_metadata/);
 });
 
@@ -36,7 +43,7 @@ test("browser request cannot choose model, domains, topic, or storage", () => {
 
 test("trusted web uses the internal service boundary and no memory route", () => {
   const route = source("app/api/trusted-web/route.ts");
-  assert.match(route, /brainsUpstreamHeaders\(rid, userId\)/);
+  assert.match(route, /brainsUpstreamHeaders\(rid, userId, \{/);
   assert.match(route, /\/trusted-web\/query/);
   assert.doesNotMatch(route, /\/response\/query/);
   assert.doesNotMatch(route, /\/log/);
@@ -45,12 +52,48 @@ test("trusted web uses the internal service boundary and no memory route", () =>
 
 test("BFF revalidates returned source domains", () => {
   const route = source("app/api/trusted-web/route.ts");
+  const newsRoute = source("app/api/current-news/route.ts");
   assert.match(route, /ALLOWED_SOURCE_DOMAINS/);
   assert.match(route, /parsed\.protocol !== "https:"/);
   assert.match(route, /parsed\.username/);
   assert.match(route, /parsed\.port/);
   assert.match(route, /normalizeSource/);
   assert.match(route, /sourceUrlAllowed\(url\)/);
+  assert.match(route, /answerLinksAllowed\(answer, sourceUrlAllowed\)/);
+  assert.match(newsRoute, /answerLinksAllowed\(answer, sourceUrlAllowed\)/);
+});
+
+test("answer links fail closed outside the server allowlist", () => {
+  const allowed = (raw: unknown) => {
+    try {
+      return new URL(String(raw)).hostname === "openai.com";
+    } catch {
+      return false;
+    }
+  };
+  assert.equal(
+    answerLinksAllowed(
+      "See [the source](https://openai.com/news/example).",
+      allowed,
+    ),
+    true,
+  );
+  assert.equal(
+    answerLinksAllowed(
+      "See [injected](https://example.com/prompt).",
+      allowed,
+    ),
+    false,
+  );
+  assert.equal(
+    answerLinksAllowed("See [injected](javascript:alert(1)).", allowed),
+    false,
+  );
+  assert.equal(answerLinksAllowed("Visit www.example.com.", allowed), false);
+  assert.equal(
+    answerLinksAllowed("Contact attacker@example.com.", allowed),
+    false,
+  );
 });
 
 test("composer search has auto mode and remains disabled for voice", () => {
@@ -74,15 +117,29 @@ test("composer search has auto mode and remains disabled for voice", () => {
   assert.match(pane, /<option value="trusted_health">Health<\/option>/);
   assert.match(pane, /<option value="current_news">News<\/option>/);
   assert.match(pane, /currentNews\s*\? "\/api\/current-news"/);
-  assert.match(pane, /buildCurrentNewsContextualQuery\(input, msgs\)/);
+  assert.match(pane, /const requestQuery = input/);
+  assert.doesNotMatch(pane, /buildCurrentNewsContextualQuery/);
+  assert.doesNotMatch(pane, /Recent conversation context/);
   assert.match(pane, /any current news/);
   assert.match(pane, /search the web/);
   assert.doesNotMatch(pane, /AUTO_CURRENT_NEWS_INTENT_TERMS = \[[\s\S]*what's going on with[\s\S]*\]/);
   assert.doesNotMatch(pane, /AUTO_CURRENT_NEWS_INTENT_TERMS = \[[\s\S]*what is happening with[\s\S]*\]/);
-  assert.match(pane, /CURRENT_NEWS_CONTEXT_MAX_CHARS = 1_850/);
-  assert.match(pane, /replace\(\/https\?:/);
+  assert.doesNotMatch(pane, /CURRENT_NEWS_CONTEXT_MAX_CHARS/);
+  assert.doesNotMatch(pane, /CURRENT_NEWS_CONTEXT_MESSAGES/);
   assert.match(pane, /setWebMode\("off"\)/);
   assert.doesNotMatch(pane, /localStorage.*webMode/);
+});
+
+test("trusted-search markdown links are restricted to returned source hosts", () => {
+  const pane = source("components/threads/BrainsChatPane.tsx");
+  const markdown = source("components/shared/MarkdownMessage.tsx");
+  assert.match(pane, /allowedLinkUrls=\{/);
+  assert.match(pane, /m\.web_search/);
+  assert.match(pane, /m\.trusted_web_sources/);
+  assert.match(markdown, /allowedLinkUrls\?: readonly string\[\]/);
+  assert.match(markdown, /target\.protocol !== "https:"/);
+  assert.match(markdown, /source\.hostname/);
+  assert.match(markdown, /linkAllowed\(href\)/);
 });
 
 
