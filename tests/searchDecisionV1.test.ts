@@ -3,6 +3,7 @@ import test from "node:test";
 // @ts-expect-error Node's strip-types test runner loads the TypeScript file directly.
 import {
   decideSearchV1,
+  isSearchExplicitlyProhibitedV1,
   recordSearchDecisionShadowV1,
   SEARCH_DECISION_POLICY_VERSION,
 } from "../lib/searchDecisionV1.ts";
@@ -81,6 +82,21 @@ for (const example of cases) {
     );
   });
 }
+
+test("explicit no-search instruction overrides freshness and named entities", () => {
+  const input = "Do not search the web. What is the latest OpenAI news?";
+  assert.equal(isSearchExplicitlyProhibitedV1(input), true);
+  assert.deepEqual(decideSearchV1(input), {
+    policy_version: SEARCH_DECISION_POLICY_VERSION,
+    decision: "no_search",
+    reason_codes: ["search_prohibited_by_user"],
+    policy_pack: "none",
+    query_context: "current_message_only",
+    external_web_access: false,
+    confidence: "high",
+    budget: { max_searches: 0, max_sources: 0 },
+  });
+});
 
 test("uses bounded budgets for every decision class", () => {
   assert.deepEqual(decideSearchV1("What is gravity?").budget, {
@@ -192,5 +208,18 @@ test("server routes record shadow decisions after Supabase authorization", async
   assert.match(news, /observedRoute: "current_news"/);
   for (const route of [chat, health, news]) {
     assert.match(route, /recordSearchDecisionShadowV1/);
+  }
+  for (const route of [health, news]) {
+    const authIndex = route.indexOf(
+      "const actorAuthorization = getSupabaseBearerAuthorizationFromRequest",
+    );
+    const decisionIndex = route.indexOf(
+      "const searchDecision = recordSearchDecisionShadowV1",
+    );
+    const upstreamIndex = route.indexOf("const upstream = await fetch");
+    assert.ok(authIndex >= 0 && authIndex < decisionIndex);
+    assert.ok(decisionIndex < upstreamIndex);
+    assert.match(route, /search_prohibited_by_user/);
+    assert.match(route, /"X-VS-Search-Decision": "no_search"/);
   }
 });

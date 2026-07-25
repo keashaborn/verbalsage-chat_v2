@@ -160,12 +160,22 @@ export async function POST(req: Request) {
       });
     }
 
-    recordSearchDecisionShadowV1({
+    const searchDecision = recordSearchDecisionShadowV1({
       actorUserId: userId,
       requestId: rid,
       observedRoute: "trusted_health",
       input: query,
     });
+    if (searchDecision.reason_codes.includes("search_prohibited_by_user")) {
+      return new Response("Search prohibited by user", {
+        status: 409,
+        headers: {
+          ...ERROR_RESPONSE_HEADERS,
+          "x-request-id": rid,
+          "X-VS-Search-Decision": "no_search",
+        },
+      });
+    }
 
     const brains = process.env.BRAINS_URL || "http://172.31.32.171:8088";
     const upstream = await fetch(`${brains}/trusted-web/query`, {

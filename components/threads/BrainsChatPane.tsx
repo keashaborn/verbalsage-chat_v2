@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { isSearchExplicitlyProhibitedV1 } from "@/lib/searchDecisionV1";
 import { authFetch, authFetchJson } from "@/lib/authFetch";
 import {
   ArrowUp,
@@ -254,6 +255,7 @@ function includesAnyTerm(value: string, terms: string[]): boolean {
 
 function classifyAutoWebMode(input: string): WebMode {
   const normalized = String(input || "").toLowerCase().replace(/\s+/g, " ").trim();
+  if (isSearchExplicitlyProhibitedV1(input)) return "off";
   if (!normalized) return "off";
   if (
     includesAnyTerm(normalized, AUTO_CURRENT_NEWS_INTENT_TERMS) &&
@@ -1433,6 +1435,21 @@ export function BrainsChatPane() {
       },
       BROWSER_RESPONSE_TIMEOUT_MS,
     );
+    if (
+      externalWeb &&
+      r.status === 409 &&
+      r.headers.get("X-VS-Search-Decision") === "no_search"
+    ) {
+      return callChat(
+        input,
+        tid,
+        regen,
+        noStore,
+        voiceTurnId,
+        voiceSessionId,
+        "off",
+      );
+    }
     if (trustedWeb && r.headers.get("X-VS-Trusted-Web-Fallback") === "chat") {
       const fallbackReply = await callChat(
         input,

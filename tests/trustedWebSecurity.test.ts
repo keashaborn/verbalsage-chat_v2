@@ -107,6 +107,18 @@ test("composer search has auto mode and remains disabled for voice", () => {
   assert.match(pane, /classifyAutoWebMode\(msg\)/);
   assert.match(pane, /AUTO_CURRENT_NEWS_INTENT_TERMS/);
   assert.match(pane, /AUTO_HEALTH_EVIDENCE_INTENT_TERMS/);
+  const prohibitionIndex = pane.indexOf(
+    'if (isSearchExplicitlyProhibitedV1(input)) return "off"',
+  );
+  const newsDecisionIndex = pane.indexOf(
+    "includesAnyTerm(normalized, AUTO_CURRENT_NEWS_INTENT_TERMS)",
+  );
+  assert.ok(prohibitionIndex >= 0);
+  assert.ok(prohibitionIndex < newsDecisionIndex);
+  assert.match(
+    pane,
+    /r\.status === 409[\s\S]*X-VS-Search-Decision[\s\S]*"off"/,
+  );
   assert.match(pane, /webModeTrustedHealthEnabled\(selectedWebMode\)/);
   assert.match(pane, /webModeCurrentNewsEnabled\(selectedWebMode\)/);
   assert.match(pane, /data-web-mode-selector/);

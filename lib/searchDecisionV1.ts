@@ -274,6 +274,11 @@ function decisionV1(
   };
 }
 
+export function isSearchExplicitlyProhibitedV1(input: string): boolean {
+  const value = normalizedInput(input);
+  return Boolean(value) && matchesAny(value, NO_SEARCH_PATTERNS);
+}
+
 export function decideSearchV1(input: string): SearchDecisionV1 {
   const value = normalizedInput(input);
   if (!value) {
@@ -285,7 +290,7 @@ export function decideSearchV1(input: string): SearchDecisionV1 {
     );
   }
 
-  if (matchesAny(value, NO_SEARCH_PATTERNS)) {
+  if (isSearchExplicitlyProhibitedV1(value)) {
     return decisionV1(
       "no_search",
       ["search_prohibited_by_user"],
