@@ -9,6 +9,7 @@
     "lint": "next lint",
     "test:voice": "node --experimental-strip-types --test tests/voiceSpeech.test.ts",
     "test:search-decision": "node --experimental-strip-types --test tests/searchDecisionV1.test.ts",
+    "eval:search-routing": "node --experimental-strip-types scripts/runSearchRoutingEvalV1.ts",
     "test:trusted-web": "node --experimental-strip-types --test tests/trustedWebSecurity.test.ts",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write ."

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 // @ts-expect-error Node's strip-types test runner loads the TypeScript file directly.
 import {
+  automaticSearchRouteUsesExternalWebV1,
   decideSearchV1,
   isSearchExplicitlyProhibitedV1,
   recordSearchDecisionShadowV1,
@@ -100,6 +101,22 @@ test("explicit no-search instruction overrides freshness and named entities", ()
   });
 });
 
+test("recognizes enterprise no-search phrasing before any routing intent", () => {
+  const prompts = [
+    "No web access. What is the latest OpenAI news?",
+    "Offline only: what happened today?",
+    "Do not access external sources. Check current interest rates.",
+    "Answer only from your existing knowledge. What is today's weather?",
+    "Rely on your internal knowledge only. Find recent Supabase updates.",
+  ];
+  for (const input of prompts) {
+    const decision = decideSearchV1(input);
+    assert.equal(decision.decision, "no_search");
+    assert.deepEqual(decision.reason_codes, ["search_prohibited_by_user"]);
+    assert.equal(selectAutomaticSearchRouteV1(decision), "normal_chat");
+  }
+});
+
 test("uses bounded budgets for every decision class", () => {
   assert.deepEqual(decideSearchV1("What is gravity?").budget, {
     max_searches: 0,
@@ -123,16 +140,21 @@ test("selects only server-supported automatic search routes", () => {
   const cases = [
     ["What is the capital of France?", "normal_chat"],
     ["What just happened with OpenAI?", "current_news"],
-    ["Search the web for OpenAI documentation.", "current_news"],
+    ["Search the web for OpenAI documentation.", "normal_chat"],
     ["Search the web for the history of monism.", "normal_chat"],
     ["Is creatine safe with kidney disease? Cite studies.", "trusted_health"],
-    ["Deep research the long-term evidence for creatine.", "trusted_health"],
+    ["Deep research the long-term evidence for creatine.", "normal_chat"],
     ["Deep research OpenAI safety.", "normal_chat"],
+    ["What is today's weather?", "normal_chat"],
+    ["Summarize https://openai.com/research/example", "normal_chat"],
+    ["Cite sources for this OpenAI security claim.", "normal_chat"],
   ] as const;
   for (const [input, expectedRoute] of cases) {
+    const route = selectAutomaticSearchRouteV1(decideSearchV1(input));
+    assert.equal(route, expectedRoute);
     assert.equal(
-      selectAutomaticSearchRouteV1(decideSearchV1(input)),
-      expectedRoute,
+      automaticSearchRouteUsesExternalWebV1(route),
+      route !== "normal_chat",
     );
   }
 });
@@ -178,6 +200,7 @@ test("enforced routing audit is server-owned and excludes prompt text", () => {
   assert.equal(event.event, "search_routing_enforced_v1");
   assert.equal(event.authority, "server");
   assert.equal(event.selected_route, "current_news");
+  assert.equal(event.executed_external_web_access, true);
   assert.equal(event.decision, "live");
   assert.equal(event.input_chars_bucket, "1-80");
   assert.doesNotMatch(logged[0], /unique-enforced-routing-secret/);

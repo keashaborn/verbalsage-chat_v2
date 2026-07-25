@@ -1,4 +1,4 @@
-export const SEARCH_DECISION_POLICY_VERSION = "search_decision_v1_0";
+export const SEARCH_DECISION_POLICY_VERSION = "search_decision_v1_1";
 
 export type SearchDecisionClassV1 =
   | "no_search"
@@ -53,7 +53,14 @@ export type AutomaticSearchRouteV1 =
 const NO_SEARCH_PATTERNS = [
   /\bdo not (?:search|browse|look online|use the web)\b/,
   /\bdon't (?:search|browse|look online|use the web)\b/,
+  /\bnever (?:search|browse|look online|use the web)\b/,
   /\bwithout (?:searching|browsing|web search|internet access)\b/,
+  /\bno (?:web|internet|online) (?:access|search(?:ing)?|browsing)\b/,
+  /\bno browsing\b/,
+  /\boffline only\b/,
+  /\bdo not (?:access|consult|use) (?:any )?external sources?\b/,
+  /\b(?:answer|respond|work) (?:only )?from (?:your )?(?:existing|internal|offline) knowledge\b/,
+  /\b(?:use|rely on) (?:only )?(?:your )?(?:existing|internal|offline) knowledge\b/,
   /\bweb off\b/,
 ];
 
@@ -86,6 +93,7 @@ const STRONG_FRESHNESS_PATTERNS = [
   /\bcurrent news\b/,
   /\bnews (?:about|on)\b/,
   /\bany (?:new|recent|current) (?:news|updates?)\b/,
+  /\bwhat updates? (?:are there )?(?:about|on)\b/,
   /\bupdates? (?:about|on)\b/,
   /\bis (?:this|that) still (?:true|accurate|current)\b/,
   /\bup[- ]to[- ]date\b/,
@@ -108,6 +116,7 @@ const VOLATILE_FACT_PATTERNS = [
   /\bversions?\b/,
   /\bprices?\b/,
   /\bcosts?\b/,
+  /\binterest rates?\b/,
   /\bweather\b/,
   /\bforecasts?\b/,
   /\bschedules?\b/,
@@ -116,6 +125,7 @@ const VOLATILE_FACT_PATTERNS = [
   /\blaws?\b/,
   /\bregulations?\b/,
   /\bguidelines?\b/,
+  /\bguidance\b/,
   /\brecommendations?\b/,
   /\bpolic(?:y|ies)\b/,
   /\bceo\b/,
@@ -146,10 +156,13 @@ const EVIDENCE_PATTERNS = [
 const TRANSFORM_PATTERNS = [
   /\b(?:summarize|rewrite|edit|translate|proofread|reformat)\b[\s\S]*\b(?:the following|this text|below|above|provided|attached)\b/,
   /\b(?:the following|this text|text below|text above)\b[\s\S]*\b(?:summarize|rewrite|edit|translate|proofread|reformat)\b/,
+  /\b(?:summarize|rewrite|edit|translate|proofread|reformat)\s+(?:this|the)\s+(?:text|passage|paragraph|email|message|draft|content)\b/,
 ];
 
 const INTERNAL_CONTEXT_PATTERNS = [
   /\bwhat did i (?:say|tell you|ask)\b/,
+  /\b(?:use|based on|according to|recall) (?:only )?what i (?:said|told|shared|wrote)\b/,
+  /\bearlier in (?:this|our) (?:chat|conversation|thread)\b/,
   /\b(?:my|our) (?:previous )?(?:message|messages|conversation|thread|notes|memory|memories)\b/,
   /\b(?:my|our) (?:nutrition|workout|training|health|meal|exercise|project) (?:plan|plans|history|record|records|goals?|data)\b/,
   /\bfrom (?:my|our) (?:records|memory|conversation|thread|notes)\b/,
@@ -210,7 +223,7 @@ const LEGAL_FINANCIAL_PATTERNS = [
   /\blaws?\b/,
   /\blegal\b/,
   /\bregulations?\b/,
-  /\btaxes?\b/,
+  /\btax(?:es)?\b/,
   /\bcompliance\b/,
   /\bstocks?\b/,
   /\bsecurities\b/,
@@ -343,7 +356,7 @@ export function decideSearchV1(input: string): SearchDecisionV1 {
         "freshness_required",
         ...(explicitWeb ? (["explicit_web_request"] as const) : []),
       ],
-      policyPack === "general" ? "current_news" : policyPack,
+      policyPack,
       strongFreshness ? "high" : "medium",
     );
   }
@@ -391,15 +404,27 @@ export function selectAutomaticSearchRouteV1(
   decision: SearchDecisionV1,
 ): AutomaticSearchRouteV1 {
   if (decision.decision === "no_search") return "normal_chat";
+  if (
+    decision.decision === "research" ||
+    decision.reason_codes.includes("specific_source_requested")
+  ) {
+    return "normal_chat";
+  }
   if (decision.policy_pack === "health") return "trusted_health";
   if (
-    decision.decision !== "research" &&
     (decision.policy_pack === "current_news" ||
-      decision.policy_pack === "software_security")
+      decision.policy_pack === "software_security") &&
+    decision.reason_codes.includes("freshness_required")
   ) {
     return "current_news";
   }
   return "normal_chat";
+}
+
+export function automaticSearchRouteUsesExternalWebV1(
+  route: AutomaticSearchRouteV1,
+): boolean {
+  return route !== "normal_chat";
 }
 
 function inputCharsBucket(input: string): string {
@@ -440,6 +465,8 @@ export function recordSearchRoutingEnforcedV1({
         actor_user_id: actorUserId,
         authority: "server",
         selected_route: selectedRoute,
+        executed_external_web_access:
+          automaticSearchRouteUsesExternalWebV1(selectedRoute),
         input_chars_bucket: inputCharsBucket(input),
         ...decision,
       }),

@@ -1,0 +1,938 @@
+{
+  "schema_version": "search_routing_eval_v1",
+  "policy_version": "search_decision_v1_1",
+  "data_classification": "synthetic_no_user_data",
+  "thresholds": {
+    "overall_min_accuracy": 0.95,
+    "hard_requirements_min_accuracy": 1,
+    "category_min_accuracy": 0.9,
+    "minimum_cases_per_category": 5
+  },
+  "required_categories": [
+    "explicit_no_search",
+    "stable_knowledge",
+    "user_content_transform",
+    "internal_context",
+    "software_current_supported",
+    "health_supported",
+    "general_current_fail_closed",
+    "legal_financial_fail_closed",
+    "unsupported_research_fail_closed",
+    "explicit_web_fail_closed",
+    "specific_source_fail_closed"
+  ],
+  "cases": [
+    {
+      "id": "no-search-001",
+      "category": "explicit_no_search",
+      "prompt": "Do not search the web. What is the latest OpenAI news?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "search_prohibited_by_user"
+      }
+    },
+    {
+      "id": "no-search-002",
+      "category": "explicit_no_search",
+      "prompt": "Don't browse. Tell me what just happened with Supabase.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "search_prohibited_by_user"
+      }
+    },
+    {
+      "id": "no-search-003",
+      "category": "explicit_no_search",
+      "prompt": "Without searching, what is the current Next.js version?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "search_prohibited_by_user"
+      }
+    },
+    {
+      "id": "no-search-004",
+      "category": "explicit_no_search",
+      "prompt": "Web off. Give me the latest PostgreSQL security news.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "search_prohibited_by_user"
+      }
+    },
+    {
+      "id": "no-search-005",
+      "category": "explicit_no_search",
+      "prompt": "No web access. What is today's weather?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "search_prohibited_by_user"
+      }
+    },
+    {
+      "id": "no-search-006",
+      "category": "explicit_no_search",
+      "prompt": "Offline only: summarize the latest security incident.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "search_prohibited_by_user"
+      }
+    },
+    {
+      "id": "no-search-007",
+      "category": "explicit_no_search",
+      "prompt": "Do not access external sources. Is this OpenAI announcement current?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "search_prohibited_by_user"
+      }
+    },
+    {
+      "id": "no-search-008",
+      "category": "explicit_no_search",
+      "prompt": "Answer only from your existing knowledge. What happened with OpenAI today?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "search_prohibited_by_user"
+      }
+    },
+    {
+      "id": "no-search-009",
+      "category": "explicit_no_search",
+      "prompt": "Rely on your internal knowledge only. Give me current stock prices.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "search_prohibited_by_user"
+      }
+    },
+    {
+      "id": "no-search-010",
+      "category": "explicit_no_search",
+      "prompt": "Never search online. What are the recent React releases?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "search_prohibited_by_user"
+      }
+    },
+    {
+      "id": "no-search-011",
+      "category": "explicit_no_search",
+      "prompt": "No browsing. What is the current interest rate?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "search_prohibited_by_user"
+      }
+    },
+    {
+      "id": "no-search-012",
+      "category": "explicit_no_search",
+      "prompt": "No internet searching. Check whether this law changed today.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "search_prohibited_by_user"
+      }
+    },
+    {
+      "id": "stable-001",
+      "category": "stable_knowledge",
+      "prompt": "What is the capital of France?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "stable_knowledge_default"
+      }
+    },
+    {
+      "id": "stable-002",
+      "category": "stable_knowledge",
+      "prompt": "Explain gravity in simple terms.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "stable_knowledge_default"
+      }
+    },
+    {
+      "id": "stable-003",
+      "category": "stable_knowledge",
+      "prompt": "Explain relational monism.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "stable_knowledge_default"
+      }
+    },
+    {
+      "id": "stable-004",
+      "category": "stable_knowledge",
+      "prompt": "What is two plus two?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "stable_knowledge_default"
+      }
+    },
+    {
+      "id": "stable-005",
+      "category": "stable_knowledge",
+      "prompt": "Write a short poem about autumn.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "stable_knowledge_default"
+      }
+    },
+    {
+      "id": "stable-006",
+      "category": "stable_knowledge",
+      "prompt": "What is the difference between a cat and a dog?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "stable_knowledge_default"
+      }
+    },
+    {
+      "id": "transform-001",
+      "category": "user_content_transform",
+      "prompt": "Rewrite the following text so it is concise.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "user_content_transform"
+      }
+    },
+    {
+      "id": "transform-002",
+      "category": "user_content_transform",
+      "prompt": "Translate this paragraph into Spanish.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "user_content_transform"
+      }
+    },
+    {
+      "id": "transform-003",
+      "category": "user_content_transform",
+      "prompt": "Proofread the attached draft.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "user_content_transform"
+      }
+    },
+    {
+      "id": "transform-004",
+      "category": "user_content_transform",
+      "prompt": "Reformat the content below as a table.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "user_content_transform"
+      }
+    },
+    {
+      "id": "transform-005",
+      "category": "user_content_transform",
+      "prompt": "Edit the provided message for clarity.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "user_content_transform"
+      }
+    },
+    {
+      "id": "transform-006",
+      "category": "user_content_transform",
+      "prompt": "Summarize the text above in three sentences.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "user_content_transform"
+      }
+    },
+    {
+      "id": "internal-001",
+      "category": "internal_context",
+      "prompt": "What did I say about my training plan?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "internal_context_sufficient"
+      }
+    },
+    {
+      "id": "internal-002",
+      "category": "internal_context",
+      "prompt": "Summarize my previous conversation.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "internal_context_sufficient"
+      }
+    },
+    {
+      "id": "internal-003",
+      "category": "internal_context",
+      "prompt": "Based on what I told you about my workout, adjust the plan.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "internal_context_sufficient"
+      }
+    },
+    {
+      "id": "internal-004",
+      "category": "internal_context",
+      "prompt": "Use the details from earlier in this thread.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "internal_context_sufficient"
+      }
+    },
+    {
+      "id": "internal-005",
+      "category": "internal_context",
+      "prompt": "Create a chart from my health records.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "internal_context_sufficient"
+      }
+    },
+    {
+      "id": "internal-006",
+      "category": "internal_context",
+      "prompt": "What is the next step in our project plan?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "no_search",
+        "policy_pack": "none",
+        "route": "normal_chat",
+        "required_reason": "internal_context_sufficient"
+      }
+    },
+    {
+      "id": "software-current-001",
+      "category": "software_current_supported",
+      "prompt": "What just happened with OpenAI?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "current_news",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "software-current-002",
+      "category": "software_current_supported",
+      "prompt": "What is the latest Next.js security release?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "current_news",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "software-current-003",
+      "category": "software_current_supported",
+      "prompt": "Any recent updates on Supabase?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "current_news",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "software-current-004",
+      "category": "software_current_supported",
+      "prompt": "Breaking news about PostgreSQL security.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "current_news",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "software-current-005",
+      "category": "software_current_supported",
+      "prompt": "Give me current news on React.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "current_news",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "software-current-006",
+      "category": "software_current_supported",
+      "prompt": "Is OpenAI service status current?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "current_news",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "software-current-007",
+      "category": "software_current_supported",
+      "prompt": "What is the latest CVE-2026-1234 update?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "current_news",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "software-current-008",
+      "category": "software_current_supported",
+      "prompt": "What updates are there about Qdrant?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "current_news",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "health-001",
+      "category": "health_supported",
+      "prompt": "Is creatine safe with kidney disease?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "health",
+        "route": "trusted_health",
+        "required_reason": "high_stakes_verification"
+      }
+    },
+    {
+      "id": "health-002",
+      "category": "health_supported",
+      "prompt": "Cite studies about creatine side effects.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "health",
+        "route": "trusted_health",
+        "required_reason": "evidence_requested"
+      }
+    },
+    {
+      "id": "health-003",
+      "category": "health_supported",
+      "prompt": "What is the latest guidance on creatine safety?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "health",
+        "route": "trusted_health",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "health-004",
+      "category": "health_supported",
+      "prompt": "Search the web for evidence about vitamin D dosage.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "health",
+        "route": "trusted_health",
+        "required_reason": "explicit_web_request"
+      }
+    },
+    {
+      "id": "health-005",
+      "category": "health_supported",
+      "prompt": "What are the current recommendations for vitamin D in pregnancy?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "health",
+        "route": "trusted_health",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "health-006",
+      "category": "health_supported",
+      "prompt": "Should I stop this medication because of side effects?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "health",
+        "route": "trusted_health",
+        "required_reason": "high_stakes_verification"
+      }
+    },
+    {
+      "id": "health-007",
+      "category": "health_supported",
+      "prompt": "Find studies about blood pressure treatment.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "health",
+        "route": "trusted_health",
+        "required_reason": "evidence_requested"
+      }
+    },
+    {
+      "id": "health-008",
+      "category": "health_supported",
+      "prompt": "Is this drug interaction safe?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "health",
+        "route": "trusted_health",
+        "required_reason": "high_stakes_verification"
+      }
+    },
+    {
+      "id": "general-current-001",
+      "category": "general_current_fail_closed",
+      "prompt": "What is today's weather?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "general-current-002",
+      "category": "general_current_fail_closed",
+      "prompt": "What are the latest sports scores?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "general-current-003",
+      "category": "general_current_fail_closed",
+      "prompt": "What just happened at city hall?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "general-current-004",
+      "category": "general_current_fail_closed",
+      "prompt": "What is the current airline schedule?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "general-current-005",
+      "category": "general_current_fail_closed",
+      "prompt": "Give me recent election news.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "general-current-006",
+      "category": "general_current_fail_closed",
+      "prompt": "What is the forecast this week?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "legal-financial-001",
+      "category": "legal_financial_fail_closed",
+      "prompt": "What are the current interest rates?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "legal_financial",
+        "route": "normal_chat",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "legal-financial-002",
+      "category": "legal_financial_fail_closed",
+      "prompt": "Verify this tax claim.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "legal_financial",
+        "route": "normal_chat",
+        "required_reason": "high_stakes_verification"
+      }
+    },
+    {
+      "id": "legal-financial-003",
+      "category": "legal_financial_fail_closed",
+      "prompt": "Is this stock recommendation true?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "legal_financial",
+        "route": "normal_chat",
+        "required_reason": "high_stakes_verification"
+      }
+    },
+    {
+      "id": "legal-financial-004",
+      "category": "legal_financial_fail_closed",
+      "prompt": "What are the latest regulations?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "legal_financial",
+        "route": "normal_chat",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "legal-financial-005",
+      "category": "legal_financial_fail_closed",
+      "prompt": "Search the web for the current law on this issue.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "legal_financial",
+        "route": "normal_chat",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "legal-financial-006",
+      "category": "legal_financial_fail_closed",
+      "prompt": "Provide sources for this financial compliance claim.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "legal_financial",
+        "route": "normal_chat",
+        "required_reason": "evidence_requested"
+      }
+    },
+    {
+      "id": "research-001",
+      "category": "unsupported_research_fail_closed",
+      "prompt": "Deep research OpenAI safety.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "research",
+        "policy_pack": "software_security",
+        "route": "normal_chat",
+        "required_reason": "explicit_research"
+      }
+    },
+    {
+      "id": "research-002",
+      "category": "unsupported_research_fail_closed",
+      "prompt": "Systematic review of creatine evidence.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "research",
+        "policy_pack": "health",
+        "route": "normal_chat",
+        "required_reason": "explicit_research"
+      }
+    },
+    {
+      "id": "research-003",
+      "category": "unsupported_research_fail_closed",
+      "prompt": "Comprehensive literature review of monism.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "research",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "explicit_research"
+      }
+    },
+    {
+      "id": "research-004",
+      "category": "unsupported_research_fail_closed",
+      "prompt": "Investigate thoroughly the latest tax regulations.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "research",
+        "policy_pack": "legal_financial",
+        "route": "normal_chat",
+        "required_reason": "explicit_research"
+      }
+    },
+    {
+      "id": "research-005",
+      "category": "unsupported_research_fail_closed",
+      "prompt": "Exhaustive research on React performance.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "research",
+        "policy_pack": "software_security",
+        "route": "normal_chat",
+        "required_reason": "explicit_research"
+      }
+    },
+    {
+      "id": "research-006",
+      "category": "unsupported_research_fail_closed",
+      "prompt": "Deep research blood pressure treatments.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "research",
+        "policy_pack": "health",
+        "route": "normal_chat",
+        "required_reason": "explicit_research"
+      }
+    },
+    {
+      "id": "explicit-web-001",
+      "category": "explicit_web_fail_closed",
+      "prompt": "Search the web for the history of monism.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "explicit_web_request"
+      }
+    },
+    {
+      "id": "explicit-web-002",
+      "category": "explicit_web_fail_closed",
+      "prompt": "Browse the web for information about the French Revolution.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "explicit_web_request"
+      }
+    },
+    {
+      "id": "explicit-web-003",
+      "category": "explicit_web_fail_closed",
+      "prompt": "Find online sources about ancient Rome.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "explicit_web_request"
+      }
+    },
+    {
+      "id": "explicit-web-004",
+      "category": "explicit_web_fail_closed",
+      "prompt": "Check the web for the origin of this word.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "explicit_web_request"
+      }
+    },
+    {
+      "id": "explicit-web-005",
+      "category": "explicit_web_fail_closed",
+      "prompt": "Look it up online: classical idealism.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "explicit_web_request"
+      }
+    },
+    {
+      "id": "explicit-web-006",
+      "category": "explicit_web_fail_closed",
+      "prompt": "Search online for the capital of France.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "explicit_web_request"
+      }
+    },
+    {
+      "id": "source-001",
+      "category": "specific_source_fail_closed",
+      "prompt": "Summarize https://openai.com/research/example",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "normal_chat",
+        "required_reason": "specific_source_requested"
+      }
+    },
+    {
+      "id": "source-002",
+      "category": "specific_source_fail_closed",
+      "prompt": "Read this URL about medication safety: https://example.com/medicine",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "health",
+        "route": "normal_chat",
+        "required_reason": "specific_source_requested"
+      }
+    },
+    {
+      "id": "source-003",
+      "category": "specific_source_fail_closed",
+      "prompt": "Open this link and tell me what it says: https://example.com/a",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "specific_source_requested"
+      }
+    },
+    {
+      "id": "source-004",
+      "category": "specific_source_fail_closed",
+      "prompt": "Review this website about tax regulations: https://example.com/tax",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "legal_financial",
+        "route": "normal_chat",
+        "required_reason": "specific_source_requested"
+      }
+    },
+    {
+      "id": "source-005",
+      "category": "specific_source_fail_closed",
+      "prompt": "Summarize https://example.com/article",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "general",
+        "route": "normal_chat",
+        "required_reason": "specific_source_requested"
+      }
+    },
+    {
+      "id": "source-006",
+      "category": "specific_source_fail_closed",
+      "prompt": "Check this page about Qdrant: https://example.com/qdrant",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "normal_chat",
+        "required_reason": "specific_source_requested"
+      }
+    }
+  ]
+}

@@ -3,7 +3,7 @@ name: Auditability Guard
 on:
   pull_request:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   request-id-check:
@@ -14,3 +14,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ripgrep
       - name: Check request-id propagation
         run: ./scripts/check_request_id.sh
+
+  search-routing-promotion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Enforce search-routing promotion gates
+        run: npm run eval:search-routing
