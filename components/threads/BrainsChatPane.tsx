@@ -75,9 +75,15 @@ type WebMode = "off" | "trusted_health" | "current_news";
 const webModeTrustedHealthEnabled = (mode: WebMode): boolean =>
   mode === "trusted_health";
 
+const webModeCurrentNewsEnabled = (mode: WebMode): boolean =>
+  mode === "current_news";
+
+const webModeExternalEnabled = (mode: WebMode): boolean =>
+  mode !== "off";
+
 const webModeStatusLabel = (mode: WebMode): string => {
   if (mode === "trusted_health") return "Trusted sources · Not saved to memory";
-  if (mode === "current_news") return "Current sources · Not saved to memory";
+  if (mode === "current_news") return "Trusted sources · Not saved to memory";
   return "";
 };
 
@@ -331,7 +337,7 @@ export function BrainsChatPane() {
   const [loading, setLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
   const [webMode, setWebMode] = React.useState<WebMode>("off");
-  const webSearchEnabled = webModeTrustedHealthEnabled(webMode);
+  const webSearchEnabled = webModeExternalEnabled(webMode);
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [voicePrivacyOpen, setVoicePrivacyOpen] = React.useState(false);
   const [voicePrivacySaving, setVoicePrivacySaving] = React.useState(false);
@@ -1260,25 +1266,33 @@ export function BrainsChatPane() {
     noStore = false,
     voiceTurnId?: string,
     voiceSessionId?: string,
-    trustedWeb = false,
+    selectedWebMode: WebMode = "off",
   ): Promise<ChatResult> {
+    const trustedWeb = webModeTrustedHealthEnabled(selectedWebMode);
+    const currentNews = webModeCurrentNewsEnabled(selectedWebMode);
+    const externalWeb = trustedWeb || currentNews;
+    const endpoint = currentNews
+      ? "/api/current-news"
+      : trustedWeb
+        ? "/api/trusted-web"
+        : "/api/chat";
     const { response: r, responseText } = await withRequestDeadline(
       async (signal) => {
         const response = await authFetch(
-          trustedWeb ? "/api/trusted-web" : "/api/chat",
+          endpoint,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              ...(!trustedWeb && voiceTurnId
+              ...(!externalWeb && voiceTurnId
                 ? { [VOICE_TURN_HEADER]: voiceTurnId }
                 : {}),
-              ...(!trustedWeb && voiceSessionId
+              ...(!externalWeb && voiceSessionId
                 ? { [VOICE_SESSION_HEADER]: voiceSessionId }
                 : {}),
             },
             body: JSON.stringify(
-              trustedWeb
+              externalWeb
                 ? { query: input }
                 : { input, thread_id: tid, regen, noStore },
             ),
@@ -1300,7 +1314,7 @@ export function BrainsChatPane() {
         noStore,
         voiceTurnId,
         voiceSessionId,
-        false,
+        "off",
       );
       return { ...fallbackReply, trustedWebFallback: true };
     }
@@ -1316,16 +1330,22 @@ export function BrainsChatPane() {
       if (r.status === 409 && voiceTurnId) {
         throw new Error("Voice moved to another window.");
       }
-      if (r.status === 403 && trustedWeb) {
-        throw new Error("Trusted web search is not enabled for this account.");
+      if (r.status === 403 && externalWeb) {
+        throw new Error("Web search is not enabled for this account.");
       }
-      if (r.status === 429 && trustedWeb) {
+      if (r.status === 429 && externalWeb) {
         throw new Error(
-          "Trusted web search reached its rate limit. Please wait and try again.",
+          currentNews
+            ? "Current news lookup reached its rate limit. Please wait and try again."
+            : "Trusted web search reached its rate limit. Please wait and try again.",
         );
       }
-      if (r.status === 503 && trustedWeb) {
-        throw new Error("Trusted web search is currently unavailable.");
+      if (r.status === 503 && externalWeb) {
+        throw new Error(
+          currentNews
+            ? "Current news lookup is currently unavailable."
+            : "Trusted web search is currently unavailable.",
+        );
       }
       throw new Error("The response could not be completed. Please try again.");
     }
@@ -1334,7 +1354,7 @@ export function BrainsChatPane() {
     }
     let trustedWebSources: TrustedWebSource[] = [];
     let responseBodyText = responseText;
-    if (trustedWeb) {
+    if (externalWeb) {
       try {
         const trustedPayload = JSON.parse(responseText) as {
           answer?: unknown;
@@ -1356,7 +1376,8 @@ export function BrainsChatPane() {
         r.headers.get("X-VS-Response-Timings"),
       ),
       trustedWeb:
-        r.headers.get("X-VS-Response-Runtime") === "trusted_web_v1",
+        r.headers.get("X-VS-Response-Runtime") === "trusted_web_v1" ||
+        r.headers.get("X-VS-Response-Runtime") === "current_news_v1",
       trustedWebFallback: false,
       trustedWebSources,
       ...decodeResponseInspectionHeader(
@@ -1397,7 +1418,7 @@ export function BrainsChatPane() {
         false,
         undefined,
         undefined,
-        lastUserMessage?.web_search === true,
+        lastUserMessage?.web_search === true ? "trusted_health" : "off",
       );
 
       setMsgs((prev) => {
@@ -1639,11 +1660,14 @@ export function BrainsChatPane() {
 
     const editMessageId = editingMessageId;
     const isEditing = !!editMessageId;
-    const useTrustedWeb =
+    const selectedWebMode =
       webSearchEnabled &&
       overrideText == null &&
       !isEditing &&
-      !options.voiceTurn;
+      !options.voiceTurn
+        ? webMode
+        : "off";
+    const useTrustedWeb = selectedWebMode !== "off";
 
     setSending(true);
     setRequestError("");
@@ -1688,7 +1712,7 @@ export function BrainsChatPane() {
         false,
         options.voiceTurn?.voiceTurnId,
         options.voiceTurn?.voiceSessionId,
-        useTrustedWeb,
+        selectedWebMode,
       );
       const responseMs = Math.max(
         0,
@@ -2331,17 +2355,13 @@ export function BrainsChatPane() {
                     onChange={(event) => {
                       setRequestError("");
                       const nextMode = event.target.value as WebMode;
-                      setWebMode(
-                        nextMode === "current_news" ? "off" : nextMode,
-                      );
+                      setWebMode(nextMode);
                     }}
                     className="cursor-pointer appearance-none bg-transparent pr-1 text-inherit outline-none disabled:cursor-not-allowed"
                   >
                     <option value="off">Web off</option>
-                    <option value="trusted_health">Trusted health</option>
-                    <option value="current_news" disabled>
-                      Current news soon
-                    </option>
+                    <option value="trusted_health">Health</option>
+                    <option value="current_news">News</option>
                   </select>
                 </label>
                 <span className="min-w-0 flex-1 text-[11px] text-muted-foreground">

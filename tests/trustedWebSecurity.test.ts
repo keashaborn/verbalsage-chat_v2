@@ -29,7 +29,7 @@ test("browser request cannot choose model, domains, topic, or storage", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
   assert.match(route, /Object\.keys\(record\)\.length !== 1/);
   assert.match(route, /hasOwnProperty\.call\(record, "query"\)/);
-  assert.match(pane, /trustedWeb\s*\?\s*\{ query: input \}/);
+  assert.match(pane, /externalWeb\s*\n\s*\? \{ query: input \}/);
   assert.doesNotMatch(pane, /allowed_domains/);
   assert.doesNotMatch(pane, /external_web_access/);
 });
@@ -60,13 +60,16 @@ test("composer search is explicit, off by default, and disabled for voice", () =
     pane,
     /const \[webMode, setWebMode\] = React\.useState<WebMode>\("off"\)/,
   );
-  assert.match(pane, /webModeTrustedHealthEnabled\(webMode\)/);
+  assert.match(pane, /webModeExternalEnabled\(webMode\)/);
+  assert.match(pane, /webModeTrustedHealthEnabled\(selectedWebMode\)/);
+  assert.match(pane, /webModeCurrentNewsEnabled\(selectedWebMode\)/);
   assert.match(pane, /data-web-mode-selector/);
   assert.match(pane, /value=\{webMode\}/);
   assert.match(pane, /Trusted sources · Not saved to memory/);
-  assert.match(pane, /Current sources · Not saved to memory/);
-  assert.match(pane, /Current news soon/);
-  assert.match(pane, /nextMode === \"current_news\" \? \"off\" : nextMode/);
+  assert.equal((pane.match(/Trusted sources · Not saved to memory/g) || []).length, 2);
+  assert.match(pane, /<option value="trusted_health">Health<\/option>/);
+  assert.match(pane, /<option value="current_news">News<\/option>/);
+  assert.match(pane, /currentNews\s*\? "\/api\/current-news"/);
   assert.match(pane, /setWebMode\("off"\)/);
   assert.doesNotMatch(pane, /localStorage.*webMode/);
 });
