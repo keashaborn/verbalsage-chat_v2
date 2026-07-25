@@ -103,6 +103,7 @@ const REASONS = new Set<SearchDecisionReasonV1>([
   "specific_source_requested",
   "explicit_research",
   "explicit_web_request",
+  "trusted_current_news_scope",
   "freshness_required",
   "evidence_requested",
   "high_stakes_verification",
@@ -302,7 +303,11 @@ function structuralViolationsForCase(
   if (
     route === "current_news" &&
     (decision.decision !== "live" ||
-      !decision.reason_codes.includes("freshness_required") ||
+      (!decision.reason_codes.includes("freshness_required") &&
+        !(
+          decision.reason_codes.includes("explicit_web_request") &&
+          decision.reason_codes.includes("trusted_current_news_scope")
+        )) ||
       !["current_news", "software_security"].includes(decision.policy_pack))
   ) {
     violations.push("current_news_scope");

@@ -1,6 +1,6 @@
 {
   "schema_version": "search_routing_eval_v1",
-  "policy_version": "search_decision_v1_1",
+  "policy_version": "search_decision_v1_2",
   "data_classification": "synthetic_no_user_data",
   "thresholds": {
     "overall_min_accuracy": 0.95,
@@ -476,6 +476,30 @@
         "policy_pack": "software_security",
         "route": "current_news",
         "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "software-current-009",
+      "category": "software_current_supported",
+      "prompt": "What happened with OpenAI today?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "current_news",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "software-current-010",
+      "category": "software_current_supported",
+      "prompt": "What if you check the web for that information about open eye and Hugging Face?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "current_news",
+        "required_reason": "explicit_web_request"
       }
     },
     {

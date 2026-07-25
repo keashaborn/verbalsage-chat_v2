@@ -39,6 +39,19 @@ const cases = [
     policyPack: "software_security",
   },
   {
+    input: "What happened with OpenAI today?",
+    decision: "live",
+    reason: "freshness_required",
+    policyPack: "software_security",
+  },
+  {
+    input:
+      "What if you check the web for that information about open eye and Hugging Face?",
+    decision: "live",
+    reason: "explicit_web_request",
+    policyPack: "software_security",
+  },
+  {
     input: "What is the latest Next.js security release?",
     decision: "live",
     reason: "freshness_required",
@@ -136,11 +149,28 @@ test("uses bounded budgets for every decision class", () => {
   });
 });
 
+test("routes trusted current-news entities for fresh or explicit web requests", () => {
+  const prompts = [
+    "What happened with OpenAI today?",
+    "Check the web for that information about open eye and Hugging Face.",
+    "Search the web for OpenAI documentation.",
+  ];
+  for (const input of prompts) {
+    const decision = decideSearchV1(input);
+    assert.equal(decision.decision, "live");
+    assert.ok(
+      decision.reason_codes.includes("trusted_current_news_scope"),
+      input,
+    );
+    assert.equal(selectAutomaticSearchRouteV1(decision), "current_news");
+  }
+});
+
 test("selects only server-supported automatic search routes", () => {
   const cases = [
     ["What is the capital of France?", "normal_chat"],
     ["What just happened with OpenAI?", "current_news"],
-    ["Search the web for OpenAI documentation.", "normal_chat"],
+    ["Search the web for OpenAI documentation.", "current_news"],
     ["Search the web for the history of monism.", "normal_chat"],
     ["Is creatine safe with kidney disease? Cite studies.", "trusted_health"],
     ["Deep research the long-term evidence for creatine.", "normal_chat"],

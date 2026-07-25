@@ -1,4 +1,4 @@
-export const SEARCH_DECISION_POLICY_VERSION = "search_decision_v1_1";
+export const SEARCH_DECISION_POLICY_VERSION = "search_decision_v1_2";
 
 export type SearchDecisionClassV1 =
   | "no_search"
@@ -19,6 +19,7 @@ export type SearchDecisionReasonV1 =
   | "specific_source_requested"
   | "explicit_research"
   | "explicit_web_request"
+  | "trusted_current_news_scope"
   | "freshness_required"
   | "evidence_requested"
   | "high_stakes_verification"
@@ -232,6 +233,14 @@ const LEGAL_FINANCIAL_PATTERNS = [
   /\bfinancial\b/,
 ];
 
+const TRUSTED_CURRENT_NEWS_ENTITY_PATTERNS = [
+  /\bopenai\b/,
+  /\bopen eye\b/,
+  /\bchatgpt\b/,
+  /\bhugging\s*face\b/,
+  /\bhuggingface\b/,
+];
+
 function normalizedInput(input: string): string {
   return String(input || "")
     .toLowerCase()
@@ -252,7 +261,10 @@ function uniqueReasons(
 
 function policyPackFor(value: string): SearchPolicyPackV1 {
   if (matchesAny(value, HEALTH_TOPIC_PATTERNS)) return "health";
-  if (matchesAny(value, SOFTWARE_SECURITY_PATTERNS)) {
+  if (
+    matchesAny(value, SOFTWARE_SECURITY_PATTERNS) ||
+    matchesAny(value, TRUSTED_CURRENT_NEWS_ENTITY_PATTERNS)
+  ) {
     return "software_security";
   }
   if (matchesAny(value, LEGAL_FINANCIAL_PATTERNS)) {
@@ -318,6 +330,10 @@ export function decideSearchV1(input: string): SearchDecisionV1 {
   }
 
   const policyPack = policyPackFor(value);
+  const trustedCurrentNewsScope = matchesAny(
+    value,
+    TRUSTED_CURRENT_NEWS_ENTITY_PATTERNS,
+  );
   if (matchesAny(value, SPECIFIC_SOURCE_PATTERNS)) {
     return decisionV1(
       "live",
@@ -348,13 +364,16 @@ export function decideSearchV1(input: string): SearchDecisionV1 {
   const strongFreshness = matchesAny(value, STRONG_FRESHNESS_PATTERNS);
   const weakFreshness =
     matchesAny(value, WEAK_FRESHNESS_PATTERNS) &&
-    matchesAny(value, VOLATILE_FACT_PATTERNS);
+    (matchesAny(value, VOLATILE_FACT_PATTERNS) || trustedCurrentNewsScope);
   if (strongFreshness || weakFreshness) {
     return decisionV1(
       "live",
       [
         "freshness_required",
         ...(explicitWeb ? (["explicit_web_request"] as const) : []),
+        ...(trustedCurrentNewsScope
+          ? (["trusted_current_news_scope"] as const)
+          : []),
       ],
       policyPack,
       strongFreshness ? "high" : "medium",
@@ -362,7 +381,17 @@ export function decideSearchV1(input: string): SearchDecisionV1 {
   }
 
   if (explicitWeb) {
-    return decisionV1("indexed", ["explicit_web_request"], policyPack, "high");
+    return decisionV1(
+      trustedCurrentNewsScope ? "live" : "indexed",
+      [
+        "explicit_web_request",
+        ...(trustedCurrentNewsScope
+          ? (["trusted_current_news_scope"] as const)
+          : []),
+      ],
+      policyPack,
+      "high",
+    );
   }
 
   const evidenceRequested = matchesAny(value, EVIDENCE_PATTERNS);
@@ -411,6 +440,13 @@ export function selectAutomaticSearchRouteV1(
     return "normal_chat";
   }
   if (decision.policy_pack === "health") return "trusted_health";
+  if (
+    decision.reason_codes.includes("trusted_current_news_scope") &&
+    (decision.reason_codes.includes("freshness_required") ||
+      decision.reason_codes.includes("explicit_web_request"))
+  ) {
+    return "current_news";
+  }
   if (
     (decision.policy_pack === "current_news" ||
       decision.policy_pack === "software_security") &&

@@ -82,7 +82,7 @@ const trace: ResponseTraceV2 = {
   },
   routing: {
     search_mode: "auto",
-    policy_version: "search_decision_v1_1",
+    policy_version: "search_decision_v1_2",
     decision: "no_search",
     reason_codes: ["search_prohibited_by_user"],
     policy_pack: "none",
