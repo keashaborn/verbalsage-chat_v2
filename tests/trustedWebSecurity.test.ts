@@ -279,6 +279,20 @@ test("trusted web preserves structured source metadata for source cards", () => 
   assert.match(pane, /News source/);
 });
 
+test("persisted trusted web sources are normalized before rendering", () => {
+  const pane = source("components/threads/BrainsChatPane.tsx");
+  assert.match(pane, /record\.source_type/);
+  assert.match(
+    pane,
+    /trusted_web_sources:\s*normalizeTrustedWebSources\(\s*m\.trusted_web_sources/,
+  );
+  assert.match(
+    pane,
+    /trusted_web_admitted_sources:\s*normalizeTrustedWebSources\(\s*m\.trusted_web_admitted_sources/,
+  );
+  assert.match(pane, /String\(source\.evidence_type \|\| "web_evidence"\)/);
+});
+
 test("trusted web source cards replace plain trailing source list", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
   assert.match(pane, /stripTrustedWebSourceList/);

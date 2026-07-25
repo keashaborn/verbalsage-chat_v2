@@ -161,12 +161,17 @@ function normalizeTrustedWebSources(value: unknown): TrustedWebSource[] {
       const record = source as Record<string, unknown>;
       const url = String(record.url || "").trim();
       const title = String(record.title || "").trim();
-      const authorityType = String(record.authority_type || "").trim();
-      const evidenceType = String(record.evidence_type || "").trim();
+      const sourceType = String(record.source_type || "").trim();
+      const authorityType = String(
+        record.authority_type || sourceType || "trusted_source",
+      ).trim();
+      const evidenceType = String(
+        record.evidence_type || sourceType || "web_evidence",
+      ).trim();
       const sourceId = String(record.source_id || "").trim();
       const publisher = String(record.publisher || "").trim();
       const publishedAt = String(record.published_at || "").trim();
-      if (!url || !title || !authorityType || !evidenceType) return null;
+      if (!url || !title) return null;
       return {
         url,
         title,
@@ -187,15 +192,16 @@ function stripTrustedWebSourceList(markdown: string): string {
 }
 
 function trustedWebAuthorityLabel(source: TrustedWebSource): string {
-  if (source.authority_type === "official_public_guidance") return "NIH ODS";
-  if (source.authority_type === "pubmed_research") return "PubMed";
-  if (source.authority_type === "official_source") return "Official source";
-  if (source.authority_type === "news_source") return "News source";
+  const authorityType = String(source.authority_type || "").trim();
+  if (authorityType === "official_public_guidance") return "NIH ODS";
+  if (authorityType === "pubmed_research") return "PubMed";
+  if (authorityType === "official_source") return "Official source";
+  if (authorityType === "news_source") return "News source";
   return "Trusted source";
 }
 
 function trustedWebEvidenceLabel(source: TrustedWebSource): string {
-  const value = source.evidence_type.replace(/_/g, " ").trim();
+  const value = String(source.evidence_type || "web_evidence").replace(/_/g, " ").trim();
   return value ? value.replace(/\b\w/g, (char) => char.toUpperCase()) : "Evidence";
 }
 
@@ -246,7 +252,7 @@ function trustedWebSourceSummary(
       summarySources
         .map(
           (source) =>
-            source.publisher?.trim() || trustedWebHostLabel(source.url),
+            String(source.publisher || "").trim() || trustedWebHostLabel(source.url),
         )
         .filter(Boolean),
     ),
@@ -1255,7 +1261,18 @@ export function BrainsChatPane() {
         `/api/threads/${encodeURIComponent(tid)}/messages`,
       );
       const normalized = (Array.isArray(data) ? data : []).map((m) =>
-        m.role === "assistant" ? { ...m, v: 1 } : m,
+        m.role === "assistant"
+          ? {
+              ...m,
+              v: 1,
+              trusted_web_sources: normalizeTrustedWebSources(
+                m.trusted_web_sources,
+              ),
+              trusted_web_admitted_sources: normalizeTrustedWebSources(
+                m.trusted_web_admitted_sources,
+              ),
+            }
+          : m,
       );
 
       if (isAdmin && attach && (attach.inspect || attach.inspect_error)) {
