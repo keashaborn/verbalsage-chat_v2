@@ -47,4 +47,6 @@ test("current news BFF preserves structured skeleton fields", () => {
   assert.match(route, /reason/);
   assert.match(route, /searched: Boolean\(parsed\.searched\)/);
   assert.match(route, /sources/);
+  assert.match(route, /authority_type: sourceType/);
+  assert.match(route, /evidence_type: "current_news"/);
 });

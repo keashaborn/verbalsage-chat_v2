@@ -111,6 +111,9 @@ function normalizeSource(source: any) {
     publisher,
     published_at: publishedAt,
     source_type: sourceType,
+    authority_type: sourceType,
+    evidence_type: "current_news",
+    ...(publishedAt ? { source_id: publishedAt } : {}),
   };
 }
 

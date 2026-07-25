@@ -232,6 +232,8 @@ function stripTrustedWebSourceList(markdown: string): string {
 function trustedWebAuthorityLabel(source: TrustedWebSource): string {
   if (source.authority_type === "official_public_guidance") return "NIH ODS";
   if (source.authority_type === "pubmed_research") return "PubMed";
+  if (source.authority_type === "official_source") return "Official source";
+  if (source.authority_type === "news_source") return "News source";
   return "Trusted source";
 }
 

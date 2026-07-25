@@ -90,6 +90,8 @@ test("trusted web preserves structured source metadata for source cards", () => 
   assert.match(pane, /trusted_web_sources/);
   assert.match(pane, /official_public_guidance/);
   assert.match(pane, /pubmed_research/);
+  assert.match(pane, /Official source/);
+  assert.match(pane, /News source/);
 });
 
 test("trusted web source cards replace plain trailing source list", () => {
