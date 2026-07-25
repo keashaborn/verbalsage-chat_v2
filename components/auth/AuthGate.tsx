@@ -14,7 +14,6 @@ import {
 } from "@/lib/voicePrivacy";
 
 const MAX_AGE_S = 60 * 60 * 24 * 30; // 30d
-const LS_CLOUD_UPDATED_AT = "vs_cloud_settings_v1_updated_at";
 
 function isBadRefreshToken(err: any): boolean {
   const msg = String(err?.message || err || "");
@@ -34,24 +33,11 @@ function lsSet(k: string, v: string) {
   } catch {}
 }
 
-function hasProfileCookies(): boolean {
-  if (typeof document === "undefined") return false;
-  const c = document.cookie || "";
-  // Keep this intentionally loose; mix/routing/limits can be empty by design.
-  return c.includes("vs_vantage_id=");
-}
-
 function writeCookieRaw(name: string, rawValue: string) {
   document.cookie = `${name}=${rawValue}; Max-Age=${MAX_AGE_S}; path=/; SameSite=Lax`;
 }
 function writeStringCookie(name: string, value: string) {
   writeCookieRaw(name, encodeURIComponent(String(value)));
-}
-function writeJsonCookie(name: string, obj: any) {
-  writeCookieRaw(name, encodeURIComponent(JSON.stringify(obj)));
-}
-function clearCookie(name: string) {
-  document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
@@ -87,8 +73,9 @@ function applyThemeFromMetadata(md: any) {
   applyTheme(cloudTheme || localTheme || "graphite");
 }
 
-function applyProfileCookiesFromSession(session: any): boolean {
-  // Apply from session.user.user_metadata.vs_settings_v1 (no extra network call).
+function applySettingsFromSession(session: any): boolean {
+  // Apply supported presentation settings from session metadata without an
+  // extra network call. Legacy Vantage fields remain inert historical data.
   try {
     const md: any = session?.user?.user_metadata || {};
     applyThemeFromMetadata(md);
@@ -126,42 +113,9 @@ function applyProfileCookiesFromSession(session: any): boolean {
     const v1: any = session?.user?.user_metadata?.vs_settings_v1;
     if (!v1) return false;
 
-    const cloudUpdatedAt = String(v1.updated_at || "");
-    const localUpdatedAt = lsGet(LS_CLOUD_UPDATED_AT) || "";
-
-    const needApply = !hasProfileCookies() || (cloudUpdatedAt && cloudUpdatedAt !== localUpdatedAt);
-    if (!needApply) return true;
-
     if (v1.model) {
       writeStringCookie("vs_model", String(v1.model).trim().slice(0, 64));
     }
-    const active = v1?.vantage?.active;
-    if (active) {
-      const vid = String(active.vantageId || "default").trim().slice(0, 64) || "default";
-      writeStringCookie("vs_vantage_id", vid);
-
-      if (active.mix == null) clearCookie("vs_vantage_mix");
-      else writeJsonCookie("vs_vantage_mix", active.mix);
-
-      if (active.routing == null) clearCookie("vs_vantage_routing");
-      else writeJsonCookie("vs_vantage_routing", active.routing);
-
-      if (active.limits == null) clearCookie("vs_vantage_limits");
-      else writeJsonCookie("vs_vantage_limits", active.limits);
-
-      if (active.pragmatics == null) clearCookie("vs_vantage_pragmatics");
-      else writeJsonCookie("vs_vantage_pragmatics", active.pragmatics);
-
-      if (active.roleplay == null) {
-        clearCookie("vs_vantage_definition_overlay");
-        clearCookie("vs_vantage_roleplay");
-      } else {
-        writeJsonCookie("vs_vantage_definition_overlay", active.roleplay);
-        writeJsonCookie("vs_vantage_roleplay", active.roleplay);
-      }
-    }
-
-    if (cloudUpdatedAt) lsSet(LS_CLOUD_UPDATED_AT, cloudUpdatedAt);
     return true;
   } catch {
     return false;
@@ -211,7 +165,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     setSession(s);
 
     // Best-effort, non-blocking extras.
-    applyProfileCookiesFromSession(s);
+    applySettingsFromSession(s);
     void syncIdentityBestEffort(s);
   }
 
