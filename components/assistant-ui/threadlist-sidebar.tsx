@@ -8,17 +8,19 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { useSidebar } from "@/components/ui/sidebar";
 import { BrainsThreadList } from "@/components/threads/BrainsThreadList";
+import { authFetchJson } from "@/lib/authFetch";
 import Image from "next/image";
+import { Loader2, MessageSquarePlus } from "lucide-react";
 
-const BRAND_FILTER_SILVER =
-  "grayscale brightness-125 contrast-125 opacity-85";
+const BRAND_FILTER_SILVER = "grayscale brightness-125 contrast-125 opacity-85";
 
 function AssistantBadge() {
   return (
     <div className="min-w-0 flex-1 leading-tight">
       <div className="truncate text-sm font-semibold">RESSE</div>
-      <div className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
+      <div className="truncate text-[11px] tracking-wide text-muted-foreground uppercase">
         Assistant
       </div>
     </div>
@@ -26,6 +28,47 @@ function AssistantBadge() {
 }
 
 export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
+  const [query, setQuery] = React.useState("");
+  const [creatingChat, setCreatingChat] = React.useState(false);
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  async function newChat() {
+    if (creatingChat) return;
+
+    setCreatingChat(true);
+    try {
+      const created = await authFetchJson<any>("/api/threads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "New chat" }),
+      });
+
+      window.dispatchEvent(new Event("vs_threads_refresh"));
+
+      const threadId =
+        created?.thread_id ||
+        created?.id ||
+        (
+          await authFetchJson<{ thread_id: string | null }>(
+            "/api/threads/active",
+          )
+        ).thread_id;
+
+      if (threadId) {
+        window.dispatchEvent(
+          new CustomEvent("vs_active_thread", {
+            detail: { thread_id: threadId },
+          }),
+        );
+        if (isMobile) setOpenMobile(false);
+      }
+    } catch (error: any) {
+      alert(error?.message || String(error));
+    } finally {
+      setCreatingChat(false);
+    }
+  }
+
   return (
     <Sidebar {...props}>
       <SidebarHeader className="aui-sidebar-header mb-2 border-b">
@@ -50,11 +93,36 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
           </div>
 
           <AssistantBadge />
+
+          <button
+            type="button"
+            onClick={() => void newChat()}
+            disabled={creatingChat}
+            className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border bg-background/60 text-foreground transition-[background-color,transform] hover:bg-muted active:scale-95 disabled:opacity-50"
+            aria-label="New chat"
+            title="New chat"
+          >
+            {creatingChat ? (
+              <Loader2 className="size-5 animate-spin" aria-hidden="true" />
+            ) : (
+              <MessageSquarePlus className="size-5" aria-hidden="true" />
+            )}
+          </button>
+        </div>
+
+        <div className="px-2 pb-2">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search chats…"
+            aria-label="Search chats"
+            className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none"
+          />
         </div>
       </SidebarHeader>
 
       <SidebarContent className="aui-sidebar-content px-2">
-        <BrainsThreadList />
+        <BrainsThreadList query={query} />
       </SidebarContent>
 
       <SidebarRail />

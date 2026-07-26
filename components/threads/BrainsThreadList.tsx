@@ -1,16 +1,10 @@
 "use client";
 
 import * as React from "react";
-import {
-  MoreHorizontal,
-  Pencil,
-  Pin,
-  PinOff,
-  PlusIcon,
-  Trash2,
-} from "lucide-react";
+import { MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { authFetchJson } from "@/lib/authFetch";
+import { buildThreadSections } from "@/lib/threadSections";
 
 type ThreadItem = {
   thread_id: string;
@@ -31,10 +25,9 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return authFetchJson<T>(url, init);
 }
 
-export function BrainsThreadList() {
+export function BrainsThreadList({ query = "" }: { query?: string }) {
   const [threads, setThreads] = React.useState<ThreadItem[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [q, setQ] = React.useState("");
   const { isMobile, setOpenMobile } = useSidebar();
 
   const [editingId, setEditingId] = React.useState<string | null>(null);
@@ -68,32 +61,6 @@ export function BrainsThreadList() {
       setThreads([]);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function newChat() {
-    try {
-      const created = await fetchJson<any>("/api/threads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "New chat" }),
-      });
-
-      await refresh();
-
-      const tid =
-        created?.thread_id ||
-        created?.id ||
-        (await fetchJson<{ thread_id: string | null }>("/api/threads/active"))
-          .thread_id;
-
-      if (tid) {
-        window.dispatchEvent(
-          new CustomEvent("vs_active_thread", { detail: { thread_id: tid } }),
-        );
-      }
-    } catch (e: any) {
-      alert(e?.message || String(e));
     }
   }
 
@@ -300,27 +267,14 @@ export function BrainsThreadList() {
       ?.focus({ preventScroll: true });
   }, [actionMenu?.thread.thread_id]);
 
+  const normalizedQuery = query.trim().toLowerCase();
   const filtered = threads.filter((t) =>
-    (t.title || "").toLowerCase().includes(q.toLowerCase()),
+    (t.title || "").toLowerCase().includes(normalizedQuery),
   );
+  const sections = buildThreadSections(filtered);
 
   return (
-    <div className="flex flex-col gap-2">
-      <button
-        onClick={newChat}
-        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-muted"
-      >
-        <PlusIcon className="size-4" />
-        New Chat
-      </button>
-
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Search chats…"
-        className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none"
-      />
-
+    <div className="flex flex-col">
       {actionError && (
         <div
           role="alert"
@@ -334,134 +288,160 @@ export function BrainsThreadList() {
         <div className="px-2 text-xs text-muted-foreground">Loading…</div>
       )}
 
+      {!loading && sections.length === 0 && (
+        <div className="px-2 py-3 text-xs text-muted-foreground">
+          {normalizedQuery ? "No chats found." : "No chats yet."}
+        </div>
+      )}
+
       <div className="flex flex-col">
-        {filtered.map((t) => {
-          const tid = String(t.thread_id || t.id || "").trim();
-          if (!tid) return null;
-
-          const isEditing = editingId === tid;
-          const isMenuOpen = actionMenu?.thread.thread_id === tid;
-          const isBusy = busyThreadId === tid;
-
-          return (
-            <div
-              key={tid}
-              className={`group flex touch-manipulation items-center gap-1 rounded-lg px-2 py-1 select-none ${
-                isMenuOpen ? "bg-muted" : "hover:bg-muted"
-              }`}
-              style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
-              title={t.updated_at}
-              onPointerDown={(event) =>
-                beginLongPress(event, { ...t, thread_id: tid })
-              }
-              onPointerMove={moveLongPress}
-              onPointerUp={cancelLongPress}
-              onPointerCancel={cancelLongPress}
-              onPointerLeave={cancelLongPress}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                cancelLongPress();
-                openActionMenu(
-                  { ...t, thread_id: tid },
-                  event.clientX,
-                  event.clientY,
-                );
-              }}
+        {sections.map((section) => (
+          <section
+            key={section.key}
+            aria-labelledby={`thread-section-${section.key}`}
+            className="pt-2 first:pt-0"
+          >
+            <h2
+              id={`thread-section-${section.key}`}
+              className="px-2 pt-1 pb-1 text-[11px] font-medium text-muted-foreground/75"
             >
-              <button
-                className="flex min-w-0 flex-1 items-center gap-2 px-1 py-2 text-left text-sm"
-                onClick={() => select(tid)}
-                aria-label={`Open chat ${t.title || "New chat"}`}
-              >
-                {t.pinned && (
-                  <Pin
-                    className="size-3.5 shrink-0 fill-current"
-                    aria-hidden="true"
-                  />
-                )}
-                <span className="truncate">{t.title || "New chat"}</span>
-              </button>
+              {section.label}
+            </h2>
 
-              <button
-                className="rounded-md p-2.5 text-muted-foreground opacity-100 hover:bg-background/60 hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  cancelLongPress();
-                  const rect = event.currentTarget.getBoundingClientRect();
-                  openActionMenu(
-                    { ...t, thread_id: tid },
-                    rect.right - 224,
-                    rect.bottom + 4,
-                  );
-                }}
-                disabled={isBusy}
-                aria-label={`Actions for ${t.title || "New chat"}`}
-                aria-haspopup="menu"
-                aria-expanded={isMenuOpen}
-              >
-                <MoreHorizontal className="size-4" />
-              </button>
+            <div className="flex flex-col">
+              {section.threads.map((t) => {
+                const tid = String(t.thread_id || t.id || "").trim();
+                if (!tid) return null;
 
-              {isEditing && (
-                <div
-                  className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
-                  onPointerDown={(event) => {
-                    if (event.target === event.currentTarget) {
-                      setEditingId(null);
-                      setEditingTitle("");
-                    }
-                  }}
-                >
+                const isEditing = editingId === tid;
+                const isMenuOpen = actionMenu?.thread.thread_id === tid;
+                const isBusy = busyThreadId === tid;
+
+                return (
                   <div
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby={`rename-chat-${tid}`}
-                    className="w-full max-w-sm rounded-2xl border bg-background p-4 shadow-xl"
+                    key={tid}
+                    className={`group flex touch-manipulation items-center gap-1 rounded-lg px-2 py-1 select-none ${
+                      isMenuOpen ? "bg-muted" : "hover:bg-muted"
+                    }`}
+                    style={
+                      { WebkitTouchCallout: "none" } as React.CSSProperties
+                    }
+                    title={t.updated_at}
+                    onPointerDown={(event) =>
+                      beginLongPress(event, { ...t, thread_id: tid })
+                    }
+                    onPointerMove={moveLongPress}
+                    onPointerUp={cancelLongPress}
+                    onPointerCancel={cancelLongPress}
+                    onPointerLeave={cancelLongPress}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      cancelLongPress();
+                      openActionMenu(
+                        { ...t, thread_id: tid },
+                        event.clientX,
+                        event.clientY,
+                      );
+                    }}
                   >
-                    <div
-                      id={`rename-chat-${tid}`}
-                      className="text-sm font-semibold"
+                    <button
+                      className="flex min-w-0 flex-1 items-center gap-2 px-1 py-2 text-left text-sm"
+                      onClick={() => select(tid)}
+                      aria-label={`Open chat ${t.title || "New chat"}`}
                     >
-                      Rename chat
-                    </div>
-                    <input
-                      className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none"
-                      value={editingTitle}
-                      onChange={(e) => setEditingTitle(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") commitRename(tid);
-                        if (e.key === "Escape") {
-                          setEditingId(null);
-                          setEditingTitle("");
-                        }
+                      {t.pinned && (
+                        <Pin
+                          className="size-3.5 shrink-0 fill-current"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span className="truncate">{t.title || "New chat"}</span>
+                    </button>
+
+                    <button
+                      className="rounded-md p-2.5 text-muted-foreground opacity-100 hover:bg-background/60 hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        cancelLongPress();
+                        const rect =
+                          event.currentTarget.getBoundingClientRect();
+                        openActionMenu(
+                          { ...t, thread_id: tid },
+                          rect.right - 224,
+                          rect.bottom + 4,
+                        );
                       }}
-                      autoFocus
-                    />
-                    <div className="mt-3 flex justify-end gap-2">
-                      <button
-                        className="rounded-xl bg-muted px-3 py-2 text-sm"
-                        onClick={() => {
-                          setEditingId(null);
-                          setEditingTitle("");
+                      disabled={isBusy}
+                      aria-label={`Actions for ${t.title || "New chat"}`}
+                      aria-haspopup="menu"
+                      aria-expanded={isMenuOpen}
+                    >
+                      <MoreHorizontal className="size-4" />
+                    </button>
+
+                    {isEditing && (
+                      <div
+                        className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
+                        onPointerDown={(event) => {
+                          if (event.target === event.currentTarget) {
+                            setEditingId(null);
+                            setEditingTitle("");
+                          }
                         }}
-                        disabled={isBusy}
                       >
-                        Cancel
-                      </button>
-                      <button
-                        className="rounded-xl bg-foreground px-3 py-2 text-sm text-background"
-                        onClick={() => commitRename(tid)}
-                        disabled={isBusy || !editingTitle.trim()}
-                      >
-                        Save
-                      </button>
-                    </div>
+                        <div
+                          role="dialog"
+                          aria-modal="true"
+                          aria-labelledby={`rename-chat-${tid}`}
+                          className="w-full max-w-sm rounded-2xl border bg-background p-4 shadow-xl"
+                        >
+                          <div
+                            id={`rename-chat-${tid}`}
+                            className="text-sm font-semibold"
+                          >
+                            Rename chat
+                          </div>
+                          <input
+                            className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none"
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitRename(tid);
+                              if (e.key === "Escape") {
+                                setEditingId(null);
+                                setEditingTitle("");
+                              }
+                            }}
+                            autoFocus
+                          />
+                          <div className="mt-3 flex justify-end gap-2">
+                            <button
+                              className="rounded-xl bg-muted px-3 py-2 text-sm"
+                              onClick={() => {
+                                setEditingId(null);
+                                setEditingTitle("");
+                              }}
+                              disabled={isBusy}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              className="rounded-xl bg-foreground px-3 py-2 text-sm text-background"
+                              onClick={() => commitRename(tid)}
+                              disabled={isBusy || !editingTitle.trim()}
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })}
             </div>
-          );
-        })}
+          </section>
+        ))}
       </div>
 
       {actionMenu && (
