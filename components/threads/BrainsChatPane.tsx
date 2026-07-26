@@ -95,6 +95,11 @@ type ChatResult = {
   trustedWebAdmittedSources: TrustedWebSource[];
 };
 
+type RequestRecoveryAction = "none" | "refresh";
+
+const STALE_CLIENT_THREAD_PREP_MESSAGE =
+  "The app may have updated. Refresh and try again.";
+
 type ResponseStageTimings = {
   conversation_snapshot_ms?: number;
   signal_classification_ms?: number;
@@ -443,6 +448,8 @@ export function BrainsChatPane() {
   const [voicePrivacySaving, setVoicePrivacySaving] = React.useState(false);
   const [voicePrivacyError, setVoicePrivacyError] = React.useState("");
   const [requestError, setRequestError] = React.useState("");
+  const [requestRecoveryAction, setRequestRecoveryAction] =
+    React.useState<RequestRecoveryAction>("none");
   const [voiceMode, setVoiceMode] = React.useState<VoiceMode>(DEFAULT_VOICE_MODE);
   const governedVoice = useGovernedVoiceConversation();
   const realtimeVoice = useRealtimeVoicePreview();
@@ -1781,6 +1788,7 @@ export function BrainsChatPane() {
     const isEditing = !!editMessageId;
     setSending(true);
     setRequestError("");
+    setRequestRecoveryAction("none");
     setText("");
     if (editingMessageId) {
       setEditingMessageId(null);
@@ -1801,9 +1809,21 @@ export function BrainsChatPane() {
         });
       }
     } catch (e: any) {
-      setRequestError(
-        String(e?.message || "The conversation could not be prepared."),
-      );
+      if (overrideText == null && !options.voiceTurn) {
+        if (isEditing && editMessageId) {
+          setEditingMessageId(editMessageId);
+          setEditingText(msg);
+        } else {
+          setText(msg);
+        }
+        setRequestRecoveryAction("refresh");
+        setRequestError(STALE_CLIENT_THREAD_PREP_MESSAGE);
+      } else {
+        setRequestRecoveryAction("none");
+        setRequestError(
+          String(e?.message || "The conversation could not be prepared."),
+        );
+      }
       setSending(false);
       return;
     }
@@ -2429,11 +2449,21 @@ export function BrainsChatPane() {
                 role="alert"
               >
                 <span>{visibleRequestError}</span>
+                {requestRecoveryAction === "refresh" && (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-md border px-2 py-1"
+                    onClick={() => window.location.reload()}
+                  >
+                    Refresh app
+                  </button>
+                )}
                 <button
                   type="button"
                   className="shrink-0 rounded-md border px-2 py-1"
                   onClick={() => {
                     setRequestError("");
+                    setRequestRecoveryAction("none");
                     if (governedVoiceHasError) governedVoice.stop();
                   }}
                 >
