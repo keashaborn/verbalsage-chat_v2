@@ -128,6 +128,16 @@ test("browser request cannot choose model, domains, topic, or storage", () => {
   assert.doesNotMatch(pane, /external_web_access/);
 });
 
+test("composer preserves typed text and offers refresh on thread prep failure", () => {
+  const pane = source("components/threads/BrainsChatPane.tsx");
+  assert.match(pane, /STALE_CLIENT_THREAD_PREP_MESSAGE/);
+  assert.match(pane, /The app may have updated\. Refresh and try again\./);
+  assert.match(pane, /setText\(msg\)/);
+  assert.match(pane, /setRequestRecoveryAction\("refresh"\)/);
+  assert.match(pane, /Refresh app/);
+  assert.match(pane, /window\.location\.reload\(\)/);
+});
+
 test("trusted web uses the internal service boundary and no memory route", () => {
   const route = source("app/api/trusted-web/route.ts");
   assert.match(route, /brainsUpstreamHeaders\(rid, userId, \{/);
