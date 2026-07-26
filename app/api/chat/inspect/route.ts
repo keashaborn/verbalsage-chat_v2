@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
-import { requireCapability } from "@/app/api/_auth/requireCapability";
+import { requireFreshCapability } from "@/app/api/_auth/requireCapability";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
   inspectorSessionCookieName,
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
     const BRAINS_URL = process.env.BRAINS_URL || "http://172.31.32.171:8088";
     const jar = await cookies();
 
-    const cap = await requireCapability(req, "inspector.view");
+    const cap = await requireFreshCapability(req, "inspector.view");
 
     if (!cap.ok) {
       return new Response(cap.msg, {
