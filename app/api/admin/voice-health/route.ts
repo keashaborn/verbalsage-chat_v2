@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireCapability } from "@/app/api/_auth/requireCapability";
+import { requireFreshCapability } from "@/app/api/_auth/requireCapability";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import { buildAdminVoiceHealth } from "@/lib/adminVoiceHealth";
 
@@ -22,11 +22,7 @@ function requestId(req: Request): string {
   ).trim();
 }
 
-function errorResponse(
-  status: number,
-  error: string,
-  correlationId: string,
-) {
+function errorResponse(status: number, error: string, correlationId: string) {
   return NextResponse.json(
     { ok: false, error },
     {
@@ -38,7 +34,7 @@ function errorResponse(
 
 export async function GET(req: Request) {
   const correlationId = requestId(req);
-  const auth = await requireCapability(req, "diagnostics.view");
+  const auth = await requireFreshCapability(req, "diagnostics.view");
   if (!auth.ok) {
     return errorResponse(
       auth.status,
@@ -47,15 +43,9 @@ export async function GET(req: Request) {
     );
   }
 
-  const canaryActor = (
-    process.env.VOICE_CANARY_ACTOR_USER_ID || ""
-  ).trim();
+  const canaryActor = (process.env.VOICE_CANARY_ACTOR_USER_ID || "").trim();
   if (!UUID_PATTERN.test(canaryActor)) {
-    return errorResponse(
-      503,
-      "voice_health_not_configured",
-      correlationId,
-    );
+    return errorResponse(503, "voice_health_not_configured", correlationId);
   }
 
   const brainsUrl = (
@@ -73,11 +63,7 @@ export async function GET(req: Request) {
       },
     );
     if (!upstream.ok) {
-      return errorResponse(
-        502,
-        "voice_health_unavailable",
-        correlationId,
-      );
+      return errorResponse(502, "voice_health_unavailable", correlationId);
     }
 
     const payload = buildAdminVoiceHealth(await upstream.json());

@@ -209,10 +209,9 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "system",
     access: "view",
     risk: "critical",
-    defaultRoles: ["owner", "admin", "developer"],
+    defaultRoles: ["owner", "admin"],
     backendEnforced: true,
-    notes:
-      "Currently enforced as admin-only. Later developer access should be explicit.",
+    notes: "Restricted to Owner and Admin accounts.",
   },
   {
     key: "diagnostics.view",
@@ -222,7 +221,7 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "system",
     access: "view",
     risk: "high",
-    defaultRoles: ["owner", "admin", "developer", "operator"],
+    defaultRoles: ["owner", "admin"],
     backendEnforced: true,
   },
 
@@ -378,7 +377,7 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "system",
     access: "view",
     risk: "high",
-    defaultRoles: ["owner", "admin", "developer"],
+    defaultRoles: ["owner", "admin"],
     backendEnforced: true,
   },
   {
@@ -389,7 +388,7 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "system",
     access: "view",
     risk: "high",
-    defaultRoles: ["owner", "admin", "developer"],
+    defaultRoles: ["owner", "admin"],
     backendEnforced: true,
   },
   {

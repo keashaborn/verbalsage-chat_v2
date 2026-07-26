@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
-import { requireCapability } from "@/app/api/_auth/requireCapability";
+import { requireFreshCapability } from "@/app/api/_auth/requireCapability";
 import {
   INSPECTOR_NO_STORE_HEADERS,
   inspectorSessionCookie,
@@ -17,7 +17,7 @@ function clearRetiredCookie(response: Response): Response {
 }
 
 export async function GET(req: Request) {
-  const auth = await requireCapability(req, "inspector.view");
+  const auth = await requireFreshCapability(req, "inspector.view");
   if (!auth.ok) {
     return new Response(auth.msg, {
       status: auth.status,
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireCapability(req, "inspector.view");
+  const auth = await requireFreshCapability(req, "inspector.view");
   if (!auth.ok) {
     return new Response(auth.msg, {
       status: auth.status,
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const auth = await requireCapability(req, "inspector.view");
+  const auth = await requireFreshCapability(req, "inspector.view");
   if (!auth.ok) {
     return new Response(auth.msg, {
       status: auth.status,

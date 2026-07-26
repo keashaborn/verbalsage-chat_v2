@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { authFetch } from "@/lib/authFetch";
 import { supabase } from "@/lib/supabaseClient";
 
 type AccountMenuProps = {
@@ -19,7 +20,7 @@ function displayNameFromUser(user: any, fallback: string) {
 export function AccountMenu({ label = "Account" }: AccountMenuProps) {
   const [open, setOpen] = React.useState(false);
   const [displayName, setDisplayName] = React.useState("Signed in");
-  const [isAdmin, setIsAdmin] = React.useState(false);
+  const [hasAdminAccess, setHasAdminAccess] = React.useState(false);
   const ref = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
@@ -31,11 +32,17 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
         if (!alive) return;
 
         setDisplayName(displayNameFromUser(data.user, "Signed in"));
-        setIsAdmin((data.user as any)?.app_metadata?.role === "admin");
+
+        const accessResponse = await authFetch("/api/admin/access", {
+          method: "GET",
+          cache: "no-store",
+        });
+        if (!alive) return;
+        setHasAdminAccess(accessResponse.ok);
       } catch {
         if (!alive) return;
         setDisplayName("Signed in");
-        setIsAdmin(false);
+        setHasAdminAccess(false);
       }
     })();
 
@@ -134,7 +141,7 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
             >
               Security
             </AccountMenuLink>
-            {isAdmin ? (
+            {hasAdminAccess ? (
               <AccountMenuLink href="/admin" onNavigate={() => setOpen(false)}>
                 Admin Console
               </AccountMenuLink>

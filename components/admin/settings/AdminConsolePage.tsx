@@ -1,60 +1,16 @@
 "use client";
 
-import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
+import { authFetch } from "@/lib/authFetch";
 import { CardsPanel } from "@/components/admin/settings/CardsPanel";
 import { MemoryReviewPanel } from "@/components/admin/settings/MemoryReviewPanel";
 import { VoiceSystemHealthPanel } from "@/components/admin/settings/VoiceSystemHealthPanel";
-import { CAPABILITY_REGISTRY, PERMISSION_ROLES, type PermissionRole, capabilitiesForRole } from "@/components/admin/settings/permissions/permissionRegistry";
 
-function normalizePermissionRoleClient(raw: any): PermissionRole {
-  const v = String(raw || "").trim();
-  return PERMISSION_ROLES.some((r) => r.key === v) ? (v as PermissionRole) : "user";
-}
-
-type EffectiveCapability = {
-  key: string;
-  label: string;
-  category: string;
-  scope: string;
-  access: string;
-  risk: string;
-  backendEnforced: boolean;
+type AdminAccess = {
+  user_id: string;
+  role: "owner" | "admin";
+  role_label: "Owner" | "Admin";
 };
-
-type EffectivePermissionsResponse = {
-  ok: boolean;
-  authenticated: boolean;
-  user_id?: string;
-  role: PermissionRole;
-  capabilities: EffectiveCapability[];
-  capability_count: number;
-  critical_count: number;
-  backend_enforced_count: number;
-  total_capabilities: number;
-  error?: string;
-};
-
-function capabilityStatusLabel(cap: { backendEnforced: boolean; notes?: string }) {
-  if (String(cap.notes || "").includes("Future/hidden module")) return "future/hidden";
-  if (String(cap.notes || "").includes("Future module/tier capability")) return "planning";
-  return cap.backendEnforced ? "backend enforced" : "frontend only";
-}
-
-function capabilityStatusClass(cap: { backendEnforced: boolean; notes?: string }) {
-  const label = capabilityStatusLabel(cap);
-  if (label === "backend enforced") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
-  if (label === "planning") return "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300";
-  if (label === "future/hidden") return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300";
-  return "border-muted bg-muted/30 text-muted-foreground";
-}
-
-function riskClass(risk: string) {
-  if (risk === "critical") return "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300";
-  if (risk === "high") return "border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300";
-  return "border-muted bg-muted/30 text-muted-foreground";
-}
-
 
 function AdminSection({
   title,
@@ -72,7 +28,9 @@ function AdminSection({
           <div className="min-w-0">
             <div className="text-sm font-semibold">{title}</div>
             {description ? (
-              <div className="mt-0.5 text-xs text-muted-foreground">{description}</div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                {description}
+              </div>
             ) : null}
           </div>
           <div className="shrink-0 rounded-lg border px-2 py-0.5 text-xs text-muted-foreground">
@@ -85,54 +43,23 @@ function AdminSection({
   );
 }
 
-export function AdminConsolePage() {
+export function AdminConsolePage({ access }: { access: AdminAccess }) {
   const [inspectorEnabled, setInspectorEnabled] = React.useState(false);
   const [status, setStatus] = React.useState("");
-  const [currentRole, setCurrentRole] = React.useState<PermissionRole>("user");
-  const [effectivePermissions, setEffectivePermissions] = React.useState<EffectivePermissionsResponse | null>(null);
-
-  const criticalCapabilities = CAPABILITY_REGISTRY.filter((c) => c.risk === "critical").length;
-  const backendEnforcedCapabilities = CAPABILITY_REGISTRY.filter((c) => c.backendEnforced).length;
-  const planningCapabilities = CAPABILITY_REGISTRY.filter((c) => capabilityStatusLabel(c) === "planning").length;
-  const futureHiddenCapabilities = CAPABILITY_REGISTRY.filter((c) => capabilityStatusLabel(c) === "future/hidden").length;
-  const capabilityCategories = Array.from(new Set(CAPABILITY_REGISTRY.map((c) => c.category))).length;
-  const fallbackEffectiveCapabilities = capabilitiesForRole(currentRole);
-  const effectiveCapabilities = effectivePermissions?.capabilities ?? fallbackEffectiveCapabilities;
-  const effectiveCapabilityKeys = new Set(effectiveCapabilities.map((c) => c.key));
-  const effectiveCriticalCapabilities =
-    effectivePermissions?.critical_count ?? fallbackEffectiveCapabilities.filter((c) => c.risk === "critical").length;
-  const effectiveBackendCapabilities =
-    effectivePermissions?.backend_enforced_count ?? fallbackEffectiveCapabilities.filter((c) => c.backendEnforced).length;
-  const effectiveCapabilityCount = effectivePermissions?.capability_count ?? effectiveCapabilities.length;
-  const effectiveTotalCapabilities = effectivePermissions?.total_capabilities ?? CAPABILITY_REGISTRY.length;
-  const effectiveSource = effectivePermissions?.ok ? "server" : "client fallback";
 
   React.useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const r = await authFetch("/api/auth/capabilities", { method: "GET", cache: "no-store" });
-        const j = await r.json().catch(() => null) as EffectivePermissionsResponse | null;
-        if (!cancelled && r.ok && j?.ok) {
-          setEffectivePermissions(j);
-          setCurrentRole(normalizePermissionRoleClient(j.role));
-        }
-      } catch {
-        if (!cancelled) {
-          setEffectivePermissions(null);
-          setCurrentRole("user");
-        }
-      }
-    })();
 
     (async () => {
       try {
-        const r = await authFetch("/api/admin/debug_cookie", {
+        const response = await authFetch("/api/admin/debug_cookie", {
           method: "GET",
           cache: "no-store",
         });
-        const j = await r.json().catch(() => null);
-        if (!cancelled) setInspectorEnabled(!!(r.ok && j?.enabled));
+        const payload = await response.json().catch(() => null);
+        if (!cancelled) {
+          setInspectorEnabled(Boolean(response.ok && payload?.enabled));
+        }
       } catch {
         if (!cancelled) setInspectorEnabled(false);
       }
@@ -146,51 +73,52 @@ export function AdminConsolePage() {
   async function enableInspector() {
     setStatus("enabling…");
     try {
-      const r = await authFetch("/api/admin/debug_cookie", {
+      const response = await authFetch("/api/admin/debug_cookie", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
       });
-      const t = await r.text().catch(() => "");
-      if (!r.ok) throw new Error(t || `HTTP ${r.status}`);
+      const text = await response.text().catch(() => "");
+      if (!response.ok) {
+        throw new Error(text || `HTTP ${response.status}`);
+      }
       setInspectorEnabled(true);
       setStatus("enabled");
-    } catch (e: any) {
-      setStatus(`error: ${e?.message || String(e)}`);
+    } catch (error: any) {
+      setStatus(`error: ${error?.message || String(error)}`);
     }
   }
 
   async function disableInspector() {
     setStatus("disabling…");
     try {
-      const r = await authFetch("/api/admin/debug_cookie", {
+      const response = await authFetch("/api/admin/debug_cookie", {
         method: "DELETE",
         credentials: "same-origin",
       });
-      const t = await r.text().catch(() => "");
-      if (!r.ok) throw new Error(t || `HTTP ${r.status}`);
+      const text = await response.text().catch(() => "");
+      if (!response.ok) {
+        throw new Error(text || `HTTP ${response.status}`);
+      }
       setInspectorEnabled(false);
       setStatus("disabled");
-    } catch (e: any) {
-      setStatus(`error: ${e?.message || String(e)}`);
+    } catch (error: any) {
+      setStatus(`error: ${error?.message || String(error)}`);
     }
   }
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl border bg-muted/20 p-3">
-        <div className="text-sm font-semibold">Admin Console</div>
+        <div className="text-sm font-semibold">Administration</div>
         <div className="mt-1 text-xs text-muted-foreground">
-          System tools for diagnostics, Vantage registry review, permission preview, and memory/retrieval evaluation.
-        </div>
-        <div className="mt-2 text-[11px] text-muted-foreground">
-          Sections start collapsed to keep this page usable as more administrative tools are added.
+          System tools, user access, and memory evaluation.
         </div>
       </div>
 
       <AdminSection
-        title="Runtime / Diagnostics"
-        description="Voice health, prompt inspection, and runtime debugging tools."
+        title="System Tools"
+        description="System health and protected prompt inspection."
       >
         <div className="space-y-3">
           <VoiceSystemHealthPanel />
@@ -200,137 +128,83 @@ export function AdminConsolePage() {
               <div className="min-w-0">
                 <div className="text-sm font-semibold">Prompt Inspector</div>
                 <div className="text-xs text-muted-foreground">
-                  Enables prompt inspection for this browser. Authorization is checked on every request.
+                  Enables prompt inspection for this browser. Authorization is
+                  checked on every request.
                 </div>
               </div>
 
               <input
                 type="checkbox"
                 checked={inspectorEnabled}
-                onChange={(e) => {
-                  if (e.target.checked) enableInspector();
+                onChange={(event) => {
+                  if (event.target.checked) void enableInspector();
                   else void disableInspector();
                 }}
+                aria-label="Enable Prompt Inspector"
               />
             </div>
 
-            {status ? <div className="mt-2 text-xs text-muted-foreground">{status}</div> : null}
+            {status ? (
+              <div className="mt-2 text-xs text-muted-foreground">{status}</div>
+            ) : null}
           </div>
         </div>
       </AdminSection>
 
       <AdminSection
-        title="Permissions / Identity Preview"
-        description="Current role, effective capabilities, and the capability registry."
+        title="Users & Access"
+        description="Manage who can administer Verbal Sage."
       >
         <div className="space-y-3">
           <div className="rounded-xl border p-3">
-            <div className="text-sm font-semibold">Permissions</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Read-only capability registry for roles, admin tools, Assistant Profile levers, memory tools, diagnostics, account data, and LifeSwitch module planning.
-            </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-lg border p-2">
-                <div className="font-semibold">{PERMISSION_ROLES.length}</div>
-                <div className="text-muted-foreground">roles</div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold">Your access</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Verified by the identity service for this session.
+                </div>
               </div>
-              <div className="rounded-lg border p-2">
-                <div className="font-semibold">{CAPABILITY_REGISTRY.length}</div>
-                <div className="text-muted-foreground">capabilities</div>
+              <div className="rounded-full border px-2.5 py-1 text-xs font-semibold">
+                {access.role_label}
               </div>
-              <div className="rounded-lg border p-2">
-                <div className="font-semibold">{criticalCapabilities}</div>
-                <div className="text-muted-foreground">critical</div>
-              </div>
-              <div className="rounded-lg border p-2">
-                <div className="font-semibold">{backendEnforcedCapabilities}</div>
-                <div className="text-muted-foreground">backend enforced</div>
-              </div>
-              <div className="rounded-lg border p-2">
-                <div className="font-semibold">{planningCapabilities}</div>
-                <div className="text-muted-foreground">planning</div>
-              </div>
-              <div className="rounded-lg border p-2">
-                <div className="font-semibold">{futureHiddenCapabilities}</div>
-                <div className="text-muted-foreground">future / hidden</div>
-              </div>
-            </div>
-
-            <div className="mt-2 text-xs text-muted-foreground">
-              Categories: {capabilityCategories}. Future rule: frontend visibility is convenience; backend enforcement is the security boundary.
             </div>
           </div>
 
           <div className="rounded-xl border p-3">
-            <div className="text-sm font-semibold">Effective Permissions Preview</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Current role: <span className="font-semibold uppercase text-foreground">{currentRole}</span>
-            </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">
-              Source: {effectiveSource}
-            </div>
-
-            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-              <div className="rounded-lg border p-2">
-                <div className="font-semibold">{effectiveCapabilityCount} / {effectiveTotalCapabilities}</div>
-                <div className="text-muted-foreground">allowed</div>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold">
+                  Administrator management
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  A secure user list with Make Admin and Remove Admin actions
+                  will be added in the next phase.
+                </div>
               </div>
-              <div className="rounded-lg border p-2">
-                <div className="font-semibold">{effectiveCriticalCapabilities}</div>
-                <div className="text-muted-foreground">critical</div>
-              </div>
-              <div className="rounded-lg border p-2">
-                <div className="font-semibold">{effectiveBackendCapabilities}</div>
-                <div className="text-muted-foreground">backend</div>
-              </div>
-            </div>
-
-            <div className="mt-3 max-h-40 overflow-auto rounded-lg border">
-              <div className="divide-y">
-                {CAPABILITY_REGISTRY.map((cap) => {
-                  const allowed = effectiveCapabilityKeys.has(cap.key);
-                  return (
-                    <div key={cap.key} className="flex items-center justify-between gap-3 px-3 py-2">
-                      <div className="min-w-0">
-                        <div className="text-xs font-medium">{cap.key}</div>
-                        <div className="text-[11px] text-muted-foreground">{cap.category} · {cap.risk}</div>
-                      </div>
-                      <div className={allowed ? "text-xs font-semibold" : "text-xs text-muted-foreground"}>
-                        {allowed ? "allowed" : "blocked"}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                Not configured
               </div>
             </div>
           </div>
 
-          <div className="max-h-52 overflow-auto rounded-lg border">
-            <div className="divide-y">
-              {CAPABILITY_REGISTRY.map((cap) => (
-                <div key={cap.key} className="px-3 py-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium">{cap.label}</div>
-                      <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">{cap.key}</div>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap justify-end gap-1 text-[10px] uppercase tracking-wide">
-                      <span className={`rounded-full border px-2 py-0.5 ${capabilityStatusClass(cap)}`}>
-                        {capabilityStatusLabel(cap)}
-                      </span>
-                      <span className={`rounded-full border px-2 py-0.5 ${riskClass(cap.risk)}`}>
-                        {cap.risk}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">{cap.description}</div>
-                  {cap.notes ? <div className="mt-1 text-[11px] text-muted-foreground">{cap.notes}</div> : null}
-                  <div className="mt-1 text-[11px] text-muted-foreground">
-                    {cap.category} · {cap.scope} · {cap.access} · Roles: {cap.defaultRoles.join(", ")}
-                  </div>
-                </div>
-              ))}
+          <div className="grid gap-2 text-xs sm:grid-cols-3">
+            <div className="rounded-xl border p-3">
+              <div className="font-semibold">Owner</div>
+              <div className="mt-1 text-muted-foreground">
+                Protected authority that appoints or removes Admins.
+              </div>
+            </div>
+            <div className="rounded-xl border p-3">
+              <div className="font-semibold">Admin</div>
+              <div className="mt-1 text-muted-foreground">
+                Delegated access to administrative tools.
+              </div>
+            </div>
+            <div className="rounded-xl border p-3">
+              <div className="font-semibold">Member</div>
+              <div className="mt-1 text-muted-foreground">
+                Standard product access without administration.
+              </div>
             </div>
           </div>
         </div>
@@ -344,10 +218,12 @@ export function AdminConsolePage() {
           <div className="rounded-xl border p-3">
             <div className="text-sm font-semibold">Memory System Status</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Backend route audit now checks card policy metadata, retrieval plans, profile-card gating, specific recall, and user isolation.
+              Backend route audit now checks card policy metadata, retrieval
+              plans, profile-card gating, specific recall, and user isolation.
             </div>
             <div className="mt-3 text-xs text-muted-foreground">
-              Goal: inspect what is active, style-only, content-eligible, retired, or never allowed to surface.
+              Goal: inspect what is active, style-only, content-eligible,
+              retired, or never allowed to surface.
             </div>
           </div>
 
@@ -356,7 +232,8 @@ export function AdminConsolePage() {
           <div className="rounded-xl border p-3">
             <div className="text-sm font-semibold">Memory Inspector</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Existing memory/card inspector. The new memory evaluator should be added in this section, not as another top-level Admin block.
+              Existing memory/card inspector. The new memory evaluator should be
+              added in this section, not as another top-level Admin block.
             </div>
             <div className="mt-3">
               <CardsPanel />
