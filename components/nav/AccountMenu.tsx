@@ -3,6 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { authFetch } from "@/lib/authFetch";
+import {
+  ACCOUNT_IDENTITY_CHANGED_EVENT,
+  normalizeAccountFullName,
+} from "@/lib/accountIdentity";
 import { supabase } from "@/lib/supabaseClient";
 
 type AccountMenuProps = {
@@ -11,7 +15,7 @@ type AccountMenuProps = {
 
 function displayNameFromUser(user: any, fallback: string) {
   return (
-    (user?.user_metadata?.full_name as string | undefined)?.trim() ||
+    normalizeAccountFullName(user?.user_metadata?.full_name) ||
     (user?.email as string | undefined)?.trim() ||
     fallback
   );
@@ -26,7 +30,7 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
   React.useEffect(() => {
     let alive = true;
 
-    (async () => {
+    void (async () => {
       try {
         const { data } = await supabase.auth.getUser();
         if (!alive) return;
@@ -49,6 +53,25 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
     return () => {
       alive = false;
     };
+  }, []);
+
+  React.useEffect(() => {
+    function onIdentityChanged(event: Event) {
+      const nextName = normalizeAccountFullName(
+        (event as CustomEvent<{ fullName?: unknown }>).detail?.fullName,
+      );
+      if (nextName) setDisplayName(nextName);
+    }
+
+    window.addEventListener(
+      ACCOUNT_IDENTITY_CHANGED_EVENT,
+      onIdentityChanged,
+    );
+    return () =>
+      window.removeEventListener(
+        ACCOUNT_IDENTITY_CHANGED_EVENT,
+        onIdentityChanged,
+      );
   }, []);
 
   React.useEffect(() => {
