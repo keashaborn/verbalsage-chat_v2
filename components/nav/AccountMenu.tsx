@@ -115,7 +115,7 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
               Appearance
             </AccountMenuLink>
             <AccountMenuLink href="/settings/models-voice" onNavigate={() => setOpen(false)}>
-              Models & Voice
+              Voice
             </AccountMenuLink>
 
             <div className="my-1 border-t" />
