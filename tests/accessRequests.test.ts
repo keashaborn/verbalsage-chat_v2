@@ -20,8 +20,37 @@ test("public access requests validate input and use a server-only data path", ()
   assert.match(route, /createHash\("sha256"\)/);
   assert.match(route, /status: 202/);
   assert.match(route, /GENERIC_ACCEPTED_MESSAGE/);
+  assert.match(route, /sendAccessRequestNotification/);
+  assert.match(route, /persisted\.shouldNotify/);
   assert.doesNotMatch(route, /console\.(info|error)\([^)]*email/s);
   assert.doesNotMatch(route, /NEXT_PUBLIC_SUPABASE_SECRET_KEY/);
+});
+
+test("owner notifications use a bounded server-only Resend request", () => {
+  const notification = source("lib/accessRequestNotification.ts");
+
+  assert.match(notification, /import "server-only"/);
+  assert.match(notification, /process\.env\.RESEND_API_KEY/);
+  assert.match(notification, /process\.env\.ACCESS_REQUEST_NOTIFY_EMAIL/);
+  assert.match(notification, /https:\/\/api\.resend\.com\/emails/);
+  assert.match(notification, /Authorization: `Bearer \$\{config\.apiKey\}`/);
+  assert.match(notification, /Idempotency-Key/);
+  assert.match(notification, /LifeSwitch <no-reply@mail\.lifeswitch\.com>/);
+  assert.match(notification, /subject: "New LifeSwitch access request"/);
+  assert.match(notification, /text: notificationText\(input\)/);
+  assert.match(notification, /AbortSignal\.timeout\(REQUEST_TIMEOUT_MS\)/);
+  assert.doesNotMatch(notification, /NEXT_PUBLIC_/);
+  assert.doesNotMatch(notification, /console\./);
+});
+
+test("notification failures do not change the generic public response", () => {
+  const route = source("app/api/access-requests/route.ts");
+
+  const sendIndex = route.indexOf("await sendAccessRequestNotification");
+  const acceptedIndex = route.indexOf("return acceptedResponse()", sendIndex);
+  assert.ok(sendIndex >= 0);
+  assert.ok(acceptedIndex > sendIndex);
+  assert.doesNotMatch(route.slice(sendIndex, acceptedIndex), /throw new Error/);
 });
 
 test("main login offers Request access without a direct Supabase signup", () => {

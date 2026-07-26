@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { NextResponse } from "next/server";
+import { sendAccessRequestNotification } from "@/lib/accessRequestNotification";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -34,6 +35,12 @@ type ExistingAccessRequest = {
   id: string;
   status: "pending" | "approved" | "declined";
   request_count: number | string;
+};
+
+type PersistAccessRequestResult = {
+  accessRequestId: string;
+  requestCount: number;
+  shouldNotify: boolean;
 };
 
 const globalRateLimit = globalThis as typeof globalThis & {
@@ -153,7 +160,7 @@ function rateLimited(req: Request, email: string): boolean {
 async function persistAccessRequest(
   body: AccessRequestBody,
   retryAfterConflict = true,
-): Promise<void> {
+): Promise<PersistAccessRequestResult> {
   const admin = getSupabaseAdminClient();
   const { data: existing, error: lookupError } = await admin
     .from("access_requests")
@@ -165,6 +172,7 @@ async function persistAccessRequest(
   const now = new Date().toISOString();
   if (existing) {
     const shouldReopen = existing.status === "declined";
+    const requestCount = Math.max(1, Number(existing.request_count) || 1) + 1;
     const { error: updateError } = await admin
       .from("access_requests")
       .update({
@@ -172,7 +180,7 @@ async function persistAccessRequest(
         requested_name: body.fullName,
         request_message: body.message,
         status: shouldReopen ? "pending" : existing.status,
-        request_count: Math.max(1, Number(existing.request_count) || 1) + 1,
+        request_count: requestCount,
         last_requested_at: now,
         updated_at: now,
         ...(shouldReopen
@@ -185,24 +193,37 @@ async function persistAccessRequest(
       })
       .eq("id", existing.id);
     if (updateError) throw updateError;
-    return;
+    return {
+      accessRequestId: existing.id,
+      requestCount,
+      shouldNotify: shouldReopen,
+    };
   }
 
-  const { error: insertError } = await admin.from("access_requests").insert({
-    email: body.email,
-    requested_name: body.fullName,
-    request_message: body.message,
-    status: "pending",
-    request_count: 1,
-    created_at: now,
-    last_requested_at: now,
-    updated_at: now,
-  });
+  const { data: inserted, error: insertError } = await admin
+    .from("access_requests")
+    .insert({
+      email: body.email,
+      requested_name: body.fullName,
+      request_message: body.message,
+      status: "pending",
+      request_count: 1,
+      created_at: now,
+      last_requested_at: now,
+      updated_at: now,
+    })
+    .select("id")
+    .single<{ id: string }>();
   if (insertError?.code === "23505" && retryAfterConflict) {
-    await persistAccessRequest(body, false);
-    return;
+    return await persistAccessRequest(body, false);
   }
   if (insertError) throw insertError;
+  if (!inserted?.id) throw new Error("access request identifier unavailable");
+  return {
+    accessRequestId: inserted.id,
+    requestCount: 1,
+    shouldNotify: true,
+  };
 }
 
 export async function POST(req: Request) {
@@ -220,7 +241,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    await persistAccessRequest(body);
+    const persisted = await persistAccessRequest(body);
     console.info(
       JSON.stringify({
         event: "access_request_received_v1",
@@ -228,6 +249,24 @@ export async function POST(req: Request) {
         at: new Date().toISOString(),
       }),
     );
+    if (persisted.shouldNotify) {
+      const notification = await sendAccessRequestNotification({
+        accessRequestId: persisted.accessRequestId,
+        requestCount: persisted.requestCount,
+        email: body.email,
+        fullName: body.fullName,
+        message: body.message,
+      });
+      console.info(
+        JSON.stringify({
+          event: "access_request_owner_notification_v1",
+          request_id: id,
+          access_request_id: persisted.accessRequestId,
+          status: notification.status,
+          at: new Date().toISOString(),
+        }),
+      );
+    }
     return acceptedResponse();
   } catch {
     console.error(
