@@ -7,14 +7,14 @@ const pane = readFileSync(
   "utf8",
 );
 
-test("playback controller exposes discoverable controls", () => {
+test("playback controller exposes compact essential controls", () => {
   assert.match(pane, /AI-generated voice playback/);
-  assert.match(pane, /Go back 10 seconds/);
   assert.match(pane, /Resume voice playback/);
   assert.match(pane, /Pause voice playback/);
-  assert.match(pane, /Go forward 10 seconds/);
   assert.match(pane, /Stop and close voice playback/);
   assert.match(pane, /Voice playback position/);
+  assert.doesNotMatch(pane, /Part \$\{playbackState\.segmentIndex/);
+  assert.doesNotMatch(pane, /Go back 10 seconds|Go forward 10 seconds/);
 });
 
 test("player uses bounded, private browser-memory audio", () => {

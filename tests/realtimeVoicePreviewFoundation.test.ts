@@ -7,42 +7,36 @@ const ROOT = process.cwd();
 const source = (relative: string) =>
   fs.readFileSync(path.join(ROOT, relative), "utf8");
 
-test("preview capability is owner/admin/developer only", () => {
+test("live voice capability is available to authenticated product roles", () => {
   const registry = source(
     "components/admin/settings/permissions/permissionRegistry.ts",
   );
   assert.match(registry, /key:\s*"voice\.realtime_preview"/);
   assert.match(
     registry,
-    /key:\s*"voice\.realtime_preview"[\s\S]*?defaultRoles:\s*\["owner",\s*"admin",\s*"developer"\]/,
+    /key:\s*"voice\.realtime_preview"[\s\S]*?defaultRoles:\s*\[\s*"owner",\s*"admin",\s*"developer",\s*"operator",\s*"beta_tester",\s*"power_user",\s*"user",?\s*\]/,
   );
 });
 
-test("settings keep governed voice default and expose the authorized preview", () => {
+test("settings expose one server-owned speech model and two product voices", () => {
   const panel = source("components/admin/VoicePanel.tsx");
-  const modes = source("lib/voiceMode.ts");
-  const authGate = source("components/auth/AuthGate.tsx");
+  const speech = source("lib/speechSettings.ts");
   const chat = source("components/threads/BrainsChatPane.tsx");
-  assert.match(panel, /Conversation mode/);
-  assert.match(modes, /Governed voice — Recommended/);
-  assert.match(modes, /Realtime conversation — Preview/);
-  assert.match(modes, /value:\s*"realtime_preview"[\s\S]*?enabled:\s*true/);
-  assert.match(panel, /VOICE_MODE_STORAGE_KEY/);
-  assert.match(panel, /normalizeVoiceMode/);
-  assert.match(panel, /disabled=\{!option\.enabled\}/);
-  assert.match(panel, /updateUser\(\{\s*data:\s*\{\s*vs_voice_mode:/);
-  assert.match(authGate, /voiceModeFromUserMetadata/);
-  assert.match(chat, /voiceModeFromUserMetadata/);
+  assert.doesNotMatch(panel, /Conversation mode|Speech model|Speed/);
+  assert.match(panel, /Preview voice/);
+  assert.match(speech, /SPEECH_MODEL = "gpt-4o-mini-tts"/);
+  assert.match(speech, /SPEECH_VOICES = \["marin", "cedar"\]/);
+  assert.match(chat, /"realtime_preview"/);
   assert.match(chat, /app_metadata\?\.role/);
-  assert.match(modes, /VOICE_MODE_CHANGED_EVENT/);
 });
 
-test("preview overlay hides transcript content", () => {
+test("live overlay keeps captions optional", () => {
   const overlay = source("components/voice/RealtimeVoiceOverlay.tsx");
   assert.match(overlay, /data-realtime-state=\{state\}/);
   assert.match(overlay, /vs-realtime-orb__symbol--front/);
   assert.match(overlay, /vs-realtime-orb__symbol--back/);
-  assert.doesNotMatch(overlay, /transcript\s*:/i);
+  assert.match(overlay, />\s*CC\s*</);
+  assert.match(overlay, /captionsEnabled && caption\?\.text/);
   assert.match(overlay, /AI-generated voice/);
 });
 
@@ -107,12 +101,17 @@ test("preview controller uses WebRTC audio but only governed BFF answers", () =>
   assert.doesNotMatch(hook, /\/vantage\/query/);
 });
 
-test("chat selects preview explicitly while governed voice remains available", () => {
+test("chat uses clean live voice while governed rollback code remains available", () => {
   const chat = source("components/threads/BrainsChatPane.tsx");
   assert.match(chat, /useGovernedVoiceConversation/);
   assert.match(chat, /useRealtimeVoicePreview/);
-  assert.match(chat, /voiceMode === "realtime_preview"\s*&&\s*isAdmin/);
+  assert.match(
+    chat,
+    /useState<"realtime_preview" \| "governed">\(\s*"realtime_preview"/,
+  );
   assert.match(chat, /RealtimeVoiceOverlay/);
+  assert.match(chat, /onTranscript:/);
+  assert.match(chat, /vs_voice_captions/);
   assert.match(chat, /requestAutoTitle\(tid\)/);
   assert.match(chat, /turn\.voiceSessionId/);
   assert.match(chat, /realtimeVoice\.setAssistantSpeaking\(true\)/);

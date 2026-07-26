@@ -6,6 +6,7 @@ import {
   FOLLOWING_SPEECH_SEGMENT_CHARACTERS,
   endOfSpeechToFirstAudioMs,
   pcmS16leToWav,
+  speechResponseToWavBlob,
   shouldUseNativeSafariAudio,
   splitForSpeech,
 } from "../lib/voiceSpeech.ts";
@@ -100,4 +101,18 @@ test("incomplete PCM samples fail closed", () => {
     () => pcmS16leToWav(new Uint8Array([1])),
     /complete 16-bit samples/,
   );
+});
+
+test("raw speech responses are converted into browser-playable WAV", async () => {
+  const response = new Response(new Uint8Array([0, 0, 255, 127]), {
+    headers: {
+      "x-vs-audio-format": "pcm_s16le",
+      "x-vs-audio-sample-rate": "24000",
+    },
+  });
+
+  const blob = await speechResponseToWavBlob(response);
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  assert.equal(blob.type, "audio/wav");
+  assert.equal(new TextDecoder().decode(bytes.slice(0, 4)), "RIFF");
 });

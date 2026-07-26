@@ -15,16 +15,18 @@ import {
   voiceSessionHeaders,
   voiceSessionIdFromRequest,
 } from "@/lib/voiceSession";
+import {
+  normalizeSpeechVoice,
+  SPEECH_MODEL,
+  SPEECH_SPEED,
+  SPEECH_VOICES,
+} from "@/lib/speechSettings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const MAX_TTS_CHARACTERS = 4096;
 const TTS_UPSTREAM_RETRY_DELAYS_MS = [0, 300, 1200];
 const RETRYABLE_UPSTREAM_STATUSES = new Set([429, 500, 502, 503, 504]);
-
-function clamp(n: number, lo: number, hi: number) {
-  return Math.max(lo, Math.min(hi, n));
-}
 
 function getRequestId(req: Request): string {
   const raw = (
@@ -82,10 +84,7 @@ export async function POST(req: Request) {
       );
     }
     const voiceSession = voiceSessionIdFromRequest(req);
-    if (
-      voiceTurn.value &&
-      (!voiceSession.supplied || !voiceSession.value)
-    ) {
+    if (voiceTurn.value && (!voiceSession.supplied || !voiceSession.value)) {
       return NextResponse.json(
         { ok: false, error: "invalid_or_missing_voice_session_id" },
         { status: 409, headers: { "x-request-id": requestId } },
@@ -102,13 +101,21 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
 
     const text = String(body?.text ?? "").trim();
-    const voice = String(body?.voice ?? "sage").trim();
-    const model = String(body?.model ?? "gpt-4o-mini-tts").trim();
+    const requestedVoice = String(body?.voice ?? "marin")
+      .trim()
+      .toLowerCase();
+    if (!SPEECH_VOICES.some((voice) => voice === requestedVoice)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "unsupported_tts_voice",
+          allowed: [...SPEECH_VOICES],
+        },
+        { status: 422, headers: { "x-request-id": requestId } },
+      );
+    }
+    const voice = normalizeSpeechVoice(requestedVoice);
     const instructions = String(body?.instructions ?? "").trim();
-
-    let speed = Number(body?.speed ?? 1.0);
-    if (!Number.isFinite(speed)) speed = 1.0;
-    speed = clamp(speed, 0.25, 4.0);
 
     if (!text) {
       return NextResponse.json(
@@ -135,8 +142,8 @@ export async function POST(req: Request) {
     const upstreamBody = JSON.stringify({
       text,
       voice,
-      model,
-      speed,
+      model: SPEECH_MODEL,
+      speed: SPEECH_SPEED,
       instructions,
     });
     let upstream: Response | null = null;

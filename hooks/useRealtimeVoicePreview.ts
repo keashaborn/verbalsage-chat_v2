@@ -28,6 +28,7 @@ export type RealtimeVoicePreviewTurn = {
 type StartOptions = {
   threadId: string;
   onResponse: (turn: RealtimeVoicePreviewTurn) => void | Promise<void>;
+  onTranscript?: (transcript: string) => void;
   onSpeechStart?: () => void;
   onLeaseLost?: () => void;
 };
@@ -93,6 +94,7 @@ export function useRealtimeVoicePreview() {
   const commitInFlightRef = useRef(false);
   const eventCursorRef = useRef(0);
   const onResponseRef = useRef<StartOptions["onResponse"] | null>(null);
+  const onTranscriptRef = useRef<StartOptions["onTranscript"] | null>(null);
   const onSpeechStartRef = useRef<StartOptions["onSpeechStart"] | null>(null);
   const onLeaseLostRef = useRef<StartOptions["onLeaseLost"] | null>(null);
 
@@ -109,6 +111,7 @@ export function useRealtimeVoicePreview() {
     lastSpeechAtRef.current = null;
     turnStartedAsBargeInRef.current = false;
     onResponseRef.current = null;
+    onTranscriptRef.current = null;
     onSpeechStartRef.current = null;
     onLeaseLostRef.current = null;
 
@@ -202,6 +205,7 @@ export function useRealtimeVoicePreview() {
     async ({
       threadId,
       onResponse,
+      onTranscript,
       onSpeechStart,
       onLeaseLost,
     }: StartOptions) => {
@@ -216,6 +220,7 @@ export function useRealtimeVoicePreview() {
       const voiceSessionId = crypto.randomUUID();
       startingRef.current = true;
       onResponseRef.current = onResponse;
+      onTranscriptRef.current = onTranscript || null;
       onSpeechStartRef.current = onSpeechStart || null;
       onLeaseLostRef.current = onLeaseLost || null;
       setLastError("");
@@ -373,6 +378,8 @@ export function useRealtimeVoicePreview() {
             if (type === "session.connected") {
               setStatus("listening");
             } else if (type === "transcript.completed") {
+              const transcript = String(event.transcript || "").trim();
+              if (transcript) onTranscriptRef.current?.(transcript);
               setStatus("processing");
             } else if (type === "response.completed") {
               const turn: RealtimeVoicePreviewTurn = {

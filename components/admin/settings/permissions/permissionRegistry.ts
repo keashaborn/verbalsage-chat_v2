@@ -49,36 +49,46 @@ export type CapabilityDefinition = {
   notes?: string;
 };
 
-export const PERMISSION_ROLES: { key: PermissionRole; label: string; description: string }[] = [
+export const PERMISSION_ROLES: {
+  key: PermissionRole;
+  label: string;
+  description: string;
+}[] = [
   {
     key: "owner",
     label: "Owner",
-    description: "Full system authority. Intended for the product owner/root operator.",
+    description:
+      "Full system authority. Intended for the product owner/root operator.",
   },
   {
     key: "admin",
     label: "Admin",
-    description: "Broad administrative access for trusted system administrators.",
+    description:
+      "Broad administrative access for trusted system administrators.",
   },
   {
     key: "developer",
     label: "Developer",
-    description: "Technical diagnostics and development access without default destructive data authority.",
+    description:
+      "Technical diagnostics and development access without default destructive data authority.",
   },
   {
     key: "operator",
     label: "Operator",
-    description: "Support/operations role for managing system health and routine non-destructive tasks.",
+    description:
+      "Support/operations role for managing system health and routine non-destructive tasks.",
   },
   {
     key: "beta_tester",
     label: "Beta Tester",
-    description: "Trusted tester role for experimental features without administrative system access.",
+    description:
+      "Trusted tester role for experimental features without administrative system access.",
   },
   {
     key: "power_user",
     label: "Power User",
-    description: "Advanced normal user with expanded personal configuration controls.",
+    description:
+      "Advanced normal user with expanded personal configuration controls.",
   },
   {
     key: "user",
@@ -97,7 +107,15 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "own_account",
     access: "view",
     risk: "low",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: false,
   },
   {
@@ -108,7 +126,15 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "own_account",
     access: "use",
     risk: "low",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: true,
   },
   {
@@ -119,24 +145,40 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "own_account",
     access: "edit",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: true,
   },
   {
     key: "assistant_profile.edit_basic",
     label: "Edit Basic Profile Levers",
-    description: "Edit normal visible profile controls such as thread context, memory weight, corpus, lens, and routing.",
+    description:
+      "Edit normal visible profile controls such as thread context, memory weight, corpus, lens, and routing.",
     category: "assistant_profile",
     scope: "own_account",
     access: "edit",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: true,
   },
   {
     key: "assistant_profile.edit_advanced",
     label: "Edit Advanced Profile Levers",
-    description: "Edit advanced profile controls that can materially affect retrieval, tone, initiative, or response shape.",
+    description:
+      "Edit advanced profile controls that can materially affect retrieval, tone, initiative, or response shape.",
     category: "assistant_profile",
     scope: "own_account",
     access: "edit",
@@ -147,7 +189,8 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
   {
     key: "assistant_profile.edit_admin_levers",
     label: "Edit Admin Profile Levers",
-    description: "Edit hidden/admin-only Vantage levers such as pragmatics, limits, strictness, and low-level behavior constraints.",
+    description:
+      "Edit hidden/admin-only Vantage levers such as pragmatics, limits, strictness, and low-level behavior constraints.",
     category: "assistant_profile",
     scope: "own_account",
     access: "manage",
@@ -160,14 +203,16 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
   {
     key: "inspector.view",
     label: "View Prompt Inspector",
-    description: "View prompt, memory, corpus, and routing/debug metadata for chat turns.",
+    description:
+      "View prompt, memory, corpus, and routing/debug metadata for chat turns.",
     category: "inspection",
     scope: "system",
     access: "view",
     risk: "critical",
     defaultRoles: ["owner", "admin", "developer"],
     backendEnforced: true,
-    notes: "Currently enforced as admin-only. Later developer access should be explicit.",
+    notes:
+      "Currently enforced as admin-only. Later developer access should be explicit.",
   },
   {
     key: "diagnostics.view",
@@ -190,22 +235,38 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "own_account",
     access: "use",
     risk: "high",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: true,
   },
   {
     key: "voice.realtime_preview",
-    label: "Use Realtime Voice Preview",
+    label: "Use Live Voice",
     description:
-      "Create a transcription-only WebRTC session for isolated Realtime voice testing.",
+      "Use the transcription-only WebRTC input path with governed responses and spoken replies.",
     category: "voice",
     scope: "own_account",
     access: "use",
-    risk: "critical",
-    defaultRoles: ["owner", "admin", "developer"],
+    risk: "high",
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: true,
     notes:
-      "Preview only. The Realtime session may transcribe audio but cannot generate the canonical assistant answer.",
+      "The Realtime session may transcribe audio but cannot generate the canonical assistant answer.",
   },
 
   {
@@ -241,7 +302,8 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
   {
     key: "memory_cards.view",
     label: "View Memory Cards",
-    description: "View structured memory cards and Vantage-scoped card summaries.",
+    description:
+      "View structured memory cards and Vantage-scoped card summaries.",
     category: "memory",
     scope: "own_account",
     access: "view",
@@ -252,7 +314,8 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
   {
     key: "memory_cards.view_raw",
     label: "View Raw Memory Payloads",
-    description: "View raw card payloads, source metadata, and internal memory diagnostics.",
+    description:
+      "View raw card payloads, source metadata, and internal memory diagnostics.",
     category: "memory",
     scope: "own_account",
     access: "view",
@@ -285,7 +348,8 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
   {
     key: "memory_system.view",
     label: "View Memory System Status",
-    description: "View memory architecture status, active layers, and retrieval/prompt-injection diagnostics.",
+    description:
+      "View memory architecture status, active layers, and retrieval/prompt-injection diagnostics.",
     category: "memory",
     scope: "system",
     access: "view",
@@ -355,7 +419,8 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
   {
     key: "user_data.delete",
     label: "Delete User Data",
-    description: "Delete account-linked user data through admin/security tools.",
+    description:
+      "Delete account-linked user data through admin/security tools.",
     category: "account_data",
     scope: "own_account",
     access: "delete",
@@ -384,7 +449,15 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "own_account",
     access: "view",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: true,
   },
   {
@@ -395,7 +468,15 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "own_account",
     access: "edit",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: true,
   },
   {
@@ -406,7 +487,15 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "shared_user",
     access: "view",
     risk: "high",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: true,
   },
   {
@@ -417,13 +506,22 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "shared_user",
     access: "use",
     risk: "high",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: true,
   },
   {
     key: "lifeswitch.edit_shared",
     label: "Edit Shared LifeSwitch Data",
-    description: "Modify another user's LifeSwitch data when explicitly granted.",
+    description:
+      "Modify another user's LifeSwitch data when explicitly granted.",
     category: "lifeswitch",
     scope: "shared_user",
     access: "edit",
@@ -434,7 +532,8 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
   {
     key: "lifeswitch.manage_relationships",
     label: "Manage LifeSwitch Relationships",
-    description: "Create, revoke, or change LifeSwitch sharing relationships and permissions.",
+    description:
+      "Create, revoke, or change LifeSwitch sharing relationships and permissions.",
     category: "lifeswitch",
     scope: "own_account",
     access: "manage",
@@ -450,12 +549,21 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
   {
     key: "lifeswitch.training.view",
     label: "View Training Module",
-    description: "View LifeSwitch training calendar, sessions, workouts, and analysis surfaces.",
+    description:
+      "View LifeSwitch training calendar, sessions, workouts, and analysis surfaces.",
     category: "lifeswitch",
     scope: "own_account",
     access: "view",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: false,
     notes: "Future module/tier capability. Not yet used as a route gate.",
   },
@@ -467,19 +575,36 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "own_account",
     access: "edit",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: false,
     notes: "Future module/tier capability. Not yet used as a route gate.",
   },
   {
     key: "lifeswitch.nutrition.view",
     label: "View Nutrition Module",
-    description: "View LifeSwitch nutrition logs, foods, meals, targets, and analysis surfaces.",
+    description:
+      "View LifeSwitch nutrition logs, foods, meals, targets, and analysis surfaces.",
     category: "lifeswitch",
     scope: "own_account",
     access: "view",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: false,
     notes: "Future module/tier capability. Not yet used as a route gate.",
   },
@@ -491,19 +616,36 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "own_account",
     access: "edit",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: false,
     notes: "Future module/tier capability. Not yet used as a route gate.",
   },
   {
     key: "lifeswitch.measurements.view",
     label: "View Measurements Module",
-    description: "View LifeSwitch body measurements, body composition entries, and trends.",
+    description:
+      "View LifeSwitch body measurements, body composition entries, and trends.",
     category: "lifeswitch",
     scope: "own_account",
     access: "view",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: false,
     notes: "Future module/tier capability. Not yet used as a route gate.",
   },
@@ -515,7 +657,15 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "own_account",
     access: "edit",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: false,
     notes: "Future module/tier capability. Not yet used as a route gate.",
   },
@@ -527,7 +677,15 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "own_account",
     access: "view",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: false,
     notes: "Future module/tier capability. Not yet used as a route gate.",
   },
@@ -539,7 +697,15 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "own_account",
     access: "edit",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: false,
     notes: "Future module/tier capability. Not yet used as a route gate.",
   },
@@ -551,7 +717,15 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "own_account",
     access: "use",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: false,
     notes: "Future module/tier capability. Not yet used as a route gate.",
   },
@@ -563,7 +737,15 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     scope: "own_account",
     access: "use",
     risk: "medium",
-    defaultRoles: ["owner", "admin", "developer", "operator", "beta_tester", "power_user", "user"],
+    defaultRoles: [
+      "owner",
+      "admin",
+      "developer",
+      "operator",
+      "beta_tester",
+      "power_user",
+      "user",
+    ],
     backendEnforced: false,
     notes: "Future module/tier capability. Not yet used as a route gate.",
   },
@@ -577,19 +759,22 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     risk: "medium",
     defaultRoles: ["owner", "admin", "developer"],
     backendEnforced: false,
-    notes: "Future/hidden module. Not part of the current primary product surface.",
+    notes:
+      "Future/hidden module. Not part of the current primary product surface.",
   },
   {
     key: "lifeswitch.behavior.edit",
     label: "Edit Behavior Module",
-    description: "Create or modify data in the future/hidden LifeSwitch behavior module.",
+    description:
+      "Create or modify data in the future/hidden LifeSwitch behavior module.",
     category: "lifeswitch",
     scope: "own_account",
     access: "edit",
     risk: "high",
     defaultRoles: ["owner", "admin", "developer"],
     backendEnforced: false,
-    notes: "Future/hidden module. Not part of the current primary product surface.",
+    notes:
+      "Future/hidden module. Not part of the current primary product surface.",
   },
   {
     key: "lifeswitch.verbal.view",
@@ -601,33 +786,49 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     risk: "medium",
     defaultRoles: ["owner", "admin", "developer"],
     backendEnforced: false,
-    notes: "Future/hidden module. Not part of the current primary product surface.",
+    notes:
+      "Future/hidden module. Not part of the current primary product surface.",
   },
   {
     key: "lifeswitch.verbal.edit",
     label: "Edit Verbal Module",
-    description: "Create or modify data in the future/hidden LifeSwitch verbal behavior module.",
+    description:
+      "Create or modify data in the future/hidden LifeSwitch verbal behavior module.",
     category: "lifeswitch",
     scope: "own_account",
     access: "edit",
     risk: "high",
     defaultRoles: ["owner", "admin", "developer"],
     backendEnforced: false,
-    notes: "Future/hidden module. Not part of the current primary product surface.",
+    notes:
+      "Future/hidden module. Not part of the current primary product surface.",
   },
 ];
 
-export function capabilitiesForRole(role: PermissionRole): CapabilityDefinition[] {
+export function capabilitiesForRole(
+  role: PermissionRole,
+): CapabilityDefinition[] {
   return CAPABILITY_REGISTRY.filter((cap) => cap.defaultRoles.includes(role));
 }
 
-export function roleHasCapability(role: PermissionRole, capabilityKey: string): boolean {
-  return CAPABILITY_REGISTRY.some((cap) => cap.key === capabilityKey && cap.defaultRoles.includes(role));
+export function roleHasCapability(
+  role: PermissionRole,
+  capabilityKey: string,
+): boolean {
+  return CAPABILITY_REGISTRY.some(
+    (cap) => cap.key === capabilityKey && cap.defaultRoles.includes(role),
+  );
 }
 
-export function capabilitiesByCategory(): Record<PermissionCategory, CapabilityDefinition[]> {
-  return CAPABILITY_REGISTRY.reduce((acc, cap) => {
-    (acc[cap.category] ||= []).push(cap);
-    return acc;
-  }, {} as Record<PermissionCategory, CapabilityDefinition[]>);
+export function capabilitiesByCategory(): Record<
+  PermissionCategory,
+  CapabilityDefinition[]
+> {
+  return CAPABILITY_REGISTRY.reduce(
+    (acc, cap) => {
+      (acc[cap.category] ||= []).push(cap);
+      return acc;
+    },
+    {} as Record<PermissionCategory, CapabilityDefinition[]>,
+  );
 }

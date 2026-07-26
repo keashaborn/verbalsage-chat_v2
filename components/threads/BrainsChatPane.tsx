@@ -13,9 +13,6 @@ import {
   Loader2,
   Pause,
   Play,
-  RotateCcw,
-  RotateCw,
-  Square,
   Check,
 } from "lucide-react";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
@@ -31,14 +28,14 @@ import {
 import { VOICE_TURN_HEADER } from "@/lib/voiceObservability";
 import { VOICE_SESSION_HEADER } from "@/lib/voiceSession";
 import {
-  cacheVoiceMode,
-  DEFAULT_VOICE_MODE,
-  normalizeVoiceMode,
-  VOICE_MODE_CHANGED_EVENT,
-  VOICE_MODE_STORAGE_KEY,
-  voiceModeFromUserMetadata,
-  type VoiceMode,
-} from "@/lib/voiceMode";
+  conversationStyleTtsInstructions,
+  readConversationStyle,
+} from "@/lib/conversationStyle";
+import {
+  readSpeechVoice,
+  SPEECH_MODEL,
+  SPEECH_SPEED,
+} from "@/lib/speechSettings";
 import {
   BROWSER_RESPONSE_TIMEOUT_MS,
   RequestDeadlineError,
@@ -192,7 +189,10 @@ function normalizeTrustedWebSources(value: unknown): TrustedWebSource[] {
 
 function stripTrustedWebSourceList(markdown: string): string {
   return String(markdown || "")
-    .replace(/\n\s*Sources:\s*\n(?:\s*[-*]\s+\[[^\]]+\]\([^\)]+\)\s*\n?)+\s*$/i, "")
+    .replace(
+      /\n\s*Sources:\s*\n(?:\s*[-*]\s+\[[^\]]+\]\([^\)]+\)\s*\n?)+\s*$/i,
+      "",
+    )
     .trim();
 }
 
@@ -206,8 +206,12 @@ function trustedWebAuthorityLabel(source: TrustedWebSource): string {
 }
 
 function trustedWebEvidenceLabel(source: TrustedWebSource): string {
-  const value = String(source.evidence_type || "web_evidence").replace(/_/g, " ").trim();
-  return value ? value.replace(/\b\w/g, (char) => char.toUpperCase()) : "Evidence";
+  const value = String(source.evidence_type || "web_evidence")
+    .replace(/_/g, " ")
+    .trim();
+  return value
+    ? value.replace(/\b\w/g, (char) => char.toUpperCase())
+    : "Evidence";
 }
 
 function trustedWebSourceMeta(source: TrustedWebSource): string {
@@ -257,7 +261,8 @@ function trustedWebSourceSummary(
       summarySources
         .map(
           (source) =>
-            String(source.publisher || "").trim() || trustedWebHostLabel(source.url),
+            String(source.publisher || "").trim() ||
+            trustedWebHostLabel(source.url),
         )
         .filter(Boolean),
     ),
@@ -282,7 +287,7 @@ function TrustedWebSourceCard({
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            <span className="rounded-full border bg-background px-2 py-0.5 text-[11px] font-medium leading-4">
+            <span className="rounded-full border bg-background px-2 py-0.5 text-[11px] leading-4 font-medium">
               {trustedWebAuthorityLabel(source)}
             </span>
             <span className="rounded-full border px-2 py-0.5 text-[11px] leading-4 text-muted-foreground">
@@ -296,7 +301,7 @@ function TrustedWebSourceCard({
             href={source.url}
             target="_blank"
             rel="noreferrer"
-            className="line-clamp-2 text-xs font-medium leading-5 text-foreground underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none"
+            className="line-clamp-2 text-xs leading-5 font-medium text-foreground underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none"
           >
             {trustedWebSourceDisplayTitle(source)}
           </a>
@@ -374,26 +379,6 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return authFetchJson<T>(url, init);
 }
 
-function getLS<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw == null) return fallback;
-
-    // Preferred format: JSON-encoded
-    try {
-      return JSON.parse(raw) as T;
-    } catch {
-      // Back-compat for legacy raw localStorage values.
-      if (typeof fallback === "string") return raw as any;
-      if (typeof fallback === "number") return Number(raw) as any;
-      if (typeof fallback === "boolean") return (raw === "true") as any;
-      return fallback;
-    }
-  } catch {
-    return fallback;
-  }
-}
-
 function formatPlaybackTime(seconds: number): string {
   const value = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
   const whole = Math.floor(value);
@@ -450,14 +435,17 @@ export function BrainsChatPane() {
   const [requestError, setRequestError] = React.useState("");
   const [requestRecoveryAction, setRequestRecoveryAction] =
     React.useState<RequestRecoveryAction>("none");
-  const [voiceMode, setVoiceMode] = React.useState<VoiceMode>(DEFAULT_VOICE_MODE);
+  const [effectiveVoiceMode] = React.useState<"realtime_preview" | "governed">(
+    "realtime_preview",
+  );
   const governedVoice = useGovernedVoiceConversation();
   const realtimeVoice = useRealtimeVoicePreview();
-
-  const effectiveVoiceMode =
-    voiceMode === "realtime_preview" && isAdmin
-      ? "realtime_preview"
-      : "governed";
+  const [realtimeCaptionsEnabled, setRealtimeCaptionsEnabled] =
+    React.useState(false);
+  const [realtimeCaption, setRealtimeCaption] = React.useState<{
+    speaker: "You" | "RESSE";
+    text: string;
+  } | null>(null);
   const voiceStatus =
     effectiveVoiceMode === "realtime_preview"
       ? realtimeVoice.status
@@ -490,27 +478,20 @@ export function BrainsChatPane() {
                 : voiceStatus === "processing"
                   ? "Preparing reply…"
                   : voiceStatus === "error"
-                  ? "Voice unavailable"
-                  : effectiveVoiceMode === "realtime_preview"
-                    ? "Realtime preview ready"
-                    : "Voice off";
+                    ? "Voice unavailable"
+                    : effectiveVoiceMode === "realtime_preview"
+                      ? "Live voice ready"
+                      : "Voice off";
   const visibleRequestError =
     requestError || (governedVoiceHasError ? governedVoice.lastError : "");
   const didAutoScrollForThreadRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
-    const syncVoiceMode = () => {
-      setVoiceMode(normalizeVoiceMode(localStorage.getItem(VOICE_MODE_STORAGE_KEY)));
-    };
-    syncVoiceMode();
-    window.addEventListener("storage", syncVoiceMode);
-    window.addEventListener("focus", syncVoiceMode);
-    window.addEventListener(VOICE_MODE_CHANGED_EVENT, syncVoiceMode);
-    return () => {
-      window.removeEventListener("storage", syncVoiceMode);
-      window.removeEventListener("focus", syncVoiceMode);
-      window.removeEventListener(VOICE_MODE_CHANGED_EVENT, syncVoiceMode);
-    };
+    try {
+      setRealtimeCaptionsEnabled(
+        localStorage.getItem("vs_voice_captions") === "1",
+      );
+    } catch {}
   }, []);
 
   React.useEffect(() => {
@@ -520,18 +501,11 @@ export function BrainsChatPane() {
       try {
         const { data } = await supabase.auth.getUser();
         const role = (data?.user as any)?.app_metadata?.role;
-        const cloudVoiceMode = voiceModeFromUserMetadata(
-          (data?.user as any)?.user_metadata,
-        );
         const nextIsAdmin =
           role === "owner" || role === "admin" || role === "developer";
         if (!mounted) return;
 
         setIsAdmin(nextIsAdmin);
-        if (cloudVoiceMode) {
-          cacheVoiceMode(cloudVoiceMode);
-          setVoiceMode(cloudVoiceMode);
-        }
 
         // Clear stale Inspector payloads when switching from an admin account
         // to a non-admin account in the same browser session.
@@ -839,56 +813,6 @@ export function BrainsChatPane() {
     }
   }
 
-  function seekPlayback(seconds: number) {
-    const audio = nativeAudioRef.current;
-    const current = playbackState;
-    if (
-      !audio ||
-      !current ||
-      current.status === "error" ||
-      !Number.isFinite(audio.currentTime)
-    ) {
-      return;
-    }
-    const duration =
-      Number.isFinite(audio.duration) && audio.duration > 0
-        ? audio.duration
-        : current.duration;
-    const target = audio.currentTime + seconds;
-    if (target >= 0 && target < duration) {
-      audio.currentTime = target;
-      setPlaybackState((state) =>
-        state ? { ...state, currentTime: target } : state,
-      );
-      return;
-    }
-
-    if (target < 0 && current.segmentIndex > 0) {
-      const previousIndex = current.segmentIndex - 1;
-      const previousDuration =
-        ttsSegmentDurationsRef.current.get(previousIndex) || 0;
-      ttsJumpRef.current = {
-        segmentIndex: previousIndex,
-        offsetSeconds: Math.max(0, previousDuration + target),
-      };
-      audio.pause();
-      ttsPlaybackResolveRef.current?.();
-      return;
-    }
-
-    if (target >= duration && current.segmentIndex + 1 < current.segmentCount) {
-      ttsJumpRef.current = {
-        segmentIndex: current.segmentIndex + 1,
-        offsetSeconds: Math.max(0, target - duration),
-      };
-      audio.pause();
-      ttsPlaybackResolveRef.current?.();
-      return;
-    }
-
-    audio.currentTime = Math.max(0, Math.min(duration, target));
-  }
-
   function seekPlaybackTo(seconds: number) {
     const audio = nativeAudioRef.current;
     if (!audio || !Number.isFinite(seconds)) return;
@@ -947,11 +871,12 @@ export function BrainsChatPane() {
       localStorage.setItem("vs_voice_engine", "openai_tts");
     } catch {}
 
-    const voice = String(getLS<string>("vs_voice", "marin")).trim();
-    const model = String(
-      getLS<string>("vs_voice_model", "gpt-4o-mini-tts"),
-    ).trim();
-    const speed = Number(getLS<number>("vs_voice_speed", 1.0)) || 1.0;
+    const voice = readSpeechVoice();
+    const model = SPEECH_MODEL;
+    const speed = SPEECH_SPEED;
+    const instructions = conversationStyleTtsInstructions(
+      readConversationStyle(),
+    );
     const abort = new AbortController();
     ttsAbortRef.current = abort;
     const ttsStartedAt = performance.now();
@@ -997,8 +922,7 @@ export function BrainsChatPane() {
             body: JSON.stringify({
               text: chunks[segmentIndex],
               voice,
-              speed,
-              model,
+              instructions,
             }),
             signal,
           });
@@ -1388,31 +1312,24 @@ export function BrainsChatPane() {
   ): Promise<ChatResult> {
     const { response: r, responseText } = await withRequestDeadline(
       async (signal) => {
-        const response = await authFetch(
-          "/api/chat",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(voiceTurnId
-                ? { [VOICE_TURN_HEADER]: voiceTurnId }
-                : {}),
-              ...(voiceSessionId
-                ? { [VOICE_SESSION_HEADER]: voiceSessionId }
-                : {}),
-            },
-            body: JSON.stringify({
-              input,
-              thread_id: tid,
-              regen,
-              noStore,
-              ...(searchControl === "off"
-                ? { search_override: "off" }
-                : {}),
-            }),
-            signal,
+        const response = await authFetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(voiceTurnId ? { [VOICE_TURN_HEADER]: voiceTurnId } : {}),
+            ...(voiceSessionId
+              ? { [VOICE_SESSION_HEADER]: voiceSessionId }
+              : {}),
           },
-        );
+          body: JSON.stringify({
+            input,
+            thread_id: tid,
+            regen,
+            noStore,
+            ...(searchControl === "off" ? { search_override: "off" } : {}),
+          }),
+          signal,
+        });
         return {
           response,
           responseText: await response.text(),
@@ -1527,9 +1444,7 @@ export function BrainsChatPane() {
 
   async function regenerateLast() {
     stopTTS();
-    const lastUserMessage = [...msgs]
-      .reverse()
-      .find((m) => m.role === "user");
+    const lastUserMessage = [...msgs].reverse().find((m) => m.role === "user");
     const lastUser = lastUserMessage?.content?.trim() || "";
     if (!lastUser) return;
 
@@ -1538,12 +1453,7 @@ export function BrainsChatPane() {
 
     setSending(true);
     try {
-      const reply = await callChat(
-        lastUser,
-        tid!,
-        true,
-        false,
-      );
+      const reply = await callChat(lastUser, tid!, true, false);
 
       setMsgs((prev) => {
         const idx = lastAssistantIndex(prev);
@@ -1560,8 +1470,7 @@ export function BrainsChatPane() {
               web_search: reply.trustedWeb,
               trusted_web_fallback: reply.trustedWebFallback,
               trusted_web_sources: reply.trustedWebSources,
-              trusted_web_admitted_sources:
-                reply.trustedWebAdmittedSources,
+              trusted_web_admitted_sources: reply.trustedWebAdmittedSources,
             },
           ];
         }
@@ -1577,8 +1486,7 @@ export function BrainsChatPane() {
           web_search: reply.trustedWeb,
           trusted_web_fallback: reply.trustedWebFallback,
           trusted_web_sources: reply.trustedWebSources,
-          trusted_web_admitted_sources:
-            reply.trustedWebAdmittedSources,
+          trusted_web_admitted_sources: reply.trustedWebAdmittedSources,
         };
         return next;
       });
@@ -1647,7 +1555,11 @@ export function BrainsChatPane() {
         threadId: tid,
         onSpeechStart: () => {
           realtimeVoice.setAssistantSpeaking(false);
+          setRealtimeCaption(null);
           stopTTS();
+        },
+        onTranscript: (transcript) => {
+          setRealtimeCaption({ speaker: "You", text: transcript });
         },
         onResponse: async (turn) => {
           if (voiceConversationEpochRef.current !== conversationEpoch) return;
@@ -1657,6 +1569,7 @@ export function BrainsChatPane() {
           void loadMessages(tid);
 
           realtimeVoice.setAssistantSpeaking(true);
+          setRealtimeCaption({ speaker: "RESSE", text: turn.answer });
           let speechMetrics: VoiceSpeechMetrics | null = null;
           try {
             speechMetrics = await speak(
@@ -1862,8 +1775,7 @@ export function BrainsChatPane() {
             web_search: reply.trustedWeb,
             trusted_web_fallback: reply.trustedWebFallback,
             trusted_web_sources: reply.trustedWebSources,
-            trusted_web_admitted_sources:
-              reply.trustedWebAdmittedSources,
+            trusted_web_admitted_sources: reply.trustedWebAdmittedSources,
           },
         ];
         const idx = next.length - 1;
@@ -2120,6 +2032,17 @@ export function BrainsChatPane() {
         open={realtimeOverlayOpen}
         state={realtimeOverlayState}
         error={realtimeVoice.lastError}
+        captionsEnabled={realtimeCaptionsEnabled}
+        caption={realtimeCaption}
+        onToggleCaptions={() => {
+          setRealtimeCaptionsEnabled((current) => {
+            const next = !current;
+            try {
+              localStorage.setItem("vs_voice_captions", next ? "1" : "0");
+            } catch {}
+            return next;
+          });
+        }}
         onClose={() => void stopListeningAndRespond()}
       />
 
@@ -2192,14 +2115,13 @@ export function BrainsChatPane() {
                       {m.web_search && (
                         <TrustedWebSourceCards
                           citedSources={m.trusted_web_sources}
-                          admittedSources={
-                            m.trusted_web_admitted_sources
-                          }
+                          admittedSources={m.trusted_web_admitted_sources}
                         />
                       )}
                       {m.trusted_web_fallback && (
                         <div className="mt-4 text-xs text-muted-foreground">
-                          Web search was not used because this question was outside trusted-source scope.
+                          Web search was not used because this question was
+                          outside trusted-source scope.
                         </div>
                       )}
                     </>
@@ -2342,43 +2264,43 @@ export function BrainsChatPane() {
         <div className="mx-auto w-full max-w-[44rem] px-5 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
           {playbackState && (
             <div
-              className="mb-2 rounded-2xl border bg-background px-3 py-3 shadow-lg"
+              className="mb-2 flex min-h-12 items-center gap-3 rounded-full border bg-background px-3 py-2 shadow-lg"
               role="region"
               aria-label="AI-generated voice playback"
             >
-              <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-xs font-medium">
-                    {playbackState.status === "loading"
-                      ? "Preparing voice"
-                      : playbackState.status === "paused"
-                        ? "Voice paused"
-                        : playbackState.status === "error"
-                          ? "Voice error"
-                          : "Speaking"}
-                    {playbackState.segmentCount > 1
-                      ? ` · Part ${playbackState.segmentIndex + 1} of ${playbackState.segmentCount}`
-                      : ""}
-                  </div>
-                  <div className="truncate text-[11px] text-muted-foreground">
-                    {playbackState.error || playbackState.label}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="shrink-0 rounded-md border p-2"
-                  onClick={stopTTS}
-                  aria-label="Stop and close voice playback"
-                  title="Stop and close"
-                >
-                  <Square className="h-4 w-4" />
-                </button>
-              </div>
-
-              {playbackState.status !== "error" && (
+              {playbackState.status === "error" ? (
+                <span className="min-w-0 flex-1 truncate text-xs text-destructive">
+                  {playbackState.error || "Voice playback is unavailable."}
+                </span>
+              ) : (
                 <>
+                  <button
+                    type="button"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full border"
+                    onClick={togglePlaybackPause}
+                    disabled={playbackState.status === "loading"}
+                    aria-label={
+                      playbackState.status === "paused"
+                        ? "Resume voice playback"
+                        : "Pause voice playback"
+                    }
+                    title={
+                      playbackState.status === "paused" ? "Resume" : "Pause"
+                    }
+                  >
+                    {playbackState.status === "loading" ? (
+                      <Loader2
+                        className="h-4 w-4 animate-spin"
+                        aria-hidden="true"
+                      />
+                    ) : playbackState.status === "paused" ? (
+                      <Play className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Pause className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </button>
                   <input
-                    className="mb-2 h-1.5 w-full accent-foreground"
+                    className="h-1.5 min-w-0 flex-1 accent-foreground"
                     type="range"
                     min={0}
                     max={Math.max(playbackState.duration, 0.1)}
@@ -2392,54 +2314,21 @@ export function BrainsChatPane() {
                     }
                     aria-label="Voice playback position"
                   />
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="min-w-[5rem] text-[11px] text-muted-foreground tabular-nums">
-                      {formatPlaybackTime(playbackState.currentTime)} /{" "}
-                      {formatPlaybackTime(playbackState.duration)}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        className="rounded-md border p-2"
-                        onClick={() => seekPlayback(-10)}
-                        aria-label="Go back 10 seconds"
-                        title="Back 10 seconds"
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-md border p-2"
-                        onClick={togglePlaybackPause}
-                        disabled={playbackState.status === "loading"}
-                        aria-label={
-                          playbackState.status === "paused"
-                            ? "Resume voice playback"
-                            : "Pause voice playback"
-                        }
-                        title={
-                          playbackState.status === "paused" ? "Resume" : "Pause"
-                        }
-                      >
-                        {playbackState.status === "paused" ? (
-                          <Play className="h-4 w-4" />
-                        ) : (
-                          <Pause className="h-4 w-4" />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-md border p-2"
-                        onClick={() => seekPlayback(10)}
-                        aria-label="Go forward 10 seconds"
-                        title="Forward 10 seconds"
-                      >
-                        <RotateCw className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
+                  <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                    {formatPlaybackTime(playbackState.currentTime)} /{" "}
+                    {formatPlaybackTime(playbackState.duration)}
+                  </span>
                 </>
               )}
+              <button
+                type="button"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full border"
+                onClick={stopTTS}
+                aria-label="Stop and close voice playback"
+                title="Stop and close"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
             </div>
           )}
           <div className="rounded-3xl border bg-background px-4 py-3">

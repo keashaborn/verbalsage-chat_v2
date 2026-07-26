@@ -99,7 +99,7 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
           role="menu"
         >
           <div className="border-b px-3 py-3">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
               Signed in as
             </div>
             <div className="mt-1 truncate text-sm font-semibold text-foreground">
@@ -108,22 +108,30 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
           </div>
 
           <nav className="py-1 text-sm">
-            <AccountMenuLink href="/settings/assistant-profile" onNavigate={() => setOpen(false)}>
+            <AccountMenuLink
+              href="/settings/assistant-profile"
+              onNavigate={() => setOpen(false)}
+            >
               Personalization
             </AccountMenuLink>
-            <AccountMenuLink href="/settings/appearance" onNavigate={() => setOpen(false)}>
+            <AccountMenuLink
+              href="/settings/appearance"
+              onNavigate={() => setOpen(false)}
+            >
               Appearance
             </AccountMenuLink>
-            <AccountMenuLink href="/settings/models-voice" onNavigate={() => setOpen(false)}>
-              Voice
-            </AccountMenuLink>
-
             <div className="my-1 border-t" />
 
-            <AccountMenuLink href="/settings/account" onNavigate={() => setOpen(false)}>
+            <AccountMenuLink
+              href="/settings/account"
+              onNavigate={() => setOpen(false)}
+            >
               Account
             </AccountMenuLink>
-            <AccountMenuLink href="/settings/security" onNavigate={() => setOpen(false)}>
+            <AccountMenuLink
+              href="/settings/security"
+              onNavigate={() => setOpen(false)}
+            >
               Security
             </AccountMenuLink>
             {isAdmin ? (
@@ -160,7 +168,10 @@ function AccountMenuLink({
 }) {
   function rememberReturnTarget() {
     try {
-      const here = window.location.pathname + window.location.search + window.location.hash;
+      const here =
+        window.location.pathname +
+        window.location.search +
+        window.location.hash;
       if (here && !here.startsWith("/settings") && here !== "/admin") {
         window.sessionStorage.setItem("vs_settings_return_to", here);
       }

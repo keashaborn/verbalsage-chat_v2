@@ -106,3 +106,23 @@ export function pcmS16leToWav(
   output.set(pcm, headerBytes);
   return output;
 }
+
+export async function speechResponseToWavBlob(
+  response: Response,
+): Promise<Blob> {
+  const format = response.headers.get("x-vs-audio-format");
+  const sampleRate = Number(
+    response.headers.get("x-vs-audio-sample-rate") || "",
+  );
+  if (format !== "pcm_s16le" || sampleRate !== SPEECH_PCM_SAMPLE_RATE) {
+    await response.body?.cancel().catch(() => {});
+    throw new Error("The voice service returned an unsupported format.");
+  }
+
+  const pcm = new Uint8Array(await response.arrayBuffer());
+  if (!pcm.length) {
+    throw new Error("The voice service returned empty audio.");
+  }
+  const wav = pcmS16leToWav(pcm, sampleRate);
+  return new Blob([wav.buffer as ArrayBuffer], { type: "audio/wav" });
+}

@@ -5,9 +5,10 @@ import { supabase } from "@/lib/supabaseClient";
 import { authFetch } from "@/lib/authFetch";
 import { applyTheme, normalizeThemeValue } from "@/lib/theme";
 import {
-  cacheVoiceMode,
-  voiceModeFromUserMetadata,
-} from "@/lib/voiceMode";
+  normalizeConversationStyle,
+  storeConversationStyle,
+} from "@/lib/conversationStyle";
+import { normalizeSpeechVoice, storeSpeechVoice } from "@/lib/speechSettings";
 import {
   VOICE_PRIVACY_NOTICE_STORAGE_KEY,
   VOICE_PRIVACY_NOTICE_VERSION,
@@ -43,12 +44,19 @@ function writeStringCookie(name: string, value: string) {
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   let t: any;
   const timeout = new Promise<never>((_, reject) => {
-    t = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    t = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms`)),
+      ms,
+    );
   });
   return Promise.race([p.finally(() => clearTimeout(t)), timeout]);
 }
 
-async function fetchOk(url: string, init: RequestInit, ms: number): Promise<boolean> {
+async function fetchOk(
+  url: string,
+  init: RequestInit,
+  ms: number,
+): Promise<boolean> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
   try {
@@ -66,7 +74,6 @@ async function fetchOk(url: string, init: RequestInit, ms: number): Promise<bool
   }
 }
 
-
 function applyThemeFromMetadata(md: any) {
   const localTheme = normalizeThemeValue(lsGet("vs_theme"));
   const cloudTheme = normalizeThemeValue(md?.vs_theme);
@@ -79,31 +86,14 @@ function applySettingsFromSession(session: any): boolean {
   try {
     const md: any = session?.user?.user_metadata || {};
     applyThemeFromMetadata(md);
-    const cloudVoiceMode = voiceModeFromUserMetadata(md);
-    if (cloudVoiceMode) cacheVoiceMode(cloudVoiceMode);
 
-    // Voice preferences are independent of the versioned profile-cookie bundle.
-    if (md.vs_voice_engine === "openai_tts") {
-      lsSet("vs_voice_engine", md.vs_voice_engine);
-    } else {
-      lsSet("vs_voice_engine", "openai_tts");
-    }
+    storeSpeechVoice(normalizeSpeechVoice(md.vs_voice));
+    storeConversationStyle(
+      normalizeConversationStyle(md.vs_conversation_style),
+    );
+    lsSet("vs_voice_engine", "openai_tts");
 
-    if (typeof md.vs_voice === "string" && md.vs_voice.trim()) {
-      lsSet("vs_voice", JSON.stringify(md.vs_voice.trim()));
-    }
-
-    if (typeof md.vs_voice_model === "string" && md.vs_voice_model.trim()) {
-      lsSet("vs_voice_model", JSON.stringify(md.vs_voice_model.trim()));
-    }
-
-    if (md.vs_voice_speed != null && Number.isFinite(Number(md.vs_voice_speed))) {
-      lsSet("vs_voice_speed", JSON.stringify(Number(md.vs_voice_speed)));
-    }
-
-    if (
-      md.vs_voice_privacy_notice_version === VOICE_PRIVACY_NOTICE_VERSION
-    ) {
+    if (md.vs_voice_privacy_notice_version === VOICE_PRIVACY_NOTICE_VERSION) {
       lsSet(
         VOICE_PRIVACY_NOTICE_STORAGE_KEY,
         JSON.stringify(VOICE_PRIVACY_NOTICE_VERSION),
@@ -148,7 +138,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
         body: JSON.stringify({ full_name, email }),
       }),
       2500,
-      "identity.sync"
+      "identity.sync",
     );
   }
 
@@ -191,7 +181,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
     (async () => {
       try {
         // IMPORTANT: bound this so the UI can never hang forever.
-        const { data, error } = await withTimeout(supabase.auth.getSession(), 4000, "supabase.getSession");
+        const { data, error } = await withTimeout(
+          supabase.auth.getSession(),
+          4000,
+          "supabase.getSession",
+        );
 
         if (!alive) return;
 
@@ -205,7 +199,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
       } catch (e: any) {
         if (!alive) return;
         if (isBadRefreshToken(e)) await forceSignedOut();
-        else setMsg("Auth bootstrap timed out. Refresh once; if it repeats, clear site data.");
+        else
+          setMsg(
+            "Auth bootstrap timed out. Refresh once; if it repeats, clear site data.",
+          );
         await bootstrapFromSession(null);
       } finally {
         if (alive) setBooting(false);
@@ -232,7 +229,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       const { error } = await withTimeout(
         supabase.auth.signInWithPassword({ email, password }),
         8000,
-        "supabase.signInWithPassword"
+        "supabase.signInWithPassword",
       );
       if (error) setMsg(error.message);
     } catch (e: any) {
@@ -253,7 +250,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
           options: { data: { full_name: fullName || null } },
         }),
         8000,
-        "supabase.signUp"
+        "supabase.signUp",
       );
       if (error) setMsg(error.message);
       else setMsg("Check your email to confirm (if required), then log in.");
@@ -333,10 +330,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
               onClick={mode === "login" ? handleLogin : handleSignup}
               disabled={busy}
             >
-              {busy ? "Working…" : mode === "login" ? "Log in" : "Create account"}
+              {busy
+                ? "Working…"
+                : mode === "login"
+                  ? "Log in"
+                  : "Create account"}
             </button>
 
-            {msg && <div className="mt-3 text-sm text-muted-foreground">{msg}</div>}
+            {msg && (
+              <div className="mt-3 text-sm text-muted-foreground">{msg}</div>
+            )}
 
             <div className="mt-4 flex justify-end">
               <button

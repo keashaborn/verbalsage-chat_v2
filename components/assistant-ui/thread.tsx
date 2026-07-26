@@ -37,6 +37,12 @@ import {
 
 import { cn } from "@/lib/utils";
 import { authFetch } from "@/lib/authFetch";
+import {
+  conversationStyleTtsInstructions,
+  readConversationStyle,
+} from "@/lib/conversationStyle";
+import { readSpeechVoice } from "@/lib/speechSettings";
+import { speechResponseToWavBlob } from "@/lib/voiceSpeech";
 
 export const Thread: FC = () => {
   return (
@@ -164,16 +170,6 @@ const MessageError: FC = () => {
   );
 };
 
-function getLS<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw == null) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 async function speakTextFromButton(btn: HTMLElement) {
   const root =
     btn.closest(".aui-assistant-message-root") ||
@@ -191,23 +187,25 @@ async function speakTextFromButton(btn: HTMLElement) {
   const cleaned = text.replace(/\bCopy\b|\bSpeak\b|\bRefresh\b/g, "").trim();
   if (!cleaned) return;
   if (cleaned.length > 4096) {
-    alert("This response is too long for one voice request. Long-response playback will be added in the streaming phase.");
+    alert(
+      "This response is too long for one voice request. Long-response playback will be added in the streaming phase.",
+    );
     return;
   }
 
   try {
     localStorage.setItem("vs_voice_engine", "openai_tts");
-  } catch { }
+  } catch {}
 
-  // OpenAI TTS (/api/tts)
-  const voice = String(getLS<string>("vs_voice", "marin")).trim();
-  const model = String(getLS<string>("vs_voice_model", "gpt-4o-mini-tts")).trim();
-  const speed = Number(getLS<number>("vs_voice_speed", 1.0)) || 1.0;
+  const voice = readSpeechVoice();
+  const instructions = conversationStyleTtsInstructions(
+    readConversationStyle(),
+  );
 
   const r = await authFetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: cleaned, voice, speed, model }),
+    body: JSON.stringify({ text: cleaned, voice, instructions }),
   });
 
   if (!r.ok) {
@@ -216,12 +214,14 @@ async function speakTextFromButton(btn: HTMLElement) {
     return;
   }
 
-  const blob = await r.blob();
-  const url = URL.createObjectURL(blob);
+  const wav = await speechResponseToWavBlob(r);
+  const url = URL.createObjectURL(wav);
   const a = new Audio(url);
 
   a.addEventListener("ended", () => {
-    try { URL.revokeObjectURL(url); } catch { }
+    try {
+      URL.revokeObjectURL(url);
+    } catch {}
   });
 
   await a.play();

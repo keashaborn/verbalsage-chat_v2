@@ -6,6 +6,12 @@ import { Send, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/authFetch";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
+import {
+  conversationStyleTtsInstructions,
+  readConversationStyle,
+} from "@/lib/conversationStyle";
+import { readSpeechVoice } from "@/lib/speechSettings";
+import { speechResponseToWavBlob } from "@/lib/voiceSpeech";
 
 type LifeSwitchDomain =
   | "plan"
@@ -278,35 +284,6 @@ function buildHelperPrompt(
   ].join("\n");
 }
 
-function getLocalString(key: string, fallback: string): string {
-  if (typeof window === "undefined") return fallback;
-  const raw = window.localStorage.getItem(key);
-  if (raw == null || raw === "") return fallback;
-
-  try {
-    const parsed = JSON.parse(raw);
-    return String(parsed ?? fallback);
-  } catch {
-    return String(raw || fallback);
-  }
-}
-
-function getLocalNumber(key: string, fallback: number): number {
-  if (typeof window === "undefined") return fallback;
-  const raw = window.localStorage.getItem(key);
-  if (raw == null || raw === "") return fallback;
-
-  let value: any = raw;
-  try {
-    value = JSON.parse(raw);
-  } catch {
-    value = raw;
-  }
-
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
 function speechTextFromMarkdown(input: string): string {
   return String(input || "")
     .replace(/```[\s\S]*?```/g, " code block omitted. ")
@@ -406,7 +383,9 @@ export function LifeSwitchHelper() {
     const textToSpeak = speechTextFromMarkdown(replyText);
     if (!textToSpeak) return;
     if (textToSpeak.length > 4096) {
-      setTtsError("This response is too long for one voice request. Long-response playback will be added in the streaming phase.");
+      setTtsError(
+        "This response is too long for one voice request. Long-response playback will be added in the streaming phase.",
+      );
       return;
     }
 
@@ -418,11 +397,10 @@ export function LifeSwitchHelper() {
     setTtsError("");
     setTtsPreparing(true);
 
-    const voice = getLocalString("vs_voice", "marin").trim() || "marin";
-    const model =
-      getLocalString("vs_voice_model", "gpt-4o-mini-tts").trim() ||
-      "gpt-4o-mini-tts";
-    const speed = getLocalNumber("vs_voice_speed", 1.0) || 1.0;
+    const voice = readSpeechVoice();
+    const instructions = conversationStyleTtsInstructions(
+      readConversationStyle(),
+    );
 
     const ac = new AbortController();
     ttsAbortRef.current = ac;
@@ -434,16 +412,15 @@ export function LifeSwitchHelper() {
         body: JSON.stringify({
           text: textToSpeak,
           voice,
-          model,
-          speed,
+          instructions,
         }),
         signal: ac.signal,
       });
 
       if (!r.ok) throw new Error(await r.text());
 
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
+      const wav = await speechResponseToWavBlob(r);
+      const url = URL.createObjectURL(wav);
 
       audioUrlRef.current = url;
       preparedSpeechTextRef.current = textToSpeak;
@@ -581,7 +558,9 @@ export function LifeSwitchHelper() {
                 variant={ttsBusy ? "default" : "ghost"}
                 size="sm"
                 aria-label={
-                  ttsBusy ? "Stop AI-generated helper speech" : "Speak latest helper answer with AI-generated voice"
+                  ttsBusy
+                    ? "Stop AI-generated helper speech"
+                    : "Speak latest helper answer with AI-generated voice"
                 }
                 title={
                   ttsBusy
