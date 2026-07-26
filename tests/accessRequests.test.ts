@@ -108,6 +108,73 @@ test("approved access invitations have a dedicated password setup page", () => {
   assert.doesNotMatch(page, /invite\/lifeswitch/);
 });
 
+test("invite email uses a scanner-safe two-step confirmation page", () => {
+  const template = source("docs/supabase-invite-email-template.html");
+  const page = source("app/auth/confirm-invite/page.tsx");
+
+  assert.match(
+    template,
+    /\/auth\/confirm-invite\?confirmation_url=\{\{ \.ConfirmationURL \}\}/,
+  );
+  assert.doesNotMatch(
+    template,
+    /href="\{\{ \.ConfirmationURL \}\}"/,
+  );
+  assert.match(page, /Accept your LifeSwitch invitation/);
+  assert.match(page, /Accept invitation/);
+  assert.match(page, /validateAccessInviteConfirmationUrl/);
+  assert.match(page, /window\.location\.assign\(confirmationUrl\)/);
+  assert.doesNotMatch(page, /supabase\.auth\.(verifyOtp|setSession)/);
+});
+
+test("invite confirmation URL validation is fail-closed", async () => {
+  const moduleUrl = new URL(
+    "../lib/accessInviteConfirmation.ts",
+    import.meta.url,
+  ).href;
+  const { validateAccessInviteConfirmationUrl } = await import(moduleUrl);
+  const supabaseUrl = "https://project-ref.supabase.co";
+  const appOrigin = "https://verbalsage.com";
+  const redirect = encodeURIComponent(
+    "https://verbalsage.com/auth/accept-invite",
+  );
+  const valid =
+    `https://project-ref.supabase.co/auth/v1/verify` +
+    `?token=token-hash&type=invite&redirect_to=${redirect}`;
+
+  assert.equal(
+    validateAccessInviteConfirmationUrl(valid, supabaseUrl, appOrigin),
+    valid,
+  );
+  assert.equal(
+    validateAccessInviteConfirmationUrl(
+      valid.replace("type=invite", "type=recovery"),
+      supabaseUrl,
+      appOrigin,
+    ),
+    null,
+  );
+  assert.equal(
+    validateAccessInviteConfirmationUrl(
+      valid.replace("project-ref.supabase.co", "attacker.example"),
+      supabaseUrl,
+      appOrigin,
+    ),
+    null,
+  );
+  assert.equal(
+    validateAccessInviteConfirmationUrl(
+      valid.replace(
+        encodeURIComponent("https://verbalsage.com/auth/accept-invite"),
+        encodeURIComponent("https://attacker.example/steal"),
+      ),
+      supabaseUrl,
+      appOrigin,
+    ),
+    null,
+  );
+});
+
 test("Owner UI exposes a review queue with explicit confirmations", () => {
   const panel = source("components/admin/settings/AccessRequestsPanel.tsx");
   const consolePage = source("components/admin/settings/AdminConsolePage.tsx");
