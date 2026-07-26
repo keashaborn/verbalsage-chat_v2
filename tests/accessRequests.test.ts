@@ -22,8 +22,20 @@ test("public access requests validate input and use a server-only data path", ()
   assert.match(route, /GENERIC_ACCEPTED_MESSAGE/);
   assert.match(route, /sendAccessRequestNotification/);
   assert.match(route, /persisted\.shouldNotify/);
+  assert.match(route, /const shouldReopen = existing\.status !== "pending"/);
   assert.doesNotMatch(route, /console\.(info|error)\([^)]*email/s);
   assert.doesNotMatch(route, /NEXT_PUBLIC_SUPABASE_SECRET_KEY/);
+});
+
+test("a new submission reopens any previously decided access request", () => {
+  const route = source("app/api/access-requests/route.ts");
+
+  assert.match(route, /const shouldReopen = existing\.status !== "pending"/);
+  assert.match(route, /status: shouldReopen \? "pending" : existing\.status/);
+  assert.match(route, /reviewed_at: null/);
+  assert.match(route, /reviewed_by: null/);
+  assert.match(route, /decision_note: null/);
+  assert.match(route, /shouldNotify: shouldReopen/);
 });
 
 test("owner notifications use a bounded server-only Resend request", () => {

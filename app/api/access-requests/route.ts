@@ -171,7 +171,7 @@ async function persistAccessRequest(
 
   const now = new Date().toISOString();
   if (existing) {
-    const shouldReopen = existing.status === "declined";
+    const shouldReopen = existing.status !== "pending";
     const requestCount = Math.max(1, Number(existing.request_count) || 1) + 1;
     const { error: updateError } = await admin
       .from("access_requests")
