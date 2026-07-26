@@ -21,6 +21,18 @@ type AdminUser = {
   last_sign_in_at: string | null;
 };
 
+type AdminConfirmation =
+  | {
+      kind: "role";
+      userId: string;
+      role: "admin" | "member";
+    }
+  | {
+      kind: "delete";
+      userId: string;
+      email: string;
+    };
+
 function formatAccountDate(value: string | null): string {
   if (!value) return "Never";
   const date = new Date(value);
@@ -39,10 +51,11 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
   const [actionError, setActionError] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [truncated, setTruncated] = React.useState(false);
-  const [confirmation, setConfirmation] = React.useState<{
-    userId: string;
-    role: "admin" | "member";
-  } | null>(null);
+  const [confirmation, setConfirmation] =
+    React.useState<AdminConfirmation | null>(null);
+  const [openActionsUserId, setOpenActionsUserId] = React.useState("");
+  const [deleteConfirmationText, setDeleteConfirmationText] =
+    React.useState("");
   const [changingUserId, setChangingUserId] = React.useState("");
 
   const loadUsers = React.useCallback(async () => {
@@ -98,11 +111,46 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
         );
       }
       setConfirmation(null);
+      setOpenActionsUserId("");
       await loadUsers();
     } catch (error: any) {
       setActionError(
         error?.message || "The administrator role could not be changed.",
       );
+    } finally {
+      setChangingUserId("");
+    }
+  }
+
+  async function deleteAccount(userId: string, confirmationEmail: string) {
+    setChangingUserId(userId);
+    setActionError("");
+    try {
+      const response = await authFetch(
+        `/api/admin/users/${encodeURIComponent(userId)}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirmation_email: confirmationEmail }),
+          cache: "no-store",
+        },
+      );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok || !payload?.deleted) {
+        throw new Error(
+          payload?.error === "owner_account_is_protected"
+            ? "The Owner account cannot be deleted."
+            : payload?.error === "confirmation_email_mismatch"
+              ? "The confirmation email does not match."
+              : "The account could not be deleted.",
+        );
+      }
+      setConfirmation(null);
+      setOpenActionsUserId("");
+      setDeleteConfirmationText("");
+      await loadUsers();
+    } catch (error: any) {
+      setActionError(error?.message || "The account could not be deleted.");
     } finally {
       setChangingUserId("");
     }
@@ -178,10 +226,19 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
             const nextRole = user.role === "admin" ? "member" : "admin";
             const isOwner = user.role === "owner";
             const isCurrentUser = user.id === access.user_id;
-            const isConfirming =
+            const isRoleConfirming =
+              confirmation?.kind === "role" &&
               confirmation?.userId === user.id &&
               confirmation.role === nextRole;
+            const isDeleteConfirming =
+              confirmation?.kind === "delete" &&
+              confirmation.userId === user.id;
             const isChanging = changingUserId === user.id;
+            const isActionsOpen = openActionsUserId === user.id;
+            const deleteEmailMatches =
+              Boolean(user.email) &&
+              deleteConfirmationText.trim().toLowerCase() ===
+                user.email.toLowerCase();
 
             return (
               <div key={user.id} className="p-3">
@@ -211,18 +268,60 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
                         type="button"
                         onClick={() => {
                           setActionError("");
-                          setConfirmation({ userId: user.id, role: nextRole });
+                          setConfirmation(null);
+                          setDeleteConfirmationText("");
+                          setOpenActionsUserId((current) =>
+                            current === user.id ? "" : user.id,
+                          );
                         }}
                         disabled={Boolean(changingUserId)}
-                        className="rounded-lg border px-2.5 py-1 text-xs disabled:opacity-50"
+                        aria-label={`Actions for ${user.email || "account"}`}
+                        aria-expanded={isActionsOpen}
+                        className="rounded-lg border px-2.5 py-1 text-xs tracking-widest disabled:opacity-50"
                       >
-                        {user.role === "admin" ? "Remove Admin" : "Make Admin"}
+                        •••
                       </button>
                     ) : null}
                   </div>
                 </div>
 
-                {isConfirming ? (
+                {isActionsOpen && !confirmation ? (
+                  <div className="mt-3 flex flex-wrap justify-end gap-2 rounded-lg border bg-muted/20 p-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfirmation({
+                          kind: "role",
+                          userId: user.id,
+                          role: nextRole,
+                        });
+                        setOpenActionsUserId("");
+                      }}
+                      className="rounded-lg border px-2.5 py-1 text-xs"
+                    >
+                      {user.role === "admin" ? "Remove Admin" : "Make Admin"}
+                    </button>
+                    {user.email ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteConfirmationText("");
+                          setConfirmation({
+                            kind: "delete",
+                            userId: user.id,
+                            email: user.email,
+                          });
+                          setOpenActionsUserId("");
+                        }}
+                        className="rounded-lg border border-red-600/50 px-2.5 py-1 text-xs text-red-600"
+                      >
+                        Delete Account
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {isRoleConfirming ? (
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/20 p-2.5">
                     <div className="text-xs">
                       {nextRole === "admin"
@@ -249,6 +348,63 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
                           : nextRole === "admin"
                             ? "Make Admin"
                             : "Remove Admin"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {isDeleteConfirming ? (
+                  <div className="mt-3 rounded-lg border border-red-600/40 bg-red-600/5 p-3">
+                    <div className="text-sm font-semibold text-red-600">
+                      Delete account
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      This permanently removes the Supabase login for{" "}
+                      <span className="font-medium text-foreground">
+                        {user.email}
+                      </span>
+                      . Conversations and memory data are not deleted.
+                    </div>
+                    <label className="mt-3 block">
+                      <span className="text-xs">
+                        Type the account email to confirm
+                      </span>
+                      <input
+                        type="email"
+                        value={deleteConfirmationText}
+                        onChange={(event) =>
+                          setDeleteConfirmationText(event.target.value)
+                        }
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <div className="mt-3 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmation(null);
+                          setDeleteConfirmationText("");
+                        }}
+                        disabled={isChanging}
+                        className="rounded-lg border px-2.5 py-1 text-xs disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void deleteAccount(
+                            user.id,
+                            deleteConfirmationText.trim(),
+                          )
+                        }
+                        disabled={!deleteEmailMatches || isChanging}
+                        className="rounded-lg bg-red-600 px-2.5 py-1 text-xs text-white disabled:opacity-40"
+                      >
+                        {isChanging ? "Deleting…" : "Delete Account"}
                       </button>
                     </div>
                   </div>

@@ -50,6 +50,23 @@ test("role changes preserve metadata and protect the Owner account", () => {
   assert.doesNotMatch(route, /user_metadata/);
 });
 
+test("account deletion is Owner-only, email-confirmed, and narrowly scoped", () => {
+  const route = source("app/api/admin/users/[userId]/route.ts");
+
+  assert.match(route, /getFreshSupabaseAuthContextFromRequest/);
+  assert.match(route, /auth\.role !== "owner"/);
+  assert.match(route, /Object\.keys\(body\)\.length !== 1/);
+  assert.match(route, /confirmation_email/);
+  assert.match(route, /confirmation_email_mismatch/);
+  assert.match(route, /targetRole === "owner"/);
+  assert.match(route, /owner_account_is_protected/);
+  assert.match(route, /admin\.auth\.admin\.deleteUser\(userId\)/);
+  assert.match(route, /admin_user_delete_v1/);
+  assert.match(route, /supabase_auth_identity/);
+  assert.match(route, /retained_resources/);
+  assert.doesNotMatch(route, /BRAINS_URL/);
+});
+
 test("Admin UI uses inline confirmation and never a native confirm dialog", () => {
   const adminConsole = source("components/admin/settings/AdminConsolePage.tsx");
 
@@ -57,6 +74,10 @@ test("Admin UI uses inline confirmation and never a native confirm dialog", () =
   assert.match(adminConsole, /method: "PATCH"/);
   assert.match(adminConsole, /Make Admin/);
   assert.match(adminConsole, /Remove Admin/);
+  assert.match(adminConsole, /Delete Account/);
+  assert.match(adminConsole, /confirmation_email/);
+  assert.match(adminConsole, /Type the account email to confirm/);
+  assert.match(adminConsole, /Conversations and memory data are not deleted/);
   assert.match(
     adminConsole,
     /Only the Owner can appoint or remove administrators/,
