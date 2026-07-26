@@ -48,8 +48,14 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ thre
     );
   }
 
-  return new Response(txt, {
+  const response = new NextResponse(txt, {
     status: 200,
     headers: { "Content-Type": "application/json", "x-request-id": requestId },
   });
+
+  if (req.cookies.get("vs_tid")?.value === tid) {
+    response.cookies.delete("vs_tid");
+  }
+
+  return response;
 }
