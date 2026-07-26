@@ -116,12 +116,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [booting, setBooting] = useState(true);
   const [session, setSession] = useState<any>(null);
 
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "request">("login");
   const [busy, setBusy] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [requestMessage, setRequestMessage] = useState("");
   const [msg, setMsg] = useState("");
 
   async function syncIdentityBestEffort(s: any) {
@@ -239,21 +240,37 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
   }
 
-  async function handleSignup() {
+  async function handleAccessRequest() {
     setMsg("");
     setBusy(true);
     try {
-      const { error } = await withTimeout(
-        supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: fullName || null } },
+      const response = await withTimeout(
+        fetch("/api/access-requests", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          body: JSON.stringify({
+            email,
+            full_name: fullName,
+            message: requestMessage,
+          }),
         }),
         8000,
-        "supabase.signUp",
+        "access request",
       );
-      if (error) setMsg(error.message);
-      else setMsg("Check your email to confirm (if required), then log in.");
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(
+          payload?.error === "invalid_access_request"
+            ? "Enter a valid email address."
+            : "The request could not be submitted. Try again.",
+        );
+      }
+      setMsg(
+        "Request received. If access is approved, an invitation will be sent by email.",
+      );
+      setFullName("");
+      setRequestMessage("");
     } catch (e: any) {
       setMsg(String(e?.message || e));
     } finally {
@@ -290,18 +307,21 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 Log in
               </button>
               <button
-                className={`rounded-lg px-3 py-1 ${mode === "signup" ? "bg-muted" : "bg-transparent hover:bg-muted/60"}`}
-                onClick={() => setMode("signup")}
+                className={`rounded-lg px-3 py-1 ${mode === "request" ? "bg-muted" : "bg-transparent hover:bg-muted/60"}`}
+                onClick={() => {
+                  setMode("request");
+                  setMsg("");
+                }}
                 disabled={busy}
               >
-                Sign up
+                Request access
               </button>
             </div>
 
-            {mode === "signup" && (
+            {mode === "request" && (
               <input
                 className="mb-2 w-full rounded-xl border bg-background px-3 py-2"
-                placeholder="Full name"
+                placeholder="Full name (optional)"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 disabled={busy}
@@ -316,25 +336,36 @@ export function AuthGate({ children }: { children: ReactNode }) {
               disabled={busy}
             />
 
-            <input
-              className="mb-3 w-full rounded-xl border bg-background px-3 py-2"
-              placeholder="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={busy}
-            />
+            {mode === "login" ? (
+              <input
+                className="mb-3 w-full rounded-xl border bg-background px-3 py-2"
+                placeholder="Password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={busy}
+              />
+            ) : (
+              <textarea
+                className="mb-3 min-h-24 w-full resize-y rounded-xl border bg-background px-3 py-2"
+                placeholder="How would you like to use LifeSwitch? (optional)"
+                value={requestMessage}
+                onChange={(e) => setRequestMessage(e.target.value)}
+                maxLength={1000}
+                disabled={busy}
+              />
+            )}
 
             <button
               className="w-full rounded-xl bg-muted px-3 py-2 hover:bg-muted/60 disabled:opacity-50"
-              onClick={mode === "login" ? handleLogin : handleSignup}
+              onClick={mode === "login" ? handleLogin : handleAccessRequest}
               disabled={busy}
             >
               {busy
                 ? "Working…"
                 : mode === "login"
                   ? "Log in"
-                  : "Create account"}
+                  : "Request access"}
             </button>
 
             {msg && (

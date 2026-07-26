@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { authFetch } from "@/lib/authFetch";
+import { AccessRequestsPanel } from "@/components/admin/settings/AccessRequestsPanel";
 import { CardsPanel } from "@/components/admin/settings/CardsPanel";
 import { MemoryReviewPanel } from "@/components/admin/settings/MemoryReviewPanel";
 import { VoiceSystemHealthPanel } from "@/components/admin/settings/VoiceSystemHealthPanel";
@@ -568,7 +569,7 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
 
       <AdminSection
         title="Users & Access"
-        description="Manage who can administer Verbal Sage."
+        description="Review account requests and manage administrative access."
       >
         <div className="space-y-3">
           <div className="rounded-xl border p-3">
@@ -584,6 +585,8 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
               </div>
             </div>
           </div>
+
+          <AccessRequestsPanel access={access} />
 
           <UsersAccessPanel access={access} />
 
