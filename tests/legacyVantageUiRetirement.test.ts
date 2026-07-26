@@ -14,9 +14,24 @@ test("dormant Vantage settings surfaces are absent", () => {
     "components/admin/SettingsDrawer.tsx",
     "components/admin/settings/VantageProfilePage.tsx",
     "components/admin/settings/VantagePersonalizationEditor.tsx",
+    "components/sslg/SSLGModalLauncher.tsx",
+    "app/developer/diagnostics/page.tsx",
+    "app/api/dev/models/route.ts",
   ]) {
     assert.equal(fs.existsSync(path.join(root, relativePath)), false);
   }
+});
+
+test("retired model diagnostics are absent from the Admin Console", () => {
+  const adminConsole = source("components/admin/settings/AdminConsolePage.tsx");
+  const permissions = source(
+    "components/admin/settings/permissions/permissionRegistry.ts",
+  );
+
+  assert.doesNotMatch(adminConsole, /Model Diagnostics|developer\/diagnostics/);
+  assert.doesNotMatch(permissions, /diagnostics\.run/);
+  assert.match(adminConsole, /VoiceSystemHealthPanel/);
+  assert.match(adminConsole, /Prompt Inspector/);
 });
 
 test("active authentication and settings code do not hydrate Vantage controls", () => {

@@ -180,17 +180,6 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     defaultRoles: ["owner", "admin", "developer", "operator"],
     backendEnforced: true,
   },
-  {
-    key: "diagnostics.run",
-    label: "Run Diagnostics",
-    description: "Run diagnostic probes or test suites that may create telemetry.",
-    category: "diagnostics",
-    scope: "system",
-    access: "use",
-    risk: "high",
-    defaultRoles: ["owner", "admin", "developer"],
-    backendEnforced: true,
-  },
 
   {
     key: "voice.transcription",

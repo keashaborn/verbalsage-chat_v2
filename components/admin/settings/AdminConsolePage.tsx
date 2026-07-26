@@ -190,7 +190,7 @@ export function AdminConsolePage() {
 
       <AdminSection
         title="Runtime / Diagnostics"
-        description="Prompt inspection, model diagnostics, and runtime debugging tools."
+        description="Voice health, prompt inspection, and runtime debugging tools."
       >
         <div className="space-y-3">
           <VoiceSystemHealthPanel />
@@ -215,24 +215,6 @@ export function AdminConsolePage() {
             </div>
 
             {status ? <div className="mt-2 text-xs text-muted-foreground">{status}</div> : null}
-          </div>
-
-          <div className="rounded-xl border p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold">Model Diagnostics</div>
-                <div className="text-xs text-muted-foreground">
-                  Run probe suites, store telemetry in seebx, and graph model behavior.
-                </div>
-              </div>
-
-              <a
-                href="/developer/diagnostics"
-                className="rounded-lg bg-muted px-3 py-1.5 text-sm font-semibold hover:bg-muted/60"
-              >
-                Open
-              </a>
-            </div>
           </div>
         </div>
       </AdminSection>
