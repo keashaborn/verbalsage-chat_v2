@@ -57,7 +57,8 @@ async function requestedDecision(req: Request): Promise<Decision | null> {
 
 function invitationRedirectUrl(): string {
   const configured = String(
-    process.env.ACCESS_INVITE_REDIRECT_URL || "https://verbalsage.com/",
+    process.env.ACCESS_INVITE_REDIRECT_URL ||
+      "https://verbalsage.com/auth/accept-invite",
   ).trim();
   try {
     const parsed = new URL(configured);
@@ -66,7 +67,7 @@ function invitationRedirectUrl(): string {
     }
     return parsed.toString();
   } catch {
-    return "https://verbalsage.com/";
+    return "https://verbalsage.com/auth/accept-invite";
   }
 }
 
@@ -157,9 +158,10 @@ export async function PATCH(
         data.email,
         {
           redirectTo: invitationRedirectUrl(),
-          data: data.requested_name
-            ? { full_name: data.requested_name }
-            : undefined,
+          data: {
+            access_invite: "approved",
+            ...(data.requested_name ? { full_name: data.requested_name } : {}),
+          },
         },
       );
       if (inviteError) {

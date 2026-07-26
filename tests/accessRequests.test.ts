@@ -83,6 +83,8 @@ test("approval is Owner-only and records approval after invitation succeeds", ()
   assert.match(route, /body\.decision !== "approve"/);
   assert.match(route, /body\.decision !== "decline"/);
   assert.match(route, /admin\.auth\.admin\.inviteUserByEmail/);
+  assert.match(route, /https:\/\/verbalsage\.com\/auth\/accept-invite/);
+  assert.match(route, /access_invite: "approved"/);
   assert.match(route, /access_invitation_failed/);
   assert.match(route, /\.eq\("status", "pending"\)/);
   assert.ok(
@@ -90,6 +92,20 @@ test("approval is Owner-only and records approval after invitation succeeds", ()
     "the invitation must be attempted before the request is marked approved",
   );
   assert.doesNotMatch(route, /user_metadata/);
+});
+
+test("approved access invitations have a dedicated password setup page", () => {
+  const page = source("app/auth/accept-invite/page.tsx");
+
+  assert.match(page, /Your LifeSwitch access was approved/);
+  assert.match(page, /Create your password/);
+  assert.match(page, /Confirm password/);
+  assert.match(page, /\.getSession\(\)/);
+  assert.match(page, /\.onAuthStateChange\(/);
+  assert.match(page, /supabase\.auth\.updateUser\(\{ password \}\)/);
+  assert.match(page, /access_invite === "approved"/);
+  assert.doesNotMatch(page, /supabase\.auth\.signUp/);
+  assert.doesNotMatch(page, /invite\/lifeswitch/);
 });
 
 test("Owner UI exposes a review queue with explicit confirmations", () => {
