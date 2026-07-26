@@ -147,6 +147,8 @@ export default function AcceptAccessInvitePage() {
     }
   }
 
+  const recoveryMode = !checkingInvite && codeType === "recovery";
+
   return (
     <main className="mx-auto min-h-screen max-w-2xl p-4 py-10 sm:py-16">
       <section className="rounded-2xl border bg-background p-5 shadow-sm sm:p-7">
@@ -155,7 +157,11 @@ export default function AcceptAccessInvitePage() {
         </div>
 
         <h1 className="mt-2 text-2xl font-semibold">
-          Your LifeSwitch access was approved
+          {checkingInvite
+            ? "LifeSwitch account security"
+            : recoveryMode
+              ? "Change your LifeSwitch password"
+              : "Your LifeSwitch access was approved"}
         </h1>
 
         <div className="mt-4 grid gap-3 text-sm leading-6 text-muted-foreground">
@@ -164,9 +170,9 @@ export default function AcceptAccessInvitePage() {
             measurements, reflection, and personal progress.
           </p>
           <p>
-            Use the one-time code from your setup email, then create a password
-            to finish setting up your account. Your information remains private
-            unless you explicitly share it through LifeSwitch People.
+            {recoveryMode
+              ? "Use the one-time code from your email, then choose a new password. Your information remains private unless you explicitly share it through LifeSwitch People."
+              : "Use the one-time code from your setup email, then create a password to finish setting up your account. Your information remains private unless you explicitly share it through LifeSwitch People."}
           </p>
         </div>
 
@@ -177,7 +183,9 @@ export default function AcceptAccessInvitePage() {
         ) : complete ? (
           <div className="mt-5 grid gap-4">
             <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-sm">
-              Your password has been created. Your LifeSwitch account is ready.
+              {recoveryMode
+                ? "Your password has been changed."
+                : "Your password has been created. Your LifeSwitch account is ready."}
             </div>
             <Link
               href="/"
@@ -233,7 +241,9 @@ export default function AcceptAccessInvitePage() {
           </div>
         ) : session ? (
           <div className="mt-5 rounded-2xl border p-4 sm:p-5">
-            <div className="text-sm font-semibold">Create your password</div>
+            <div className="text-sm font-semibold">
+              {recoveryMode ? "Create a new password" : "Create your password"}
+            </div>
             <div className="mt-1 text-sm text-muted-foreground">
               Account: {session.user.email}
             </div>
@@ -270,7 +280,13 @@ export default function AcceptAccessInvitePage() {
                 onClick={() => void createPassword()}
                 disabled={busy || !password || !confirmPassword}
               >
-                {busy ? "Creating password…" : "Create password"}
+                {busy
+                  ? recoveryMode
+                    ? "Saving password…"
+                    : "Creating password…"
+                  : recoveryMode
+                    ? "Save new password"
+                    : "Create password"}
               </button>
             </div>
           </div>

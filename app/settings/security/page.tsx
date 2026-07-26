@@ -7,9 +7,9 @@ export default function SecuritySettingsPage() {
   return (
     <SettingsPageFrame
       title="Security"
-      description="Manage security-sensitive account controls."
+      description="Manage password access, active sessions, and private data controls."
     >
-      <SecurityPanel onDone={() => window.location.reload()} />
+      <SecurityPanel />
     </SettingsPageFrame>
   );
 }
