@@ -153,6 +153,7 @@ export async function PATCH(
       );
     }
 
+    let approvalDelivery: "invitation" | "password_setup" | null = null;
     if (decision === "approve") {
       const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
         data.email,
@@ -165,22 +166,38 @@ export async function PATCH(
         },
       );
       if (inviteError) {
-        console.error(
-          JSON.stringify({
-            event: "admin_access_invite_failed_v1",
-            request_id: auditId,
-            actor_user_id: auth.user_id,
-            access_request_id: accessRequestId,
-            at: new Date().toISOString(),
-          }),
-        );
-        return NextResponse.json(
-          { ok: false, error: "access_invitation_failed" },
-          {
-            status: 503,
-            headers: { ...NO_STORE_HEADERS, "x-request-id": auditId },
-          },
-        );
+        if (
+          inviteError.code === "email_exists" ||
+          inviteError.code === "user_already_exists"
+        ) {
+          const { error: resetError } = await admin.auth.resetPasswordForEmail(
+            data.email,
+            {
+              redirectTo: invitationRedirectUrl(),
+            },
+          );
+          if (!resetError) approvalDelivery = "password_setup";
+        }
+        if (!approvalDelivery) {
+          console.error(
+            JSON.stringify({
+              event: "admin_access_invite_failed_v1",
+              request_id: auditId,
+              actor_user_id: auth.user_id,
+              access_request_id: accessRequestId,
+              at: new Date().toISOString(),
+            }),
+          );
+          return NextResponse.json(
+            { ok: false, error: "access_invitation_failed" },
+            {
+              status: 503,
+              headers: { ...NO_STORE_HEADERS, "x-request-id": auditId },
+            },
+          );
+        }
+      } else {
+        approvalDelivery = "invitation";
       }
     }
 
@@ -193,7 +210,11 @@ export async function PATCH(
         reviewed_by: auth.user_id,
         updated_at: now,
         decision_note:
-          decision === "approve" ? "invitation_sent" : "owner_declined",
+          decision === "approve"
+            ? approvalDelivery === "password_setup"
+              ? "password_setup_sent"
+              : "invitation_sent"
+            : "owner_declined",
       })
       .eq("id", accessRequestId)
       .eq("status", "pending")

@@ -95,6 +95,10 @@ test("approval is Owner-only and records approval after invitation succeeds", ()
   assert.match(route, /body\.decision !== "approve"/);
   assert.match(route, /body\.decision !== "decline"/);
   assert.match(route, /admin\.auth\.admin\.inviteUserByEmail/);
+  assert.match(route, /inviteError\.code === "email_exists"/);
+  assert.match(route, /inviteError\.code === "user_already_exists"/);
+  assert.match(route, /admin\.auth\.resetPasswordForEmail/);
+  assert.match(route, /password_setup_sent/);
   assert.match(route, /https:\/\/verbalsage\.com\/auth\/accept-invite/);
   assert.match(route, /access_invite: "approved"/);
   assert.match(route, /access_invitation_failed/);
@@ -114,29 +118,25 @@ test("approved access invitations have a dedicated password setup page", () => {
   assert.match(page, /Confirm password/);
   assert.match(page, /\.getSession\(\)/);
   assert.match(page, /\.onAuthStateChange\(/);
+  assert.match(page, /supabase\.auth\.verifyOtp/);
+  assert.match(page, /type: codeType/);
+  assert.match(page, /One-time code/);
   assert.match(page, /supabase\.auth\.updateUser\(\{ password \}\)/);
-  assert.match(page, /access_invite === "approved"/);
   assert.doesNotMatch(page, /supabase\.auth\.signUp/);
+  assert.doesNotMatch(page, /ConfirmationURL/);
   assert.doesNotMatch(page, /invite\/lifeswitch/);
 });
 
-test("invite email uses a scanner-safe two-step confirmation page", () => {
-  const template = source("docs/supabase-invite-email-template.html");
-  const page = source("app/auth/confirm-invite/page.tsx");
+test("invite and recovery emails use scanner-safe one-time codes", () => {
+  const invite = source("docs/supabase-invite-email-template.html");
+  const recovery = source("docs/supabase-recovery-email-template.html");
 
-  assert.match(
-    template,
-    /\/auth\/confirm-invite\?confirmation_url=\{\{ \.ConfirmationURL \}\}/,
-  );
-  assert.doesNotMatch(
-    template,
-    /href="\{\{ \.ConfirmationURL \}\}"/,
-  );
-  assert.match(page, /Accept your LifeSwitch invitation/);
-  assert.match(page, /Accept invitation/);
-  assert.match(page, /validateAccessInviteConfirmationUrl/);
-  assert.match(page, /window\.location\.assign\(confirmationUrl\)/);
-  assert.doesNotMatch(page, /supabase\.auth\.(verifyOtp|setSession)/);
+  assert.match(invite, /\{\{ \.Token \}\}/);
+  assert.match(invite, /\/auth\/accept-invite\?type=invite/);
+  assert.doesNotMatch(invite, /\.ConfirmationURL/);
+  assert.match(recovery, /\{\{ \.Token \}\}/);
+  assert.match(recovery, /\/auth\/accept-invite\?type=recovery/);
+  assert.doesNotMatch(recovery, /\.ConfirmationURL/);
 });
 
 test("invite confirmation URL validation is fail-closed", async () => {

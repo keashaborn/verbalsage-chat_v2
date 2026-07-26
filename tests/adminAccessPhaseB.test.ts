@@ -67,6 +67,19 @@ test("account deletion is Owner-only, email-confirmed, and narrowly scoped", () 
   assert.doesNotMatch(route, /BRAINS_URL/);
 });
 
+test("password setup email is Owner-only and targets one Supabase user", () => {
+  const route = source("app/api/admin/users/[userId]/password-setup/route.ts");
+
+  assert.match(route, /getFreshSupabaseAuthContextFromRequest/);
+  assert.match(route, /auth\.role !== "owner"/);
+  assert.match(route, /admin\.auth\.admin\.getUserById\(userId\)/);
+  assert.match(route, /targetRole === "owner"/);
+  assert.match(route, /owner_account_is_protected/);
+  assert.match(route, /admin\.auth\.resetPasswordForEmail/);
+  assert.match(route, /admin_password_setup_email_v1/);
+  assert.doesNotMatch(route, /NEXT_PUBLIC_SUPABASE_SECRET_KEY/);
+});
+
 test("Admin UI uses inline confirmation and never a native confirm dialog", () => {
   const adminConsole = source("components/admin/settings/AdminConsolePage.tsx");
 
@@ -74,6 +87,9 @@ test("Admin UI uses inline confirmation and never a native confirm dialog", () =
   assert.match(adminConsole, /method: "PATCH"/);
   assert.match(adminConsole, /Make Admin/);
   assert.match(adminConsole, /Remove Admin/);
+  assert.match(adminConsole, /Send Password Setup Email/);
+  assert.match(adminConsole, /Send Setup Email/);
+  assert.match(adminConsole, /\/password-setup/);
   assert.match(adminConsole, /Delete Account/);
   assert.match(adminConsole, /confirmation_email/);
   assert.match(adminConsole, /Type the account email to confirm/);

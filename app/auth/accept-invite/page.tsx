@@ -6,10 +6,15 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 
 const MIN_PASSWORD_LENGTH = 8;
+type SetupCodeType = "invite" | "recovery";
 
 export default function AcceptAccessInvitePage() {
   const [session, setSession] = useState<Session | null>(null);
   const [checkingInvite, setCheckingInvite] = useState(true);
+  const [requiresCode, setRequiresCode] = useState(true);
+  const [codeType, setCodeType] = useState<SetupCodeType>("invite");
+  const [email, setEmail] = useState("");
+  const [oneTimeCode, setOneTimeCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -18,10 +23,22 @@ export default function AcceptAccessInvitePage() {
 
   useEffect(() => {
     let alive = true;
+    const params = new URLSearchParams(window.location.search);
+    const requestedType =
+      params.get("type") === "recovery" ? "recovery" : "invite";
+    const requestedEmail = String(params.get("email") || "")
+      .trim()
+      .toLowerCase();
+    const setupEmailLink = params.has("type") || params.has("email");
+
+    setCodeType(requestedType);
+    setEmail(requestedEmail);
+    setRequiresCode(setupEmailLink);
 
     function applySession(nextSession: Session | null) {
       if (!alive) return;
       setSession(nextSession);
+      if (!setupEmailLink && nextSession) setRequiresCode(false);
       setCheckingInvite(false);
     }
 
@@ -51,15 +68,53 @@ export default function AcceptAccessInvitePage() {
     };
   }, []);
 
-  const isApprovedAccessInvite =
-    session?.user?.user_metadata?.access_invite === "approved";
+  async function verifySetupCode() {
+    setMessage("");
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedCode = oneTimeCode.replace(/\s+/g, "");
+
+    if (!normalizedEmail || !normalizedEmail.includes("@")) {
+      setMessage("Enter the email address that received the setup message.");
+      return;
+    }
+    if (!/^[0-9]{6,8}$/.test(normalizedCode)) {
+      setMessage("Enter the one-time code from the setup message.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: normalizedEmail,
+        token: normalizedCode,
+        type: codeType,
+      });
+      if (error || !data.session) throw error || new Error();
+      if (
+        String(data.session.user.email || "").toLowerCase() !== normalizedEmail
+      ) {
+        await supabase.auth.signOut();
+        throw new Error();
+      }
+      setSession(data.session);
+      setOneTimeCode("");
+      setRequiresCode(false);
+      window.history.replaceState(null, "", "/auth/accept-invite");
+    } catch {
+      setMessage(
+        "That setup code is invalid or expired. Ask the LifeSwitch owner to send a new password setup email.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function createPassword() {
     setMessage("");
 
-    if (!session || !isApprovedAccessInvite) {
+    if (!session) {
       setMessage(
-        "This invitation is invalid or expired. Ask the LifeSwitch owner to send a new invitation.",
+        "Verify the one-time setup code before creating your password.",
       );
       return;
     }
@@ -109,9 +164,9 @@ export default function AcceptAccessInvitePage() {
             measurements, reflection, and personal progress.
           </p>
           <p>
-            Create a password to finish setting up your account. Your
-            information remains private unless you explicitly share it through
-            LifeSwitch People.
+            Use the one-time code from your setup email, then create a password
+            to finish setting up your account. Your information remains private
+            unless you explicitly share it through LifeSwitch People.
           </p>
         </div>
 
@@ -131,7 +186,52 @@ export default function AcceptAccessInvitePage() {
               Continue to LifeSwitch
             </Link>
           </div>
-        ) : session && isApprovedAccessInvite ? (
+        ) : requiresCode || !session ? (
+          <div className="mt-5 rounded-2xl border p-4 sm:p-5">
+            <div className="text-sm font-semibold">Verify your setup code</div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              Automated email security checks cannot use this code.
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <label className="grid gap-1 text-sm">
+                <span>Email</span>
+                <input
+                  className="w-full rounded-xl border bg-background px-3 py-2"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  disabled={busy}
+                />
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span>One-time code</span>
+                <input
+                  className="w-full rounded-xl border bg-background px-3 py-2 font-mono tracking-[0.2em]"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={oneTimeCode}
+                  onChange={(event) => setOneTimeCode(event.target.value)}
+                  disabled={busy}
+                />
+              </label>
+              <button
+                type="button"
+                className="w-fit rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
+                onClick={() => void verifySetupCode()}
+                disabled={busy || !email.trim() || !oneTimeCode.trim()}
+              >
+                {busy ? "Verifying…" : "Verify code"}
+              </button>
+            </div>
+          </div>
+        ) : session ? (
           <div className="mt-5 rounded-2xl border p-4 sm:p-5">
             <div className="text-sm font-semibold">Create your password</div>
             <div className="mt-1 text-sm text-muted-foreground">
@@ -174,20 +274,7 @@ export default function AcceptAccessInvitePage() {
               </button>
             </div>
           </div>
-        ) : (
-          <div className="mt-5 grid gap-4">
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm">
-              This invitation is invalid or expired. Ask the LifeSwitch owner to
-              send a new invitation.
-            </div>
-            <Link
-              href="/"
-              className="inline-flex w-fit rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/40"
-            >
-              Return to LifeSwitch
-            </Link>
-          </div>
-        )}
+        ) : null}
 
         {message ? (
           <div className="mt-4 rounded-xl border bg-muted/20 p-3 text-sm">

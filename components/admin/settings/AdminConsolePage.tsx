@@ -32,6 +32,11 @@ type AdminConfirmation =
       kind: "delete";
       userId: string;
       email: string;
+    }
+  | {
+      kind: "password-setup";
+      userId: string;
+      email: string;
     };
 
 function formatAccountDate(value: string | null): string {
@@ -50,6 +55,7 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
   const [loading, setLoading] = React.useState(access.role === "owner");
   const [loadError, setLoadError] = React.useState("");
   const [actionError, setActionError] = React.useState("");
+  const [actionNotice, setActionNotice] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [truncated, setTruncated] = React.useState(false);
   const [confirmation, setConfirmation] =
@@ -93,6 +99,7 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
   async function changeRole(userId: string, role: "admin" | "member") {
     setChangingUserId(userId);
     setActionError("");
+    setActionNotice("");
     try {
       const response = await authFetch(
         `/api/admin/users/${encodeURIComponent(userId)}/role`,
@@ -126,6 +133,7 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
   async function deleteAccount(userId: string, confirmationEmail: string) {
     setChangingUserId(userId);
     setActionError("");
+    setActionNotice("");
     try {
       const response = await authFetch(
         `/api/admin/users/${encodeURIComponent(userId)}`,
@@ -152,6 +160,38 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
       await loadUsers();
     } catch (error: any) {
       setActionError(error?.message || "The account could not be deleted.");
+    } finally {
+      setChangingUserId("");
+    }
+  }
+
+  async function sendPasswordSetupEmail(userId: string, email: string) {
+    setChangingUserId(userId);
+    setActionError("");
+    setActionNotice("");
+    try {
+      const response = await authFetch(
+        `/api/admin/users/${encodeURIComponent(userId)}/password-setup`,
+        {
+          method: "POST",
+          cache: "no-store",
+        },
+      );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok || !payload?.sent) {
+        throw new Error(
+          payload?.error === "owner_account_is_protected"
+            ? "The Owner account is protected."
+            : "The password setup email could not be sent.",
+        );
+      }
+      setConfirmation(null);
+      setOpenActionsUserId("");
+      setActionNotice(`Password setup email sent to ${email}.`);
+    } catch (error: any) {
+      setActionError(
+        error?.message || "The password setup email could not be sent.",
+      );
     } finally {
       setChangingUserId("");
     }
@@ -234,6 +274,9 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
             const isDeleteConfirming =
               confirmation?.kind === "delete" &&
               confirmation.userId === user.id;
+            const isPasswordSetupConfirming =
+              confirmation?.kind === "password-setup" &&
+              confirmation.userId === user.id;
             const isChanging = changingUserId === user.id;
             const isActionsOpen = openActionsUserId === user.id;
             const deleteEmailMatches =
@@ -269,6 +312,7 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
                         type="button"
                         onClick={() => {
                           setActionError("");
+                          setActionNotice("");
                           setConfirmation(null);
                           setDeleteConfirmationText("");
                           setOpenActionsUserId((current) =>
@@ -302,6 +346,22 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
                     >
                       {user.role === "admin" ? "Remove Admin" : "Make Admin"}
                     </button>
+                    {user.email ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmation({
+                            kind: "password-setup",
+                            userId: user.id,
+                            email: user.email,
+                          });
+                          setOpenActionsUserId("");
+                        }}
+                        className="rounded-lg border px-2.5 py-1 text-xs"
+                      >
+                        Send Password Setup Email
+                      </button>
+                    ) : null}
                     {user.email ? (
                       <button
                         type="button"
@@ -349,6 +409,39 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
                           : nextRole === "admin"
                             ? "Make Admin"
                             : "Remove Admin"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {isPasswordSetupConfirming ? (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/20 p-2.5">
+                    <div className="text-xs">
+                      Send a new one-time password setup code to{" "}
+                      <span className="font-medium">{confirmation.email}</span>?
+                      This does not change the account role or stored data.
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmation(null)}
+                        disabled={isChanging}
+                        className="rounded-lg border px-2.5 py-1 text-xs disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void sendPasswordSetupEmail(
+                            user.id,
+                            confirmation.email,
+                          )
+                        }
+                        disabled={isChanging}
+                        className="rounded-lg bg-foreground px-2.5 py-1 text-xs text-background disabled:opacity-50"
+                      >
+                        {isChanging ? "Sending…" : "Send Setup Email"}
                       </button>
                     </div>
                   </div>
@@ -418,6 +511,9 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
 
       {actionError ? (
         <div className="border-t p-3 text-xs text-red-600">{actionError}</div>
+      ) : null}
+      {actionNotice ? (
+        <div className="border-t p-3 text-xs">{actionNotice}</div>
       ) : null}
       {truncated ? (
         <div className="border-t p-3 text-xs text-muted-foreground">
