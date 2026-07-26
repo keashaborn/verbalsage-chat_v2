@@ -1,4 +1,4 @@
-import { requireCapability } from "@/app/api/_auth/requireCapability";
+import { requireFreshCapability } from "@/app/api/_auth/requireCapability";
 import { randomUUID } from "crypto";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
@@ -14,7 +14,7 @@ function getRequestId(req: Request): string {
 export async function GET(req: Request) {
   const requestId = getRequestId(req);
 
-  const auth = await requireCapability(req, "user_data.export");
+  const auth = await requireFreshCapability(req, "user_data.export");
   if (!auth.ok) {
     return new Response(JSON.stringify({ error: auth.msg }), {
       status: auth.status,

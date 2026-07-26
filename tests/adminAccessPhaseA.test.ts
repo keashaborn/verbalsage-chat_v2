@@ -15,8 +15,9 @@ test("Admin Console presents the three retained product sections", () => {
   assert.match(adminConsole, /System Tools/);
   assert.match(adminConsole, /Users & Access/);
   assert.match(adminConsole, /Memory \/ Retrieval Evaluation/);
-  assert.match(adminConsole, /Make Admin and Remove Admin/);
-  assert.match(adminConsole, /Not configured/);
+  assert.match(adminConsole, /Make Admin/);
+  assert.match(adminConsole, /Remove Admin/);
+  assert.doesNotMatch(adminConsole, /Not configured/);
 });
 
 test("legacy permission catalog is not rendered in the Admin Console", () => {

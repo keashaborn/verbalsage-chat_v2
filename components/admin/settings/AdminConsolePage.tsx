@@ -12,6 +12,265 @@ type AdminAccess = {
   role_label: "Owner" | "Admin";
 };
 
+type AdminUser = {
+  id: string;
+  email: string;
+  role: "owner" | "admin" | "member";
+  status: "active" | "invited" | "unconfirmed" | "suspended";
+  created_at: string | null;
+  last_sign_in_at: string | null;
+};
+
+function formatAccountDate(value: string | null): string {
+  if (!value) return "Never";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
+function UsersAccessPanel({ access }: { access: AdminAccess }) {
+  const [users, setUsers] = React.useState<AdminUser[]>([]);
+  const [loading, setLoading] = React.useState(access.role === "owner");
+  const [loadError, setLoadError] = React.useState("");
+  const [actionError, setActionError] = React.useState("");
+  const [search, setSearch] = React.useState("");
+  const [truncated, setTruncated] = React.useState(false);
+  const [confirmation, setConfirmation] = React.useState<{
+    userId: string;
+    role: "admin" | "member";
+  } | null>(null);
+  const [changingUserId, setChangingUserId] = React.useState("");
+
+  const loadUsers = React.useCallback(async () => {
+    if (access.role !== "owner") return;
+    setLoading(true);
+    setLoadError("");
+    try {
+      const response = await authFetch("/api/admin/users", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok || !Array.isArray(payload.users)) {
+        throw new Error(
+          payload?.error === "owner_access_required"
+            ? "Only the Owner can view the user directory."
+            : "The user directory could not be loaded.",
+        );
+      }
+      setUsers(payload.users);
+      setTruncated(Boolean(payload.truncated));
+    } catch (error: any) {
+      setUsers([]);
+      setLoadError(error?.message || "The user directory could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }, [access.role]);
+
+  React.useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
+
+  async function changeRole(userId: string, role: "admin" | "member") {
+    setChangingUserId(userId);
+    setActionError("");
+    try {
+      const response = await authFetch(
+        `/api/admin/users/${encodeURIComponent(userId)}/role`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role }),
+          cache: "no-store",
+        },
+      );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(
+          payload?.error === "owner_account_is_protected"
+            ? "The Owner account cannot be changed."
+            : "The administrator role could not be changed.",
+        );
+      }
+      setConfirmation(null);
+      await loadUsers();
+    } catch (error: any) {
+      setActionError(
+        error?.message || "The administrator role could not be changed.",
+      );
+    } finally {
+      setChangingUserId("");
+    }
+  }
+
+  if (access.role !== "owner") {
+    return (
+      <div className="rounded-xl border p-3">
+        <div className="text-sm font-semibold">Administrator management</div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          Only the Owner can appoint or remove administrators.
+        </div>
+      </div>
+    );
+  }
+
+  const query = search.trim().toLowerCase();
+  const filteredUsers = query
+    ? users.filter(
+        (user) =>
+          user.email.toLowerCase().includes(query) ||
+          user.role.includes(query) ||
+          user.status.includes(query),
+      )
+    : users;
+
+  return (
+    <div className="overflow-hidden rounded-xl border">
+      <div className="border-b p-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold">
+              Administrator management
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Appoint trusted administrators or return them to standard member
+              access.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void loadUsers()}
+            disabled={loading || Boolean(changingUserId)}
+            className="rounded-lg border px-2.5 py-1 text-xs disabled:opacity-50"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <label className="mt-3 block">
+          <span className="sr-only">Search users</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search users…"
+            className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+          />
+        </label>
+      </div>
+
+      {loading ? (
+        <div className="p-3 text-xs text-muted-foreground">Loading users…</div>
+      ) : loadError ? (
+        <div className="p-3 text-xs text-red-600">{loadError}</div>
+      ) : filteredUsers.length === 0 ? (
+        <div className="p-3 text-xs text-muted-foreground">
+          {query ? "No users match this search." : "No users found."}
+        </div>
+      ) : (
+        <div className="divide-y">
+          {filteredUsers.map((user) => {
+            const nextRole = user.role === "admin" ? "member" : "admin";
+            const isOwner = user.role === "owner";
+            const isCurrentUser = user.id === access.user_id;
+            const isConfirming =
+              confirmation?.userId === user.id &&
+              confirmation.role === nextRole;
+            const isChanging = changingUserId === user.id;
+
+            return (
+              <div key={user.id} className="p-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">
+                      {user.email || "Account without an email address"}
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                      <span>
+                        {user.status.charAt(0).toUpperCase() +
+                          user.status.slice(1)}
+                      </span>
+                      <span>
+                        Last sign-in: {formatAccountDate(user.last_sign_in_at)}
+                      </span>
+                      {isCurrentUser ? <span>Current account</span> : null}
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize">
+                      {user.role}
+                    </span>
+                    {!isOwner ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActionError("");
+                          setConfirmation({ userId: user.id, role: nextRole });
+                        }}
+                        disabled={Boolean(changingUserId)}
+                        className="rounded-lg border px-2.5 py-1 text-xs disabled:opacity-50"
+                      >
+                        {user.role === "admin" ? "Remove Admin" : "Make Admin"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {isConfirming ? (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/20 p-2.5">
+                    <div className="text-xs">
+                      {nextRole === "admin"
+                        ? "Give this account access to administrative tools?"
+                        : "Remove this account’s administrative access?"}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmation(null)}
+                        disabled={isChanging}
+                        className="rounded-lg border px-2.5 py-1 text-xs disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void changeRole(user.id, nextRole)}
+                        disabled={isChanging}
+                        className="rounded-lg bg-foreground px-2.5 py-1 text-xs text-background disabled:opacity-50"
+                      >
+                        {isChanging
+                          ? "Saving…"
+                          : nextRole === "admin"
+                            ? "Make Admin"
+                            : "Remove Admin"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {actionError ? (
+        <div className="border-t p-3 text-xs text-red-600">{actionError}</div>
+      ) : null}
+      {truncated ? (
+        <div className="border-t p-3 text-xs text-muted-foreground">
+          Showing the first 100 accounts.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function AdminSection({
   title,
   description,
@@ -170,22 +429,7 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
             </div>
           </div>
 
-          <div className="rounded-xl border p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold">
-                  Administrator management
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  A secure user list with Make Admin and Remove Admin actions
-                  will be added in the next phase.
-                </div>
-              </div>
-              <div className="shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                Not configured
-              </div>
-            </div>
-          </div>
+          <UsersAccessPanel access={access} />
 
           <div className="grid gap-2 text-xs sm:grid-cols-3">
             <div className="rounded-xl border p-3">

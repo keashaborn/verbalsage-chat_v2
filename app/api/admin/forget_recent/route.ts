@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { requireCapability } from "@/app/api/_auth/requireCapability";
+import { requireFreshCapability } from "@/app/api/_auth/requireCapability";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
@@ -17,7 +17,7 @@ function getRequestId(req: Request): string {
 export async function DELETE(req: Request) {
   const requestId = getRequestId(req);
 
-  const auth = await requireCapability(req, "user_data.forget_recent");
+  const auth = await requireFreshCapability(req, "user_data.forget_recent");
   if (!auth.ok) {
     return NextResponse.json(
       { error: auth.msg },
