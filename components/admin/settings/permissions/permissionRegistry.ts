@@ -25,7 +25,6 @@ export type PermissionAccess =
 export type PermissionRisk = "low" | "medium" | "high" | "critical";
 
 export type PermissionCategory =
-  | "assistant_profile"
   | "inspection"
   | "diagnostics"
   | "voice"
@@ -98,113 +97,12 @@ export const PERMISSION_ROLES: {
 ];
 
 export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
-  // Assistant Profile / Vantage controls
-  {
-    key: "assistant_profile.view",
-    label: "View Assistant Profile",
-    description: "See the active Assistant Profile and profile settings page.",
-    category: "assistant_profile",
-    scope: "own_account",
-    access: "view",
-    risk: "low",
-    defaultRoles: [
-      "owner",
-      "admin",
-      "developer",
-      "operator",
-      "beta_tester",
-      "power_user",
-      "user",
-    ],
-    backendEnforced: false,
-  },
-  {
-    key: "assistant_profile.apply_builtin",
-    label: "Apply Built-in Profiles",
-    description: "Apply built-in profiles such as RESSE, MORGAN, or RILEY.",
-    category: "assistant_profile",
-    scope: "own_account",
-    access: "use",
-    risk: "low",
-    defaultRoles: [
-      "owner",
-      "admin",
-      "developer",
-      "operator",
-      "beta_tester",
-      "power_user",
-      "user",
-    ],
-    backendEnforced: true,
-  },
-  {
-    key: "assistant_profile.create_custom",
-    label: "Create Custom Profiles",
-    description: "Create and save custom Assistant Profiles.",
-    category: "assistant_profile",
-    scope: "own_account",
-    access: "edit",
-    risk: "medium",
-    defaultRoles: [
-      "owner",
-      "admin",
-      "developer",
-      "beta_tester",
-      "power_user",
-      "user",
-    ],
-    backendEnforced: true,
-  },
-  {
-    key: "assistant_profile.edit_basic",
-    label: "Edit Basic Profile Levers",
-    description:
-      "Edit normal visible profile controls such as thread context, memory weight, corpus, lens, and routing.",
-    category: "assistant_profile",
-    scope: "own_account",
-    access: "edit",
-    risk: "medium",
-    defaultRoles: [
-      "owner",
-      "admin",
-      "developer",
-      "beta_tester",
-      "power_user",
-      "user",
-    ],
-    backendEnforced: true,
-  },
-  {
-    key: "assistant_profile.edit_advanced",
-    label: "Edit Advanced Profile Levers",
-    description:
-      "Edit advanced profile controls that can materially affect retrieval, tone, initiative, or response shape.",
-    category: "assistant_profile",
-    scope: "own_account",
-    access: "edit",
-    risk: "high",
-    defaultRoles: ["owner", "admin", "developer", "power_user"],
-    backendEnforced: true,
-  },
-  {
-    key: "assistant_profile.edit_admin_levers",
-    label: "Edit Admin Profile Levers",
-    description:
-      "Edit hidden/admin-only Vantage levers such as pragmatics, limits, strictness, and low-level behavior constraints.",
-    category: "assistant_profile",
-    scope: "own_account",
-    access: "manage",
-    risk: "critical",
-    defaultRoles: ["owner", "admin", "developer"],
-    backendEnforced: true,
-  },
-
   // Inspection / diagnostics
   {
     key: "inspector.view",
-    label: "View Prompt Inspector",
+    label: "View Response Trace",
     description:
-      "View prompt, memory, corpus, and routing/debug metadata for chat turns.",
+      "View routing, safety, memory, model, token, and timing metadata for the current user's chat turns.",
     category: "inspection",
     scope: "system",
     access: "view",

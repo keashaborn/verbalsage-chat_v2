@@ -528,13 +528,20 @@ function AdminSection({
   title,
   description,
   children,
+  mountWhenOpen = false,
 }: {
   title: string;
   description?: string;
   children: React.ReactNode;
+  mountWhenOpen?: boolean;
 }) {
+  const [open, setOpen] = React.useState(false);
+
   return (
-    <details className="overflow-hidden rounded-xl border">
+    <details
+      className="overflow-hidden rounded-xl border"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <summary className="cursor-pointer list-none px-3 py-3 hover:bg-muted/40">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -546,11 +553,13 @@ function AdminSection({
             ) : null}
           </div>
           <div className="shrink-0 rounded-lg border px-2 py-0.5 text-xs text-muted-foreground">
-            Open
+            {open ? "Close" : "Open"}
           </div>
         </div>
       </summary>
-      <div className="border-t p-3">{children}</div>
+      {!mountWhenOpen || open ? (
+        <div className="border-t p-3">{children}</div>
+      ) : null}
     </details>
   );
 }
@@ -583,7 +592,7 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
   }, []);
 
   async function enableInspector() {
-    setStatus("enabling…");
+    setStatus("Turning on response trace…");
     try {
       const response = await authFetch("/api/admin/debug_cookie", {
         method: "POST",
@@ -595,14 +604,14 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
         throw new Error(text || `HTTP ${response.status}`);
       }
       setInspectorEnabled(true);
-      setStatus("enabled");
-    } catch (error: any) {
-      setStatus(`error: ${error?.message || String(error)}`);
+      setStatus("Response trace is enabled for this browser.");
+    } catch {
+      setStatus("Response trace could not be enabled. Try again.");
     }
   }
 
   async function disableInspector() {
-    setStatus("disabling…");
+    setStatus("Turning off response trace…");
     try {
       const response = await authFetch("/api/admin/debug_cookie", {
         method: "DELETE",
@@ -613,9 +622,9 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
         throw new Error(text || `HTTP ${response.status}`);
       }
       setInspectorEnabled(false);
-      setStatus("disabled");
-    } catch (error: any) {
-      setStatus(`error: ${error?.message || String(error)}`);
+      setStatus("Response trace is disabled for this browser.");
+    } catch {
+      setStatus("Response trace could not be disabled. Try again.");
     }
   }
 
@@ -630,7 +639,8 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
 
       <AdminSection
         title="System Tools"
-        description="System health and protected prompt inspection."
+        description="System health and response diagnostics."
+        mountWhenOpen
       >
         <div className="space-y-3">
           <VoiceSystemHealthPanel />
@@ -638,10 +648,11 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
           <div className="rounded-xl border p-3">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-sm font-semibold">Prompt Inspector</div>
+                <div className="text-sm font-semibold">Response trace</div>
                 <div className="text-xs text-muted-foreground">
-                  Enables prompt inspection for this browser. Authorization is
-                  checked on every request.
+                  Shows routing, model, safety, memory, token, and timing
+                  details for your chat replies in this browser. Authorization
+                  is checked on every request.
                 </div>
               </div>
 
@@ -652,7 +663,7 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
                   if (event.target.checked) void enableInspector();
                   else void disableInspector();
                 }}
-                aria-label="Enable Prompt Inspector"
+                aria-label="Enable response trace"
               />
             </div>
 

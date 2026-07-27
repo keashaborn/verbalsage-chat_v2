@@ -31,7 +31,9 @@ test("retired model diagnostics are absent from the Admin Console", () => {
   assert.doesNotMatch(adminConsole, /Model Diagnostics|developer\/diagnostics/);
   assert.doesNotMatch(permissions, /diagnostics\.run/);
   assert.match(adminConsole, /VoiceSystemHealthPanel/);
-  assert.match(adminConsole, /Prompt Inspector/);
+  assert.match(adminConsole, /Response trace/);
+  assert.doesNotMatch(adminConsole, /Prompt Inspector/);
+  assert.doesNotMatch(permissions, /assistant_profile/);
 });
 
 test("active authentication and settings code do not hydrate Vantage controls", () => {
