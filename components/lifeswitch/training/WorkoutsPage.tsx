@@ -34,6 +34,35 @@ type ExerciseSearchHit = {
   model_name?: string | null;
 };
 
+type ExerciseFamilyVariant = {
+  exercise_family_member_id: string;
+  exercise_id: string;
+  slug: string;
+  display_name: string;
+  variant_label: string;
+  modality: string;
+  primary_muscles: string[];
+  equipment_required: string[];
+  unilateral: boolean;
+  is_default: boolean;
+  sort_order: number;
+};
+
+type ExerciseFamily = {
+  exercise_family_id: string;
+  slug: string;
+  display_name: string;
+  kind: string;
+  movement_group: string;
+  movement_pattern: string;
+  primary_muscles: string[];
+  description: string;
+  sort_order: number;
+  variants: ExerciseFamilyVariant[];
+};
+
+type ExercisePickerTab = "browse" | "search" | "mine";
+
 type WorkoutTemplateRow = {
   workout_template_id: string;
   owner_user_id: string;
@@ -108,6 +137,14 @@ function descriptiveExerciseKind(value?: string | null) {
   return roleLikeKinds.has(norm(clean)) ? "" : clean;
 }
 
+function displayMovementGroup(value: string) {
+  return String(value || "")
+    .split("_")
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
+}
+
 export default function TrainingWorkoutsPage() {
   const [myExercises, setMyExercises] = React.useState<MyExerciseRow[]>([]);
   const [templates, setTemplates] = React.useState<WorkoutTemplateRow[]>([]);
@@ -128,6 +165,18 @@ export default function TrainingWorkoutsPage() {
   const [catalogHits, setCatalogHits] = React.useState<ExerciseSearchHit[]>([]);
   const [catalogLoading, setCatalogLoading] = React.useState(false);
   const [catalogStatus, setCatalogStatus] = React.useState("");
+  const [exerciseLibraryOpen, setExerciseLibraryOpen] = React.useState(false);
+  const [exercisePickerTab, setExercisePickerTab] =
+    React.useState<ExercisePickerTab>("browse");
+  const [browseFamilies, setBrowseFamilies] = React.useState<ExerciseFamily[]>(
+    [],
+  );
+  const [browseLoading, setBrowseLoading] = React.useState(false);
+  const [browseStatus, setBrowseStatus] = React.useState("");
+  const [browseQuery, setBrowseQuery] = React.useState("");
+  const [browseGroup, setBrowseGroup] = React.useState("");
+  const [openFamilyId, setOpenFamilyId] = React.useState("");
+  const [myExerciseQuery, setMyExerciseQuery] = React.useState("");
   const [addStatus, setAddStatus] = React.useState("");
   const [editingSelected, setEditingSelected] = React.useState(false);
   const [openExerciseIds, setOpenExerciseIds] = React.useState<
@@ -228,6 +277,12 @@ export default function TrainingWorkoutsPage() {
     setQ("");
     setCatalogHits([]);
     setCatalogStatus("");
+    setExerciseLibraryOpen(false);
+    setExercisePickerTab("browse");
+    setBrowseQuery("");
+    setBrowseGroup("");
+    setOpenFamilyId("");
+    setMyExerciseQuery("");
     setAddStatus("");
     setOpenSelectedExerciseActionsId("");
   }, []);
@@ -248,12 +303,11 @@ export default function TrainingWorkoutsPage() {
   }, [myExercises]);
 
   const personalHits = React.useMemo(() => {
-    const qq = norm(q);
-    if (!qq) return [];
+    const qq = norm(myExerciseQuery);
     return myExercises
-      .filter((x) => norm(x.display_name).includes(qq))
-      .slice(0, 20);
-  }, [q, myExercises]);
+      .filter((x) => !qq || norm(x.display_name).includes(qq))
+      .slice(0, 50);
+  }, [myExerciseQuery, myExercises]);
 
   const savedExerciseIds = React.useMemo(() => {
     const ids = new Set<string>();
@@ -263,8 +317,80 @@ export default function TrainingWorkoutsPage() {
     return ids;
   }, [myExercises]);
 
+  const loadBrowseFamilies = React.useCallback(async () => {
+    setBrowseLoading(true);
+    setBrowseStatus("");
+
+    try {
+      const u = new URL(
+        "/api/catalog/exercises/browse",
+        window.location.origin,
+      );
+      u.searchParams.set("kind", "strength");
+      u.searchParams.set("limit", "100");
+
+      const j = (await fetchJson(u.toString())) as ExerciseFamily[];
+      const arr = Array.isArray(j) ? j : [];
+      setBrowseFamilies(arr);
+      if (!arr.length) setBrowseStatus("No exercise families are available.");
+    } catch {
+      setBrowseFamilies([]);
+      setBrowseStatus("The exercise library is unavailable right now.");
+    } finally {
+      setBrowseLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (
+      exerciseLibraryOpen &&
+      exercisePickerTab === "browse" &&
+      browseFamilies.length === 0 &&
+      !browseStatus &&
+      !browseLoading
+    ) {
+      void loadBrowseFamilies();
+    }
+  }, [
+    browseFamilies.length,
+    browseLoading,
+    browseStatus,
+    exerciseLibraryOpen,
+    exercisePickerTab,
+    loadBrowseFamilies,
+  ]);
+
+  const browseGroups = React.useMemo(() => {
+    return Array.from(
+      new Set(browseFamilies.map((family) => family.movement_group)),
+    ).sort((a, b) =>
+      displayMovementGroup(a).localeCompare(displayMovementGroup(b)),
+    );
+  }, [browseFamilies]);
+
+  const filteredBrowseFamilies = React.useMemo(() => {
+    const qq = norm(browseQuery);
+    return browseFamilies.filter((family) => {
+      if (browseGroup && family.movement_group !== browseGroup) return false;
+      if (!qq) return true;
+      return (
+        norm(family.display_name).includes(qq) ||
+        norm(family.description).includes(qq) ||
+        family.primary_muscles.some((muscle) => norm(muscle).includes(qq)) ||
+        family.variants.some(
+          (variant) =>
+            norm(variant.display_name).includes(qq) ||
+            norm(variant.modality).includes(qq) ||
+            variant.equipment_required.some((item) => norm(item).includes(qq)),
+        )
+      );
+    });
+  }, [browseFamilies, browseGroup, browseQuery]);
+
   React.useEffect(() => {
     const qq = q.trim();
+
+    if (!exerciseLibraryOpen || exercisePickerTab !== "search") return;
 
     const h = setTimeout(async () => {
       if (!qq) {
@@ -289,17 +415,17 @@ export default function TrainingWorkoutsPage() {
         const arr = Array.isArray(j) ? j : [];
 
         setCatalogHits(arr);
-        setCatalogStatus(`catalog hits=${arr.length}`);
-      } catch (e: any) {
+        setCatalogStatus(arr.length ? "" : `No catalog matches for “${qq}”.`);
+      } catch {
         setCatalogHits([]);
-        setCatalogStatus(`catalog error: ${String(e?.message || e)}`);
+        setCatalogStatus("Exercise search is unavailable right now.");
       } finally {
         setCatalogLoading(false);
       }
     }, 250);
 
     return () => clearTimeout(h);
-  }, [q]);
+  }, [exerciseLibraryOpen, exercisePickerTab, q]);
 
   async function createTemplate() {
     const name = newName.trim();
@@ -547,9 +673,13 @@ export default function TrainingWorkoutsPage() {
       }
 
       await addExerciseToSelected(hit.exercise_id, hit.display_name);
-      setAddStatus(`Added ${hit.display_name}`);
+      setAddStatus(
+        `Added ${hit.display_name} to ${selected.name} and saved it to My exercises.`,
+      );
     } catch (e: any) {
-      setAddStatus(`add failed: ${String(e?.message || e)}`);
+      setAddStatus(
+        `Could not add ${hit.display_name}: ${String(e?.message || e)}`,
+      );
     }
   }
 
@@ -571,9 +701,13 @@ export default function TrainingWorkoutsPage() {
       });
 
       await addExerciseToSelected(row.exercise_id, row.display_name);
-      setAddStatus(`Created and added ${row.display_name}`);
+      setAddStatus(
+        `Created ${row.display_name} and added it to ${selected.name}.`,
+      );
     } catch (e: any) {
-      setAddStatus(`custom create failed: ${String(e?.message || e)}`);
+      setAddStatus(
+        `Could not create that exercise: ${String(e?.message || e)}`,
+      );
     }
   }
   async function addExerciseToSelected(
@@ -1287,174 +1421,440 @@ export default function TrainingWorkoutsPage() {
                 </div>
               )}
             </section>
-            {/* Add exercises inside selected workout */}
             <section className="min-w-0 rounded-xl border p-4">
-              <div className="text-sm font-semibold">
-                Add exercises
-                {selected ? ` to ${selected.name}` : " to selected workout"}
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">
+                    Add exercises to {selected.name}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Browse common movements or find a specific machine,
+                    variation, or saved exercise.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
+                  onClick={() => setExerciseLibraryOpen((open) => !open)}
+                  aria-expanded={exerciseLibraryOpen}
+                >
+                  {exerciseLibraryOpen
+                    ? "Hide exercise library"
+                    : "Show exercise library"}
+                </button>
               </div>
 
-              {selected ? (
+              {exerciseLibraryOpen ? (
                 <div className="mt-4">
-                  <input
-                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    placeholder="Search exercises"
-                  />
+                  <div
+                    className="grid grid-cols-3 rounded-xl border p-1"
+                    role="tablist"
+                    aria-label="Choose how to find an exercise"
+                  >
+                    {(
+                      [
+                        ["browse", "Browse"],
+                        ["search", "Search equipment"],
+                        ["mine", "My exercises"],
+                      ] as const
+                    ).map(([tab, label]) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        role="tab"
+                        aria-selected={exercisePickerTab === tab}
+                        className={`rounded-lg px-2 py-2 text-xs font-medium sm:text-sm ${
+                          exercisePickerTab === tab
+                            ? "bg-foreground text-background"
+                            : "text-muted-foreground hover:bg-muted/30"
+                        }`}
+                        onClick={() => setExercisePickerTab(tab)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
 
-                  {q.trim() ? (
-                    <div className="mt-3 space-y-4">
-                      {personalHits.length ? (
-                        <section>
-                          <div className="text-xs font-semibold text-muted-foreground">
-                            My / custom exercises
-                          </div>
-                          <div className="mt-2 divide-y divide-muted/20">
-                            {personalHits.map((h) => {
-                              const alreadyIn = templateExercises.some(
-                                (x) => x.exercise_id === h.exercise_id,
-                              );
+                  {exercisePickerTab === "browse" ? (
+                    <div className="mt-4">
+                      <div className="text-sm font-semibold">
+                        Movement library
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Start with the movement. Open it to choose the exact
+                        free-weight, bodyweight, cable, or machine variation.
+                      </div>
 
-                              return (
-                                <div
-                                  key={h.exercise_id}
-                                  className="flex items-center justify-between gap-3 py-3"
-                                >
-                                  <div className="min-w-0">
-                                    <div className="truncate text-sm font-medium">
-                                      {h.display_name}
-                                    </div>
-                                    {h.exercise_role === "rehab" ? (
-                                      <div className="mt-1 text-[11px] font-medium text-muted-foreground">
-                                        Rehab · excluded from strength analysis
-                                      </div>
-                                    ) : null}
-                                    <div className="mt-1 text-xs text-muted-foreground">
-                                      {h.modality}
-                                      {descriptiveExerciseKind(h.kind)
-                                        ? ` · ${descriptiveExerciseKind(h.kind)}`
-                                        : ""}
-                                      {h.brand_name ? ` · ${h.brand_name}` : ""}
-                                    </div>
-                                  </div>
+                      <input
+                        className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        value={browseQuery}
+                        onChange={(event) => setBrowseQuery(event.target.value)}
+                        placeholder="Filter bench press, row, squat, core..."
+                      />
 
-                                  <button
-                                    type="button"
-                                    className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
-                                    onClick={() =>
-                                      void addExerciseToSelected(
-                                        h.exercise_id,
-                                        h.display_name,
-                                      )
-                                    }
-                                    disabled={!selected || alreadyIn}
-                                    title="Add exercise to workout"
-                                  >
-                                    {alreadyIn ? "Added" : "Add"}
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </section>
-                      ) : null}
-
-                      <section>
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="text-xs font-semibold text-muted-foreground">
-                            Catalog
-                          </div>
-                          <div className="text-[11px] text-muted-foreground">
-                            {catalogLoading ? "searching..." : catalogStatus}
-                          </div>
-                        </div>
-
-                        {catalogHits.length ? (
-                          <div className="mt-2 divide-y divide-muted/20">
-                            {catalogHits.map((h) => {
-                              const alreadyIn = templateExercises.some(
-                                (x) => x.exercise_id === h.exercise_id,
-                              );
-                              const alreadySaved = savedExerciseIds.has(
-                                String(h.exercise_id),
-                              );
-
-                              return (
-                                <div
-                                  key={h.exercise_id}
-                                  className="flex items-center justify-between gap-3 py-3"
-                                >
-                                  <div className="min-w-0">
-                                    <div className="truncate text-sm font-medium">
-                                      {h.display_name}
-                                    </div>
-                                    <div className="mt-1 text-xs text-muted-foreground">
-                                      {h.modality}
-                                      {h.kind ? ` · ${h.kind}` : ""}
-                                      {h.brand_name ? ` · ${h.brand_name}` : ""}
-                                      {alreadySaved ? " · saved" : ""}
-                                    </div>
-                                    {h.matched_text ? (
-                                      <div className="mt-1 max-h-10 overflow-hidden text-xs opacity-80">
-                                        {h.matched_text}
-                                      </div>
-                                    ) : null}
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
-                                    onClick={() =>
-                                      void addCatalogExerciseToSelected(h)
-                                    }
-                                    disabled={!selected || alreadyIn}
-                                    title="Add catalog exercise to workout"
-                                  >
-                                    {alreadyIn ? "Added" : "Add"}
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : catalogLoading ? null : (
-                          <div className="mt-2 text-sm text-muted-foreground">
-                            No catalog match.
-                          </div>
-                        )}
-                      </section>
-
-                      <section className="rounded-xl border p-3">
-                        <div className="text-sm font-medium">
-                          Need a custom exercise?
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          Create “{q.trim()}” as one of your exercises and add
-                          it directly to this workout.
-                        </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           type="button"
-                          className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                          onClick={() => void createCustomAndAddToSelected()}
-                          disabled={!selected || !q.trim()}
+                          className={`rounded-full border px-3 py-1 text-xs ${
+                            !browseGroup
+                              ? "border-foreground bg-foreground text-background"
+                              : "hover:bg-muted/20"
+                          }`}
+                          onClick={() => setBrowseGroup("")}
                         >
-                          Create custom + add
+                          All
                         </button>
-                      </section>
-                    </div>
-                  ) : (
-                    <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
-                      Search to add exercises.
-                    </div>
-                  )}
+                        {browseGroups.map((group) => (
+                          <button
+                            key={group}
+                            type="button"
+                            className={`rounded-full border px-3 py-1 text-xs ${
+                              browseGroup === group
+                                ? "border-foreground bg-foreground text-background"
+                                : "hover:bg-muted/20"
+                            }`}
+                            onClick={() => setBrowseGroup(group)}
+                          >
+                            {displayMovementGroup(group)}
+                          </button>
+                        ))}
+                      </div>
 
-                  <div className="mt-3 text-xs text-muted-foreground">
-                    {myLoading ? "Loading My Training Library" : addStatus}
-                  </div>
+                      {browseLoading ? (
+                        <div className="mt-4 text-sm text-muted-foreground">
+                          Loading exercise library…
+                        </div>
+                      ) : null}
+
+                      {browseStatus ? (
+                        <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
+                          {browseStatus}
+                          <button
+                            type="button"
+                            className="ml-2 underline underline-offset-2"
+                            onClick={() => void loadBrowseFamilies()}
+                          >
+                            Try again
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {!browseLoading && !browseStatus ? (
+                        <div className="mt-3 space-y-2">
+                          {filteredBrowseFamilies.map((family) => {
+                            const open =
+                              openFamilyId === family.exercise_family_id;
+                            return (
+                              <div
+                                key={family.exercise_family_id}
+                                className={`rounded-xl border ${
+                                  open ? "bg-muted/20" : ""
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left hover:bg-muted/10"
+                                  onClick={() =>
+                                    setOpenFamilyId(
+                                      open ? "" : family.exercise_family_id,
+                                    )
+                                  }
+                                  aria-expanded={open}
+                                >
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-semibold text-blue-400">
+                                      {family.display_name}
+                                    </div>
+                                    <div className="mt-1 text-xs text-muted-foreground">
+                                      {displayMovementGroup(
+                                        family.movement_group,
+                                      )}{" "}
+                                      · {family.variants.length} variation
+                                      {family.variants.length === 1 ? "" : "s"}
+                                    </div>
+                                    {family.description ? (
+                                      <div className="mt-1 text-xs text-muted-foreground">
+                                        {family.description}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                  {open ? (
+                                    <ChevronUp className="mt-0.5 h-4 w-4 shrink-0" />
+                                  ) : (
+                                    <ChevronDown className="mt-0.5 h-4 w-4 shrink-0" />
+                                  )}
+                                </button>
+
+                                {open ? (
+                                  <div className="divide-y divide-muted/20 border-t px-3">
+                                    {family.variants.map((variant) => {
+                                      const alreadyIn = templateExercises.some(
+                                        (exercise) =>
+                                          exercise.exercise_id ===
+                                          variant.exercise_id,
+                                      );
+                                      const alreadySaved = savedExerciseIds.has(
+                                        String(variant.exercise_id),
+                                      );
+                                      return (
+                                        <div
+                                          key={variant.exercise_id}
+                                          className="flex items-center justify-between gap-3 py-3"
+                                        >
+                                          <div className="min-w-0">
+                                            <div className="text-sm font-medium">
+                                              {variant.display_name}
+                                            </div>
+                                            <div className="mt-1 text-xs text-muted-foreground">
+                                              {variant.modality || "exercise"}
+                                              {variant.is_default
+                                                ? " · common starting point"
+                                                : ""}
+                                              {alreadySaved
+                                                ? " · in My exercises"
+                                                : ""}
+                                            </div>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                                            disabled={alreadyIn}
+                                            onClick={() =>
+                                              void addCatalogExerciseToSelected(
+                                                {
+                                                  exercise_id:
+                                                    variant.exercise_id,
+                                                  display_name:
+                                                    variant.display_name,
+                                                  kind: family.kind,
+                                                  modality: variant.modality,
+                                                  matched_source:
+                                                    "exercise_family",
+                                                },
+                                              )
+                                            }
+                                          >
+                                            {alreadyIn ? "Added" : "Add"}
+                                          </button>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+
+                          {!filteredBrowseFamilies.length ? (
+                            <div className="rounded-xl border p-3 text-sm text-muted-foreground">
+                              No movement family matches those filters.
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {exercisePickerTab === "search" ? (
+                    <div className="mt-4">
+                      <div className="text-sm font-semibold">
+                        Search equipment and variations
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Search by machine, brand, movement, or exact exercise
+                        name.
+                      </div>
+                      <input
+                        className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        value={q}
+                        onChange={(event) => setQ(event.target.value)}
+                        placeholder="Hammer Strength chest press, barbell bench..."
+                        autoFocus
+                      />
+
+                      {q.trim() ? (
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-xs font-semibold text-muted-foreground">
+                              Catalog results
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {catalogLoading
+                                ? "Searching…"
+                                : catalogHits.length
+                                  ? `${catalogHits.length} found`
+                                  : ""}
+                            </div>
+                          </div>
+
+                          {catalogHits.length ? (
+                            <div className="mt-2 divide-y divide-muted/20">
+                              {catalogHits.map((hit) => {
+                                const alreadyIn = templateExercises.some(
+                                  (exercise) =>
+                                    exercise.exercise_id === hit.exercise_id,
+                                );
+                                const alreadySaved = savedExerciseIds.has(
+                                  String(hit.exercise_id),
+                                );
+                                return (
+                                  <div
+                                    key={hit.exercise_id}
+                                    className="flex items-center justify-between gap-3 py-3"
+                                  >
+                                    <div className="min-w-0">
+                                      <div className="text-sm font-medium">
+                                        {hit.display_name}
+                                      </div>
+                                      <div className="mt-1 text-xs text-muted-foreground">
+                                        {hit.modality || "exercise"}
+                                        {hit.brand_name
+                                          ? ` · ${hit.brand_name}`
+                                          : ""}
+                                        {alreadySaved
+                                          ? " · in My exercises"
+                                          : ""}
+                                      </div>
+                                      {hit.matched_text ? (
+                                        <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                                          Matched: {hit.matched_text}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                                      onClick={() =>
+                                        void addCatalogExerciseToSelected(hit)
+                                      }
+                                      disabled={alreadyIn}
+                                    >
+                                      {alreadyIn ? "Added" : "Add"}
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+
+                          {!catalogLoading && catalogStatus ? (
+                            <div className="mt-3 rounded-xl border p-3 text-sm text-muted-foreground">
+                              {catalogStatus}
+                            </div>
+                          ) : null}
+
+                          <div className="mt-4 rounded-xl border p-3">
+                            <div className="text-sm font-medium">
+                              Can’t find the exact exercise?
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              Create “{q.trim()}” as a custom exercise and add
+                              it to this workout.
+                            </div>
+                            <button
+                              type="button"
+                              className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                              onClick={() =>
+                                void createCustomAndAddToSelected()
+                              }
+                              disabled={!q.trim()}
+                            >
+                              Create custom exercise
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-3 rounded-xl border p-3 text-sm text-muted-foreground">
+                          Enter a machine, brand, or exercise name.
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+
+                  {exercisePickerTab === "mine" ? (
+                    <div className="mt-4">
+                      <div className="text-sm font-semibold">My exercises</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Exercises you have saved or created previously.
+                      </div>
+                      <input
+                        className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        value={myExerciseQuery}
+                        onChange={(event) =>
+                          setMyExerciseQuery(event.target.value)
+                        }
+                        placeholder="Filter My exercises"
+                      />
+
+                      {myLoading ? (
+                        <div className="mt-3 text-sm text-muted-foreground">
+                          Loading My exercises…
+                        </div>
+                      ) : personalHits.length ? (
+                        <div className="mt-2 divide-y divide-muted/20">
+                          {personalHits.map((exercise) => {
+                            const alreadyIn = templateExercises.some(
+                              (item) =>
+                                item.exercise_id === exercise.exercise_id,
+                            );
+                            return (
+                              <div
+                                key={exercise.exercise_id}
+                                className="flex items-center justify-between gap-3 py-3"
+                              >
+                                <div className="min-w-0">
+                                  <div className="text-sm font-medium">
+                                    {exercise.display_name}
+                                  </div>
+                                  <div className="mt-1 text-xs text-muted-foreground">
+                                    {exercise.modality || "exercise"}
+                                    {exercise.brand_name
+                                      ? ` · ${exercise.brand_name}`
+                                      : ""}
+                                    {exercise.exercise_role === "rehab"
+                                      ? " · rehab"
+                                      : ""}
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="shrink-0 rounded-xl border px-3 py-1.5 text-xs hover:bg-muted/30 disabled:opacity-50"
+                                  onClick={() =>
+                                    void addExerciseToSelected(
+                                      exercise.exercise_id,
+                                      exercise.display_name,
+                                    )
+                                  }
+                                  disabled={alreadyIn}
+                                >
+                                  {alreadyIn ? "Added" : "Add"}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="mt-3 rounded-xl border p-3 text-sm text-muted-foreground">
+                          No saved exercise matches that filter.
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+
+                  {addStatus ? (
+                    <div
+                      className="mt-4 rounded-xl border bg-muted/20 px-3 py-2 text-sm"
+                      aria-live="polite"
+                    >
+                      {addStatus}
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
-                  Select or create a workout first.
+                  Open the exercise library when you want to add or compare
+                  movements. Your existing workout and logged sessions are not
+                  changed by browsing.
                 </div>
               )}
             </section>
