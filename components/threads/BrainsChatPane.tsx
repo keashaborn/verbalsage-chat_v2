@@ -66,6 +66,11 @@ import {
   pcmS16leToWav,
   splitForSpeech,
 } from "@/lib/voiceSpeech";
+import {
+  canApplyForegroundThreadSync,
+  decideForegroundThreadSync,
+  type ForegroundThreadSyncState,
+} from "@/lib/foregroundThreadSync";
 
 type SearchControl = "auto" | "off";
 
@@ -96,6 +101,10 @@ type RequestRecoveryAction = "none" | "refresh";
 
 const STALE_CLIENT_THREAD_PREP_MESSAGE =
   "The app may have updated. Refresh and try again.";
+
+type PendingActiveThreadSync = {
+  threadId: string | null;
+};
 
 type ResponseStageTimings = {
   conversation_snapshot_ms?: number;
@@ -435,6 +444,8 @@ export function BrainsChatPane() {
   const [requestError, setRequestError] = React.useState("");
   const [requestRecoveryAction, setRequestRecoveryAction] =
     React.useState<RequestRecoveryAction>("none");
+  const [pendingActiveThreadSync, setPendingActiveThreadSync] =
+    React.useState<PendingActiveThreadSync | null>(null);
   const [effectiveVoiceMode] = React.useState<"realtime_preview" | "governed">(
     "realtime_preview",
   );
@@ -632,6 +643,49 @@ export function BrainsChatPane() {
   const [ttsPlayingIdx, setTtsPlayingIdx] = React.useState<number | null>(null);
   const [playbackState, setPlaybackState] =
     React.useState<VoicePlaybackState | null>(null);
+  const foregroundThreadSyncInFlightRef = React.useRef(false);
+  const lastForegroundThreadSyncAtRef = React.useRef(0);
+  const foregroundThreadSyncStateRef = React.useRef<{
+    threadId: string | null;
+    state: ForegroundThreadSyncState;
+  }>({
+    threadId: null,
+    state: {
+      loading: false,
+      sending: false,
+      hasDraft: false,
+      editing: false,
+      voiceBusy: false,
+      playbackBusy: false,
+      privacyDialogOpen: false,
+    },
+  });
+
+  React.useLayoutEffect(() => {
+    foregroundThreadSyncStateRef.current = {
+      threadId,
+      state: {
+        loading,
+        sending,
+        hasDraft: Boolean(text.trim() || editingText.trim()),
+        editing: Boolean(editingMessageId),
+        voiceBusy: voiceIsActive || voiceIsConnecting,
+        playbackBusy: Boolean(playbackState),
+        privacyDialogOpen: voicePrivacyOpen,
+      },
+    };
+  }, [
+    editingMessageId,
+    editingText,
+    loading,
+    playbackState,
+    sending,
+    text,
+    threadId,
+    voiceIsActive,
+    voiceIsConnecting,
+    voicePrivacyOpen,
+  ]);
 
   function bumpTtsEpoch() {
     ttsEpochRef.current += 1;
@@ -1185,6 +1239,7 @@ export function BrainsChatPane() {
       inspect_error: string | null;
       trusted_web_fallback?: boolean;
     },
+    shouldCommit?: () => boolean,
   ) {
     setLoading(true);
     try {
@@ -1218,12 +1273,81 @@ export function BrainsChatPane() {
         }
       }
 
+      if (shouldCommit && !shouldCommit()) return;
       setMsgs(normalized);
       requestAnimationFrame(() => scrollToBottom("auto"));
     } catch {
       // keep UI
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function applyServerActiveThread(nextThreadId: string | null) {
+    stopTTS();
+    setPendingActiveThreadSync(null);
+    setThreadId(nextThreadId);
+    setMsgs([]);
+    foregroundThreadSyncStateRef.current = {
+      ...foregroundThreadSyncStateRef.current,
+      threadId: nextThreadId,
+    };
+
+    if (nextThreadId) {
+      await loadMessages(nextThreadId, undefined, () => {
+        const current = foregroundThreadSyncStateRef.current;
+        return current.threadId === nextThreadId && !current.state.sending;
+      });
+    }
+
+    window.dispatchEvent(new Event("vs_threads_refresh"));
+  }
+
+  async function synchronizeActiveThreadFromServer(force = false) {
+    const now = Date.now();
+    if (!force && now - lastForegroundThreadSyncAtRef.current < 1_000) return;
+    if (foregroundThreadSyncInFlightRef.current) return;
+
+    lastForegroundThreadSyncAtRef.current = now;
+    foregroundThreadSyncInFlightRef.current = true;
+    try {
+      const active = await authFetchJson<{ thread_id: string | null }>(
+        "/api/threads/active",
+        { cache: "no-store" },
+      );
+      const serverThreadId = String(active?.thread_id || "").trim() || null;
+      const current = foregroundThreadSyncStateRef.current;
+      const decision = decideForegroundThreadSync(
+        current.threadId,
+        serverThreadId,
+        current.state,
+      );
+
+      if (decision === "defer") {
+        setPendingActiveThreadSync({ threadId: serverThreadId });
+        return;
+      }
+
+      if (decision === "switch_now") {
+        await applyServerActiveThread(serverThreadId);
+        return;
+      }
+
+      if (decision === "refresh_current" && serverThreadId) {
+        setPendingActiveThreadSync(null);
+        await loadMessages(serverThreadId, undefined, () => {
+          const latest = foregroundThreadSyncStateRef.current;
+          return latest.threadId === serverThreadId && !latest.state.sending;
+        });
+        window.dispatchEvent(new Event("vs_threads_refresh"));
+        return;
+      }
+
+      setPendingActiveThreadSync(null);
+    } catch {
+      // Foreground synchronization is best-effort; keep the current chat intact.
+    } finally {
+      foregroundThreadSyncInFlightRef.current = false;
     }
   }
 
@@ -1288,15 +1412,29 @@ export function BrainsChatPane() {
       realtimeVoice.setAssistantSpeaking(false);
       realtimeVoice.stop();
       const tid = e?.detail?.thread_id || null;
+      setPendingActiveThreadSync(null);
       setThreadId(tid);
       setMsgs([]);
       if (tid) loadMessages(tid);
     };
 
+    const onForeground = () => {
+      void synchronizeActiveThreadFromServer();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") onForeground();
+    };
+
     window.addEventListener("vs_active_thread", onSelect);
+    window.addEventListener("focus", onForeground);
+    window.addEventListener("pageshow", onForeground);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       mounted = false;
       window.removeEventListener("vs_active_thread", onSelect);
+      window.removeEventListener("focus", onForeground);
+      window.removeEventListener("pageshow", onForeground);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1978,6 +2116,9 @@ export function BrainsChatPane() {
   const composerValue = editingMessageId ? editingText : text;
   const composerHasText = composerValue.trim().length > 0;
   const voiceSessionVisible = voiceIsConnecting || voiceIsActive;
+  const foregroundThreadSyncSafe = canApplyForegroundThreadSync(
+    foregroundThreadSyncStateRef.current.state,
+  );
   const realtimeOverlayOpen =
     effectiveVoiceMode === "realtime_preview" &&
     realtimeVoice.status !== "idle";
@@ -2332,6 +2473,23 @@ export function BrainsChatPane() {
             </div>
           )}
           <div className="rounded-3xl border bg-background px-4 py-3">
+            {pendingActiveThreadSync && (
+              <div
+                className="mb-2 flex items-center justify-between gap-3 rounded-xl border bg-muted/40 px-3 py-2 text-xs"
+                role="status"
+                aria-live="polite"
+              >
+                <span>Conversation changed on another device.</span>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-md border px-2 py-1 disabled:opacity-50"
+                  disabled={!foregroundThreadSyncSafe}
+                  onClick={() => void synchronizeActiveThreadFromServer(true)}
+                >
+                  Open
+                </button>
+              </div>
+            )}
             {visibleRequestError && (
               <div
                 className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs"
