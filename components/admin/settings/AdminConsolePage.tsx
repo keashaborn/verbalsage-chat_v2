@@ -3,8 +3,7 @@
 import * as React from "react";
 import { authFetch } from "@/lib/authFetch";
 import { AccessRequestsPanel } from "@/components/admin/settings/AccessRequestsPanel";
-import { CardsPanel } from "@/components/admin/settings/CardsPanel";
-import { MemoryReviewPanel } from "@/components/admin/settings/MemoryReviewPanel";
+import { MemorySystemHealthPanel } from "@/components/admin/settings/MemorySystemHealthPanel";
 import { VoiceSystemHealthPanel } from "@/components/admin/settings/VoiceSystemHealthPanel";
 
 type AdminAccess = {
@@ -721,35 +720,11 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
       </AdminSection>
 
       <AdminSection
-        title="Memory / Retrieval Evaluation"
-        description="Memory status, card inspection, and the future retrieval/prompt-injection evaluator."
+        title="Memory Health"
+        description="Governed memory activity, synchronization, processing, and answer use."
+        mountWhenOpen
       >
-        <div className="space-y-3">
-          <div className="rounded-xl border p-3">
-            <div className="text-sm font-semibold">Memory System Status</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Backend route audit now checks card policy metadata, retrieval
-              plans, profile-card gating, specific recall, and user isolation.
-            </div>
-            <div className="mt-3 text-xs text-muted-foreground">
-              Goal: inspect what is active, style-only, content-eligible,
-              retired, or never allowed to surface.
-            </div>
-          </div>
-
-          <MemoryReviewPanel />
-
-          <div className="rounded-xl border p-3">
-            <div className="text-sm font-semibold">Memory Inspector</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Existing memory/card inspector. The new memory evaluator should be
-              added in this section, not as another top-level Admin block.
-            </div>
-            <div className="mt-3">
-              <CardsPanel />
-            </div>
-          </div>
-        </div>
+        <MemorySystemHealthPanel />
       </AdminSection>
     </div>
   );
