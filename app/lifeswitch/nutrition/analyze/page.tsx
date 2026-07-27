@@ -10,6 +10,10 @@ import {
   scoreNutritionRollingWindow,
 } from "@/lib/lifeswitch/nutritionScoring";
 import {
+  recoveryDaysForDomain,
+  type RecoveryAdjustment,
+} from "@/lib/lifeswitch/recoveryAdjustments";
+import {
   MiniLineChart,
   type XYPoint,
   type YReferenceBand,
@@ -221,6 +225,9 @@ export default function NutritionAnalyzePage() {
   );
   const [targetSource, setTargetSource] = React.useState("Plan targets not loaded");
   const [days, setDays] = React.useState<DaySummary[]>([]);
+  const [recoveryAdjustments, setRecoveryAdjustments] = React.useState<
+    RecoveryAdjustment[]
+  >([]);
   const [nutritionMetric, setNutritionMetric] = React.useState<NutritionMetric>("kcal");
   const showDebug =
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debug") === "1";
@@ -261,12 +268,26 @@ export default function NutritionAnalyzePage() {
       setNutritionTargets(nextTargets);
       setTargetSource(nextTargetSource);
 
+      const recoveryUrl = new URL(
+        "/api/lifeswitch/plan/agentic/recovery-adjustments",
+        window.location.origin,
+      );
+      recoveryUrl.searchParams.set("starts_on", daysAgoYYYYMMDD(89));
+      recoveryUrl.searchParams.set("ends_on", todayLocalYYYYMMDD());
       const rangeUrl = new URL("/api/lifeswitch/nutrition/log/range", window.location.origin);
       rangeUrl.searchParams.set("start_day", daysAgoYYYYMMDD(89));
       rangeUrl.searchParams.set("end_day", todayLocalYYYYMMDD());
       rangeUrl.searchParams.set("include_entries", "0");
-      const rangeJson = await fetchJson(rangeUrl.toString());
+      const [rangeJson, recoveryJson] = await Promise.all([
+        fetchJson(rangeUrl.toString()),
+        fetchJson(recoveryUrl.toString()),
+      ]);
       const rangeRows = Array.isArray(rangeJson?.days) ? rangeJson.days : [];
+      setRecoveryAdjustments(
+        Array.isArray(recoveryJson?.recovery_adjustments)
+          ? recoveryJson.recovery_adjustments
+          : [],
+      );
 
       const out: DaySummary[] = rangeRows
         .map((rangeDay: any) => {
@@ -297,6 +318,7 @@ export default function NutritionAnalyzePage() {
       setStatus(`loaded ${out.filter((summary) => summary.any).length} logged days`);
     } catch (e: any) {
       setDays([]);
+      setRecoveryAdjustments([]);
       setStatus(`error: ${String(e?.message || e)}`);
     } finally {
       setLoading(false);
@@ -341,6 +363,10 @@ export default function NutritionAnalyzePage() {
     };
   }, [finalizedLoggedDays, inProgressDays.length, loggedDays.length, rangeDays]);
 
+  const nutritionRecoveryDays = React.useMemo(
+    () => recoveryDaysForDomain(recoveryAdjustments, "nutrition"),
+    [recoveryAdjustments],
+  );
   const dailyScores = React.useMemo(
     () =>
       finalizedLoggedDays.map((day) => ({
@@ -350,13 +376,14 @@ export default function NutritionAnalyzePage() {
             day: day.day,
             logged: day.any,
             finalized: day.finalized,
+            adherenceExcluded: nutritionRecoveryDays.has(day.day),
             kcal: day.kcal,
             proteinG: day.protein_g,
           },
           nutritionTargets,
         ),
       })),
-    [finalizedLoggedDays, nutritionTargets],
+    [finalizedLoggedDays, nutritionRecoveryDays, nutritionTargets],
   );
   const calorieEvaluableDays = dailyScores.filter(
     ({ score }) => score.calorieStatus !== "not_evaluable",
@@ -385,8 +412,9 @@ export default function NutritionAnalyzePage() {
         })),
         rollingAsOfDay,
         nutritionTargets,
+        { excludedDays: nutritionRecoveryDays },
       ),
-    [days, nutritionTargets, rollingAsOfDay],
+    [days, nutritionRecoveryDays, nutritionTargets, rollingAsOfDay],
   );
 
   const rollingStatusLabel =
@@ -396,6 +424,8 @@ export default function NutritionAnalyzePage() {
         ? "Not hit"
         : rollingScore.status === "insufficient_data"
           ? "Needs more logged days"
+          : rollingScore.status === "paused"
+            ? "Paused for recovery"
           : "Not configured";
   const calorieTargetLabel = nutritionTargets.dailyRangeKcal
     ? `${nutritionTargets.dailyRangeKcal.lower}–${nutritionTargets.dailyRangeKcal.upper} kcal acceptable daily range`
@@ -522,7 +552,8 @@ export default function NutritionAnalyzePage() {
           <div>
             <div className="text-sm font-semibold">Plan vs actual · Nutrition adherence</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              {targetSource}. Completed days are scored; an unfinished current day is excluded.
+              {targetSource}. Completed eligible days are scored; unfinished and
+              recovery-adjusted days are excluded from adherence.
             </div>
           </div>
           {rollingScore.windowDays ? (
@@ -536,9 +567,11 @@ export default function NutritionAnalyzePage() {
           <MetricCard
             label="Data"
             value={rollingScore.windowDays
-              ? `${rollingScore.loggedDays}/${rollingScore.windowDays}`
+              ? `${rollingScore.loggedDays}/${rollingScore.eligibleDays}`
               : `${summary.finalizedDays}/${rangeDays}`}
-            sub={rollingScore.windowDays ? `completed days through ${rollingAsOfDay}` : "completed logged days in selected range"}
+            sub={rollingScore.windowDays
+              ? `${rollingScore.excludedDays} recovery-adjusted · through ${rollingAsOfDay}`
+              : "completed logged days in selected range"}
           />
           <MetricCard
             label="Calories"
@@ -558,12 +591,12 @@ export default function NutritionAnalyzePage() {
           <MetricCard
             label="Protein"
             value={nutritionTargets.proteinWeeklyAdherence
-              ? `${rollingScore.proteinDaysMeetingMinimum ?? 0}/${nutritionTargets.proteinWeeklyAdherence.windowDays}`
+              ? `${rollingScore.proteinDaysMeetingMinimum ?? 0}/${rollingScore.eligibleDays}`
               : nutritionTargets.proteinMinimumG != null
                 ? `${proteinHitDays}/${proteinEvaluableDays.length}`
                 : "Not scored"}
             sub={nutritionTargets.proteinWeeklyAdherence
-              ? `required ${nutritionTargets.proteinWeeklyAdherence.requiredHitDays} days at or above ${nutritionTargets.proteinMinimumG ?? "—"}g`
+              ? `required ${rollingScore.proteinRequiredHitDays ?? "—"} eligible days at or above ${nutritionTargets.proteinMinimumG ?? "—"}g`
               : proteinTargetLabel}
           />
         </div>

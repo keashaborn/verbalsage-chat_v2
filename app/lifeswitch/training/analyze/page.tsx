@@ -2,6 +2,10 @@
 
 import { authFetch } from "@/lib/authFetch";
 import { MiniLineChart, type XYPoint } from "@/components/sslg/MiniLineChart";
+import {
+  recoveryDaysForDomain,
+  type RecoveryAdjustment,
+} from "@/lib/lifeswitch/recoveryAdjustments";
 import { calculateStrengthFrequency } from "./strengthFrequency";
 import {
   calculateStrengthProgression,
@@ -193,6 +197,9 @@ export default function TrainingAnalyzePage() {
   const [progressionMetric, setProgressionMetric] = React.useState<ProgressionMetric>("max_load");
   const [trainingTargets, setTrainingTargets] = React.useState<Record<string, unknown> | null>(null);
   const [planEvidence, setPlanEvidence] = React.useState("Active Plan not loaded");
+  const [recoveryAdjustments, setRecoveryAdjustments] = React.useState<
+    RecoveryAdjustment[]
+  >([]);
   const showDebug =
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debug") === "1";
 
@@ -204,12 +211,19 @@ export default function TrainingAnalyzePage() {
     setStatus("loading training analysis…");
 
     try {
-      const [strengthJson, conditioningJson, planResult] = await Promise.all([
+      const recoveryUrl = new URL(
+        "/api/lifeswitch/plan/agentic/recovery-adjustments",
+        window.location.origin,
+      );
+      recoveryUrl.searchParams.set("starts_on", daysAgoYYYYMMDD(364));
+      recoveryUrl.searchParams.set("ends_on", todayLocalYYYYMMDD());
+      const [strengthJson, conditioningJson, planResult, recoveryJson] = await Promise.all([
         fetchJson("/api/lifeswitch/training/sessions?limit=500"),
         fetchJson("/api/lifeswitch/training/conditioning_sessions?limit=500"),
         fetchJson("/api/lifeswitch/plan/agentic/active")
           .then((value) => ({ value, failed: false }))
           .catch(() => ({ value: null, failed: true })),
+        fetchJson(recoveryUrl.toString()),
       ]);
 
       const strengthArr = Array.isArray(strengthJson) ? (strengthJson as TrainingSessionRow[]) : [];
@@ -229,6 +243,11 @@ export default function TrainingAnalyzePage() {
 
       setStrengthSessions(strengthArr);
       setConditioningSessions(conditioningArr);
+      setRecoveryAdjustments(
+        Array.isArray(recoveryJson?.recovery_adjustments)
+          ? recoveryJson.recovery_adjustments
+          : [],
+      );
       const activePlan = planResult.value?.active_plan;
       const activeDocument = activePlan?.document;
       if (activeDocument && typeof activeDocument === "object" && !Array.isArray(activeDocument)) {
@@ -251,6 +270,7 @@ export default function TrainingAnalyzePage() {
     } catch (e: any) {
       setStrengthSessions([]);
       setConditioningSessions([]);
+      setRecoveryAdjustments([]);
       setTrainingTargets(null);
       setPlanEvidence("Active Plan unavailable");
       setStatus(`error: ${String(e?.message || e)}`);
@@ -311,14 +331,19 @@ export default function TrainingAnalyzePage() {
     });
   }, [conditioningSessions, startDay, today]);
 
+  const strengthRecoveryDays = React.useMemo(
+    () => recoveryDaysForDomain(recoveryAdjustments, "strength"),
+    [recoveryAdjustments],
+  );
   const strengthFrequency = React.useMemo(
     () =>
       calculateStrengthFrequency({
         sessions: strengthSessions,
         trainingTargets,
         today,
+        recoveryDays: strengthRecoveryDays,
       }),
-    [strengthSessions, trainingTargets, today],
+    [strengthRecoveryDays, strengthSessions, trainingTargets, today],
   );
 
   const strengthFrequencyStatus = {
@@ -326,6 +351,7 @@ export default function TrainingAnalyzePage() {
     below: "Below",
     above: "Above",
     insufficient_data: "Insufficient data",
+    paused: "Paused for recovery",
   }[strengthFrequency.status];
 
   const strengthFrequencyStatusClass = {
@@ -333,6 +359,7 @@ export default function TrainingAnalyzePage() {
     below: "border-amber-700/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
     above: "border-sky-700/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
     insufficient_data: "border-muted-foreground/30 bg-muted/30 text-muted-foreground",
+    paused: "border-violet-700/40 bg-violet-500/10 text-violet-700 dark:text-violet-300",
   }[strengthFrequency.status];
 
   const strengthProgression = React.useMemo(
@@ -550,6 +577,13 @@ export default function TrainingAnalyzePage() {
           <div>
             Latest completed 7-day window: {strengthFrequency.windowStart} → {strengthFrequency.windowEnd}. Today ({today}) is excluded.
           </div>
+          {strengthFrequency.status === "paused" ? (
+            <div>
+              Strength adherence is not judged while recovery overlaps today or
+              this evaluation window. Logged workouts and progression data are
+              preserved.
+            </div>
+          ) : null}
           <div>
             A completed strength or mixed strength + rehab session counts once. Rehab-only, conditioning-only, incomplete, inactive, and unclassified sessions are excluded.
           </div>

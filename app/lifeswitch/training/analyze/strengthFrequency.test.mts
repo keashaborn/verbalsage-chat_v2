@@ -74,3 +74,34 @@ test("parses a structured range and reports above target", () => {
   });
   assert.equal(result.status, "above");
 });
+
+test("an active recovery adjustment pauses the judgment but preserves counts", () => {
+  const result = calculateStrengthFrequency({
+    today,
+    trainingTargets: { strength_sessions_per_week: 3 },
+    recoveryDays: ["2026-07-22", "2026-07-23"],
+    sessions: [
+      {
+        day: "2026-07-21",
+        finished_at: "2026-07-21T18:00:00Z",
+        session_role: "strength",
+      },
+    ],
+  });
+  assert.equal(result.completed, 1);
+  assert.equal(result.status, "paused");
+  assert.equal(result.recoveryActiveToday, true);
+  assert.equal(result.recoveryDaysInWindow, 0);
+});
+
+test("a recovery day in the evaluated window prevents a false below judgment", () => {
+  const result = calculateStrengthFrequency({
+    today,
+    trainingTargets: { strength_sessions_per_week: 3 },
+    recoveryDays: ["2026-07-20"],
+    sessions: [],
+  });
+  assert.equal(result.status, "paused");
+  assert.equal(result.recoveryActiveToday, false);
+  assert.equal(result.recoveryDaysInWindow, 1);
+});

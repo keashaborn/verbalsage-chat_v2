@@ -4,6 +4,7 @@ export type NutritionObservation = {
   day: string;
   logged: boolean;
   finalized?: boolean;
+  adherenceExcluded?: boolean;
   kcal: number | null;
   proteinG: number | null;
 };
@@ -11,14 +12,27 @@ export type NutritionObservation = {
 type ComponentStatus = "hit" | "not_hit" | "not_evaluable";
 
 export type DailyNutritionScore = {
-  status: "hit" | "not_hit" | "no_log" | "in_progress" | "not_evaluable";
+  status:
+    | "hit"
+    | "not_hit"
+    | "no_log"
+    | "in_progress"
+    | "not_evaluable"
+    | "excused";
   calorieStatus: ComponentStatus;
   proteinStatus: ComponentStatus;
 };
 
 export type RollingNutritionScore = {
-  status: "hit" | "not_hit" | "insufficient_data" | "not_evaluable";
+  status:
+    | "hit"
+    | "not_hit"
+    | "insufficient_data"
+    | "not_evaluable"
+    | "paused";
   windowDays: number | null;
+  eligibleDays: number;
+  excludedDays: number;
   loggedDays: number;
   calorieAverage: number | null;
   calorieAverageWithinRange: boolean | null;
@@ -42,6 +56,13 @@ export function scoreNutritionDay(
   observation: NutritionObservation,
   targets: PlanNutritionTargetConfig,
 ): DailyNutritionScore {
+  if (observation.adherenceExcluded) {
+    return {
+      status: "excused",
+      calorieStatus: "not_evaluable",
+      proteinStatus: "not_evaluable",
+    };
+  }
   if (!observation.logged) {
     return {
       status: "no_log",
@@ -109,6 +130,7 @@ export function scoreNutritionRollingWindow(
   observations: NutritionObservation[],
   asOfDay: string,
   targets: PlanNutritionTargetConfig,
+  options: { excludedDays?: Iterable<string> } = {},
 ): RollingNutritionScore {
   const calorieRule = targets.rollingAverageKcal;
   const proteinRule = targets.proteinWeeklyAdherence;
@@ -125,6 +147,8 @@ export function scoreNutritionRollingWindow(
     return {
       status: "not_evaluable",
       windowDays,
+      eligibleDays: 0,
+      excludedDays: 0,
       loggedDays: 0,
       calorieAverage: null,
       calorieAverageWithinRange: null,
@@ -142,7 +166,11 @@ export function scoreNutritionRollingWindow(
   const period = Array.from({ length: windowDays }, (_, index) =>
     dayAtOffset(asOfDay, index - windowDays + 1),
   );
-  const logged = period
+  const excludedDaySet = new Set(options.excludedDays || []);
+  const eligiblePeriod = period.filter((day) => !excludedDaySet.has(day));
+  const excludedDays = period.length - eligiblePeriod.length;
+  const eligibleDays = eligiblePeriod.length;
+  const logged = eligiblePeriod
     .map((day) => byDay.get(day))
     .filter((item): item is NutritionObservation => Boolean(item));
   const calorieValues = logged
@@ -156,11 +184,11 @@ export function scoreNutritionRollingWindow(
       calorieValues.length
     : null;
   const calorieComplete =
-    calorieRule != null && calorieValues.length === windowDays;
+    calorieRule != null && calorieValues.length === eligibleDays;
   const proteinComplete =
     proteinRule != null &&
     targets.proteinMinimumG != null &&
-    proteinValues.length === windowDays;
+    proteinValues.length === eligibleDays;
   const calorieAverageWithinRange =
     calorieComplete && calorieAverage != null
       ? calorieAverage >= calorieRule.lower &&
@@ -170,10 +198,34 @@ export function scoreNutritionRollingWindow(
     proteinRule && targets.proteinMinimumG != null
       ? proteinValues.filter((value) => value >= targets.proteinMinimumG!).length
       : null;
+  const proteinRequiredHitDays =
+    proteinRule == null
+      ? null
+      : Math.min(
+          eligibleDays,
+          Math.ceil(
+            (proteinRule.requiredHitDays / proteinRule.windowDays) * eligibleDays,
+          ),
+        );
   const proteinRuleMet =
     proteinComplete && proteinDaysMeetingMinimum != null
-      ? proteinDaysMeetingMinimum >= proteinRule.requiredHitDays
+      ? proteinDaysMeetingMinimum >= (proteinRequiredHitDays ?? 0)
       : null;
+
+  if (eligibleDays === 0 && excludedDays > 0) {
+    return {
+      status: "paused",
+      windowDays,
+      eligibleDays,
+      excludedDays,
+      loggedDays: 0,
+      calorieAverage: null,
+      calorieAverageWithinRange: null,
+      proteinDaysMeetingMinimum: null,
+      proteinRequiredHitDays,
+      proteinRuleMet: null,
+    };
+  }
 
   const requiredComponents = targets.weeklyRequiresBoth
     ? [calorieRule != null, proteinRule != null]
@@ -182,11 +234,13 @@ export function scoreNutritionRollingWindow(
     return {
       status: "not_evaluable",
       windowDays,
+      eligibleDays,
+      excludedDays,
       loggedDays: logged.length,
       calorieAverage,
       calorieAverageWithinRange,
       proteinDaysMeetingMinimum,
-      proteinRequiredHitDays: proteinRule?.requiredHitDays ?? null,
+      proteinRequiredHitDays,
       proteinRuleMet,
     };
   }
@@ -200,11 +254,13 @@ export function scoreNutritionRollingWindow(
     return {
       status: "insufficient_data",
       windowDays,
+      eligibleDays,
+      excludedDays,
       loggedDays: logged.length,
       calorieAverage,
       calorieAverageWithinRange,
       proteinDaysMeetingMinimum,
-      proteinRequiredHitDays: proteinRule?.requiredHitDays ?? null,
+      proteinRequiredHitDays,
       proteinRuleMet,
     };
   }
@@ -217,11 +273,13 @@ export function scoreNutritionRollingWindow(
   return {
     status: hit ? "hit" : "not_hit",
     windowDays,
+    eligibleDays,
+    excludedDays,
     loggedDays: logged.length,
     calorieAverage,
     calorieAverageWithinRange,
     proteinDaysMeetingMinimum,
-    proteinRequiredHitDays: proteinRule?.requiredHitDays ?? null,
+    proteinRequiredHitDays,
     proteinRuleMet,
   };
 }

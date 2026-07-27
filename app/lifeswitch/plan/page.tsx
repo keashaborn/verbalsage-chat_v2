@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { PlanProfileClient } from "@/components/lifeswitch/plan/PlanProfileClient";
+import { RecoveryAdjustmentCard } from "@/components/lifeswitch/plan/RecoveryAdjustmentCard";
 import { PlanRevisionWorkflow } from "@/components/lifeswitch/plan/PlanRevisionWorkflow";
 
 export default function LifeSwitchPlanPage() {
@@ -18,7 +19,10 @@ export default function LifeSwitchPlanPage() {
         </div>
       }
     >
-      {agenticPlanEnabled ? <PlanRevisionWorkflow /> : <PlanProfileClient />}
+      <>
+        {agenticPlanEnabled ? <PlanRevisionWorkflow /> : <PlanProfileClient />}
+        <RecoveryAdjustmentCard />
+      </>
     </Suspense>
   );
 }

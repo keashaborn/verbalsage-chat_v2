@@ -19,7 +19,8 @@ export type StrengthFrequencyStatus =
   | "met"
   | "below"
   | "above"
-  | "insufficient_data";
+  | "insufficient_data"
+  | "paused";
 
 export type StrengthFrequencyResult = {
   target: StrengthFrequencyTarget | null;
@@ -27,6 +28,8 @@ export type StrengthFrequencyResult = {
   status: StrengthFrequencyStatus;
   windowStart: string;
   windowEnd: string;
+  recoveryActiveToday: boolean;
+  recoveryDaysInWindow: number;
   excluded: {
     rehab: number;
     unclassified: number;
@@ -123,10 +126,18 @@ export function calculateStrengthFrequency(args: {
   sessions: StrengthFrequencySession[];
   trainingTargets?: Record<string, unknown> | null;
   today?: string;
+  recoveryDays?: Iterable<string>;
 }): StrengthFrequencyResult {
-  const windowEnd = shiftDay(args.today ?? todayUtc(), -1);
+  const today = args.today ?? todayUtc();
+  const windowEnd = shiftDay(today, -1);
   const windowStart = shiftDay(windowEnd, -6);
   const target = parseStrengthFrequencyTarget(args.trainingTargets);
+  const recoveryDays = new Set(args.recoveryDays || []);
+  const recoveryActiveToday = recoveryDays.has(today);
+  let recoveryDaysInWindow = 0;
+  for (const day of recoveryDays) {
+    if (day >= windowStart && day <= windowEnd) recoveryDaysInWindow += 1;
+  }
   let completed = 0;
   const excluded = { rehab: 0, unclassified: 0, incomplete: 0 };
 
@@ -167,11 +178,22 @@ export function calculateStrengthFrequency(args: {
   }
 
   let status: StrengthFrequencyStatus = "insufficient_data";
-  if (target) {
+  if (recoveryActiveToday || recoveryDaysInWindow > 0) {
+    status = "paused";
+  } else if (target) {
     if (completed < target.lower) status = "below";
     else if (completed > target.upper) status = "above";
     else status = "met";
   }
 
-  return { target, completed, status, windowStart, windowEnd, excluded };
+  return {
+    target,
+    completed,
+    status,
+    windowStart,
+    windowEnd,
+    recoveryActiveToday,
+    recoveryDaysInWindow,
+    excluded,
+  };
 }

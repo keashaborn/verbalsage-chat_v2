@@ -1,10 +1,8 @@
-const assert = require("node:assert/strict");
-const test = require("node:test");
+import assert from "node:assert/strict";
+import test from "node:test";
 
-const {
-  scoreNutritionDay,
-  scoreNutritionRollingWindow,
-} = require("../../lib/lifeswitch/nutritionScoring.ts");
+// @ts-expect-error Node's strip-types test runner requires the explicit extension.
+import { scoreNutritionDay, scoreNutritionRollingWindow } from "../../lib/lifeswitch/nutritionScoring.ts";
 
 const targets = {
   nominalKcal: 2000,
@@ -88,4 +86,66 @@ test("a finished partial day is scored and can make the rolling window miss", ()
   assert.equal(score.status, "not_hit");
   assert.equal(score.loggedDays, 7);
   assert.equal(score.proteinDaysMeetingMinimum, 6);
+});
+
+test("a medical recovery day is excused without changing the logged totals", () => {
+  const score = scoreNutritionDay(
+    {
+      day: "2026-07-27",
+      logged: true,
+      finalized: true,
+      adherenceExcluded: true,
+      kcal: 500,
+      proteinG: 30,
+    },
+    targets,
+  );
+
+  assert.equal(score.status, "excused");
+  assert.equal(score.calorieStatus, "not_evaluable");
+  assert.equal(score.proteinStatus, "not_evaluable");
+});
+
+test("rolling adherence excludes a recovery date from its denominator", () => {
+  const observations = Array.from({ length: 7 }, (_, index) => ({
+    day: `2026-07-${String(21 + index).padStart(2, "0")}`,
+    logged: true,
+    finalized: true,
+    kcal: index === 6 ? 500 : 1950,
+    proteinG: index === 6 ? 30 : 185,
+  }));
+
+  const score = scoreNutritionRollingWindow(
+    observations,
+    "2026-07-27",
+    targets,
+    { excludedDays: ["2026-07-27"] },
+  );
+
+  assert.equal(score.status, "hit");
+  assert.equal(score.windowDays, 7);
+  assert.equal(score.eligibleDays, 6);
+  assert.equal(score.excludedDays, 1);
+  assert.equal(score.loggedDays, 6);
+  assert.equal(score.calorieAverage, 1950);
+  assert.equal(score.proteinDaysMeetingMinimum, 6);
+  assert.equal(score.proteinRequiredHitDays, 6);
+});
+
+test("a fully excused rolling window is paused rather than failed", () => {
+  const score = scoreNutritionRollingWindow([], "2026-07-27", targets, {
+    excludedDays: [
+      "2026-07-21",
+      "2026-07-22",
+      "2026-07-23",
+      "2026-07-24",
+      "2026-07-25",
+      "2026-07-26",
+      "2026-07-27",
+    ],
+  });
+
+  assert.equal(score.status, "paused");
+  assert.equal(score.eligibleDays, 0);
+  assert.equal(score.excludedDays, 7);
 });

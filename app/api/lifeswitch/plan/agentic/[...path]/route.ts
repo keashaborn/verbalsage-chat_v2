@@ -39,6 +39,11 @@ const VERSION_LIST_QUERY_FIELDS = new Set([
   "limit",
   "before_version",
 ]);
+const RECOVERY_QUERY_FIELDS = new Set([
+  "target_user_id",
+  "starts_on",
+  "ends_on",
+]);
 
 function jsonResponse(
   status: number,
@@ -111,6 +116,47 @@ function operationFor(method: string, path: string[]): Operation | null {
       method: "GET",
       bodyMode: "none",
       requiresIdempotency: false,
+      queryFields: COMMON_QUERY_FIELDS,
+    };
+  }
+  if (
+    normalizedMethod === "GET" &&
+    path.length === 1 &&
+    path[0] === "recovery-adjustments"
+  ) {
+    return {
+      upstreamPath: "/lifeswitch/plan/recovery-adjustments",
+      method: "GET",
+      bodyMode: "none",
+      requiresIdempotency: false,
+      queryFields: RECOVERY_QUERY_FIELDS,
+    };
+  }
+  if (
+    normalizedMethod === "POST" &&
+    path.length === 1 &&
+    path[0] === "recovery-adjustments"
+  ) {
+    return {
+      upstreamPath: "/lifeswitch/plan/recovery-adjustments",
+      method: "POST",
+      bodyMode: "json",
+      requiresIdempotency: true,
+      queryFields: COMMON_QUERY_FIELDS,
+    };
+  }
+  if (
+    normalizedMethod === "POST" &&
+    path.length === 3 &&
+    path[0] === "recovery-adjustments" &&
+    UUID_PATTERN.test(path[1]) &&
+    path[2] === "stop"
+  ) {
+    return {
+      upstreamPath: `/lifeswitch/plan/recovery-adjustments/${encodeURIComponent(path[1])}/stop`,
+      method: "POST",
+      bodyMode: "none",
+      requiresIdempotency: true,
       queryFields: COMMON_QUERY_FIELDS,
     };
   }
