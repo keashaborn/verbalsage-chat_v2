@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
   clearActiveThreadResponse,
   getRequestId,
@@ -35,9 +36,9 @@ export async function GET(req: Request) {
   const r = await fetch(
     `${BRAINS}/threads/list/${encodeURIComponent(user_id)}`,
     {
-      headers: {
+      headers: brainsUpstreamHeaders(requestId, user_id, {
         Accept: "application/json",
-      },
+      }),
       cache: "no-store",
     }
   );
