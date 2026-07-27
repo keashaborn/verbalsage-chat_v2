@@ -1,6 +1,7 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
+import { RecoveryAdjustmentApplied } from "@/components/lifeswitch/RecoveryAdjustmentApplied";
 import Link from "next/link";
 import * as React from "react";
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
@@ -657,6 +658,11 @@ export default function TrainingCalendarPage() {
           {loading ? "Loading…" : "Refresh"}
         </button>
       </div>
+
+      <RecoveryAdjustmentApplied
+        domain="strength"
+        targetUserId={targetUserId}
+      />
 
       <div className="mt-4 rounded-xl border bg-muted/10 p-3 text-xs text-muted-foreground">
         <div className="font-medium text-foreground">Training days</div>

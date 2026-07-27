@@ -1,6 +1,7 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
+import { RecoveryAdjustmentApplied } from "@/components/lifeswitch/RecoveryAdjustmentApplied";
 import { readPlanNutritionTargets } from "@/lib/lifeswitch/planNutritionTargets";
 import {
   scoreNutritionDay,
@@ -726,6 +727,11 @@ export default function NutritionLogPage() {
         <div className="mt-1 text-xs text-muted-foreground">
           {calorieTargetLabel} · {proteinTargetLabel} · {targetStatus}
         </div>
+
+        <RecoveryAdjustmentApplied
+          domain="nutrition"
+          targetUserId={targetUserId}
+        />
 
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
           <div className="font-medium text-foreground">Status</div>
