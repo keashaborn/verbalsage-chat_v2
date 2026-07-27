@@ -37,10 +37,7 @@ test("pin proxy validates identity, ownership, UUID, and boolean input", () => {
   assert.match(pinRouteSource, /typeof body\?\.pinned !== "boolean"/);
 });
 
-test("deleting the selected thread clears only its active-thread cookie", () => {
-  assert.match(
-    deleteRouteSource,
-    /req\.cookies\.get\("vs_tid"\)\?\.value === tid/,
-  );
-  assert.match(deleteRouteSource, /response\.cookies\.delete\("vs_tid"\)/);
+test("thread deletion leaves active-state repair to the Brains owner contract", () => {
+  assert.doesNotMatch(deleteRouteSource, /vs_tid|response\.cookies/);
+  assert.match(deleteRouteSource, /method: "DELETE"/);
 });

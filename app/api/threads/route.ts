@@ -4,7 +4,6 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
-import { cookieSecure } from "@/lib/cookieSecure";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 
@@ -88,20 +87,8 @@ export async function POST(req: Request) {
   const thread_id = String(data?.thread_id || data?.id || "").trim();
   if (thread_id) data.thread_id = thread_id;
 
-  const res = NextResponse.json(data, {
+  return NextResponse.json(data, {
     status: 200,
     headers: { "x-request-id": requestId },
   });
-
-  if (thread_id) {
-    res.cookies.set("vs_tid", thread_id, {
-      httpOnly: true,
-      secure: await cookieSecure(),
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
-    });
-  }
-
-  return res;
 }

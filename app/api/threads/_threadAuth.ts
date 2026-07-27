@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
-import { cookieSecure } from "@/lib/cookieSecure";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 export const UUID_RE =
@@ -52,28 +51,4 @@ export function forbiddenThread(requestId: string) {
     { error: "thread_not_found_for_user" },
     { status: 404, headers: { "x-request-id": requestId } }
   );
-}
-
-export async function clearActiveThreadResponse(payload: any = { thread_id: null }) {
-  const res = NextResponse.json(payload);
-  res.cookies.set("vs_tid", "", {
-    httpOnly: true,
-    secure: await cookieSecure(),
-    sameSite: "lax",
-    path: "/",
-    maxAge: 0,
-  });
-  return res;
-}
-
-export async function setActiveThreadResponse(thread_id: string) {
-  const res = NextResponse.json({ ok: true, thread_id });
-  res.cookies.set("vs_tid", thread_id, {
-    httpOnly: true,
-    secure: await cookieSecure(),
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
-  return res;
 }

@@ -170,8 +170,25 @@ export async function POST(req: Request) {
       });
     }
 
-    const rawTid = String(body?.thread_id || jar.get("vs_tid")?.value || "").trim();
-    const thread_id = UUID_RE.test(rawTid) ? rawTid : null;
+    const rawTid = String(body?.thread_id || "").trim();
+    let thread_id = UUID_RE.test(rawTid) ? rawTid : null;
+    if (!thread_id && UUID_RE.test(user_id)) {
+      const activeResponse = await fetch(
+        `${BRAINS_URL}/threads/active/${encodeURIComponent(user_id)}`,
+        {
+          method: "GET",
+          headers: brainsUpstreamHeaders(requestId, user_id, {
+            Accept: "application/json",
+          }),
+          cache: "no-store",
+        },
+      );
+      if (activeResponse.ok) {
+        const active = await activeResponse.json().catch(() => ({}));
+        const activeThreadId = String(active?.thread_id || "").trim();
+        thread_id = UUID_RE.test(activeThreadId) ? activeThreadId : null;
+      }
+    }
 
     const rawVid = String(body?.vantage_id || jar.get("vs_vantage_id")?.value || "").trim();
     const vantage_id = rawVid ? rawVid.slice(0, 64) : "default";

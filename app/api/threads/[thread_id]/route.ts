@@ -53,9 +53,5 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ thre
     headers: { "Content-Type": "application/json", "x-request-id": requestId },
   });
 
-  if (req.cookies.get("vs_tid")?.value === tid) {
-    response.cookies.delete("vs_tid");
-  }
-
   return response;
 }

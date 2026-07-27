@@ -167,8 +167,11 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
       window.dispatchEvent(new Event("vs_threads_refresh"));
 
       if (deletedActiveThread) {
+        const nextActive = await fetchJson<{ thread_id: string | null }>(
+          "/api/threads/active",
+        ).catch(() => ({ thread_id: null }));
         window.dispatchEvent(
-          new CustomEvent("vs_active_thread", { detail: { thread_id: null } }),
+          new CustomEvent("vs_active_thread", { detail: nextActive }),
         );
       }
     } catch (e: any) {
