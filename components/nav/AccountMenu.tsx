@@ -63,10 +63,7 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
       if (nextName) setDisplayName(nextName);
     }
 
-    window.addEventListener(
-      ACCOUNT_IDENTITY_CHANGED_EVENT,
-      onIdentityChanged,
-    );
+    window.addEventListener(ACCOUNT_IDENTITY_CHANGED_EVENT, onIdentityChanged);
     return () =>
       window.removeEventListener(
         ACCOUNT_IDENTITY_CHANGED_EVENT,
@@ -149,6 +146,12 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
               onNavigate={() => setOpen(false)}
             >
               Appearance
+            </AccountMenuLink>
+            <AccountMenuLink
+              href="/settings/voice"
+              onNavigate={() => setOpen(false)}
+            >
+              Voice
             </AccountMenuLink>
             <div className="my-1 border-t" />
 

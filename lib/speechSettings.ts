@@ -1,11 +1,28 @@
 export const SPEECH_MODEL = "gpt-4o-mini-tts";
 export const SPEECH_SPEED = 1;
-export const SPEECH_VOICES = ["marin", "cedar"] as const;
+export const SPEECH_VOICES = [
+  "marin",
+  "cedar",
+  "alloy",
+  "ash",
+  "ballad",
+  "coral",
+  "echo",
+  "fable",
+  "nova",
+  "onyx",
+  "sage",
+  "shimmer",
+  "verse",
+] as const;
 
 export type SpeechVoice = (typeof SPEECH_VOICES)[number];
 
 export function normalizeSpeechVoice(value: unknown): SpeechVoice {
-  return value === "cedar" ? "cedar" : "marin";
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase() as SpeechVoice;
+  return SPEECH_VOICES.includes(normalized) ? normalized : "marin";
 }
 
 export function readSpeechVoice(): SpeechVoice {

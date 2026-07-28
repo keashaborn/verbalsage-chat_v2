@@ -638,39 +638,43 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
       </div>
 
       <AdminSection
-        title="System Tools"
-        description="System health and response diagnostics."
+        title="Voice Health"
+        description="Current voice availability, latency, and retained reliability history."
         mountWhenOpen
       >
-        <div className="space-y-3">
-          <VoiceSystemHealthPanel />
+        <VoiceSystemHealthPanel />
+      </AdminSection>
 
-          <div className="rounded-xl border p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold">Response trace</div>
-                <div className="text-xs text-muted-foreground">
-                  Shows routing, model, safety, memory, token, and timing
-                  details for your chat replies in this browser. Authorization
-                  is checked on every request.
-                </div>
+      <AdminSection
+        title="Response Diagnostics"
+        description="Inspect governed response routing and execution details."
+        mountWhenOpen
+      >
+        <div className="rounded-xl border p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold">Response trace</div>
+              <div className="text-xs text-muted-foreground">
+                Shows routing, model, safety, memory, token, and timing details
+                for your chat replies in this browser. Authorization is checked
+                on every request.
               </div>
-
-              <input
-                type="checkbox"
-                checked={inspectorEnabled}
-                onChange={(event) => {
-                  if (event.target.checked) void enableInspector();
-                  else void disableInspector();
-                }}
-                aria-label="Enable response trace"
-              />
             </div>
 
-            {status ? (
-              <div className="mt-2 text-xs text-muted-foreground">{status}</div>
-            ) : null}
+            <input
+              type="checkbox"
+              checked={inspectorEnabled}
+              onChange={(event) => {
+                if (event.target.checked) void enableInspector();
+                else void disableInspector();
+              }}
+              aria-label="Enable response trace"
+            />
           </div>
+
+          {status ? (
+            <div className="mt-2 text-xs text-muted-foreground">{status}</div>
+          ) : null}
         </div>
       </AdminSection>
 

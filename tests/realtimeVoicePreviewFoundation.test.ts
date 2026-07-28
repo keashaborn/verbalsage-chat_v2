@@ -18,14 +18,17 @@ test("live voice capability is available to authenticated product roles", () => 
   );
 });
 
-test("settings expose one server-owned speech model and two product voices", () => {
+test("settings expose one server-owned speech model and the compatible voice catalog", () => {
   const panel = source("components/admin/VoicePanel.tsx");
   const speech = source("lib/speechSettings.ts");
   const chat = source("components/threads/BrainsChatPane.tsx");
   assert.doesNotMatch(panel, /Conversation mode|Speech model|Speed/);
-  assert.match(panel, /Preview voice/);
+  assert.match(panel, /Preview/);
   assert.match(speech, /SPEECH_MODEL = "gpt-4o-mini-tts"/);
-  assert.match(speech, /SPEECH_VOICES = \["marin", "cedar"\]/);
+  assert.match(speech, /"marin"/);
+  assert.match(speech, /"cedar"/);
+  assert.match(speech, /"alloy"/);
+  assert.match(speech, /"verse"/);
   assert.match(chat, /"realtime_preview"/);
   assert.match(chat, /app_metadata\?\.role/);
 });

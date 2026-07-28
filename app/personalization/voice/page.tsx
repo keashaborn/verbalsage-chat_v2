@@ -1,10 +1,5 @@
-import { VoicePanel } from "@/components/admin/VoicePanel";
+import { redirect } from "next/navigation";
 
-export default function VoicePage() {
-  return (
-    <main style={{ padding: 24 }}>
-      <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>OpenAI Voice</h1>
-      <VoicePanel />
-    </main>
-  );
+export default function LegacyPersonalizationVoicePage() {
+  redirect("/settings/voice");
 }

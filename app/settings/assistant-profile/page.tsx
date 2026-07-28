@@ -5,7 +5,7 @@ export default function AssistantProfileSettingsPage() {
   return (
     <SettingsPageFrame
       title="Personalization"
-      description="Set how RESSE responds and sounds."
+      description="Set how RESSE responds and uses relevant user context."
     >
       <AssistantPreferences />
     </SettingsPageFrame>

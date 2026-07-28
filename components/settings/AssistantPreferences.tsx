@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { authFetch } from "@/lib/authFetch";
-import { VoicePanel } from "@/components/admin/VoicePanel";
 import {
   CONVERSATION_STYLE_OPTIONS,
   normalizeConversationStyle,
@@ -275,7 +274,6 @@ export function AssistantPreferences() {
           </button>
         </div>
       </div>
-      <VoicePanel />
     </div>
   );
 }

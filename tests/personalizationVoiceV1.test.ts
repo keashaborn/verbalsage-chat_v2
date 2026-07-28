@@ -5,16 +5,26 @@ import test from "node:test";
 const source = (path: string) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("personalization owns conversation style and voice", () => {
+test("personalization and voice are separate account settings", () => {
   const preferences = source("components/settings/AssistantPreferences.tsx");
   const accountMenu = source("components/nav/AccountMenu.tsx");
   const legacyVoicePage = source("app/settings/models-voice/page.tsx");
+  const legacyPersonalizationVoicePage = source(
+    "app/personalization/voice/page.tsx",
+  );
+  const voicePage = source("app/settings/voice/page.tsx");
 
   assert.match(preferences, /Conversation style/);
-  assert.match(preferences, /<VoicePanel \/>/);
+  assert.doesNotMatch(preferences, /<VoicePanel \/>/);
   assert.doesNotMatch(preferences, /label="Encouragement"/);
-  assert.doesNotMatch(accountMenu, />\s*Voice\s*</);
-  assert.match(legacyVoicePage, /redirect\("\/settings\/assistant-profile"\)/);
+  assert.match(accountMenu, /href="\/settings\/voice"/);
+  assert.match(accountMenu, />\s*Voice\s*</);
+  assert.match(voicePage, /<VoicePanel \/>/);
+  assert.match(legacyVoicePage, /redirect\("\/settings\/voice"\)/);
+  assert.match(
+    legacyPersonalizationVoicePage,
+    /redirect\("\/settings\/voice"\)/,
+  );
 });
 
 test("conversation styles change presentation without enabling agreement", () => {
@@ -37,4 +47,32 @@ test("preview and message speech wrap raw PCM before browser playback", () => {
   assert.match(panel, /speechResponseToWavBlob/);
   assert.match(messageThread, /speechResponseToWavBlob/);
   assert.match(helper, /speechResponseToWavBlob/);
+});
+
+test("voice settings present a capability-filtered identity carousel", () => {
+  const panel = source("components/admin/VoicePanel.tsx");
+  const speech = source("lib/speechSettings.ts");
+
+  assert.match(panel, /role="listbox"/);
+  assert.match(panel, /Select any voice to save it automatically/);
+  assert.match(panel, /Language/);
+  assert.match(panel, /Automatic/);
+  assert.match(panel, /recommended_voices/);
+  for (const voice of [
+    "marin",
+    "cedar",
+    "alloy",
+    "ash",
+    "ballad",
+    "coral",
+    "echo",
+    "fable",
+    "nova",
+    "onyx",
+    "sage",
+    "shimmer",
+    "verse",
+  ]) {
+    assert.match(speech, new RegExp(`"${voice}"`));
+  }
 });

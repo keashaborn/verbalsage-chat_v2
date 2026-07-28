@@ -31,6 +31,8 @@ test("retired model diagnostics are absent from the Admin Console", () => {
   assert.doesNotMatch(adminConsole, /Model Diagnostics|developer\/diagnostics/);
   assert.doesNotMatch(permissions, /diagnostics\.run/);
   assert.match(adminConsole, /VoiceSystemHealthPanel/);
+  assert.match(adminConsole, /title="Voice Health"/);
+  assert.match(adminConsole, /title="Response Diagnostics"/);
   assert.match(adminConsole, /Response trace/);
   assert.doesNotMatch(adminConsole, /Prompt Inspector/);
   assert.doesNotMatch(permissions, /assistant_profile/);

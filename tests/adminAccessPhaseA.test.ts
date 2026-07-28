@@ -9,12 +9,14 @@ function source(relativePath: string): string {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
 }
 
-test("Admin Console presents the three retained product sections", () => {
+test("Admin Console presents the retained product sections", () => {
   const adminConsole = source("components/admin/settings/AdminConsolePage.tsx");
 
-  assert.match(adminConsole, /System Tools/);
+  assert.match(adminConsole, /Voice Health/);
+  assert.match(adminConsole, /Response Diagnostics/);
+  assert.match(adminConsole, /Usage & Analytics/);
   assert.match(adminConsole, /Users & Access/);
-  assert.match(adminConsole, /Memory \/ Retrieval Evaluation/);
+  assert.match(adminConsole, /Memory Health/);
   assert.match(adminConsole, /Make Admin/);
   assert.match(adminConsole, /Remove Admin/);
   assert.doesNotMatch(adminConsole, /Not configured/);
