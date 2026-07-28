@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { authFetch } from "@/lib/authFetch";
+import { MemoryWorkbenchPanel } from "./MemoryWorkbenchPanel";
 
 type HealthStatus = "healthy" | "attention" | "critical";
 type WarningSeverity = "information" | "attention" | "critical";
@@ -158,7 +159,8 @@ export function MemorySystemHealthPanel() {
   }, [load]);
 
   return (
-    <div className="rounded-xl border p-3">
+    <div className="space-y-3">
+      <div className="rounded-xl border p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold">Governed Memory Health</div>
@@ -300,6 +302,8 @@ export function MemorySystemHealthPanel() {
           </div>
         </div>
       ) : null}
+      </div>
+      <MemoryWorkbenchPanel />
     </div>
   );
 }
