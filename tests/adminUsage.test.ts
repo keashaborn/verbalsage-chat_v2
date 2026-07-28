@@ -64,6 +64,10 @@ test("usage UI is a distinct overview-first paginated area", () => {
   assert.match(page, /<UsageAnalyticsPanel \/>/);
   assert.match(page, /mountWhenOpen/);
   assert.match(panel, /Active users/);
+  assert.match(panel, /Product AI/);
+  assert.match(panel, /System AI workloads/);
+  assert.match(panel, /System workloads never appear here/);
+  assert.match(panel, /Corpus-evaluation and external agent calls are not instrumented/);
   assert.match(panel, /User explorer/);
   assert.match(panel, /next_cursor/);
   assert.match(panel, /Previous/);

@@ -41,6 +41,20 @@ type UsageIdentity = {
   last_sign_in_at: string | null;
 };
 
+type SystemWorkload = {
+  actor_kind: "synthetic" | "system";
+  workload_key: string;
+  display_label: string;
+  requests: number;
+  input_tokens: number;
+  cached_input_tokens: number;
+  output_tokens: number;
+  reasoning_output_tokens: number;
+  total_tokens: number;
+  first_recorded_at: string | null;
+  last_recorded_at: string | null;
+};
+
 type OverviewPayload = {
   ok: true;
   schema: "admin_usage_overview_v1";
@@ -50,6 +64,23 @@ type OverviewPayload = {
   last_activity_at: string | null;
   active_users: number;
   ai: UsageMetrics["ai"];
+  system_ai: {
+    requests: number;
+    input_tokens: number;
+    cached_input_tokens: number;
+    output_tokens: number;
+    reasoning_output_tokens: number;
+    total_tokens: number;
+    first_recorded_at: string | null;
+    last_recorded_at: string | null;
+    workloads: SystemWorkload[];
+  };
+  coverage: {
+    product_chat: "recorded";
+    registered_system_workloads: "recorded";
+    corpus_evaluation: "not_instrumented";
+    external_agent_usage: "not_instrumented";
+  };
   nutrition: Omit<UsageMetrics["nutrition"], "entries">;
   training: UsageMetrics["training"];
 };
@@ -365,9 +396,9 @@ export function UsageAnalyticsPanel() {
               detail={`Any measured activity in ${windowDays} days`}
             />
             <Metric
-              label="AI requests"
+              label="Product AI"
               value={number(overview.ai.requests)}
-              detail={`${number(overview.ai.total_tokens)} exact tokens`}
+              detail={`${number(overview.ai.total_tokens)} exact tokens · Supabase users`}
             />
             <Metric
               label="Nutrition"
@@ -380,10 +411,65 @@ export function UsageAnalyticsPanel() {
               detail={`${number(overview.training.strength_sessions)} strength · ${number(overview.training.conditioning_sessions)} conditioning`}
             />
           </div>
+          <div className="space-y-3 rounded-xl border p-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div className="text-sm font-semibold">
+                  System AI workloads
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Automated backend and synthetic traffic, kept separate from
+                  Supabase users.
+                </div>
+              </div>
+              <div className="text-right text-xs tabular-nums">
+                <div>{number(overview.system_ai.total_tokens)} exact tokens</div>
+                <div className="text-muted-foreground">
+                  {number(overview.system_ai.requests)} requests
+                </div>
+              </div>
+            </div>
+            {overview.system_ai.workloads.length === 0 ? (
+              <div className="text-xs text-muted-foreground">
+                No registered system workload usage was recorded in this
+                period.
+              </div>
+            ) : (
+              <div className="divide-y rounded-lg border">
+                {overview.system_ai.workloads.map((workload) => (
+                  <div
+                    key={workload.workload_key}
+                    className="flex flex-wrap items-start justify-between gap-2 p-2.5"
+                  >
+                    <div>
+                      <div className="text-xs font-medium">
+                        {workload.display_label}
+                      </div>
+                      <div className="text-[11px] capitalize text-muted-foreground">
+                        {workload.actor_kind} · Last activity{" "}
+                        {date(workload.last_recorded_at)}
+                      </div>
+                    </div>
+                    <div className="text-right text-xs tabular-nums">
+                      <div>{number(workload.total_tokens)} tokens</div>
+                      <div className="text-muted-foreground">
+                        {number(workload.requests)} requests
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="text-[11px] text-muted-foreground">
+              Coverage is partial: registered system workloads are exact.
+              Corpus-evaluation and external agent calls are not instrumented
+              yet.
+            </div>
+          </div>
           <div className="rounded-xl border p-3 text-xs text-muted-foreground">
-            AI tracking: {date(overview.ai_tracking_started_at)}. Earlier usage
-            is not estimated or backfilled. Pricing is omitted until a
-            versioned rate catalog is released.
+            Product AI tracking: {date(overview.ai_tracking_started_at)}.
+            Earlier usage is not estimated or backfilled. Pricing is omitted
+            until a versioned rate catalog is released.
           </div>
         </>
       ) : null}
@@ -392,8 +478,9 @@ export function UsageAnalyticsPanel() {
         <div>
           <div className="text-sm font-semibold">User explorer</div>
           <div className="text-xs text-muted-foreground">
-            Server-paginated accounts with measured activity in this period.
-            Identity is resolved only for this page.
+            Server-paginated Supabase users with measured product activity in
+            this period. System workloads never appear here. Identity is
+            resolved only for this page.
           </div>
         </div>
 
