@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  normalizeSetupCode,
+  parseSetupCodeFragment,
+} from "@/lib/setupCodeFragment";
 
 const MIN_PASSWORD_LENGTH = 8;
 type SetupCodeType = "invite" | "recovery";
@@ -30,10 +34,21 @@ export default function AcceptAccessInvitePage() {
       .trim()
       .toLowerCase();
     const setupEmailLink = params.has("type") || params.has("email");
+    const setupFragment = parseSetupCodeFragment(window.location.hash);
+    const cleanSetupUrl = `${window.location.pathname}${window.location.search}`;
 
     setCodeType(requestedType);
     setEmail(requestedEmail);
     setRequiresCode(setupEmailLink);
+    if (setupFragment.present) {
+      window.history.replaceState(null, "", cleanSetupUrl);
+    }
+    if (setupEmailLink && setupFragment.code) {
+      setOneTimeCode(setupFragment.code);
+      setMessage(
+        "Your one-time code is ready. Select Verify code to continue.",
+      );
+    }
 
     function applySession(nextSession: Session | null) {
       if (!alive) return;
@@ -71,7 +86,7 @@ export default function AcceptAccessInvitePage() {
   async function verifySetupCode() {
     setMessage("");
     const normalizedEmail = email.trim().toLowerCase();
-    const normalizedCode = oneTimeCode.replace(/\s+/g, "");
+    const normalizedCode = normalizeSetupCode(oneTimeCode);
 
     if (!normalizedEmail || !normalizedEmail.includes("@")) {
       setMessage("Enter the email address that received the setup message.");

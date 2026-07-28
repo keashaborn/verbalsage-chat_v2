@@ -126,6 +126,10 @@ test("approved access invitations have a dedicated password setup page", () => {
   assert.match(page, /type: codeType/);
   assert.match(page, /One-time code/);
   assert.match(page, /supabase\.auth\.updateUser\(\{ password \}\)/);
+  assert.match(page, /parseSetupCodeFragment\(window\.location\.hash\)/);
+  assert.match(page, /setOneTimeCode\(setupFragment\.code\)/);
+  assert.match(page, /window\.history\.replaceState/);
+  assert.match(page, /normalizeSetupCode\(oneTimeCode\)/);
   assert.doesNotMatch(page, /supabase\.auth\.signUp/);
   assert.doesNotMatch(page, /ConfirmationURL/);
   assert.doesNotMatch(page, /invite\/lifeswitch/);
@@ -142,7 +146,10 @@ test("invite and recovery emails use scanner-safe one-time codes", () => {
     assert.match(template, /x-apple-data-detectors/);
     assert.match(template, /-webkit-user-select: all/);
     assert.match(template, /user-select: all/);
-    assert.match(template, /Press and hold the code, choose Copy/);
+    assert.match(template, /The code is filled automatically/);
+    assert.match(template, /#setup_code=\{\{ \.Token \}\}/);
+    assert.doesNotMatch(template, /[?&]setup_code=/);
+    assert.doesNotMatch(template, /Press and hold the code/);
     assert.doesNotMatch(template, /\.ConfirmationURL/);
     assert.doesNotMatch(template, /href="tel:/);
   }
