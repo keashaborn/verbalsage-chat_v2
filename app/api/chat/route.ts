@@ -21,7 +21,6 @@ import {
 } from "@/app/api/_inspection/responseTraceV2";
 import {
   automaticSearchRouteUsesExternalWebV1,
-  parseServerSearchPlanV1,
   recordSearchRoutingEnforcedV1,
   SEARCH_DECISION_POLICY_VERSION,
   type AutomaticSearchRouteV1,
@@ -316,6 +315,40 @@ type AutomaticSearchResult = Readonly<{
   terminalResponse: Response | null;
 }>;
 
+function searchDecisionFromPlan(value: any): SearchDecisionV1 | null {
+  if (!value || typeof value !== "object") return null;
+  const decision = String(value.decision || "");
+  const policyVersion = String(value.policy_version || "");
+  const policyPack = String(value.policy_pack || "");
+  const reasonCodes = Array.isArray(value.reason_codes)
+    ? value.reason_codes.map((item: unknown) => String(item))
+    : null;
+  const budget = value.budget;
+  if (
+    !["no_search", "indexed", "live", "research"].includes(decision) ||
+    policyVersion !== SEARCH_DECISION_POLICY_VERSION ||
+    !reasonCodes ||
+    !budget ||
+    !Number.isInteger(budget.max_searches) ||
+    !Number.isInteger(budget.max_sources)
+  ) {
+    return null;
+  }
+  return {
+    policy_version: SEARCH_DECISION_POLICY_VERSION,
+    decision: decision as SearchDecisionV1["decision"],
+    reason_codes: reasonCodes as SearchDecisionV1["reason_codes"],
+    policy_pack: policyPack as SearchDecisionV1["policy_pack"],
+    query_context: "current_message_only",
+    external_web_access: Boolean(value.external_web_access),
+    confidence: value.confidence === "high" ? "high" : "medium",
+    budget: {
+      max_searches: budget.max_searches,
+      max_sources: budget.max_sources,
+    },
+  };
+}
+
 async function runServerSearchPlan(
   req: Request,
   rid: string,
@@ -365,7 +398,7 @@ async function runServerSearchPlan(
   try {
     payload = JSON.parse(raw);
   } catch {}
-  const decision = parseServerSearchPlanV1(payload?.plan);
+  const decision = searchDecisionFromPlan(payload?.plan);
   const selectedRoute = String(payload?.plan?.selected_route || "");
   if (
     !decision ||

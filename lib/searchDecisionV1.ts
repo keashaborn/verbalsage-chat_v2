@@ -1,8 +1,4 @@
-export const SEARCH_PLAN_CONTRACT_VERSION = "search_plan_v1";
 export const SEARCH_DECISION_POLICY_VERSION = "search_decision_v1_3";
-
-export type SearchDecisionPolicyVersionV1 =
-  `search_decision_v1_${number}`;
 
 export type SearchDecisionClassV1 =
   | "no_search"
@@ -24,7 +20,6 @@ export type SearchDecisionReasonV1 =
   | "explicit_research"
   | "explicit_web_request"
   | "trusted_current_news_scope"
-  | "general_current_news_scope"
   | "freshness_required"
   | "evidence_requested"
   | "high_stakes_verification"
@@ -33,8 +28,7 @@ export type SearchDecisionReasonV1 =
   | "stable_knowledge_default";
 
 export type SearchDecisionV1 = Readonly<{
-  contract_version: typeof SEARCH_PLAN_CONTRACT_VERSION;
-  policy_version: SearchDecisionPolicyVersionV1;
+  policy_version: typeof SEARCH_DECISION_POLICY_VERSION;
   decision: SearchDecisionClassV1;
   reason_codes: readonly SearchDecisionReasonV1[];
   policy_pack: SearchPolicyPackV1;
@@ -46,94 +40,6 @@ export type SearchDecisionV1 = Readonly<{
     max_sources: number;
   }>;
 }>;
-
-const SEARCH_DECISION_POLICY_VERSION_PATTERN =
-  /^search_decision_v1_[1-9][0-9]*$/;
-const SEARCH_DECISION_CLASSES = new Set<SearchDecisionClassV1>([
-  "no_search",
-  "indexed",
-  "live",
-  "research",
-]);
-const SEARCH_POLICY_PACKS = new Set<SearchPolicyPackV1>([
-  "none",
-  "general",
-  "current_news",
-  "health",
-  "software_security",
-  "legal_financial",
-]);
-const SEARCH_REASON_CODE_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
-const SEARCH_PLAN_MAX_REASON_CODES = 16;
-const SEARCH_PLAN_MAX_SEARCHES = 100;
-const SEARCH_PLAN_MAX_SOURCES = 250;
-
-function boundedPlanInteger(
-  value: unknown,
-  maximum: number,
-): value is number {
-  return (
-    Number.isSafeInteger(value) &&
-    Number(value) >= 0 &&
-    Number(value) <= maximum
-  );
-}
-
-export function parseServerSearchPlanV1(
-  value: unknown,
-): SearchDecisionV1 | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const plan = value as Record<string, unknown>;
-  const contractVersion = String(plan.contract_version || "");
-  const policyVersion = String(plan.policy_version || "");
-  const decision = String(plan.decision || "");
-  const policyPack = String(plan.policy_pack || "");
-  const reasonCodes = Array.isArray(plan.reason_codes)
-    ? plan.reason_codes.map((item) => String(item))
-    : null;
-  const budget =
-    plan.budget && typeof plan.budget === "object" && !Array.isArray(plan.budget)
-      ? (plan.budget as Record<string, unknown>)
-      : null;
-
-  if (
-    contractVersion !== SEARCH_PLAN_CONTRACT_VERSION ||
-    !SEARCH_DECISION_POLICY_VERSION_PATTERN.test(policyVersion) ||
-    !SEARCH_DECISION_CLASSES.has(decision as SearchDecisionClassV1) ||
-    !SEARCH_POLICY_PACKS.has(policyPack as SearchPolicyPackV1) ||
-    plan.query_context !== "current_message_only" ||
-    typeof plan.external_web_access !== "boolean" ||
-    (plan.confidence !== "high" && plan.confidence !== "medium") ||
-    !reasonCodes ||
-    reasonCodes.length < 1 ||
-    reasonCodes.length > SEARCH_PLAN_MAX_REASON_CODES ||
-    new Set(reasonCodes).size !== reasonCodes.length ||
-    reasonCodes.some((reason) => !SEARCH_REASON_CODE_PATTERN.test(reason)) ||
-    !budget ||
-    !boundedPlanInteger(
-      budget.max_searches,
-      SEARCH_PLAN_MAX_SEARCHES,
-    ) ||
-    !boundedPlanInteger(budget.max_sources, SEARCH_PLAN_MAX_SOURCES)
-  ) {
-    return null;
-  }
-
-  return {
-    contract_version: SEARCH_PLAN_CONTRACT_VERSION,
-    policy_version: policyVersion as SearchDecisionPolicyVersionV1,
-    decision: decision as SearchDecisionClassV1,
-    reason_codes: reasonCodes as SearchDecisionReasonV1[],
-    policy_pack: policyPack as SearchPolicyPackV1,
-    query_context: "current_message_only",
-    external_web_access: plan.external_web_access,
-    confidence: plan.confidence,
-    budget: {
-      max_searches: budget.max_searches,
-      max_sources: budget.max_sources,
-    },
-  };
-}
 
 export type SearchDecisionObservedRouteV1 =
   | "normal_chat"
@@ -387,7 +293,6 @@ function decisionV1(
   confidence: "high" | "medium",
 ): SearchDecisionV1 {
   return {
-    contract_version: SEARCH_PLAN_CONTRACT_VERSION,
     policy_version: SEARCH_DECISION_POLICY_VERSION,
     decision,
     reason_codes: uniqueReasons(reasons),
