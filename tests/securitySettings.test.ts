@@ -58,3 +58,38 @@ test("Recovery setup page distinguishes password changes from new access", () =>
   assert.match(page, /Save new password/);
   assert.match(page, /Your password has been changed/);
 });
+
+test("Owner security settings support primary and backup TOTP enrollment", () => {
+  const panel = source("components/admin/SecurityPanel.tsx");
+
+  assert.match(panel, /role === "owner" \|\| role === "admin"/);
+  assert.match(panel, /supabase\.auth\.mfa\.listFactors\(\)/);
+  assert.match(
+    panel,
+    /supabase\.auth\.mfa\.getAuthenticatorAssuranceLevel\(\)/,
+  );
+  assert.match(panel, /supabase\.auth\.mfa\.enroll\(\{/);
+  assert.match(panel, /factorType: "totp"/);
+  assert.match(panel, /friendlyName/);
+  assert.match(panel, /issuer: "LifeSwitch"/);
+  assert.match(panel, /supabase\.auth\.mfa\.challengeAndVerify\(\{/);
+  assert.match(panel, /Set up primary authenticator/);
+  assert.match(panel, /Add independent backup authenticator/);
+  assert.match(panel, /mfaFactors\.length >= 2/);
+  assert.match(panel, /Supabase does not issue\s+recovery codes/);
+  assert.doesNotMatch(panel, /console\.(?:log|info|warn|error).*totp/i);
+});
+
+test("Auth gate blocks protected accounts until the enrolled factor is verified", () => {
+  const gate = source("components/auth/AuthGate.tsx");
+
+  assert.match(gate, /role === "owner" \|\| role === "admin"/);
+  assert.match(gate, /supabase\.auth\.mfa\.getAuthenticatorAssuranceLevel\(\)/);
+  assert.match(gate, /currentLevel === "aal1"/);
+  assert.match(gate, /nextLevel === "aal2"/);
+  assert.match(gate, /supabase\.auth\.mfa\.listFactors\(\)/);
+  assert.match(gate, /supabase\.auth\.mfa\.challengeAndVerify\(\{/);
+  assert.match(gate, /mfaGate === "clear"/);
+  assert.match(gate, /The application remains locked/);
+  assert.match(gate, /Verify and continue/);
+});

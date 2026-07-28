@@ -115,6 +115,27 @@ function formatLastSignIn(value: string | null) {
   }).format(date);
 }
 
+type TotpFactor = {
+  id: string;
+  friendlyName: string;
+};
+
+type TotpEnrollment = {
+  id: string;
+  friendlyName: string;
+  qrCode: string;
+  secret: string;
+};
+
+function safeTotpQrSource(raw: string): string {
+  const value = raw.trim();
+  if (value.startsWith("data:image/svg+xml")) return value;
+  if (value.startsWith("<svg")) {
+    return `data:image/svg+xml;utf8,${encodeURIComponent(value)}`;
+  }
+  return "";
+}
+
 async function protectedActionError(
   response: Response,
   fallback: string,
@@ -137,6 +158,20 @@ export function SecurityPanel() {
   const [passwordBusy, setPasswordBusy] = React.useState(false);
   const [sessionsBusy, setSessionsBusy] = React.useState(false);
   const [securityStatus, setSecurityStatus] = React.useState("");
+  const [accountRole, setAccountRole] = React.useState("");
+  const [mfaLoading, setMfaLoading] = React.useState(true);
+  const [mfaBusy, setMfaBusy] = React.useState(false);
+  const [mfaCurrentLevel, setMfaCurrentLevel] = React.useState<
+    "aal1" | "aal2" | null
+  >(null);
+  const [mfaFactors, setMfaFactors] = React.useState<TotpFactor[]>([]);
+  const [mfaPendingFactorIds, setMfaPendingFactorIds] = React.useState<
+    string[]
+  >([]);
+  const [mfaEnrollment, setMfaEnrollment] =
+    React.useState<TotpEnrollment | null>(null);
+  const [mfaCode, setMfaCode] = React.useState("");
+  const [mfaStatus, setMfaStatus] = React.useState("");
 
   const [exportBusy, setExportBusy] = React.useState(false);
   const [forgetMinutes, setForgetMinutes] = React.useState<number>(60);
@@ -144,6 +179,40 @@ export function SecurityPanel() {
   const [deleteConfirm, setDeleteConfirm] = React.useState("");
   const [deletingAll, setDeletingAll] = React.useState(false);
   const [dataStatus, setDataStatus] = React.useState("");
+
+  const loadMfaState = React.useCallback(async () => {
+    setMfaLoading(true);
+    try {
+      const [factorResult, assuranceResult] = await Promise.all([
+        supabase.auth.mfa.listFactors(),
+        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+      ]);
+      if (factorResult.error) throw factorResult.error;
+      if (assuranceResult.error) throw assuranceResult.error;
+
+      setMfaFactors(
+        (factorResult.data?.totp || []).map((factor, index) => ({
+          id: factor.id,
+          friendlyName:
+            String(factor.friendly_name || "").trim() ||
+            `Authenticator ${index + 1}`,
+        })),
+      );
+      setMfaPendingFactorIds(
+        (factorResult.data?.all || [])
+          .filter(
+            (factor) =>
+              factor.factor_type === "totp" && factor.status === "unverified",
+          )
+          .map((factor) => factor.id),
+      );
+      setMfaCurrentLevel(assuranceResult.data?.currentLevel || null);
+    } catch {
+      setMfaStatus("Multi-factor details could not be loaded. Try again.");
+    } finally {
+      setMfaLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     let alive = true;
@@ -159,9 +228,17 @@ export function SecurityPanel() {
           Boolean(data.user?.email_confirmed_at || data.user?.confirmed_at),
         );
         setLastSignInAt(data.user?.last_sign_in_at || null);
+        const role = String(data.user?.app_metadata?.role || "");
+        setAccountRole(role);
+        if (role === "owner" || role === "admin") {
+          await loadMfaState();
+        } else {
+          setMfaLoading(false);
+        }
       } catch {
         if (alive) {
           setSecurityStatus("Account security details could not be loaded.");
+          setMfaLoading(false);
         }
       } finally {
         if (alive) setAccountLoading(false);
@@ -171,7 +248,7 @@ export function SecurityPanel() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [loadMfaState]);
 
   async function sendPasswordCode() {
     if (!email || !emailVerified) {
@@ -209,6 +286,141 @@ export function SecurityPanel() {
       setSecurityStatus("Other sessions could not be revoked. Try again.");
     } finally {
       setSessionsBusy(false);
+    }
+  }
+
+  async function startMfaEnrollment() {
+    if (accountRole !== "owner" && accountRole !== "admin") return;
+    if (mfaFactors.length >= 2) {
+      setMfaStatus("Two authenticators are already enrolled.");
+      return;
+    }
+
+    setMfaBusy(true);
+    setMfaStatus("");
+    try {
+      for (const factorId of mfaPendingFactorIds) {
+        const { error } = await supabase.auth.mfa.unenroll({ factorId });
+        if (error) throw error;
+      }
+
+      const friendlyName =
+        mfaFactors.length === 0 ? "LifeSwitch primary" : "LifeSwitch backup";
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        friendlyName,
+        issuer: "LifeSwitch",
+      });
+      if (error) throw error;
+
+      const qrCode = safeTotpQrSource(data.totp.qr_code);
+      if (!qrCode || !data.totp.secret) {
+        await supabase.auth.mfa.unenroll({ factorId: data.id });
+        throw new Error("Invalid enrollment response.");
+      }
+
+      setMfaEnrollment({
+        id: data.id,
+        friendlyName,
+        qrCode,
+        secret: data.totp.secret,
+      });
+      setMfaPendingFactorIds([data.id]);
+      setMfaCode("");
+      setMfaStatus(
+        "Scan the QR code, then verify one code before leaving this page.",
+      );
+    } catch {
+      setMfaStatus("Authenticator setup could not be started. Try again.");
+    } finally {
+      setMfaBusy(false);
+    }
+  }
+
+  async function verifyMfaEnrollment() {
+    if (!mfaEnrollment) return;
+    const code = mfaCode.replace(/\s+/g, "");
+    if (!/^[0-9]{6}$/.test(code)) {
+      setMfaStatus("Enter the 6-digit code from your authenticator app.");
+      return;
+    }
+
+    setMfaBusy(true);
+    setMfaStatus("");
+    try {
+      const { error } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: mfaEnrollment.id,
+        code,
+      });
+      if (error) throw error;
+
+      setMfaEnrollment(null);
+      setMfaCode("");
+      setMfaPendingFactorIds([]);
+      await loadMfaState();
+      setMfaStatus(
+        "Authenticator verified. Other saved sessions were signed out.",
+      );
+    } catch {
+      setMfaStatus(
+        "That authenticator code was invalid or expired. Try again.",
+      );
+    } finally {
+      setMfaBusy(false);
+    }
+  }
+
+  async function cancelMfaEnrollment() {
+    if (!mfaEnrollment) return;
+    setMfaBusy(true);
+    setMfaStatus("");
+    try {
+      const { error } = await supabase.auth.mfa.unenroll({
+        factorId: mfaEnrollment.id,
+      });
+      if (error) throw error;
+      setMfaEnrollment(null);
+      setMfaCode("");
+      setMfaPendingFactorIds([]);
+      await loadMfaState();
+      setMfaStatus("Authenticator setup cancelled.");
+    } catch {
+      setMfaStatus("Authenticator setup could not be cancelled. Try again.");
+    } finally {
+      setMfaBusy(false);
+    }
+  }
+
+  async function copyMfaSecret() {
+    if (!mfaEnrollment) return;
+    try {
+      await navigator.clipboard.writeText(mfaEnrollment.secret);
+      setMfaStatus("Manual setup key copied.");
+    } catch {
+      setMfaStatus("The setup key could not be copied.");
+    }
+  }
+
+  async function removeMfaFactor(factor: TotpFactor) {
+    if (mfaCurrentLevel !== "aal2" || mfaFactors.length <= 1) return;
+    const confirmed = window.confirm(
+      `Remove ${factor.friendlyName}? Keep at least one independent backup authenticator.`,
+    );
+    if (!confirmed) return;
+
+    setMfaBusy(true);
+    setMfaStatus("");
+    try {
+      const { error } = await supabase.auth.mfa.unenroll({
+        factorId: factor.id,
+      });
+      if (error) throw error;
+      await loadMfaState();
+      setMfaStatus(`${factor.friendlyName} removed.`);
+    } catch {
+      setMfaStatus("The authenticator could not be removed. Try again.");
+    } finally {
+      setMfaBusy(false);
     }
   }
 
@@ -320,6 +532,9 @@ export function SecurityPanel() {
     }
   }
 
+  const privilegedAccount = accountRole === "owner" || accountRole === "admin";
+  const mfaReadyForEnforcement = mfaFactors.length >= 2;
+
   return (
     <div className="space-y-6">
       <Group
@@ -400,6 +615,196 @@ export function SecurityPanel() {
           }
         />
       </Group>
+
+      {privilegedAccount && (
+        <>
+          <Group
+            title="Owner multi-factor authentication"
+            footer={
+              <>
+                Enroll a primary authenticator and an independent backup before
+                owner-operation enforcement is enabled. Supabase does not issue
+                recovery codes for TOTP factors.
+              </>
+            }
+          >
+            <Row
+              left={
+                <div>
+                  <div className="font-medium">Authenticator status</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {mfaLoading
+                      ? "Checking…"
+                      : mfaFactors.length === 0
+                        ? "No verified authenticators"
+                        : mfaFactors.length === 1
+                          ? "Primary verified; backup still required"
+                          : "Primary and backup verified"}
+                  </div>
+                </div>
+              }
+              right={
+                <span className="rounded-full border px-2.5 py-1 text-xs text-muted-foreground">
+                  {mfaLoading
+                    ? "Checking"
+                    : mfaReadyForEnforcement
+                      ? "Ready"
+                      : mfaFactors.length === 1
+                        ? "Backup needed"
+                        : "Not started"}
+                </span>
+              }
+            />
+
+            <Row
+              left={
+                <div>
+                  <div className="font-medium">Current session</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {mfaLoading
+                      ? "Checking authenticator assurance…"
+                      : mfaCurrentLevel === "aal2"
+                        ? "Password and authenticator verified"
+                        : "Password or email verification only"}
+                  </div>
+                </div>
+              }
+              right={
+                <span className="rounded-full border px-2.5 py-1 text-xs text-muted-foreground">
+                  {mfaLoading
+                    ? "Checking"
+                    : mfaCurrentLevel === "aal2"
+                      ? "AAL2"
+                      : "AAL1"}
+                </span>
+              }
+            />
+
+            {mfaFactors.map((factor) => (
+              <Row
+                key={factor.id}
+                left={
+                  <div>
+                    <div className="font-medium">{factor.friendlyName}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      Verified TOTP authenticator
+                    </div>
+                  </div>
+                }
+                right={
+                  <SmallButton
+                    onClick={() => void removeMfaFactor(factor)}
+                    disabled={
+                      mfaBusy ||
+                      mfaCurrentLevel !== "aal2" ||
+                      mfaFactors.length <= 1
+                    }
+                  >
+                    Remove
+                  </SmallButton>
+                }
+              />
+            ))}
+
+            {!mfaEnrollment && mfaFactors.length < 2 && (
+              <ActionRow
+                label={
+                  mfaBusy
+                    ? "Starting setup…"
+                    : mfaFactors.length === 0
+                      ? "Set up primary authenticator"
+                      : "Add independent backup authenticator"
+                }
+                onClick={() => void startMfaEnrollment()}
+                disabled={mfaLoading || mfaBusy}
+              />
+            )}
+
+            {mfaEnrollment && (
+              <Row
+                left={
+                  <div>
+                    <div className="font-medium">
+                      Set up {mfaEnrollment.friendlyName}
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      Scan this QR code with an authenticator app. Then enter
+                      its current 6-digit code.
+                    </div>
+                  </div>
+                }
+              >
+                <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
+                  <div className="rounded-xl border bg-white p-3">
+                    <img
+                      src={mfaEnrollment.qrCode}
+                      alt="LifeSwitch authenticator enrollment QR code"
+                      className="mx-auto size-36"
+                    />
+                  </div>
+                  <div className="grid content-start gap-3">
+                    <label className="grid gap-1 text-xs">
+                      <span>Manual setup key</span>
+                      <input
+                        className="w-full rounded-lg border bg-background px-3 py-2 font-mono"
+                        type="password"
+                        value={mfaEnrollment.secret}
+                        readOnly
+                        autoComplete="off"
+                      />
+                    </label>
+                    <SmallButton
+                      onClick={() => void copyMfaSecret()}
+                      disabled={mfaBusy}
+                    >
+                      Copy setup key
+                    </SmallButton>
+                    <label className="grid gap-1 text-xs">
+                      <span>Authenticator code</span>
+                      <input
+                        className="w-full rounded-lg border bg-background px-3 py-2 font-mono tracking-[0.2em]"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        value={mfaCode}
+                        onChange={(event) =>
+                          setMfaCode(
+                            event.target.value
+                              .replace(/[^0-9]/g, "")
+                              .slice(0, 6),
+                          )
+                        }
+                        disabled={mfaBusy}
+                      />
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <SmallButton
+                        onClick={() => void verifyMfaEnrollment()}
+                        disabled={mfaBusy || mfaCode.length !== 6}
+                      >
+                        {mfaBusy ? "Verifying…" : "Verify authenticator"}
+                      </SmallButton>
+                      <SmallButton
+                        onClick={() => void cancelMfaEnrollment()}
+                        disabled={mfaBusy}
+                      >
+                        Cancel
+                      </SmallButton>
+                    </div>
+                  </div>
+                </div>
+              </Row>
+            )}
+          </Group>
+
+          <p
+            className="min-h-5 px-1 text-xs text-muted-foreground"
+            aria-live="polite"
+          >
+            {mfaStatus}
+          </p>
+        </>
+      )}
 
       <p
         className="min-h-5 px-1 text-xs text-muted-foreground"

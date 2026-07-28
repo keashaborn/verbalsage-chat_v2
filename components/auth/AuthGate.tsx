@@ -16,6 +16,12 @@ import {
 
 const MAX_AGE_S = 60 * 60 * 24 * 30; // 30d
 
+type MfaGateState = "clear" | "required" | "unavailable";
+type MfaFactorChoice = {
+  id: string;
+  label: string;
+};
+
 function isBadRefreshToken(err: any): boolean {
   const msg = String(err?.message || err || "");
   return msg.toLowerCase().includes("invalid refresh token");
@@ -115,6 +121,11 @@ function applySettingsFromSession(session: any): boolean {
 export function AuthGate({ children }: { children: ReactNode }) {
   const [booting, setBooting] = useState(true);
   const [session, setSession] = useState<any>(null);
+  const [mfaGate, setMfaGate] = useState<MfaGateState>("clear");
+  const [mfaFactors, setMfaFactors] = useState<MfaFactorChoice[]>([]);
+  const [mfaFactorId, setMfaFactorId] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaBusy, setMfaBusy] = useState(false);
 
   const [mode, setMode] = useState<"login" | "request">("login");
   const [busy, setBusy] = useState(false);
@@ -149,12 +160,76 @@ export function AuthGate({ children }: { children: ReactNode }) {
     // Signed out path
     if (!s) {
       setSession(null);
+      setMfaGate("clear");
+      setMfaFactors([]);
+      setMfaFactorId("");
+      setMfaCode("");
       return;
+    }
+
+    const role = String(s?.user?.app_metadata?.role || "");
+    const privilegedAccount = role === "owner" || role === "admin";
+
+    if (privilegedAccount) {
+      try {
+        const { data: assurance, error: assuranceError } = await withTimeout(
+          supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+          4000,
+          "supabase.mfa.getAuthenticatorAssuranceLevel",
+        );
+        if (assuranceError) throw assuranceError;
+        if (!assurance?.currentLevel || !assurance?.nextLevel) {
+          throw new Error("Authenticator assurance level is unavailable.");
+        }
+
+        if (
+          assurance.currentLevel === "aal1" &&
+          assurance.nextLevel === "aal2"
+        ) {
+          const { data: factors, error: factorsError } = await withTimeout(
+            supabase.auth.mfa.listFactors(),
+            4000,
+            "supabase.mfa.listFactors",
+          );
+          if (factorsError) throw factorsError;
+
+          const choices = (factors?.totp || []).map((factor, index) => ({
+            id: factor.id,
+            label:
+              String(factor.friendly_name || "").trim() ||
+              `Authenticator ${index + 1}`,
+          }));
+          if (choices.length === 0) {
+            throw new Error("No verified authenticator is available.");
+          }
+
+          setSession(s);
+          setMfaFactors(choices);
+          setMfaFactorId((current) =>
+            choices.some((factor) => factor.id === current)
+              ? current
+              : choices[0].id,
+          );
+          setMfaCode("");
+          setMfaGate("required");
+          return;
+        }
+      } catch {
+        setSession(s);
+        setMfaGate("unavailable");
+        setMsg(
+          "Your multi-factor status could not be verified. Retry or sign out.",
+        );
+        return;
+      }
     }
 
     // Supabase session is the source of truth. API calls attach the bearer token via authFetch.
     setSession(s);
-
+    setMfaGate("clear");
+    setMfaFactors([]);
+    setMfaFactorId("");
+    setMfaCode("");
     // Best-effort, non-blocking extras.
     applySettingsFromSession(s);
     void syncIdentityBestEffort(s);
@@ -165,6 +240,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
       await withTimeout(supabase.auth.signOut(), 4000, "supabase.signOut");
     } catch {}
     setSession(null);
+    setMfaGate("clear");
+    setMfaFactors([]);
+    setMfaFactorId("");
+    setMfaCode("");
   }
 
   useEffect(() => {
@@ -278,6 +357,54 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
   }
 
+  async function verifyMfaCode() {
+    const code = mfaCode.replace(/\s+/g, "");
+    if (!mfaFactorId || !/^[0-9]{6}$/.test(code)) {
+      setMsg("Enter the 6-digit code from your authenticator app.");
+      return;
+    }
+
+    setMfaBusy(true);
+    setMsg("");
+    try {
+      const { error } = await withTimeout(
+        supabase.auth.mfa.challengeAndVerify({
+          factorId: mfaFactorId,
+          code,
+        }),
+        8000,
+        "supabase.mfa.challengeAndVerify",
+      );
+      if (error) throw error;
+
+      const { data, error: sessionError } = await withTimeout(
+        supabase.auth.getSession(),
+        4000,
+        "supabase.getSession",
+      );
+      if (sessionError || !data.session) {
+        throw sessionError || new Error("Session unavailable.");
+      }
+      setMfaCode("");
+      await bootstrapFromSession(data.session);
+    } catch {
+      setMsg("That authenticator code was invalid or expired. Try again.");
+    } finally {
+      setMfaBusy(false);
+    }
+  }
+
+  async function retryMfaCheck() {
+    if (!session) return;
+    setMfaBusy(true);
+    setMsg("");
+    try {
+      await bootstrapFromSession(session);
+    } finally {
+      setMfaBusy(false);
+    }
+  }
+
   if (booting) {
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background text-foreground">
@@ -287,13 +414,113 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }
 
   // Do not mount the app until the Supabase session is valid.
-  const showApp = !!session;
+  const showApp = !!session && mfaGate === "clear";
 
   return (
     <>
       {showApp ? children : null}
 
-      {!session && (
+      {session && mfaGate !== "clear" ? (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border bg-background p-6 text-foreground shadow-xl">
+            <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              LifeSwitch protected account
+            </div>
+            <h1 className="mt-2 text-xl font-semibold">
+              Multi-factor verification
+            </h1>
+
+            {mfaGate === "required" ? (
+              <>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Enter the current 6-digit code from your authenticator app
+                  before opening LifeSwitch.
+                </p>
+
+                {mfaFactors.length > 1 && (
+                  <label className="mt-4 grid gap-1 text-sm">
+                    <span>Authenticator</span>
+                    <select
+                      className="w-full rounded-xl border bg-background px-3 py-2"
+                      value={mfaFactorId}
+                      onChange={(event) => setMfaFactorId(event.target.value)}
+                      disabled={mfaBusy}
+                    >
+                      {mfaFactors.map((factor) => (
+                        <option key={factor.id} value={factor.id}>
+                          {factor.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                <label className="mt-4 grid gap-1 text-sm">
+                  <span>Authenticator code</span>
+                  <input
+                    className="w-full rounded-xl border bg-background px-3 py-2 font-mono tracking-[0.2em]"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={mfaCode}
+                    onChange={(event) =>
+                      setMfaCode(
+                        event.target.value.replace(/[^0-9]/g, "").slice(0, 6),
+                      )
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !mfaBusy) {
+                        void verifyMfaCode();
+                      }
+                    }}
+                    disabled={mfaBusy}
+                    autoFocus
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  className="mt-4 w-full rounded-xl bg-muted px-3 py-2 hover:bg-muted/60 disabled:opacity-50"
+                  onClick={() => void verifyMfaCode()}
+                  disabled={mfaBusy || mfaCode.length !== 6}
+                >
+                  {mfaBusy ? "Verifying…" : "Verify and continue"}
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  LifeSwitch could not confirm the multi-factor status of this
+                  protected account. The application remains locked.
+                </p>
+                <button
+                  type="button"
+                  className="mt-4 w-full rounded-xl bg-muted px-3 py-2 hover:bg-muted/60 disabled:opacity-50"
+                  onClick={() => void retryMfaCheck()}
+                  disabled={mfaBusy}
+                >
+                  {mfaBusy ? "Checking…" : "Retry security check"}
+                </button>
+              </>
+            )}
+
+            {msg && (
+              <div className="mt-3 text-sm text-muted-foreground">{msg}</div>
+            )}
+
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => void forceSignedOut()}
+                disabled={mfaBusy}
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : !session ? (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl border bg-background p-6 text-foreground shadow-xl">
             <div className="mb-4 text-lg font-semibold">LifeSwitch</div>
@@ -383,7 +610,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </>
   );
 }
