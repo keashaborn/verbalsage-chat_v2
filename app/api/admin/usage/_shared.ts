@@ -12,7 +12,7 @@ export const NO_STORE_HEADERS = {
 };
 
 export const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const UUID_PREFIX_PATTERN = /^[0-9a-f-]{1,36}$/i;
 export const WINDOWS = new Set([0, 7, 30, 90]);
 export const SORTS = new Set([
