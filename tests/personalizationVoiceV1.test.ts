@@ -76,6 +76,7 @@ test("voice settings present a capability-filtered identity carousel", () => {
   assert.doesNotMatch(panel, /Expressive, reliable speech/);
   assert.doesNotMatch(panel, /Clear and natural/);
   assert.doesNotMatch(panel, />Automatic</);
+  assert.doesNotMatch(panel, /Hi, I’m RESSE/);
   assert.doesNotMatch(panel, /role="option"/);
   for (const voice of [
     "marin",

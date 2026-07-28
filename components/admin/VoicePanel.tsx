@@ -17,8 +17,7 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 import { speechResponseToWavBlob } from "@/lib/voiceSpeech";
 
-const PREVIEW_TEXT =
-  "Hi, I’m RESSE. This is how I’ll sound during your conversations.";
+const PREVIEW_TEXT = "Hello. This is how I’ll sound during your conversations.";
 
 const VOICE_COPY: Record<SpeechVoice, { label: string }> = {
   marin: { label: "Marin" },
