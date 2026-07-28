@@ -135,12 +135,20 @@ test("invite and recovery emails use scanner-safe one-time codes", () => {
   const invite = source("docs/supabase-invite-email-template.html");
   const recovery = source("docs/supabase-recovery-email-template.html");
 
-  assert.match(invite, /\{\{ \.Token \}\}/);
+  for (const template of [invite, recovery]) {
+    assert.match(template, /\{\{ \.Token \}\}/);
+    assert.match(template, /name="format-detection"/);
+    assert.match(template, /telephone=no/);
+    assert.match(template, /x-apple-data-detectors/);
+    assert.match(template, /-webkit-user-select: all/);
+    assert.match(template, /user-select: all/);
+    assert.match(template, /Press and hold the code, choose Copy/);
+    assert.doesNotMatch(template, /\.ConfirmationURL/);
+    assert.doesNotMatch(template, /href="tel:/);
+  }
+
   assert.match(invite, /\/auth\/accept-invite\?type=invite/);
-  assert.doesNotMatch(invite, /\.ConfirmationURL/);
-  assert.match(recovery, /\{\{ \.Token \}\}/);
   assert.match(recovery, /\/auth\/accept-invite\?type=recovery/);
-  assert.doesNotMatch(recovery, /\.ConfirmationURL/);
 });
 
 test("invite confirmation URL validation is fail-closed", async () => {
