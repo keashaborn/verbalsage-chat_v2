@@ -569,7 +569,16 @@ export async function POST(req: Request) {
     const allowGuest = process.env.VS_DEV_ALLOW_GUEST === "1";
     const devUser = String(process.env.VS_DEV_TEST_USER_ID || "").trim();
     const userId = auth?.user_id || (allowGuest ? devUser : "");
+    const authorization = auth
+      ? getSupabaseBearerAuthorizationFromRequest(req)
+      : null;
     if (!userId || !UUID_RE.test(userId)) {
+      return new Response("unauthorized", {
+        status: 401,
+        headers: { "x-request-id": rid },
+      });
+    }
+    if (auth && !authorization) {
       return new Response("unauthorized", {
         status: 401,
         headers: { "x-request-id": rid },
@@ -682,6 +691,7 @@ export async function POST(req: Request) {
         method: "POST",
         headers: brainsUpstreamHeaders(rid, userId, {
           "Content-Type": "application/json",
+          ...(authorization ? { authorization } : {}),
           ...voiceTurnHeaders(voiceTurn.value),
           ...voiceSessionHeaders(voiceSession.value),
         }),
@@ -707,6 +717,7 @@ export async function POST(req: Request) {
       method: "POST",
       headers: brainsUpstreamHeaders(rid, userId, {
         "Content-Type": "application/json",
+        ...(authorization ? { authorization } : {}),
         ...voiceTurnHeaders(voiceTurn.value),
         ...voiceSessionHeaders(voiceSession.value),
       }),
