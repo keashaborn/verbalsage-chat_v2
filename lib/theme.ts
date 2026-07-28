@@ -1,6 +1,6 @@
 export type VSTheme = "graphite" | "slate" | "mist" | "paper";
 
-export const DEFAULT_THEME: VSTheme = "graphite";
+export const DEFAULT_THEME: VSTheme = "mist";
 
 const LEGACY_THEME_CLASSES = ["dark", "dark-hc", "paper", "graphite", "carbon", "slate", "mist"];
 

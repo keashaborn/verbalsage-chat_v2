@@ -39,9 +39,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className="dark graphite"
-      data-theme="graphite"
-      style={{ colorScheme: "dark", backgroundColor: "#111113" }}
+      className="mist"
+      data-theme="mist"
+      style={{ colorScheme: "light", backgroundColor: "#f1f4f7" }}
       suppressHydrationWarning
     >
       <script
@@ -50,12 +50,13 @@ export default function RootLayout({
 (function() {
   try {
     var raw = localStorage.getItem("vs_theme");
-    var value = raw ? (raw[0] === '"' ? JSON.parse(raw) : raw) : "graphite";
+    var value = raw ? (raw[0] === '"' ? JSON.parse(raw) : raw) : "mist";
     var normalized = String(value || "").trim().toLowerCase();
     var t = (normalized === "paper" || normalized === "light") ? "paper"
       : normalized === "mist" ? "mist"
       : normalized === "slate" ? "slate"
-      : "graphite";
+      : ["graphite", "dark", "carbon", "dark-hc"].includes(normalized) ? "graphite"
+      : "mist";
     var root = document.documentElement;
 
     localStorage.setItem("vs_theme", JSON.stringify(t));

@@ -2,7 +2,13 @@
 
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { applyTheme, normalizeThemeValue, readStoredTheme, type VSTheme } from "@/lib/theme";
+import {
+  applyTheme,
+  DEFAULT_THEME,
+  normalizeThemeValue,
+  readStoredTheme,
+  type VSTheme,
+} from "@/lib/theme";
 
 function saveThemeCloud(t: VSTheme) {
   void supabase.auth.updateUser({
@@ -11,7 +17,7 @@ function saveThemeCloud(t: VSTheme) {
 }
 
 export function PersonalizationPanel() {
-  const [theme, setTheme] = React.useState<VSTheme>("graphite");
+  const [theme, setTheme] = React.useState<VSTheme>(DEFAULT_THEME);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -58,7 +64,7 @@ export function PersonalizationPanel() {
         </select>
 
         <div className="text-xs text-muted-foreground">
-          Graphite is the default. Slate and Mist add subtle cool alternatives; Paper remains softly neutral. Your choice syncs to your account.
+          Mist is the default. Graphite and Slate provide darker alternatives; Paper remains softly neutral. Your choice syncs to your account.
         </div>
       </div>
     </div>
