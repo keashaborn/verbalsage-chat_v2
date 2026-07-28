@@ -43,6 +43,11 @@ test("usage BFF exposes overview, bounded cursor users, and one-user detail", ()
   assert.match(shared, /MAX_LIMIT = 50/);
   assert.match(shared, /admin\.auth\.admin\.getUserById/);
   assert.doesNotMatch(shared, /admin\.auth\.admin\.listUsers/);
+  assert.match(
+    shared,
+    /\[0-9a-f\]\{4\}-\[0-9a-f\]\{4\}-\[0-9a-f\]\{12\}/,
+  );
+  assert.doesNotMatch(shared, /\[1-5\]\[0-9a-f\]\{3\}/);
   assert.equal(
     fs.existsSync(path.join(root, "app/api/admin/usage/route.ts")),
     false,
