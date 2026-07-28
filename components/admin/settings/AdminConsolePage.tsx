@@ -4,6 +4,7 @@ import * as React from "react";
 import { authFetch } from "@/lib/authFetch";
 import { AccessRequestsPanel } from "@/components/admin/settings/AccessRequestsPanel";
 import { MemorySystemHealthPanel } from "@/components/admin/settings/MemorySystemHealthPanel";
+import { UsageAnalyticsPanel } from "@/components/admin/settings/UsageAnalyticsPanel";
 import { VoiceSystemHealthPanel } from "@/components/admin/settings/VoiceSystemHealthPanel";
 
 type AdminAccess = {
@@ -671,6 +672,14 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
             ) : null}
           </div>
         </div>
+      </AdminSection>
+
+      <AdminSection
+        title="Usage & Analytics"
+        description="Backend-authoritative AI consumption and LifeSwitch activity aggregates."
+        mountWhenOpen
+      >
+        <UsageAnalyticsPanel />
       </AdminSection>
 
       <AdminSection

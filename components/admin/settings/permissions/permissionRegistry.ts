@@ -300,6 +300,18 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     defaultRoles: ["owner", "admin"],
     backendEnforced: true,
   },
+  {
+    key: "usage_analytics.view",
+    label: "View Usage Analytics",
+    description:
+      "View content-free AI consumption and LifeSwitch activity aggregates by account.",
+    category: "admin_console",
+    scope: "system",
+    access: "view",
+    risk: "high",
+    defaultRoles: ["owner", "admin"],
+    backendEnforced: true,
+  },
 
   // Account / data
   {
