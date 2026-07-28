@@ -206,7 +206,14 @@ export function SecurityPanel() {
           )
           .map((factor) => factor.id),
       );
-      setMfaCurrentLevel(assuranceResult.data?.currentLevel || null);
+      const currentLevel = assuranceResult.data?.currentLevel;
+      setMfaCurrentLevel(
+        currentLevel === "aal1"
+          ? "aal1"
+          : currentLevel === "aal2"
+            ? "aal2"
+            : null,
+      );
     } catch {
       setMfaStatus("Multi-factor details could not be loaded. Try again.");
     } finally {
