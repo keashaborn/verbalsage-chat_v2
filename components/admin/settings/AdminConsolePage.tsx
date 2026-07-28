@@ -4,6 +4,7 @@ import * as React from "react";
 import { authFetch } from "@/lib/authFetch";
 import { AccessRequestsPanel } from "@/components/admin/settings/AccessRequestsPanel";
 import { MemorySystemHealthPanel } from "@/components/admin/settings/MemorySystemHealthPanel";
+import { MemoryWorkbenchPanel } from "@/components/admin/settings/MemoryWorkbenchPanel";
 import { UsageAnalyticsPanel } from "@/components/admin/settings/UsageAnalyticsPanel";
 import { VoiceSystemHealthPanel } from "@/components/admin/settings/VoiceSystemHealthPanel";
 
@@ -738,6 +739,14 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
         mountWhenOpen
       >
         <MemorySystemHealthPanel />
+      </AdminSection>
+
+      <AdminSection
+        title="Memory Workbench"
+        description="Review private GPU extraction results and record diagnostic feedback."
+        mountWhenOpen
+      >
+        <MemoryWorkbenchPanel />
       </AdminSection>
     </div>
   );

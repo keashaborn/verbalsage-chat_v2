@@ -14,6 +14,19 @@ const NO_STORE_HEADERS = {
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const DIAGNOSTIC_CATEGORIES = new Set([
+  "context_missing",
+  "duplicate_or_repeat",
+  "missed_durable_information",
+  "incomplete_compound_extraction",
+  "incorrect_entity_or_relationship",
+  "incorrect_time_or_status",
+  "uncertainty_or_attribution_error",
+  "wrong_memory_lane",
+  "should_not_be_memory",
+  "transcription_ambiguity",
+  "other",
+]);
 
 function requestId(req: Request): string {
   const raw = (
@@ -87,7 +100,7 @@ export async function GET(req: Request) {
     if (
       !response.ok ||
       !payload?.ok ||
-      payload?.schema !== "admin_memory_workbench_v1" ||
+      payload?.schema !== "admin_memory_workbench_v2" ||
       payload?.scope !== "current_actor"
     ) {
       return errorResponse(
@@ -124,6 +137,10 @@ export async function POST(req: Request) {
   const packetId = String(body?.packet_id || "").trim();
   const packetSha = String(body?.packet_storage_sha256 || "").trim();
   const decision = String(body?.decision || "").trim();
+  const diagnosticCategory =
+    typeof body?.diagnostic_category === "string"
+      ? body.diagnostic_category.trim()
+      : "";
   const diagnosticNote =
     typeof body?.diagnostic_note === "string"
       ? body.diagnostic_note.trim()
@@ -133,9 +150,16 @@ export async function POST(req: Request) {
     !UUID_PATTERN.test(packetId) ||
     !SHA256_PATTERN.test(packetSha) ||
     !["correct", "not_correct"].includes(decision) ||
+    (decision === "not_correct" &&
+      !DIAGNOSTIC_CATEGORIES.has(diagnosticCategory)) ||
+    (decision === "correct" && diagnosticCategory !== "") ||
     diagnosticNote.length > 2000
   ) {
-    return errorResponse(400, "invalid_memory_workbench_feedback", correlationId);
+    return errorResponse(
+      400,
+      "invalid_memory_workbench_feedback",
+      correlationId,
+    );
   }
 
   try {
@@ -154,6 +178,7 @@ export async function POST(req: Request) {
           packet_id: packetId,
           packet_storage_sha256: packetSha,
           decision,
+          diagnostic_category: diagnosticCategory || null,
           diagnostic_note: diagnosticNote || null,
         }),
         signal: AbortSignal.timeout(15_000),
@@ -163,7 +188,7 @@ export async function POST(req: Request) {
     if (
       !response.ok ||
       !payload?.ok ||
-      payload?.schema !== "admin_memory_workbench_v1" ||
+      payload?.schema !== "admin_memory_workbench_v2" ||
       payload?.scope !== "current_actor"
     ) {
       return errorResponse(
