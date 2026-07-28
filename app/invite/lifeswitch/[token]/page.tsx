@@ -66,7 +66,7 @@ export default function LifeSwitchInvitePage({
 
   const [preview, setPreview] = React.useState<InvitePreview | null>(null);
   const [sessionUserId, setSessionUserId] = React.useState("");
-  const [mode, setMode] = React.useState<"login" | "signup">("login");
+  const [mode, setMode] = React.useState<"login" | "request">("login");
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -119,17 +119,32 @@ export default function LifeSwitchInvitePage({
     }
   }
 
-  async function signup() {
+  async function requestAccess() {
     setBusy(true);
     setMessage("");
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName || null } },
+      const response = await fetch("/api/access-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({
+          email,
+          full_name: fullName,
+          message: "Requested from a LifeSwitch relationship invitation.",
+        }),
       });
-      if (error) throw error;
-      setMessage("Account created. Check your email if confirmation is required, then sign in.");
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(
+          payload?.error === "invalid_access_request"
+            ? "Enter a valid email address."
+            : "The request could not be submitted. Try again.",
+        );
+      }
+      setFullName("");
+      setMessage(
+        "Request received. If the LifeSwitch Owner approves it, you will receive an email to create your password. Reopen this invitation link after signing in.",
+      );
     } catch (e: any) {
       setMessage(String(e?.message || e));
     } finally {
@@ -259,7 +274,9 @@ export default function LifeSwitchInvitePage({
               </div>
             ) : (
               <div className="mt-5 rounded-2xl border p-4">
-                <div className="text-sm font-semibold">Sign in or create account to accept</div>
+                <div className="text-sm font-semibold">
+                  Log in or request access to accept
+                </div>
 
                 <div className="mt-3 flex gap-2 text-sm">
                   <button
@@ -270,23 +287,30 @@ export default function LifeSwitchInvitePage({
                     Log in
                   </button>
                   <button
-                    className={`rounded-lg px-3 py-1 ${mode === "signup" ? "bg-muted" : "hover:bg-muted/60"}`}
-                    onClick={() => setMode("signup")}
+                    className={`rounded-lg px-3 py-1 ${mode === "request" ? "bg-muted" : "hover:bg-muted/60"}`}
+                    onClick={() => setMode("request")}
                     disabled={busy}
                   >
-                    Sign up
+                    Request access
                   </button>
                 </div>
 
                 <div className="mt-3 grid gap-2">
-                  {mode === "signup" ? (
-                    <input
-                      className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                      placeholder="Full name"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      disabled={busy}
-                    />
+                  {mode === "request" ? (
+                    <>
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        placeholder="Full name"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        disabled={busy}
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        New accounts require approval from the LifeSwitch Owner.
+                        After creating your password, reopen this invitation
+                        link.
+                      </p>
+                    </>
                   ) : null}
 
                   <input
@@ -297,22 +321,32 @@ export default function LifeSwitchInvitePage({
                     disabled={busy}
                   />
 
-                  <input
-                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                    placeholder="Password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={busy}
-                  />
+                  {mode === "login" ? (
+                    <input
+                      className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                      placeholder="Password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={busy}
+                    />
+                  ) : null}
 
                   <button
                     type="button"
                     className="w-fit rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() => (mode === "login" ? void login() : void signup())}
-                    disabled={busy || !email || !password}
+                    onClick={() =>
+                      mode === "login" ? void login() : void requestAccess()
+                    }
+                    disabled={
+                      busy || !email || (mode === "login" && !password)
+                    }
                   >
-                    {busy ? "Working…" : mode === "login" ? "Log in" : "Create account"}
+                    {busy
+                      ? "Working…"
+                      : mode === "login"
+                        ? "Log in"
+                        : "Send access request"}
                   </button>
                 </div>
               </div>

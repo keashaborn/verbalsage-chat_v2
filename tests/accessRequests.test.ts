@@ -65,14 +65,18 @@ test("notification failures do not change the generic public response", () => {
   assert.doesNotMatch(route.slice(sendIndex, acceptedIndex), /throw new Error/);
 });
 
-test("main login offers Request access without a direct Supabase signup", () => {
+test("all public entry points require Owner approval for new accounts", () => {
   const gate = source("components/auth/AuthGate.tsx");
   const relationshipInvite = source("app/invite/lifeswitch/[token]/page.tsx");
 
   assert.match(gate, /Request access/);
   assert.match(gate, /fetch\("\/api\/access-requests"/);
   assert.doesNotMatch(gate, /supabase\.auth\.signUp/);
-  assert.match(relationshipInvite, /supabase\.auth\.signUp/);
+  assert.match(relationshipInvite, /Request access/);
+  assert.match(relationshipInvite, /fetch\("\/api\/access-requests"/);
+  assert.doesNotMatch(relationshipInvite, /supabase\.auth\.signUp/);
+  assert.doesNotMatch(relationshipInvite, /Create account/);
+  assert.doesNotMatch(relationshipInvite, />Sign up</);
 });
 
 test("access request directory requires a fresh Owner identity", () => {
