@@ -61,6 +61,7 @@ export function VoicePanel() {
   const previewAbortRef = React.useRef<AbortController | null>(null);
   const accountSyncRef = React.useRef(Promise.resolve());
   const accountSyncSequenceRef = React.useRef(0);
+  const swipeStartRef = React.useRef<{ x: number; y: number } | null>(null);
 
   const releaseAudio = React.useCallback(() => {
     const audio = audioRef.current;
@@ -217,7 +218,36 @@ export function VoicePanel() {
     ? availableVoices
     : SPEECH_VOICES;
   const selected = VOICE_COPY[voice];
+  const selectedIndex = Math.max(0, visibleVoices.indexOf(voice));
   const selectedRecommended = recommendedVoices.includes(voice);
+
+  function selectAndPreview(nextVoice: SpeechVoice) {
+    const persistedVoice = persistVoice(nextVoice);
+    void previewVoice(persistedVoice);
+  }
+
+  function moveVoice(direction: -1 | 1) {
+    if (visibleVoices.length < 2) return;
+    const nextIndex =
+      (selectedIndex + direction + visibleVoices.length) % visibleVoices.length;
+    selectAndPreview(visibleVoices[nextIndex]);
+  }
+
+  function finishSwipe(event: React.PointerEvent<HTMLDivElement>) {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!start) return;
+
+    const horizontalDistance = event.clientX - start.x;
+    const verticalDistance = event.clientY - start.y;
+    if (
+      Math.abs(horizontalDistance) < 40 ||
+      Math.abs(horizontalDistance) <= Math.abs(verticalDistance)
+    ) {
+      return;
+    }
+    moveVoice(horizontalDistance < 0 ? 1 : -1);
+  }
 
   return (
     <section
@@ -230,59 +260,99 @@ export function VoicePanel() {
           Voice identity
         </h2>
         <p className="text-sm text-muted-foreground">
-          Select any voice to hear a short preview. Your choice saves
-          automatically across your signed-in devices.
+          Swipe the symbol or use the arrows to hear each voice. Your choice
+          saves automatically across your signed-in devices.
         </p>
       </div>
 
       <div className="rounded-2xl border bg-muted/10 p-4 sm:p-5">
         <div className="mx-auto flex max-w-md flex-col items-center text-center">
-          <div className="relative grid h-28 w-28 place-items-center overflow-hidden rounded-full border bg-background shadow-sm">
+          <div
+            className="relative grid h-28 w-28 cursor-grab touch-pan-y place-items-center overflow-hidden rounded-full border bg-background shadow-sm transition outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:cursor-grabbing"
+            role="group"
+            aria-label="Voice picker"
+            aria-roledescription="carousel"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                moveVoice(-1);
+              } else if (event.key === "ArrowRight") {
+                event.preventDefault();
+                moveVoice(1);
+              }
+            }}
+            onPointerDown={(event) => {
+              swipeStartRef.current = {
+                x: event.clientX,
+                y: event.clientY,
+              };
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            onPointerUp={finishSwipe}
+            onPointerCancel={() => {
+              swipeStartRef.current = null;
+            }}
+          >
             <img
+              key={voice}
               src="/brand/lifeswitch/voice-symbol-dark-1024.png"
               alt=""
-              className="h-24 w-24 object-contain opacity-80 dark:invert"
+              draggable={false}
+              className="pointer-events-none h-24 w-24 object-contain opacity-80 select-none dark:invert"
             />
           </div>
-          <div className="mt-4 text-2xl font-semibold">{selected.label}</div>
+
+          <div className="mt-4 grid w-full grid-cols-[44px_1fr_44px] items-center gap-2">
+            <button
+              type="button"
+              className="grid h-11 w-11 place-items-center rounded-full text-3xl text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              aria-label="Previous voice"
+              disabled={visibleVoices.length < 2}
+              onClick={() => moveVoice(-1)}
+            >
+              <span aria-hidden="true">‹</span>
+            </button>
+            <div
+              className="text-2xl font-semibold"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {selected.label}
+            </div>
+            <button
+              type="button"
+              className="grid h-11 w-11 place-items-center rounded-full text-3xl text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              aria-label="Next voice"
+              disabled={visibleVoices.length < 2}
+              onClick={() => moveVoice(1)}
+            >
+              <span aria-hidden="true">›</span>
+            </button>
+          </div>
+
           {selectedRecommended ? (
             <div className="mt-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase">
               Recommended
             </div>
           ) : null}
-        </div>
 
-        <div
-          className="mt-6 flex snap-x gap-3 overflow-x-auto pb-2"
-          role="listbox"
-          aria-label="Available voices"
-        >
-          {visibleVoices.map((item) => {
-            const itemCopy = VOICE_COPY[item];
-            const selectedItem = item === voice;
-            return (
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {visibleVoices.map((item, index) => (
               <button
                 key={item}
                 type="button"
-                role="option"
-                aria-selected={selectedItem}
-                className={`min-w-[142px] snap-center rounded-xl border px-3 py-3 text-left transition ${
-                  selectedItem
-                    ? "border-foreground bg-foreground text-background"
-                    : "bg-background hover:bg-muted/60"
+                className={`h-2.5 w-2.5 rounded-full transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none ${
+                  index === selectedIndex
+                    ? "bg-foreground"
+                    : "bg-muted-foreground/25 hover:bg-muted-foreground/50"
                 }`}
-                onClick={() => {
-                  const nextVoice = persistVoice(item);
-                  void previewVoice(nextVoice);
-                }}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold">{itemCopy.label}</span>
-                  {selectedItem ? <span aria-hidden="true">✓</span> : null}
-                </div>
-              </button>
-            );
-          })}
+                aria-label={`Select ${VOICE_COPY[item].label}`}
+                aria-current={index === selectedIndex ? "true" : undefined}
+                onClick={() => selectAndPreview(item)}
+              />
+            ))}
+          </div>
         </div>
       </div>
 

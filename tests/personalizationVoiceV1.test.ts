@@ -53,10 +53,16 @@ test("voice settings present a capability-filtered identity carousel", () => {
   const panel = source("components/admin/VoicePanel.tsx");
   const speech = source("lib/speechSettings.ts");
 
-  assert.match(panel, /role="listbox"/);
-  assert.match(panel, /Select any voice to hear a short preview/);
-  assert.match(panel, /const nextVoice = persistVoice\(item\)/);
-  assert.match(panel, /void previewVoice\(nextVoice\)/);
+  assert.match(panel, /aria-roledescription="carousel"/);
+  assert.match(panel, /Swipe the symbol or use the arrows/);
+  assert.match(panel, /aria-label="Previous voice"/);
+  assert.match(panel, /aria-label="Next voice"/);
+  assert.match(panel, /event\.key === "ArrowLeft"/);
+  assert.match(panel, /event\.key === "ArrowRight"/);
+  assert.match(panel, /Math\.abs\(horizontalDistance\) < 40/);
+  assert.match(panel, /selectAndPreview\(visibleVoices\[nextIndex\]\)/);
+  assert.match(panel, /aria-current=/);
+  assert.match(panel, /void previewVoice\(persistedVoice\)/);
   assert.match(panel, /previewAbortRef\.current\?\.abort\(\)/);
   assert.match(
     panel,
@@ -70,6 +76,7 @@ test("voice settings present a capability-filtered identity carousel", () => {
   assert.doesNotMatch(panel, /Expressive, reliable speech/);
   assert.doesNotMatch(panel, /Clear and natural/);
   assert.doesNotMatch(panel, />Automatic</);
+  assert.doesNotMatch(panel, /role="option"/);
   for (const voice of [
     "marin",
     "cedar",
