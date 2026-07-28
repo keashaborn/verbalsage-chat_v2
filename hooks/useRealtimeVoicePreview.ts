@@ -5,6 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { authFetch } from "@/lib/authFetch";
 import { VOICE_SESSION_HEADER } from "@/lib/voiceSession";
 import { voiceErrorMessage } from "@/lib/voiceError";
+import {
+  VOICE_LANGUAGE_HEADER,
+  type VoiceLanguage,
+} from "@/lib/voiceLanguage";
 
 export type RealtimeVoicePreviewStatus =
   | "idle"
@@ -27,6 +31,7 @@ export type RealtimeVoicePreviewTurn = {
 
 type StartOptions = {
   threadId: string;
+  language: VoiceLanguage;
   onResponse: (turn: RealtimeVoicePreviewTurn) => void | Promise<void>;
   onTranscript?: (transcript: string) => void;
   onSpeechStart?: () => void;
@@ -204,6 +209,7 @@ export function useRealtimeVoicePreview() {
   const start = useCallback(
     async ({
       threadId,
+      language,
       onResponse,
       onTranscript,
       onSpeechStart,
@@ -329,6 +335,7 @@ export function useRealtimeVoicePreview() {
               "Content-Type": "application/sdp",
               "x-vs-thread-id": threadId,
               [VOICE_SESSION_HEADER]: voiceSessionId,
+              [VOICE_LANGUAGE_HEADER]: language,
             },
             body: offerSdp,
           },

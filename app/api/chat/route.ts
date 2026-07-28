@@ -47,6 +47,11 @@ import {
   type ResponseTraceTimingV2,
   type ResponseTraceV2,
 } from "@/lib/responseTraceV2";
+import {
+  normalizeVoiceLanguage,
+  VOICE_LANGUAGE_HEADER,
+  type VoiceLanguage,
+} from "@/lib/voiceLanguage";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -163,6 +168,7 @@ function serverSearchExecutionRequest(
   query: string,
   noStore: boolean,
   voice: boolean,
+  responseLanguage: VoiceLanguage,
 ): Request | null {
   const authorization = getSupabaseBearerAuthorizationFromRequest(req);
   if (!authorization) return null;
@@ -180,6 +186,7 @@ function serverSearchExecutionRequest(
       query,
       channel: voice ? "voice" : "text",
       persist_transcript: !noStore,
+      response_language: responseLanguage,
     }),
     cache: "no-store",
     signal: req.signal,
@@ -351,6 +358,7 @@ async function runServerSearchPlan(
   message: string,
   noStore: boolean,
   voice: boolean,
+  responseLanguage: VoiceLanguage,
 ): Promise<AutomaticSearchResult> {
   const delegated = serverSearchExecutionRequest(
     req,
@@ -361,6 +369,7 @@ async function runServerSearchPlan(
     message,
     noStore,
     voice,
+    responseLanguage,
   );
   if (!delegated) {
     return {
@@ -625,6 +634,23 @@ export async function POST(req: Request) {
         headers: { "x-request-id": rid },
       });
     }
+    const isVoiceRequest = Boolean(voiceTurn.value || voiceSession.value);
+    const rawVoiceLanguage = String(
+      req.headers.get(VOICE_LANGUAGE_HEADER) || "",
+    ).trim().toLowerCase();
+    const responseLanguage = rawVoiceLanguage
+      ? normalizeVoiceLanguage(rawVoiceLanguage)
+      : "auto";
+    if (
+      (isVoiceRequest &&
+        (!rawVoiceLanguage || responseLanguage !== rawVoiceLanguage)) ||
+      (!isVoiceRequest && rawVoiceLanguage)
+    ) {
+      return new Response("invalid_voice_language_context", {
+        status: 422,
+        headers: { "x-request-id": rid },
+      });
+    }
 
     const rawThread = String(body?.thread_id || "").trim();
     const threadId = UUID_RE.test(rawThread) ? rawThread : null;
@@ -653,7 +679,8 @@ export async function POST(req: Request) {
         threadId,
         message,
         noStore,
-        Boolean(voiceTurn.value || voiceSession.value),
+        isVoiceRequest,
+        responseLanguage,
       );
       if (searchResult.terminalResponse) {
         return searchResult.terminalResponse;
@@ -726,6 +753,9 @@ export async function POST(req: Request) {
           : {}),
         ...voiceTurnHeaders(voiceTurn.value),
         ...voiceSessionHeaders(voiceSession.value),
+        ...(isVoiceRequest
+          ? { [VOICE_LANGUAGE_HEADER]: responseLanguage }
+          : {}),
       }),
       body: JSON.stringify({
         user_id: userId,

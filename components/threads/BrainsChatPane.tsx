@@ -35,7 +35,15 @@ import {
   readSpeechVoice,
   SPEECH_MODEL,
   SPEECH_SPEED,
+  storeSpeechVoice,
 } from "@/lib/speechSettings";
+import {
+  normalizeVoiceLanguage,
+  readVoiceLanguage,
+  storeVoiceLanguage,
+  VOICE_LANGUAGE_HEADER,
+  type VoiceLanguage,
+} from "@/lib/voiceLanguage";
 import {
   BROWSER_RESPONSE_TIMEOUT_MS,
   RequestDeadlineError,
@@ -575,6 +583,31 @@ export function BrainsChatPane() {
   const copiedTimerRef = React.useRef<number | null>(null);
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
   const copiedKeyTimerRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const metadata = (data?.user?.user_metadata || {}) as Record<
+          string,
+          unknown
+        >;
+        if (Object.prototype.hasOwnProperty.call(metadata, "vs_voice")) {
+          storeSpeechVoice(metadata.vs_voice);
+        }
+        if (
+          Object.prototype.hasOwnProperty.call(metadata, "vs_voice_language")
+        ) {
+          storeVoiceLanguage(metadata.vs_voice_language);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   React.useEffect(() => {
     return () => {
@@ -1447,6 +1480,7 @@ export function BrainsChatPane() {
     voiceTurnId?: string,
     voiceSessionId?: string,
     searchControl: SearchControl = "auto",
+    responseLanguage?: VoiceLanguage,
   ): Promise<ChatResult> {
     const { response: r, responseText } = await withRequestDeadline(
       async (signal) => {
@@ -1457,6 +1491,9 @@ export function BrainsChatPane() {
             ...(voiceTurnId ? { [VOICE_TURN_HEADER]: voiceTurnId } : {}),
             ...(voiceSessionId
               ? { [VOICE_SESSION_HEADER]: voiceSessionId }
+              : {}),
+            ...(voiceTurnId && responseLanguage
+              ? { [VOICE_LANGUAGE_HEADER]: responseLanguage }
               : {}),
           },
           body: JSON.stringify({
@@ -1488,6 +1525,7 @@ export function BrainsChatPane() {
         voiceTurnId,
         voiceSessionId,
         "off",
+        responseLanguage,
       );
       return { ...fallbackReply, trustedWebFallback: true };
     }
@@ -1644,6 +1682,7 @@ export function BrainsChatPane() {
     const conversationEpoch = voiceConversationEpochRef.current;
     try {
       await governedVoice.start({
+        language: readVoiceLanguage(),
         onTranscript: async (transcript, voiceTurn) => {
           await sendMessage(transcript, {
             speakReply: true,
@@ -1691,6 +1730,7 @@ export function BrainsChatPane() {
       const tid = await ensureThread();
       await realtimeVoice.start({
         threadId: tid,
+        language: readVoiceLanguage(),
         onSpeechStart: () => {
           realtimeVoice.setAssistantSpeaking(false);
           setRealtimeCaption(null);
@@ -1893,6 +1933,10 @@ export function BrainsChatPane() {
         false,
         options.voiceTurn?.voiceTurnId,
         options.voiceTurn?.voiceSessionId,
+        "auto",
+        options.voiceTurn
+          ? normalizeVoiceLanguage(options.voiceTurn.transcriptionLanguage)
+          : undefined,
       );
       const responseMs = Math.max(
         0,

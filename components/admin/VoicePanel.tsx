@@ -16,6 +16,13 @@ import {
 } from "@/lib/speechSettings";
 import { supabase } from "@/lib/supabaseClient";
 import { speechResponseToWavBlob } from "@/lib/voiceSpeech";
+import {
+  normalizeVoiceLanguage,
+  storeVoiceLanguage,
+  VOICE_LANGUAGE_IDS,
+  type VoiceLanguage,
+  type VoiceLanguageOption,
+} from "@/lib/voiceLanguage";
 
 const PREVIEW_TEXT = "Hello. This is how I’ll sound during your conversations.";
 
@@ -43,6 +50,11 @@ type VoiceCapabilities = {
       recommended_voices?: string[];
     }>;
   };
+  language?: {
+    default?: string;
+    auto_detect?: boolean;
+    options?: Array<{ id: string; label: string }>;
+  };
 };
 
 export function VoicePanel() {
@@ -53,6 +65,12 @@ export function VoicePanel() {
   const [recommendedVoices, setRecommendedVoices] = React.useState<
     SpeechVoice[]
   >(["marin", "cedar"]);
+  const [language, setLanguage] = React.useState<VoiceLanguage>("en");
+  const [languageOptions, setLanguageOptions] = React.useState<
+    VoiceLanguageOption[]
+  >([{ id: "en", label: "English" }]);
+  const [languageOpen, setLanguageOpen] = React.useState(false);
+  const [languageQuery, setLanguageQuery] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [status, setStatus] = React.useState("");
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
@@ -105,15 +123,55 @@ export function VoicePanel() {
     return nextVoice;
   }, []);
 
+  const persistLanguage = React.useCallback(
+    (value: unknown, announce = true) => {
+      const nextLanguage = storeVoiceLanguage(value);
+      const sequence = ++accountSyncSequenceRef.current;
+      setLanguage(nextLanguage);
+      accountSyncRef.current = accountSyncRef.current.then(async () => {
+        try {
+          const { error } = await supabase.auth.updateUser({
+            data: {
+              vs_voice_language: nextLanguage,
+            },
+          });
+          if (!announce || sequence !== accountSyncSequenceRef.current) return;
+          setStatus(
+            error
+              ? "Saved in this browser. Account sync is temporarily unavailable."
+              : "Language saved to your account.",
+          );
+        } catch {
+          if (announce && sequence === accountSyncSequenceRef.current) {
+            setStatus(
+              "Saved in this browser. Account sync is temporarily unavailable.",
+            );
+          }
+        }
+      });
+      return nextLanguage;
+    },
+    [],
+  );
+
   React.useEffect(() => {
     let cancelled = false;
     let localVoice: SpeechVoice = "marin";
+    let localLanguage: VoiceLanguage = "en";
     try {
       const raw = localStorage.getItem("vs_voice");
       localVoice = normalizeSpeechVoice(raw == null ? null : JSON.parse(raw));
     } catch {}
+    try {
+      const raw = localStorage.getItem("vs_voice_language");
+      localLanguage = normalizeVoiceLanguage(
+        raw == null ? null : JSON.parse(raw),
+      );
+    } catch {}
     setVoice(localVoice);
     storeSpeechVoice(localVoice);
+    setLanguage(localLanguage);
+    storeVoiceLanguage(localLanguage);
 
     void (async () => {
       const [{ data }, capabilitiesResponse] = await Promise.all([
@@ -125,14 +183,38 @@ export function VoicePanel() {
       const cloudVoice = normalizeSpeechVoice(
         (data?.user?.user_metadata as any)?.vs_voice ?? localVoice,
       );
+      const cloudLanguage = normalizeVoiceLanguage(
+        (data?.user?.user_metadata as any)?.vs_voice_language ?? localLanguage,
+      );
       setVoice(cloudVoice);
       storeSpeechVoice(cloudVoice);
+      setLanguage(cloudLanguage);
+      storeVoiceLanguage(cloudLanguage);
 
       if (!capabilitiesResponse.ok) {
         setStatus("Voice options are temporarily unavailable.");
         return;
       }
       const payload = (await capabilitiesResponse.json()) as VoiceCapabilities;
+      const supportedLanguages = (payload.language?.options ?? [])
+        .filter(
+          (item): item is VoiceLanguageOption =>
+            Boolean(
+              item &&
+                VOICE_LANGUAGE_IDS.includes(item.id as VoiceLanguage) &&
+                String(item.label || "").trim(),
+            ),
+        )
+        .map((item) => ({
+          id: normalizeVoiceLanguage(item.id),
+          label: String(item.label).trim(),
+        }));
+      if (supportedLanguages.length) {
+        setLanguageOptions(supportedLanguages);
+        if (!supportedLanguages.some((item) => item.id === cloudLanguage)) {
+          persistLanguage(payload.language?.default ?? "en", false);
+        }
+      }
       const model = payload.tts?.models?.find(
         (item) => item.id === SPEECH_MODEL,
       );
@@ -161,7 +243,7 @@ export function VoicePanel() {
       previewAbortRef.current = null;
       releaseAudio();
     };
-  }, [persistVoice, releaseAudio]);
+  }, [persistLanguage, persistVoice, releaseAudio]);
 
   async function previewVoice(nextVoice: SpeechVoice) {
     previewAbortRef.current?.abort();
@@ -219,6 +301,16 @@ export function VoicePanel() {
   const selected = VOICE_COPY[voice];
   const selectedIndex = Math.max(0, visibleVoices.indexOf(voice));
   const selectedRecommended = recommendedVoices.includes(voice);
+  const selectedLanguage =
+    languageOptions.find((item) => item.id === language) ||
+    languageOptions.find((item) => item.id === "en") ||
+    languageOptions[0];
+  const normalizedLanguageQuery = languageQuery.trim().toLocaleLowerCase();
+  const filteredLanguages = languageOptions.filter((item) =>
+    `${item.label} ${item.id}`
+      .toLocaleLowerCase()
+      .includes(normalizedLanguageQuery),
+  );
 
   function selectAndPreview(nextVoice: SpeechVoice) {
     const persistedVoice = persistVoice(nextVoice);
@@ -356,10 +448,67 @@ export function VoicePanel() {
       </div>
 
       <div className="overflow-hidden rounded-xl border">
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          aria-expanded={languageOpen}
+          onClick={() => setLanguageOpen((value) => !value)}
+        >
           <div className="text-sm font-semibold">Language</div>
-          <div className="text-sm text-muted-foreground">English</div>
-        </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>{selectedLanguage?.label || "English"}</span>
+            <span aria-hidden="true">›</span>
+          </div>
+        </button>
+        {languageOpen ? (
+          <div className="border-t p-3">
+            <label className="sr-only" htmlFor="voice-language-search">
+              Search languages
+            </label>
+            <input
+              id="voice-language-search"
+              type="search"
+              value={languageQuery}
+              onChange={(event) => setLanguageQuery(event.target.value)}
+              placeholder="Search languages"
+              autoFocus
+              className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <div
+              className="mt-2 max-h-72 overflow-y-auto rounded-lg border"
+              role="listbox"
+              aria-label="Voice language"
+            >
+              {filteredLanguages.length ? (
+                filteredLanguages.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="option"
+                    aria-selected={item.id === language}
+                    className={`flex w-full items-center justify-between gap-3 border-b px-3 py-2.5 text-left text-sm last:border-b-0 hover:bg-muted/50 ${
+                      item.id === language ? "bg-muted/60 font-semibold" : ""
+                    }`}
+                    onClick={() => {
+                      persistLanguage(item.id);
+                      setLanguageOpen(false);
+                      setLanguageQuery("");
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    {item.id === language ? (
+                      <span aria-hidden="true">✓</span>
+                    ) : null}
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-4 text-sm text-muted-foreground">
+                  No matching languages.
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-1 px-1 text-xs text-muted-foreground">

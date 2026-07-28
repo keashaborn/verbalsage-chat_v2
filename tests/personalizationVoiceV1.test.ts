@@ -70,14 +70,15 @@ test("voice settings present a capability-filtered identity carousel", () => {
   );
   assert.match(panel, /sequence !== accountSyncSequenceRef\.current/);
   assert.match(panel, /Language/);
-  assert.match(panel, /English/);
+  assert.match(panel, /languageOptions/);
+  assert.match(panel, /Search languages/);
+  assert.match(panel, /role="listbox"/);
   assert.match(panel, /recommended_voices/);
   assert.doesNotMatch(panel, /Preview \$\{selected\.label\}/);
   assert.doesNotMatch(panel, /Expressive, reliable speech/);
   assert.doesNotMatch(panel, /Clear and natural/);
   assert.doesNotMatch(panel, />Automatic</);
   assert.doesNotMatch(panel, /Hi, I’m RESSE/);
-  assert.doesNotMatch(panel, /role="option"/);
   for (const voice of [
     "marin",
     "cedar",

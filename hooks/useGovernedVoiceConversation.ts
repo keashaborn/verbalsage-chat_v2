@@ -9,6 +9,10 @@ import {
   withRequestDeadline,
 } from "@/lib/requestDeadline";
 import { voiceErrorMessage } from "@/lib/voiceError";
+import {
+  VOICE_LANGUAGE_HEADER,
+  type VoiceLanguage,
+} from "@/lib/voiceLanguage";
 
 export type GovernedVoiceConversationStatus =
   | "idle"
@@ -51,6 +55,7 @@ export type GovernedVoiceTurnFailureContext = {
 };
 
 type StartOptions = {
+  language: VoiceLanguage;
   onTranscript: (
     transcript: string,
     context: GovernedVoiceTurnContext,
@@ -216,6 +221,7 @@ export function useGovernedVoiceConversation() {
 
   const start = useCallback(
     async ({
+      language,
       onTranscript,
       onTranscriptionFailure,
       onLeaseLost,
@@ -360,6 +366,7 @@ export function useGovernedVoiceConversation() {
                   "Content-Type": contentType,
                   [VOICE_TURN_HEADER]: voiceTurnId,
                   [VOICE_SESSION_HEADER]: voiceSessionId,
+                  [VOICE_LANGUAGE_HEADER]: language,
                 },
                 body: audio,
                 signal,

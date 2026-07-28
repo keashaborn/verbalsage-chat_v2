@@ -7,6 +7,10 @@ import {
   VOICE_SESSION_HEADER,
   voiceSessionIdFromRequest,
 } from "@/lib/voiceSession";
+import {
+  normalizeVoiceLanguage,
+  VOICE_LANGUAGE_HEADER,
+} from "@/lib/voiceLanguage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,6 +65,13 @@ export async function POST(req: Request) {
   ) {
     return errorResponse(requestId, 400, "invalid_voice_session_context");
   }
+  const rawLanguage = String(
+    req.headers.get(VOICE_LANGUAGE_HEADER) || "",
+  ).trim().toLowerCase();
+  const language = normalizeVoiceLanguage(rawLanguage);
+  if (!rawLanguage || language !== rawLanguage) {
+    return errorResponse(requestId, 422, "invalid_or_missing_voice_language");
+  }
 
   const contentType = String(req.headers.get("content-type") || "")
     .split(";", 1)[0]
@@ -91,6 +102,7 @@ export async function POST(req: Request) {
         "x-vs-owner-user-id": userId,
         "x-vs-thread-id": threadId,
         [VOICE_SESSION_HEADER]: voiceSession.value,
+        [VOICE_LANGUAGE_HEADER]: language,
       }),
       body: sdp,
       signal: AbortSignal.timeout(15_000),
