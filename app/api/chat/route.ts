@@ -718,6 +718,12 @@ export async function POST(req: Request) {
       headers: brainsUpstreamHeaders(rid, userId, {
         "Content-Type": "application/json",
         ...(authorization ? { authorization } : {}),
+        ...(automaticSearchAuthorized
+          ? {
+              "x-vs-web-search-authorization":
+                "supabase_fresh_web_search_v1",
+            }
+          : {}),
         ...voiceTurnHeaders(voiceTurn.value),
         ...voiceSessionHeaders(voiceSession.value),
       }),

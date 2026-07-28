@@ -71,6 +71,10 @@ test("chat route owns routing and uses fresh Supabase authorization", () => {
     route,
     /"x-vs-web-search-authorization": "supabase_fresh_web_search_v1"/,
   );
+  assert.match(
+    route,
+    /fetch\(`\$\{brains\}\/response\/query`,[\s\S]*?automaticSearchAuthorized[\s\S]*?"x-vs-web-search-authorization":\s*"supabase_fresh_web_search_v1"/,
+  );
   assert.match(route, /recordManualSearchOverrideV1/);
   assert.match(route, /SERVER_SEARCH_AUTHORITY_VERSION/);
 
