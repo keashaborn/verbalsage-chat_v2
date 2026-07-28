@@ -20,22 +20,21 @@ import { speechResponseToWavBlob } from "@/lib/voiceSpeech";
 const PREVIEW_TEXT =
   "Hi, I’m RESSE. This is how I’ll sound during your conversations.";
 
-const VOICE_COPY: Record<SpeechVoice, { label: string; description: string }> =
-  {
-    marin: { label: "Marin", description: "Clear and natural" },
-    cedar: { label: "Cedar", description: "Steady and grounded" },
-    alloy: { label: "Alloy", description: "Balanced and versatile" },
-    ash: { label: "Ash", description: "Direct and composed" },
-    ballad: { label: "Ballad", description: "Smooth and expressive" },
-    coral: { label: "Coral", description: "Bright and conversational" },
-    echo: { label: "Echo", description: "Calm and resonant" },
-    fable: { label: "Fable", description: "Expressive and narrative" },
-    nova: { label: "Nova", description: "Lively and polished" },
-    onyx: { label: "Onyx", description: "Deep and measured" },
-    sage: { label: "Sage", description: "Warm and thoughtful" },
-    shimmer: { label: "Shimmer", description: "Light and energetic" },
-    verse: { label: "Verse", description: "Natural and engaging" },
-  };
+const VOICE_COPY: Record<SpeechVoice, { label: string }> = {
+  marin: { label: "Marin" },
+  cedar: { label: "Cedar" },
+  alloy: { label: "Alloy" },
+  ash: { label: "Ash" },
+  ballad: { label: "Ballad" },
+  coral: { label: "Coral" },
+  echo: { label: "Echo" },
+  fable: { label: "Fable" },
+  nova: { label: "Nova" },
+  onyx: { label: "Onyx" },
+  sage: { label: "Sage" },
+  shimmer: { label: "Shimmer" },
+  verse: { label: "Verse" },
+};
 
 type VoiceCapabilities = {
   tts?: {
@@ -56,10 +55,12 @@ export function VoicePanel() {
     SpeechVoice[]
   >(["marin", "cedar"]);
   const [busy, setBusy] = React.useState(false);
-  const [playing, setPlaying] = React.useState(false);
   const [status, setStatus] = React.useState("");
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = React.useRef("");
+  const previewAbortRef = React.useRef<AbortController | null>(null);
+  const accountSyncRef = React.useRef(Promise.resolve());
+  const accountSyncSequenceRef = React.useRef(0);
 
   const releaseAudio = React.useCallback(() => {
     const audio = audioRef.current;
@@ -74,33 +75,33 @@ export function VoicePanel() {
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = "";
     }
-    setPlaying(false);
   }, []);
 
   const persistVoice = React.useCallback((value: unknown, announce = true) => {
     const nextVoice = storeSpeechVoice(value);
+    const sequence = ++accountSyncSequenceRef.current;
     setVoice(nextVoice);
-    void supabase.auth
-      .updateUser({
-        data: {
-          vs_voice: nextVoice,
-        },
-      })
-      .then(({ error }) => {
-        if (!announce) return;
+    accountSyncRef.current = accountSyncRef.current.then(async () => {
+      try {
+        const { error } = await supabase.auth.updateUser({
+          data: {
+            vs_voice: nextVoice,
+          },
+        });
+        if (!announce || sequence !== accountSyncSequenceRef.current) return;
         setStatus(
           error
             ? "Saved in this browser. Account sync is temporarily unavailable."
             : `${VOICE_COPY[nextVoice].label} saved to your account.`,
         );
-      })
-      .catch(() => {
-        if (announce) {
+      } catch {
+        if (announce && sequence === accountSyncSequenceRef.current) {
           setStatus(
             "Saved in this browser. Account sync is temporarily unavailable.",
           );
         }
-      });
+      }
+    });
     return nextVoice;
   }, []);
 
@@ -156,27 +157,27 @@ export function VoicePanel() {
 
     return () => {
       cancelled = true;
+      previewAbortRef.current?.abort();
+      previewAbortRef.current = null;
       releaseAudio();
     };
   }, [persistVoice, releaseAudio]);
 
-  async function previewVoice() {
-    if (playing) {
-      releaseAudio();
-      setStatus("");
-      return;
-    }
-
+  async function previewVoice(nextVoice: SpeechVoice) {
+    previewAbortRef.current?.abort();
+    const controller = new AbortController();
+    previewAbortRef.current = controller;
     setBusy(true);
-    setStatus("Preparing preview…");
+    setStatus(`Preparing ${VOICE_COPY[nextVoice].label}…`);
     releaseAudio();
     try {
       const response = await authFetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           text: PREVIEW_TEXT,
-          voice,
+          voice: nextVoice,
           instructions: conversationStyleTtsInstructions(
             readConversationStyle(),
           ),
@@ -187,6 +188,7 @@ export function VoicePanel() {
       }
 
       const wav = await speechResponseToWavBlob(response);
+      if (controller.signal.aborted) return;
       const url = URL.createObjectURL(wav);
       const audio = new Audio(url);
       audioRef.current = audio;
@@ -195,16 +197,19 @@ export function VoicePanel() {
         releaseAudio();
         setStatus("");
       };
-      setPlaying(true);
-      setStatus(`Playing ${VOICE_COPY[voice].label}.`);
+      setStatus(`Playing ${VOICE_COPY[nextVoice].label}.`);
       await audio.play();
     } catch (error: any) {
+      if (controller.signal.aborted) return;
       releaseAudio();
       setStatus(
         String(error?.message || "Voice preview is temporarily unavailable."),
       );
     } finally {
-      setBusy(false);
+      if (previewAbortRef.current === controller) {
+        previewAbortRef.current = null;
+        setBusy(false);
+      }
     }
   }
 
@@ -215,14 +220,18 @@ export function VoicePanel() {
   const selectedRecommended = recommendedVoices.includes(voice);
 
   return (
-    <section className="space-y-5" aria-labelledby="voice-settings-title">
+    <section
+      className="space-y-5"
+      aria-busy={busy}
+      aria-labelledby="voice-settings-title"
+    >
       <div className="space-y-1">
         <h2 id="voice-settings-title" className="text-base font-semibold">
           Voice identity
         </h2>
         <p className="text-sm text-muted-foreground">
-          Choose how RESSE sounds. Select any voice to save it automatically
-          across your signed-in devices.
+          Select any voice to hear a short preview. Your choice saves
+          automatically across your signed-in devices.
         </p>
       </div>
 
@@ -236,9 +245,6 @@ export function VoicePanel() {
             />
           </div>
           <div className="mt-4 text-2xl font-semibold">{selected.label}</div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            {selected.description}
-          </div>
           {selectedRecommended ? (
             <div className="mt-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase">
               Recommended
@@ -266,60 +272,28 @@ export function VoicePanel() {
                     : "bg-background hover:bg-muted/60"
                 }`}
                 onClick={() => {
-                  releaseAudio();
-                  persistVoice(item);
+                  const nextVoice = persistVoice(item);
+                  void previewVoice(nextVoice);
                 }}
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold">{itemCopy.label}</span>
                   {selectedItem ? <span aria-hidden="true">✓</span> : null}
                 </div>
-                <div
-                  className={`mt-1 text-xs ${
-                    selectedItem
-                      ? "text-background/75"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  {itemCopy.description}
-                </div>
               </button>
             );
           })}
         </div>
-
-        <button
-          type="button"
-          className="mt-4 w-full rounded-xl border bg-background px-4 py-3 text-sm font-semibold hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={busy || !availableVoices.length}
-          onClick={() => void previewVoice()}
-        >
-          {busy
-            ? "Preparing preview…"
-            : playing
-              ? "Stop preview"
-              : `Preview ${selected.label}`}
-        </button>
       </div>
 
       <div className="overflow-hidden rounded-xl border">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <div>
-            <div className="text-sm font-semibold">Speech</div>
-            <div className="text-xs text-muted-foreground">
-              Expressive, reliable speech
-            </div>
-          </div>
-          <div className="text-sm text-muted-foreground">Recommended</div>
-        </div>
-        <div className="flex items-center justify-between gap-3 border-t px-4 py-3">
           <div className="text-sm font-semibold">Language</div>
-          <div className="text-sm text-muted-foreground">Automatic</div>
+          <div className="text-sm text-muted-foreground">English</div>
         </div>
       </div>
 
       <div className="space-y-1 px-1 text-xs text-muted-foreground">
-        <div>{PREVIEW_TEXT}</div>
         <div>AI-generated voice. Raw microphone audio is not stored.</div>
         {status ? <div role="status">{status}</div> : null}
       </div>

@@ -54,10 +54,22 @@ test("voice settings present a capability-filtered identity carousel", () => {
   const speech = source("lib/speechSettings.ts");
 
   assert.match(panel, /role="listbox"/);
-  assert.match(panel, /Select any voice to save it automatically/);
+  assert.match(panel, /Select any voice to hear a short preview/);
+  assert.match(panel, /const nextVoice = persistVoice\(item\)/);
+  assert.match(panel, /void previewVoice\(nextVoice\)/);
+  assert.match(panel, /previewAbortRef\.current\?\.abort\(\)/);
+  assert.match(
+    panel,
+    /accountSyncRef\.current = accountSyncRef\.current\.then/,
+  );
+  assert.match(panel, /sequence !== accountSyncSequenceRef\.current/);
   assert.match(panel, /Language/);
-  assert.match(panel, /Automatic/);
+  assert.match(panel, /English/);
   assert.match(panel, /recommended_voices/);
+  assert.doesNotMatch(panel, /Preview \$\{selected\.label\}/);
+  assert.doesNotMatch(panel, /Expressive, reliable speech/);
+  assert.doesNotMatch(panel, /Clear and natural/);
+  assert.doesNotMatch(panel, />Automatic</);
   for (const voice of [
     "marin",
     "cedar",
