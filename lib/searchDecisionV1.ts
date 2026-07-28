@@ -1,4 +1,4 @@
-export const SEARCH_DECISION_POLICY_VERSION = "search_decision_v1_2";
+export const SEARCH_DECISION_POLICY_VERSION = "search_decision_v1_3";
 
 export type SearchDecisionClassV1 =
   | "no_search"
