@@ -1,6 +1,11 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { getFreshSupabaseAuthContextFromRequest } from "@/app/api/_auth/supabaseUser";
+import {
+  hasRequiredPrivilegedAal2,
+  PRIVILEGED_MFA_REQUIRED_ERROR,
+  PRIVILEGED_MFA_REQUIRED_STATUS,
+} from "@/app/api/_auth/privilegedMfa";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -58,6 +63,15 @@ export async function POST(
     return NextResponse.json(
       { ok: false, error: "owner_access_required" },
       { status: 403, headers: { ...NO_STORE_HEADERS, "x-request-id": id } },
+    );
+  }
+  if (!hasRequiredPrivilegedAal2(auth)) {
+    return NextResponse.json(
+      { ok: false, error: PRIVILEGED_MFA_REQUIRED_ERROR },
+      {
+        status: PRIVILEGED_MFA_REQUIRED_STATUS,
+        headers: { ...NO_STORE_HEADERS, "x-request-id": id },
+      },
     );
   }
 

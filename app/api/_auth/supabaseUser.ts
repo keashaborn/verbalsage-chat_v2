@@ -10,6 +10,7 @@ type SupabaseJwtPayload = JWTPayload & {
   sub: string;
   role: "authenticated";
   session_id: string;
+  aal?: "aal1" | "aal2";
   is_anonymous?: boolean;
   app_metadata?: Record<string, unknown>;
 };
@@ -60,7 +61,9 @@ function supabaseAuthEndpoint(): { url: string; apiKey: string } | null {
   }
 }
 
-async function verifiedSupabasePayload(req: Request): Promise<SupabaseJwtPayload | null> {
+async function verifiedSupabasePayload(
+  req: Request,
+): Promise<SupabaseJwtPayload | null> {
   if (!JWKS || !ISSUER) return null;
 
   const token = bearerToken(req);
@@ -87,7 +90,9 @@ async function verifiedSupabasePayload(req: Request): Promise<SupabaseJwtPayload
   }
 }
 
-export async function getSupabaseUserIdFromRequest(req: Request): Promise<string | null> {
+export async function getSupabaseUserIdFromRequest(
+  req: Request,
+): Promise<string | null> {
   const payload = await verifiedSupabasePayload(req);
   return payload?.sub || null;
 }
@@ -105,7 +110,9 @@ export async function getSupabasePayloadFromRequest(
   return await verifiedSupabasePayload(req);
 }
 
-export async function getSupabaseAuthContextFromRequest(req: Request): Promise<SupabaseRequestAuth | null> {
+export async function getSupabaseAuthContextFromRequest(
+  req: Request,
+): Promise<SupabaseRequestAuth | null> {
   const payload = await getSupabasePayloadFromRequest(req);
   if (!payload) return null;
   const user_id = payload.sub;

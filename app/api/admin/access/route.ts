@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { getFreshSupabaseAuthContextFromRequest } from "@/app/api/_auth/supabaseUser";
+import {
+  hasRequiredPrivilegedAal2,
+  PRIVILEGED_MFA_REQUIRED_ERROR,
+  PRIVILEGED_MFA_REQUIRED_STATUS,
+} from "@/app/api/_auth/privilegedMfa";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,6 +28,12 @@ export async function GET(req: Request) {
     return NextResponse.json(
       { ok: false, error: "admin_access_required" },
       { status: 403, headers: NO_STORE_HEADERS },
+    );
+  }
+  if (!hasRequiredPrivilegedAal2(auth)) {
+    return NextResponse.json(
+      { ok: false, error: PRIVILEGED_MFA_REQUIRED_ERROR },
+      { status: PRIVILEGED_MFA_REQUIRED_STATUS, headers: NO_STORE_HEADERS },
     );
   }
 
