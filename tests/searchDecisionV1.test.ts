@@ -5,9 +5,11 @@ import {
   automaticSearchRouteUsesExternalWebV1,
   decideSearchV1,
   isSearchExplicitlyProhibitedV1,
+  parseServerSearchPlanV1,
   recordSearchDecisionShadowV1,
   recordSearchRoutingEnforcedV1,
   SEARCH_DECISION_POLICY_VERSION,
+  SEARCH_PLAN_CONTRACT_VERSION,
   selectAutomaticSearchRouteV1,
 } from "../lib/searchDecisionV1.ts";
 
@@ -85,6 +87,7 @@ const cases = [
 for (const example of cases) {
   test(`classifies: ${example.input}`, () => {
     const decision = decideSearchV1(example.input);
+    assert.equal(decision.contract_version, SEARCH_PLAN_CONTRACT_VERSION);
     assert.equal(decision.policy_version, SEARCH_DECISION_POLICY_VERSION);
     assert.equal(decision.decision, example.decision);
     assert.ok(decision.reason_codes.includes(example.reason));
@@ -103,6 +106,7 @@ test("explicit no-search instruction overrides freshness and named entities", ()
   const input = "Do not search the web. What is the latest OpenAI news?";
   assert.equal(isSearchExplicitlyProhibitedV1(input), true);
   assert.deepEqual(decideSearchV1(input), {
+    contract_version: SEARCH_PLAN_CONTRACT_VERSION,
     policy_version: SEARCH_DECISION_POLICY_VERSION,
     decision: "no_search",
     reason_codes: ["search_prohibited_by_user"],
@@ -112,6 +116,53 @@ test("explicit no-search instruction overrides freshness and named entities", ()
     confidence: "high",
     budget: { max_searches: 0, max_sources: 0 },
   });
+});
+
+test("accepts rolling policy revisions under the stable search-plan contract", () => {
+  const current = decideSearchV1("What is the capital of France?");
+  for (const policyVersion of [
+    "search_decision_v1_2",
+    "search_decision_v1_3",
+    "search_decision_v1_4",
+  ]) {
+    const parsed = parseServerSearchPlanV1({
+      ...current,
+      policy_version: policyVersion,
+      reason_codes:
+        policyVersion === "search_decision_v1_4"
+          ? ["future_bounded_reason"]
+          : current.reason_codes,
+    });
+    assert.ok(parsed);
+    assert.equal(parsed.contract_version, SEARCH_PLAN_CONTRACT_VERSION);
+    assert.equal(parsed.policy_version, policyVersion);
+  }
+});
+
+test("rejects incompatible or malformed server search plans", () => {
+  const current = decideSearchV1("What is the capital of France?");
+  const invalidPlans = [
+    { ...current, contract_version: "search_plan_v2" },
+    { ...current, policy_version: "search_decision_v2_1" },
+    { ...current, policy_version: "search_decision_v1_latest" },
+    { ...current, policy_pack: "unbounded_web" },
+    { ...current, query_context: "entire_transcript" },
+    { ...current, external_web_access: "false" },
+    { ...current, confidence: "unknown" },
+    { ...current, reason_codes: [] },
+    { ...current, reason_codes: ["invalid reason"] },
+    {
+      ...current,
+      budget: { max_searches: 101, max_sources: 5 },
+    },
+    {
+      ...current,
+      budget: { max_searches: 1, max_sources: 251 },
+    },
+  ];
+  for (const plan of invalidPlans) {
+    assert.equal(parseServerSearchPlanV1(plan), null);
+  }
 });
 
 test("recognizes enterprise no-search phrasing before any routing intent", () => {
@@ -331,6 +382,7 @@ test("server routes enforced decisions after fresh Supabase authorization", asyn
     /capabilityAllowsRole\("web_search\.use", permissionRole\)/,
   );
   assert.match(chat, /runServerSearchPlan/);
+  assert.match(chat, /parseServerSearchPlanV1/);
   assert.match(chat, /recordSearchRoutingEnforcedV1/);
   assert.doesNotMatch(chat, /selectAutomaticSearchRouteV1/);
   assert.doesNotMatch(chat, /postCurrentNews/);
