@@ -533,15 +533,9 @@ export function LifeSwitchHelper() {
   }
 
   return (
-    <div
-      className={`fixed right-4 z-[60] ${
-        domain === "measurements"
-          ? "bottom-[calc(1rem+env(safe-area-inset-bottom))]"
-          : "bottom-[calc(5.75rem+env(safe-area-inset-bottom))]"
-      }`}
-    >
+    <div className="relative z-[60]">
       {open ? (
-        <section className="w-[min(calc(100vw-2rem),24rem)] overflow-hidden rounded-2xl border bg-background shadow-xl">
+        <section className="fixed top-16 right-4 w-[min(calc(100vw-2rem),24rem)] overflow-hidden rounded-2xl border bg-background shadow-xl md:top-28">
           <header className="flex items-center justify-between border-b px-3 py-2">
             <div>
               <div className="text-sm font-semibold">Sage Helper</div>
@@ -657,7 +651,7 @@ export function LifeSwitchHelper() {
       ) : (
         <Button
           type="button"
-          className="h-12 w-12 overflow-hidden rounded-full border bg-background p-1.5 shadow-lg hover:bg-muted/60"
+          className="size-10 overflow-hidden rounded-full border bg-background p-1.5 shadow-sm hover:bg-muted/60"
           aria-label="Open LifeSwitch helper"
           onClick={() => setOpen(true)}
         >

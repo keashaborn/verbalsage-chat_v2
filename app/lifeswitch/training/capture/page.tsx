@@ -740,8 +740,7 @@ export default function TrainingCapturePage() {
         )) as WorkoutTemplateExerciseRow[];
         const rows = Array.isArray(list)
           ? [...list].sort(
-              (a, b) =>
-                safeNum(a.sort_order, 0) - safeNum(b.sort_order, 0),
+              (a, b) => safeNum(a.sort_order, 0) - safeNum(b.sort_order, 0),
             )
           : [];
         const previousRowsByExercise = await loadLastSessionDraftRows(
@@ -769,8 +768,7 @@ export default function TrainingCapturePage() {
               previous_weight:
                 previous.previous_weight ?? previous.weight ?? "",
               previous_reps: previous.previous_reps ?? previous.reps ?? "",
-              previous_flags:
-                previous.previous_flags ?? previous.flags ?? "",
+              previous_flags: previous.previous_flags ?? previous.flags ?? "",
               previous_day: previous.previous_day,
             };
           }),
@@ -1361,12 +1359,10 @@ export default function TrainingCapturePage() {
                     </div>
 
                     <div className="mt-3 border-y border-border/50">
-                      <div className="grid grid-cols-[3.75rem_minmax(5.5rem,1.25fr)_minmax(3.75rem,.75fr)_minmax(3.25rem,.65fr)_2.25rem] gap-2 border-b border-border/50 py-2 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                      <div className="grid grid-cols-[2rem_minmax(0,1fr)_3.25rem_3rem_2.75rem] gap-1 border-b border-border/50 py-2 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase sm:grid-cols-[3.75rem_minmax(5.5rem,1.25fr)_minmax(3.75rem,.75fr)_minmax(3.25rem,.65fr)_2.75rem] sm:gap-2">
                         <div>Set</div>
                         <div>
-                          {previousDay
-                            ? formatWorkoutDay(previousDay)
-                            : "Last"}
+                          {previousDay ? formatWorkoutDay(previousDay) : "Last"}
                         </div>
                         <div className="text-center">Pounds</div>
                         <div className="text-center">Reps</div>
@@ -1381,21 +1377,19 @@ export default function TrainingCapturePage() {
                                 <div
                                   key={`${row.draft_id}:${seg.segment_index}`}
                                   className={[
-                                    "grid min-h-14 grid-cols-[3.75rem_minmax(5.5rem,1.25fr)_minmax(3.75rem,.75fr)_minmax(3.25rem,.65fr)_2.25rem] items-center gap-2 py-2",
+                                    "grid min-h-14 grid-cols-[2rem_minmax(0,1fr)_3.25rem_3rem_2.75rem] items-center gap-1 py-2 sm:grid-cols-[3.75rem_minmax(5.5rem,1.25fr)_minmax(3.75rem,.75fr)_minmax(3.25rem,.65fr)_2.75rem] sm:gap-2",
                                     row.done ? "bg-muted/20" : "",
                                   ].join(" ")}
                                 >
                                   <div className="min-w-0">
                                     <div className="text-sm tabular-nums">
-                                      {segmentIndex === 0
-                                        ? row.set_index
-                                        : ""}
+                                      {segmentIndex === 0 ? row.set_index : ""}
                                     </div>
                                     <div className="truncate text-[10px] text-muted-foreground">
                                       {seg.label}
                                     </div>
                                   </div>
-                                  <div className="text-sm text-muted-foreground tabular-nums">
+                                  <div className="truncate text-xs text-muted-foreground tabular-nums sm:text-sm">
                                     {segmentIndex === 0
                                       ? formatPreviousSet(
                                           row.previous_weight,
@@ -1405,7 +1399,7 @@ export default function TrainingCapturePage() {
                                   </div>
                                   <NumericInput
                                     aria-label={`${first.exercise_name} set ${row.set_index} ${seg.label} pounds`}
-                                    className="w-full min-w-0 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0 disabled:opacity-100"
+                                    className="min-h-11 w-full min-w-0 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0 disabled:opacity-100"
                                     mode="decimal"
                                     min={0}
                                     value={seg.weight}
@@ -1421,7 +1415,7 @@ export default function TrainingCapturePage() {
                                   />
                                   <NumericInput
                                     aria-label={`${first.exercise_name} set ${row.set_index} ${seg.label} reps`}
-                                    className="w-full min-w-0 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0 disabled:opacity-100"
+                                    className="min-h-11 w-full min-w-0 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0 disabled:opacity-100"
                                     mode="integer"
                                     min={0}
                                     value={seg.reps}
@@ -1439,7 +1433,7 @@ export default function TrainingCapturePage() {
                                     <button
                                       type="button"
                                       className={[
-                                        "inline-flex size-9 items-center justify-center justify-self-end outline-none transition-[color,transform] focus-visible:scale-110 focus-visible:text-blue-600 dark:focus-visible:text-blue-400",
+                                        "inline-flex size-11 items-center justify-center justify-self-end transition-[color,transform] outline-none focus-visible:scale-110 focus-visible:text-blue-600 dark:focus-visible:text-blue-400",
                                         row.done
                                           ? "text-blue-600 dark:text-blue-400"
                                           : "text-muted-foreground/35 hover:text-foreground",
@@ -1456,9 +1450,7 @@ export default function TrainingCapturePage() {
                                           : `Complete ${first.exercise_name} set ${row.set_index}`
                                       }
                                       title={
-                                        row.done
-                                          ? "Mark pending"
-                                          : "Mark done"
+                                        row.done ? "Mark pending" : "Mark done"
                                       }
                                     >
                                       <Check
@@ -1477,7 +1469,7 @@ export default function TrainingCapturePage() {
                             <div
                               key={row.draft_id}
                               className={[
-                                "grid min-h-14 grid-cols-[3.75rem_minmax(5.5rem,1.25fr)_minmax(3.75rem,.75fr)_minmax(3.25rem,.65fr)_2.25rem] items-center gap-2 py-2",
+                                "grid min-h-14 grid-cols-[2rem_minmax(0,1fr)_3.25rem_3rem_2.75rem] items-center gap-1 py-2 sm:grid-cols-[3.75rem_minmax(5.5rem,1.25fr)_minmax(3.75rem,.75fr)_minmax(3.25rem,.65fr)_2.75rem] sm:gap-2",
                                 row.done ? "bg-muted/20" : "",
                               ].join(" ")}
                             >
@@ -1499,7 +1491,7 @@ export default function TrainingCapturePage() {
                                   placeholder="note"
                                 />
                               </div>
-                              <div className="truncate text-sm text-muted-foreground tabular-nums">
+                              <div className="truncate text-xs text-muted-foreground tabular-nums sm:text-sm">
                                 {formatPreviousSet(
                                   row.previous_weight,
                                   row.previous_reps,
@@ -1507,7 +1499,7 @@ export default function TrainingCapturePage() {
                               </div>
                               <NumericInput
                                 aria-label={`${first.exercise_name} set ${row.set_index} pounds`}
-                                className="w-full min-w-0 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0 disabled:opacity-100"
+                                className="min-h-11 w-full min-w-0 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0 disabled:opacity-100"
                                 mode="decimal"
                                 min={0}
                                 value={row.weight}
@@ -1519,7 +1511,7 @@ export default function TrainingCapturePage() {
                               />
                               <NumericInput
                                 aria-label={`${first.exercise_name} set ${row.set_index} reps`}
-                                className="w-full min-w-0 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0 disabled:opacity-100"
+                                className="min-h-11 w-full min-w-0 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0 disabled:opacity-100"
                                 mode="integer"
                                 min={0}
                                 value={row.reps}
@@ -1532,7 +1524,7 @@ export default function TrainingCapturePage() {
                               <button
                                 type="button"
                                 className={[
-                                  "inline-flex size-9 items-center justify-center justify-self-end outline-none transition-[color,transform] focus-visible:scale-110 focus-visible:text-blue-600 dark:focus-visible:text-blue-400",
+                                  "inline-flex size-11 items-center justify-center justify-self-end transition-[color,transform] outline-none focus-visible:scale-110 focus-visible:text-blue-600 dark:focus-visible:text-blue-400",
                                   row.done
                                     ? "text-blue-600 dark:text-blue-400"
                                     : "text-muted-foreground/35 hover:text-foreground",
@@ -1548,9 +1540,7 @@ export default function TrainingCapturePage() {
                                     ? `Mark ${first.exercise_name} set ${row.set_index} pending`
                                     : `Complete ${first.exercise_name} set ${row.set_index}`
                                 }
-                                title={
-                                  row.done ? "Mark pending" : "Mark done"
-                                }
+                                title={row.done ? "Mark pending" : "Mark done"}
                               >
                                 <Check
                                   className="size-5"
