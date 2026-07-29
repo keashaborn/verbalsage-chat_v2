@@ -541,36 +541,151 @@ export default function NutritionCapturePage() {
               const selected = meal.meal_id === selectedMealId;
 
               return (
-                <button
-                  key={meal.meal_id}
-                  type="button"
-                  aria-pressed={selected}
-                  className={[
-                    "flex min-h-16 w-full items-center justify-between gap-3 py-3 text-left hover:bg-muted/10 active:bg-muted/20",
-                    selected ? "bg-muted/[0.08]" : "",
-                  ].join(" ")}
-                  onClick={() =>
-                    setSelectedMealId((current) =>
-                      current === meal.meal_id ? "" : meal.meal_id
-                    )
-                  }
-                >
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">
-                      {meal.name}
+                <React.Fragment key={meal.meal_id}>
+                  <button
+                    type="button"
+                    aria-pressed={selected}
+                    className={[
+                      "flex min-h-16 w-full items-center justify-between gap-3 py-3 text-left hover:bg-muted/10 active:bg-muted/20",
+                      selected ? "bg-muted/[0.08]" : "",
+                    ].join(" ")}
+                    onClick={() =>
+                      setSelectedMealId((current) =>
+                        current === meal.meal_id ? "" : meal.meal_id
+                      )
+                    }
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">
+                        {meal.name}
+                      </div>
+                      <div className="text-xs capitalize text-muted-foreground">
+                        {meal.meal_type}
+                      </div>
                     </div>
-                    <div className="text-xs capitalize text-muted-foreground">
-                      {meal.meal_type}
+                    <span className="shrink-0 text-muted-foreground" aria-hidden="true">
+                      {selected ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </span>
+                  </button>
+
+                  {selected && selectedMeal ? (
+                    <div className="bg-muted/[0.03] py-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold">{selectedMeal.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {mealItems.length} foods · kcal {fmt(mealTotals.kcal)} · P{" "}
+                            {fmt(mealTotals.protein_g)}g · C {fmt(mealTotals.carbs_g)}g · F{" "}
+                            {fmt(mealTotals.fat_g)}g
+                          </div>
+                        </div>
+
+                        <button
+                          className="inline-flex items-center gap-1.5 rounded-[5px] border border-emerald-600/35 bg-emerald-500/10 px-2.5 py-1.5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-500/20 disabled:opacity-50 dark:border-emerald-400/30 dark:text-emerald-300"
+                          onClick={() => void logMealCombo()}
+                          disabled={mealItemsLoading || mealItems.length === 0}
+                        >
+                          <Check aria-hidden="true" size={14} strokeWidth={1.8} />
+                          Log meal
+                        </button>
+                      </div>
+
+                      <div className="mt-3 divide-y divide-muted/20 border-y border-muted/20">
+                        {mealItemsLoading && (
+                          <div className="py-3 text-xs text-muted-foreground">
+                            Loading meal foods…
+                          </div>
+                        )}
+
+                        {!mealItemsLoading &&
+                          mealItems.map((item) => {
+                            const servings = servingsByFood[item.my_food_id] || [];
+                            const selection = mealQuantityByItem[item.meal_item_id] || (
+                              item.my_food_serving_id && item.qty_servings != null
+                                ? {
+                                    quantity: String(Number(item.qty_servings)),
+                                    unit: item.my_food_serving_id,
+                                  }
+                                : {
+                                    quantity: String(Number(item.qty_g || 0)),
+                                    unit: GRAMS_UNIT,
+                                  }
+                            );
+                            const grams = resolvedQuantityGrams(selection, servings);
+                            const rowKcal = scaled(item.kcal, grams);
+                            const rowProtein = scaled(item.protein_g, grams);
+                            const included = includedMealItemIds[item.meal_item_id] !== false;
+
+                            return (
+                              <div
+                                key={item.meal_item_id}
+                                className={`grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center ${
+                                  included ? "" : "opacity-50"
+                                }`}
+                              >
+                                <label className="flex min-w-0 flex-1 items-start gap-2">
+                                  <input
+                                    type="checkbox"
+                                    className="mt-1"
+                                    checked={included}
+                                    onChange={(event) =>
+                                      setIncludedMealItemIds((previous) => ({
+                                        ...previous,
+                                        [item.meal_item_id]: event.target.checked,
+                                      }))
+                                    }
+                                  />
+
+                                  <div className="min-w-0">
+                                    <div className="truncate text-sm font-medium">
+                                      {item.display_name}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      kcal {fmt(rowKcal)} · P {fmt(rowProtein)}g
+                                    </div>
+                                  </div>
+                                </label>
+
+                                <div className="w-full min-w-0 sm:w-[15rem]">
+                                  <FoodQuantityControl
+                                    label={item.display_name}
+                                    value={selection}
+                                    servings={servings}
+                                    compact
+                                    unboxed
+                                    disabled={!included}
+                                    onChange={(next) =>
+                                      setMealQuantityByItem((previous) => ({
+                                        ...previous,
+                                        [item.meal_item_id]: next,
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                        {!mealItemsLoading && mealItems.length === 0 ? (
+                          <div className="py-3 text-xs text-muted-foreground">
+                            This meal has no foods yet. Add foods in{" "}
+                            <Link
+                              href="/lifeswitch/nutrition/design/meals"
+                              className="font-medium underline underline-offset-4"
+                            >
+                              Library / Meals
+                            </Link>
+                            .
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                  <span className="shrink-0 text-muted-foreground" aria-hidden="true">
-                    {selected ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </span>
-                </button>
+                  ) : null}
+                </React.Fragment>
               );
             })}
 
@@ -593,102 +708,6 @@ export default function NutritionCapturePage() {
               </div>
             ) : null}
           </div>
-
-          {selectedMeal && (
-            <div className="border-b border-muted/20 py-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold">{selectedMeal.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {mealItems.length} foods · kcal {fmt(mealTotals.kcal)} · P {fmt(mealTotals.protein_g)}g · C{" "}
-                    {fmt(mealTotals.carbs_g)}g · F {fmt(mealTotals.fat_g)}g
-                  </div>
-                </div>
-
-                <button
-                  className="inline-flex items-center gap-1.5 rounded-[5px] border border-emerald-600/35 bg-emerald-500/10 px-2.5 py-1.5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-500/20 disabled:opacity-50 dark:border-emerald-400/30 dark:text-emerald-300"
-                  onClick={() => void logMealCombo()}
-                  disabled={mealItemsLoading || mealItems.length === 0}
-                >
-                  <Check aria-hidden="true" size={14} strokeWidth={1.8} />
-                  Log meal
-                </button>
-              </div>
-
-              <div className="mt-3 divide-y divide-muted/20 border-y border-muted/20">
-                {mealItemsLoading && (
-                  <div className="text-xs text-muted-foreground">Loading meal foods…</div>
-                )}
-
-                {!mealItemsLoading &&
-                  mealItems.map((item) => {
-                    const servings = servingsByFood[item.my_food_id] || [];
-                    const selection = mealQuantityByItem[item.meal_item_id] || (
-                      item.my_food_serving_id && item.qty_servings != null
-                        ? { quantity: String(Number(item.qty_servings)), unit: item.my_food_serving_id }
-                        : { quantity: String(Number(item.qty_g || 0)), unit: GRAMS_UNIT }
-                    );
-                    const grams = resolvedQuantityGrams(selection, servings);
-                    const rowKcal = scaled(item.kcal, grams);
-                    const rowProtein = scaled(item.protein_g, grams);
-
-                    const included = includedMealItemIds[item.meal_item_id] !== false;
-
-                    return (
-                      <div key={item.meal_item_id} className={`grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center ${included ? "" : "opacity-50"}`}>
-                        <label className="flex min-w-0 flex-1 items-start gap-2">
-                          <input
-                            type="checkbox"
-                            className="mt-1"
-                            checked={included}
-                            onChange={(e) =>
-                              setIncludedMealItemIds((p) => ({
-                                ...p,
-                                [item.meal_item_id]: e.target.checked,
-                              }))
-                            }
-                          />
-
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-medium">{item.display_name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              kcal {fmt(rowKcal)} · P {fmt(rowProtein)}g
-                            </div>
-                          </div>
-                        </label>
-
-                        <div className="w-full min-w-0 sm:w-[15rem]">
-                          <FoodQuantityControl
-                            label={item.display_name}
-                            value={selection}
-                            servings={servings}
-                            compact
-                            unboxed
-                            disabled={!included}
-                            onChange={(next) =>
-                              setMealQuantityByItem((previous) => ({
-                                ...previous,
-                                [item.meal_item_id]: next,
-                              }))
-                            }
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                {!mealItemsLoading && selectedMeal && mealItems.length === 0 && (
-                  <div className="border-y border-muted/20 py-3 text-xs text-muted-foreground">
-                    This meal has no foods yet. Add foods in{" "}
-                    <Link href="/lifeswitch/nutrition/design/meals" className="font-medium underline underline-offset-4">
-                      Library / Meals
-                    </Link>
-                    .
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
