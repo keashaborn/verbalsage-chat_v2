@@ -90,6 +90,7 @@ type TrustedWebSource = {
   source_id?: string;
   publisher?: string;
   published_at?: string;
+  freshness_status?: string;
 };
 
 type ChatResult = {
@@ -190,6 +191,7 @@ function normalizeTrustedWebSources(value: unknown): TrustedWebSource[] {
       const sourceId = String(record.source_id || "").trim();
       const publisher = String(record.publisher || "").trim();
       const publishedAt = String(record.published_at || "").trim();
+      const freshnessStatus = String(record.freshness_status || "").trim();
       if (!url || !title) return null;
       return {
         url,
@@ -199,6 +201,7 @@ function normalizeTrustedWebSources(value: unknown): TrustedWebSource[] {
         ...(sourceId ? { source_id: sourceId } : {}),
         ...(publisher ? { publisher } : {}),
         ...(publishedAt ? { published_at: publishedAt } : {}),
+        ...(freshnessStatus ? { freshness_status: freshnessStatus } : {}),
       };
     })
     .filter((source): source is TrustedWebSource => Boolean(source));
@@ -238,6 +241,12 @@ function trustedWebSourceMeta(source: TrustedWebSource): string {
   }
   if (source.published_at) {
     return `${evidence} · ${source.published_at}`;
+  }
+  if (source.freshness_status === "current_reference") {
+    return `${evidence} · Current reference`;
+  }
+  if (source.freshness_status === "historical") {
+    return `${evidence} · Historical source`;
   }
   return evidence;
 }

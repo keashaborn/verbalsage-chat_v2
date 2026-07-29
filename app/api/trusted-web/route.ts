@@ -20,6 +20,11 @@ import { isAbortLike, requestDeadlineSignal } from "@/lib/requestDeadline";
 import { TRUSTED_EVIDENCE_ALLOWED_SOURCE_DOMAINS } from "@/lib/trustedSourceRegistryV1";
 import { WEB_SOURCE_PROVENANCE_CONTRACT } from "@/lib/webSourceProvenanceV2";
 import {
+  CITATION_EVIDENCE_CONTRACT,
+  isCitationAggregateFreshnessStatus,
+  isCitationSourceFreshnessStatus,
+} from "@/lib/citationEvidenceV1";
+import {
   TRUSTED_HEALTH_MAX_ADMITTED_SOURCES,
   WEB_EVIDENCE_ADMISSION_CONTRACT,
 } from "@/lib/webEvidenceAdmissionV1";
@@ -117,6 +122,8 @@ type TrustedWebSource = {
   authority_type: string;
   evidence_type: string;
   source_id: string;
+  published_at: string;
+  freshness_status: string;
 };
 
 function normalizeSource(source: unknown): TrustedWebSource | null {
@@ -129,7 +136,17 @@ function normalizeSource(source: unknown): TrustedWebSource | null {
   const authorityType = sourceText(record?.authority_type, 80);
   const evidenceType = sourceText(record?.evidence_type, 80);
   const sourceId = sourceText(record?.source_id, 120);
-  if (!url || !title || !authorityType || !evidenceType) return null;
+  const publishedAt = sourceText(record?.published_at, 80);
+  const freshnessStatus = sourceText(record?.freshness_status, 40);
+  if (
+    !url ||
+    !title ||
+    !authorityType ||
+    !evidenceType ||
+    !isCitationSourceFreshnessStatus(freshnessStatus)
+  ) {
+    return null;
+  }
   if (!sourceUrlAllowed(url)) return null;
   return {
     url,
@@ -137,6 +154,8 @@ function normalizeSource(source: unknown): TrustedWebSource | null {
     authority_type: authorityType,
     evidence_type: evidenceType,
     source_id: sourceId,
+    published_at: publishedAt,
+    freshness_status: freshnessStatus,
   };
 }
 
@@ -298,6 +317,9 @@ export async function POST(req: Request, invocation?: unknown) {
     const topic = String(parsed?.topic || "").trim();
     const sourceContract = String(parsed?.source_contract || "").trim();
     const admissionContract = String(parsed?.admission_contract || "").trim();
+    const citationEvidenceContract = String(
+      parsed?.citation_evidence_contract || "",
+    ).trim();
     const rawCitedSources: unknown[] | null = Array.isArray(
       parsed?.cited_sources,
     )
@@ -338,6 +360,18 @@ export async function POST(req: Request, invocation?: unknown) {
       parsed?.rejected_source_count,
     );
     const maxAdmittedSources = boundedSourceCount(parsed?.max_admitted_sources);
+    const citationExactPageSourceCount = boundedSourceCount(
+      parsed?.citation_exact_page_source_count,
+    );
+    const citationFreshnessVerifiedSourceCount = boundedSourceCount(
+      parsed?.citation_freshness_verified_source_count,
+    );
+    const citationArchivedSourceCount = boundedSourceCount(
+      parsed?.citation_archived_source_count,
+    );
+    const citationFreshnessStatus = String(
+      parsed?.citation_freshness_status || "",
+    ).trim();
     if (
       !answer ||
       answer.length > 40_000 ||
@@ -347,6 +381,7 @@ export async function POST(req: Request, invocation?: unknown) {
       typeof parsed?.searched !== "boolean" ||
       sourceContract !== WEB_SOURCE_PROVENANCE_CONTRACT ||
       admissionContract !== WEB_EVIDENCE_ADMISSION_CONTRACT ||
+      citationEvidenceContract !== CITATION_EVIDENCE_CONTRACT ||
       !citedSources ||
       !admittedSources ||
       !providerConsultedSources ||
@@ -358,6 +393,13 @@ export async function POST(req: Request, invocation?: unknown) {
       admittedSourceCount !== admittedSources.length ||
       rejectedSourceCount !==
         providerConsultedSources.length - admittedSources.length ||
+      citationExactPageSourceCount !== citedSources.length ||
+      citationFreshnessVerifiedSourceCount === null ||
+      citationArchivedSourceCount === null ||
+      citationFreshnessVerifiedSourceCount +
+          citationArchivedSourceCount >
+        citedSources.length ||
+      !isCitationAggregateFreshnessStatus(citationFreshnessStatus) ||
       (parsed.searched === true && citedSources.length < 1) ||
       !sourcesBelongToSources(citedSources, admittedSources) ||
       !sourcesBelongToSources(admittedSources, providerConsultedSources) ||
@@ -422,6 +464,12 @@ export async function POST(req: Request, invocation?: unknown) {
         searched: Boolean(parsed.searched),
         source_contract: sourceContract,
         admission_contract: admissionContract,
+        citation_evidence_contract: citationEvidenceContract,
+        citation_exact_page_source_count: citationExactPageSourceCount,
+        citation_freshness_verified_source_count:
+          citationFreshnessVerifiedSourceCount,
+        citation_archived_source_count: citationArchivedSourceCount,
+        citation_freshness_status: citationFreshnessStatus,
         sources: citedSources,
         cited_sources: citedSources,
         admitted_sources: admittedSources,
@@ -448,6 +496,8 @@ export async function POST(req: Request, invocation?: unknown) {
             providerConsultedSources.length,
           ),
           "X-VS-Web-Rejected-Source-Count": String(rejectedSourceCount),
+          "X-VS-Citation-Evidence-Contract": citationEvidenceContract,
+          "X-VS-Citation-Freshness": citationFreshnessStatus,
           ...(includeInspection
             ? responseTraceHeadersV2(
                 manualSearchResponseTraceV2({

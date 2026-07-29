@@ -288,6 +288,12 @@ test("trusted web preserves structured source metadata for source cards", () => 
   assert.doesNotMatch(route, /consulted_sources: providerConsultedSources/);
   assert.match(route, /sourcesBelongToSources/);
   assert.match(route, /WEB_EVIDENCE_ADMISSION_CONTRACT/);
+  assert.match(route, /CITATION_EVIDENCE_CONTRACT/);
+  assert.match(route, /citation_evidence_contract/);
+  assert.match(route, /citation_exact_page_source_count/);
+  assert.match(route, /isCitationAggregateFreshnessStatus/);
+  assert.match(route, /isCitationSourceFreshnessStatus/);
+  assert.match(route, /X-VS-Citation-Evidence-Contract/);
   assert.match(route, /TRUSTED_HEALTH_MAX_ADMITTED_SOURCES/);
   assert.match(pane, /type TrustedWebSource/);
   assert.match(pane, /TrustedWebSourceCards/);
