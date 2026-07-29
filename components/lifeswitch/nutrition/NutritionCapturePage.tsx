@@ -610,7 +610,7 @@ export default function NutritionCapturePage() {
                   onClick={() => void logMealCombo()}
                   disabled={mealItemsLoading || mealItems.length === 0}
                 >
-                  Log selected
+                  Log meal
                 </button>
               </div>
 
@@ -656,7 +656,7 @@ export default function NutritionCapturePage() {
                           </div>
                         </label>
 
-                        <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:w-[21rem]">
+                        <div className="w-full min-w-0 sm:w-[15rem]">
                           <FoodQuantityControl
                             label={item.display_name}
                             value={selection}
@@ -671,26 +671,6 @@ export default function NutritionCapturePage() {
                               }))
                             }
                           />
-                          <button
-                            className="rounded border border-emerald-500/45 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-50 dark:text-emerald-300"
-                            disabled={!included || grams == null}
-                            onClick={() =>
-                              void (async () => {
-                                try {
-                                  await logFood(
-                                    item.my_food_id,
-                                    logQuantityForSelection(selection, servings)
-                                  );
-                                  setFlash(`Logged ${item.display_name}`);
-                                  setTimeout(() => setFlash(""), 1200);
-                                } catch (e: any) {
-                                  setStatus(String(e?.message || e));
-                                }
-                              })()
-                            }
-                          >
-                            Log
-                          </button>
                         </div>
                       </div>
                     );
