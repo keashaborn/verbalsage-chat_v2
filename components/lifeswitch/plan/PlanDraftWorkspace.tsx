@@ -2804,7 +2804,7 @@ function ConditioningTargetsEditor({
 function ProgressBadge({ ready }: { ready: boolean }) {
   const label = ready ? "Ready" : "Needs information";
   return (
-    <span className="rounded-full border px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+    <span className="shrink-0 text-xs font-medium text-muted-foreground">
       {label}
     </span>
   );
@@ -2929,10 +2929,10 @@ export function PlanDraftWorkspace({
 
   return (
     <div
-      className="grid gap-4 rounded-2xl border bg-muted/20 p-3 sm:p-4"
+      className="grid gap-4 border-y py-4"
       data-testid="plan-draft-workspace"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 px-1">
         <div>
           <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Inactive draft workspace
@@ -2945,7 +2945,7 @@ export function PlanDraftWorkspace({
             Plan remains unchanged until owner approval.
           </p>
         </div>
-        <span className="rounded-full border px-3 py-1 text-xs font-medium">
+        <span className="pt-0.5 text-xs font-medium text-muted-foreground">
           {dirty ? "Unsaved changes" : "Draft saved"}
         </span>
       </div>
@@ -2981,11 +2981,11 @@ export function PlanDraftWorkspace({
         </button>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid divide-y border-y">
         <button
           type="button"
           onClick={() => openStep("direction")}
-          className="flex items-center justify-between gap-3 rounded-xl border bg-background p-3 text-left"
+          className="flex min-h-12 items-center justify-between gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/25"
         >
           <span>
             <span className="block text-sm font-semibold">
@@ -3002,7 +3002,7 @@ export function PlanDraftWorkspace({
         <button
           type="button"
           onClick={() => openStep("schedule")}
-          className="flex items-center justify-between gap-3 rounded-xl border bg-background p-3 text-left"
+          className="flex min-h-12 items-center justify-between gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/25"
         >
           <span>
             <span className="block text-sm font-semibold">
@@ -3025,7 +3025,7 @@ export function PlanDraftWorkspace({
             key={item.key}
             type="button"
             onClick={() => openStep(item.key)}
-            className="flex items-center justify-between gap-3 rounded-xl border bg-background p-3 text-left"
+            className="flex min-h-12 items-center justify-between gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/25"
           >
             <span className="text-sm font-semibold">{item.label}</span>
             <ProgressBadge ready={sectionReady(item.key, draft[item.key])} />
@@ -3034,13 +3034,13 @@ export function PlanDraftWorkspace({
         <button
           type="button"
           onClick={() => openStep("coach_notes")}
-          className="flex items-center justify-between gap-3 rounded-xl border bg-background p-3 text-left"
+          className="flex min-h-12 items-center justify-between gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/25"
         >
           <span className="text-sm font-semibold">Notes and context</span>
           {draft.coach_notes ? (
             <ProgressBadge ready />
           ) : (
-            <span className="rounded-full border px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+            <span className="shrink-0 text-xs font-medium text-muted-foreground">
               Optional
             </span>
           )}
