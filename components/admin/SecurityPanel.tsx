@@ -1,6 +1,10 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
+import {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from "@/components/auth/TurnstileWidget";
 import { supabase } from "@/lib/supabaseClient";
 import * as React from "react";
 
@@ -156,6 +160,8 @@ export function SecurityPanel() {
   const [lastSignInAt, setLastSignInAt] = React.useState<string | null>(null);
   const [accountLoading, setAccountLoading] = React.useState(true);
   const [passwordBusy, setPasswordBusy] = React.useState(false);
+  const [passwordResetToken, setPasswordResetToken] = React.useState("");
+  const passwordResetTurnstileRef = React.useRef<TurnstileWidgetHandle>(null);
   const [sessionsBusy, setSessionsBusy] = React.useState(false);
   const [securityStatus, setSecurityStatus] = React.useState("");
   const [accountRole, setAccountRole] = React.useState("");
@@ -262,12 +268,19 @@ export function SecurityPanel() {
       setSecurityStatus("A verified email address is required.");
       return;
     }
+    if (!passwordResetToken) {
+      setSecurityStatus(
+        "Complete the security verification before requesting a code.",
+      );
+      return;
+    }
 
     setPasswordBusy(true);
     setSecurityStatus("");
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/accept-invite`,
+        captchaToken: passwordResetToken,
       });
       if (error) throw error;
       setSecurityStatus(`Password-change code sent to ${email}.`);
@@ -276,6 +289,8 @@ export function SecurityPanel() {
         "The password-change email could not be sent. Try again later.",
       );
     } finally {
+      passwordResetTurnstileRef.current?.reset();
+      setPasswordResetToken("");
       setPasswordBusy(false);
     }
   }
@@ -586,13 +601,23 @@ export function SecurityPanel() {
             <SmallButton
               onClick={() => void sendPasswordCode()}
               disabled={
-                accountLoading || passwordBusy || !email || !emailVerified
+                accountLoading ||
+                passwordBusy ||
+                !email ||
+                !emailVerified ||
+                !passwordResetToken
               }
             >
               {passwordBusy ? "Sending…" : "Email change code"}
             </SmallButton>
           }
-        />
+        >
+          <TurnstileWidget
+            ref={passwordResetTurnstileRef}
+            action="password_reset"
+            onToken={setPasswordResetToken}
+          />
+        </Row>
         <Row
           left={
             <div>

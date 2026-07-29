@@ -75,6 +75,8 @@ export default function LifeSwitchInvitePage({
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [loginToken, setLoginToken] = React.useState("");
+  const loginTurnstileRef = React.useRef<TurnstileWidgetHandle>(null);
   const [accessRequestToken, setAccessRequestToken] = React.useState("");
   const accessRequestTurnstileRef = React.useRef<TurnstileWidgetHandle>(null);
   const [loading, setLoading] = React.useState(true);
@@ -114,12 +116,17 @@ export default function LifeSwitchInvitePage({
   }, [token]);
 
   async function login() {
+    if (!loginToken) {
+      setMessage("Complete the security verification before logging in.");
+      return;
+    }
     setBusy(true);
     setMessage("");
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
+        options: { captchaToken: loginToken },
       });
       if (error) throw error;
       await syncIdentityBestEffort();
@@ -127,6 +134,8 @@ export default function LifeSwitchInvitePage({
     } catch (e: any) {
       setMessage(String(e?.message || e));
     } finally {
+      loginTurnstileRef.current?.reset();
+      setLoginToken("");
       setBusy(false);
     }
   }
@@ -314,6 +323,7 @@ export default function LifeSwitchInvitePage({
                     className={`rounded-lg px-3 py-1 ${mode === "login" ? "bg-muted" : "hover:bg-muted/60"}`}
                     onClick={() => {
                       setMode("login");
+                      setLoginToken("");
                       setAccessRequestToken("");
                       setMessage("");
                     }}
@@ -325,6 +335,7 @@ export default function LifeSwitchInvitePage({
                     className={`rounded-lg px-3 py-1 ${mode === "request" ? "bg-muted" : "hover:bg-muted/60"}`}
                     onClick={() => {
                       setMode("request");
+                      setLoginToken("");
                       setAccessRequestToken("");
                       setMessage("");
                     }}
@@ -361,19 +372,27 @@ export default function LifeSwitchInvitePage({
                   />
 
                   {mode === "login" ? (
-                    <input
-                      className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                      placeholder="Password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={busy}
-                    />
+                    <>
+                      <input
+                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                        placeholder="Password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        disabled={busy}
+                      />
+                      <TurnstileWidget
+                        ref={loginTurnstileRef}
+                        action="auth_login"
+                        onToken={setLoginToken}
+                      />
+                    </>
                   ) : null}
 
                   {mode === "request" ? (
                     <TurnstileWidget
                       ref={accessRequestTurnstileRef}
+                      action="request_access"
                       onToken={setAccessRequestToken}
                     />
                   ) : null}
@@ -387,7 +406,7 @@ export default function LifeSwitchInvitePage({
                     disabled={
                       busy ||
                       !email ||
-                      (mode === "login" && !password) ||
+                      (mode === "login" && (!password || !loginToken)) ||
                       (mode === "request" && !accessRequestToken)
                     }
                   >

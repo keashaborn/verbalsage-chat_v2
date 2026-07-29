@@ -137,6 +137,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loginToken, setLoginToken] = useState("");
+  const loginTurnstileRef = useRef<TurnstileWidgetHandle>(null);
   const [requestMessage, setRequestMessage] = useState("");
   const [accessRequestToken, setAccessRequestToken] = useState("");
   const accessRequestTurnstileRef = useRef<TurnstileWidgetHandle>(null);
@@ -310,10 +312,18 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   async function handleLogin() {
     setMsg("");
+    if (!loginToken) {
+      setMsg("Complete the security verification before logging in.");
+      return;
+    }
     setBusy(true);
     try {
       const { error } = await withTimeout(
-        supabase.auth.signInWithPassword({ email, password }),
+        supabase.auth.signInWithPassword({
+          email,
+          password,
+          options: { captchaToken: loginToken },
+        }),
         8000,
         "supabase.signInWithPassword",
       );
@@ -321,6 +331,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
     } catch (e: any) {
       setMsg(String(e?.message || e));
     } finally {
+      loginTurnstileRef.current?.reset();
+      setLoginToken("");
       setBusy(false);
     }
   }
@@ -545,6 +557,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 className={`rounded-lg px-3 py-1 ${mode === "login" ? "bg-muted" : "bg-transparent hover:bg-muted/60"}`}
                 onClick={() => {
                   setMode("login");
+                  setLoginToken("");
                   setAccessRequestToken("");
                   setMsg("");
                 }}
@@ -556,6 +569,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 className={`rounded-lg px-3 py-1 ${mode === "request" ? "bg-muted" : "bg-transparent hover:bg-muted/60"}`}
                 onClick={() => {
                   setMode("request");
+                  setLoginToken("");
                   setAccessRequestToken("");
                   setMsg("");
                 }}
@@ -584,14 +598,21 @@ export function AuthGate({ children }: { children: ReactNode }) {
             />
 
             {mode === "login" ? (
-              <input
-                className="mb-3 w-full rounded-xl border bg-background px-3 py-2"
-                placeholder="Password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={busy}
-              />
+              <>
+                <input
+                  className="mb-3 w-full rounded-xl border bg-background px-3 py-2"
+                  placeholder="Password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={busy}
+                />
+                <TurnstileWidget
+                  ref={loginTurnstileRef}
+                  action="auth_login"
+                  onToken={setLoginToken}
+                />
+              </>
             ) : (
               <>
                 <textarea
@@ -604,6 +625,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 />
                 <TurnstileWidget
                   ref={accessRequestTurnstileRef}
+                  action="request_access"
                   onToken={setAccessRequestToken}
                 />
               </>
@@ -612,7 +634,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
             <button
               className="w-full rounded-xl bg-muted px-3 py-2 hover:bg-muted/60 disabled:opacity-50"
               onClick={mode === "login" ? handleLogin : handleAccessRequest}
-              disabled={busy || (mode === "request" && !accessRequestToken)}
+              disabled={
+                busy ||
+                (mode === "login" && !loginToken) ||
+                (mode === "request" && !accessRequestToken)
+              }
             >
               {busy
                 ? "Working…"

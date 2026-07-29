@@ -5,9 +5,13 @@ import * as React from "react";
 
 const TURNSTILE_SCRIPT =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-const TURNSTILE_ACTION = "request_access";
 const TURNSTILE_SITE_KEY =
   process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || "";
+
+export type TurnstileAction =
+  | "auth_login"
+  | "password_reset"
+  | "request_access";
 
 type TurnstileApi = {
   render(
@@ -39,9 +43,10 @@ export type TurnstileWidgetHandle = {
 export const TurnstileWidget = React.forwardRef<
   TurnstileWidgetHandle,
   {
+    action: TurnstileAction;
     onToken: (token: string) => void;
   }
->(function TurnstileWidget({ onToken }, forwardedRef) {
+>(function TurnstileWidget({ action, onToken }, forwardedRef) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const widgetIdRef = React.useRef<string | null>(null);
   const onTokenRef = React.useRef(onToken);
@@ -62,14 +67,14 @@ export const TurnstileWidget = React.forwardRef<
 
     widgetIdRef.current = window.turnstile.render(containerRef.current, {
       sitekey: TURNSTILE_SITE_KEY,
-      action: TURNSTILE_ACTION,
+      action,
       theme: "auto",
       callback: (token) => onTokenRef.current(token),
       "expired-callback": () => onTokenRef.current(""),
       "timeout-callback": () => onTokenRef.current(""),
       "error-callback": () => onTokenRef.current(""),
     });
-  }, []);
+  }, [action]);
 
   React.useEffect(() => {
     renderWidget();

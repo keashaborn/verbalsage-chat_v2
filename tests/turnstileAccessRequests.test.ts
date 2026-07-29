@@ -56,17 +56,22 @@ test("access requests require bounded server-side Turnstile verification", () =>
   assert.doesNotMatch(verifier, /console\./);
 });
 
-test("both public request forms use and reset the Turnstile token", () => {
+test("public access, login, and password reset flows use single-use Turnstile tokens", () => {
   const widget = source("components/auth/TurnstileWidget.tsx");
   const gate = source("components/auth/AuthGate.tsx");
   const relationshipInvite = source("app/invite/lifeswitch/[token]/page.tsx");
+  const securityPanel = source("components/admin/SecurityPanel.tsx");
 
   assert.match(widget, /NEXT_PUBLIC_TURNSTILE_SITE_KEY/);
   assert.match(
     widget,
     /https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js\?render=explicit/,
   );
-  assert.match(widget, /action: TURNSTILE_ACTION/);
+  assert.match(widget, /action: TurnstileAction/);
+  assert.match(widget, /action,/);
+  for (const action of ["auth_login", "password_reset", "request_access"]) {
+    assert.match(widget, new RegExp(`"${action}"`));
+  }
   assert.match(widget, /"expired-callback"/);
   assert.match(widget, /"timeout-callback"/);
   assert.match(widget, /"error-callback"/);
@@ -75,11 +80,26 @@ test("both public request forms use and reset the Turnstile token", () => {
 
   for (const client of [gate, relationshipInvite]) {
     assert.match(client, /<TurnstileWidget/);
+    assert.match(client, /action="auth_login"/);
+    assert.match(client, /options: \{ captchaToken: loginToken \}/);
+    assert.match(client, /loginTurnstileRef\.current\?\.reset\(\)/);
+    assert.match(client, /action="request_access"/);
     assert.match(client, /turnstile_token: accessRequestToken/);
     assert.match(client, /accessRequestTurnstileRef\.current\?\.reset\(\)/);
     assert.match(client, /access_request_verification_failed/);
     assert.match(client, /mode === "request" && !accessRequestToken/);
   }
+
+  assert.match(securityPanel, /action="password_reset"/);
+  assert.match(securityPanel, /captchaToken: passwordResetToken/);
+  assert.match(
+    securityPanel,
+    /passwordResetTurnstileRef\.current\?\.reset\(\)/,
+  );
+  assert.doesNotMatch(
+    gate + relationshipInvite + securityPanel,
+    /TURNSTILE_SECRET_KEY/,
+  );
 });
 
 test("CSP permits only the required Turnstile script and frame origin", () => {
