@@ -7,7 +7,7 @@ import {
 } from "@/components/auth/TurnstileWidget";
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch } from "@/lib/authFetch";
-import { applyTheme, normalizeThemeValue } from "@/lib/theme";
+import { applyTheme, DEFAULT_THEME, normalizeThemeValue } from "@/lib/theme";
 import {
   normalizeConversationStyle,
   storeConversationStyle,
@@ -87,7 +87,7 @@ async function fetchOk(
 function applyThemeFromMetadata(md: any) {
   const localTheme = normalizeThemeValue(lsGet("vs_theme"));
   const cloudTheme = normalizeThemeValue(md?.vs_theme);
-  applyTheme(cloudTheme || localTheme || "graphite");
+  applyTheme(cloudTheme || localTheme || DEFAULT_THEME);
 }
 
 function applySettingsFromSession(session: any): boolean {

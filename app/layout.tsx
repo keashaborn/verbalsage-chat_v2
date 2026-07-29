@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import type { Viewport } from "next";
 import { BodyScrollManager } from "@/components/BodyScrollManager";
+import { DEFAULT_THEME } from "@/lib/theme";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,8 +40,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className="mist"
-      data-theme="mist"
+      className={DEFAULT_THEME}
+      data-theme={DEFAULT_THEME}
       style={{ colorScheme: "light", backgroundColor: "#f1f4f7" }}
       suppressHydrationWarning
     >
@@ -50,13 +51,13 @@ export default function RootLayout({
 (function() {
   try {
     var raw = localStorage.getItem("vs_theme");
-    var value = raw ? (raw[0] === '"' ? JSON.parse(raw) : raw) : "mist";
+    var value = raw ? (raw[0] === '"' ? JSON.parse(raw) : raw) : ${JSON.stringify(DEFAULT_THEME)};
     var normalized = String(value || "").trim().toLowerCase();
     var t = (normalized === "paper" || normalized === "light") ? "paper"
       : normalized === "mist" ? "mist"
       : normalized === "slate" ? "slate"
       : ["graphite", "dark", "carbon", "dark-hc"].includes(normalized) ? "graphite"
-      : "mist";
+      : ${JSON.stringify(DEFAULT_THEME)};
     var root = document.documentElement;
 
     localStorage.setItem("vs_theme", JSON.stringify(t));

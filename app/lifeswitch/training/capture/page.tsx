@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Check, Plus } from "lucide-react";
 import { NumericInput } from "@/components/lifeswitch/NumericInput";
+import { FlatList, FlatListButton } from "@/components/lifeswitch/FlatList";
 import {
   clearPendingSubmission,
   getOrCreateSubmission,
@@ -1141,18 +1142,15 @@ export default function TrainingCapturePage() {
             </div>
 
             {templates.length ? (
-              <div className="mt-4 divide-y divide-border/50 border-y border-border/50">
+              <FlatList className="mt-4">
                 {templates.map((t) => {
                   const active = t.workout_template_id === selectedId;
 
                   return (
-                    <button
-                      type="button"
+                    <FlatListButton
                       key={t.workout_template_id}
-                      className={[
-                        "flex min-h-12 w-full items-center gap-3 px-1 py-3 text-left transition-colors",
-                        active ? "bg-muted/30" : "hover:bg-muted/20",
-                      ].join(" ")}
+                      selected={active}
+                      className="flex items-center gap-3 px-1"
                       onClick={() => {
                         setRestoredLocalDraft(false);
                         setTemplateExercises([]);
@@ -1182,10 +1180,10 @@ export default function TrainingCapturePage() {
                               ? "Strength"
                               : "Unclassified"}
                       </span>
-                    </button>
+                    </FlatListButton>
                   );
                 })}
-              </div>
+              </FlatList>
             ) : null}
 
             {selected && !selected.workout_role ? (

@@ -2,6 +2,11 @@
 
 import * as React from "react";
 
+import {
+  FlatList,
+  FlatListButton,
+  StatusText,
+} from "@/components/lifeswitch/FlatList";
 import { authFetch } from "@/lib/authFetch";
 
 export type JsonObject = Record<string, unknown>;
@@ -2804,9 +2809,7 @@ function ConditioningTargetsEditor({
 function ProgressBadge({ ready }: { ready: boolean }) {
   const label = ready ? "Ready" : "Needs information";
   return (
-    <span className="shrink-0 text-xs font-medium text-muted-foreground">
-      {label}
-    </span>
+    <StatusText>{label}</StatusText>
   );
 }
 
@@ -2981,11 +2984,10 @@ export function PlanDraftWorkspace({
         </button>
       </div>
 
-      <div className="grid divide-y border-y">
-        <button
-          type="button"
+      <FlatList className="grid">
+        <FlatListButton
           onClick={() => openStep("direction")}
-          className="flex min-h-12 items-center justify-between gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/25"
+          className="flex items-center justify-between gap-3"
         >
           <span>
             <span className="block text-sm font-semibold">
@@ -2998,11 +3000,10 @@ export function PlanDraftWorkspace({
           <ProgressBadge
             ready={Boolean(draft.phase && draft.primary_goal.trim())}
           />
-        </button>
-        <button
-          type="button"
+        </FlatListButton>
+        <FlatListButton
           onClick={() => openStep("schedule")}
-          className="flex min-h-12 items-center justify-between gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/25"
+          className="flex items-center justify-between gap-3"
         >
           <span>
             <span className="block text-sm font-semibold">
@@ -3019,33 +3020,29 @@ export function PlanDraftWorkspace({
               draft.start_date && draft.review_date && draft.review_cadence,
             )}
           />
-        </button>
+        </FlatListButton>
         {SECTIONS.map((item) => (
-          <button
+          <FlatListButton
             key={item.key}
-            type="button"
             onClick={() => openStep(item.key)}
-            className="flex min-h-12 items-center justify-between gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/25"
+            className="flex items-center justify-between gap-3"
           >
             <span className="text-sm font-semibold">{item.label}</span>
             <ProgressBadge ready={sectionReady(item.key, draft[item.key])} />
-          </button>
+          </FlatListButton>
         ))}
-        <button
-          type="button"
+        <FlatListButton
           onClick={() => openStep("coach_notes")}
-          className="flex min-h-12 items-center justify-between gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/25"
+          className="flex items-center justify-between gap-3"
         >
           <span className="text-sm font-semibold">Notes and context</span>
           {draft.coach_notes ? (
             <ProgressBadge ready />
           ) : (
-            <span className="shrink-0 text-xs font-medium text-muted-foreground">
-              Optional
-            </span>
+            <StatusText>Optional</StatusText>
           )}
-        </button>
-      </div>
+        </FlatListButton>
+      </FlatList>
 
       {sageOpen ? (
         <div

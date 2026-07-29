@@ -145,8 +145,9 @@ Cards are not the default for:
 
 ### Theme rules
 
-- Graphite is the default theme.
-- Slate, Mist, and Paper remain supported.
+- Mist is the fallback theme for accounts without a saved preference.
+- Graphite, Slate, and Paper remain supported.
+- A saved account or local preference always overrides the fallback across Chat and LifeSwitch.
 - Use semantic theme tokens rather than hard-coded black, white, or page-specific grays.
 - New components must be checked in both a dark theme and a light theme.
 - Preserve sufficient contrast in muted text, borders, focus rings, and disabled controls.

@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { authFetch } from "@/lib/authFetch";
 import { NumericInput } from "@/components/lifeswitch/NumericInput";
+import { FlatList, FlatListButton } from "@/components/lifeswitch/FlatList";
 import {
   clearPendingSubmission,
   getOrCreateSubmission,
@@ -441,19 +442,16 @@ export default function ConditioningCapturePage() {
           </div>
 
           {prescriptions.length ? (
-            <div className="mt-4 divide-y divide-border/50 border-y border-border/50">
+            <FlatList className="mt-4">
               {prescriptions.map((p) => {
                 const active =
                   p.my_conditioning_prescription_id === selectedId;
 
                 return (
-                  <button
-                    type="button"
+                  <FlatListButton
                     key={p.my_conditioning_prescription_id}
-                    className={[
-                      "min-h-12 w-full px-1 py-3 text-left transition-colors",
-                      active ? "bg-muted/30" : "hover:bg-muted/20",
-                    ].join(" ")}
+                    selected={active}
+                    className="px-1"
                     onClick={() => {
                       setRestoredDraft(false);
                       setSelectedId(p.my_conditioning_prescription_id);
@@ -472,10 +470,10 @@ export default function ConditioningCapturePage() {
                       {p.target_duration_min || 0} min ·{" "}
                       {p.target_frequency_per_week || 0}x/week
                     </div>
-                  </button>
+                  </FlatListButton>
                 );
               })}
-            </div>
+            </FlatList>
           ) : null}
 
           {!selected && prescriptions.length === 0 ? (
