@@ -415,7 +415,7 @@ export default function MealPlansPage() {
   }, [planItems]);
 
   return (
-    <div className="mx-auto max-w-5xl p-4">
+    <div className="mx-auto min-w-0 max-w-5xl p-4">
 
       <div className="mb-3 flex justify-end">
         <Link href="/lifeswitch/plan#nutrition-targets" className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">
@@ -429,14 +429,14 @@ export default function MealPlansPage() {
 
       {err ? <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900">{err}</div> : null}
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-2">
         {/* Left: Plans + totals */}
-        <section className="rounded-lg border p-3">
+        <section className="min-w-0 rounded-lg border p-3">
           <div className="text-sm font-medium">Plans</div>
 
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
             <select
-              className="w-full rounded-md border bg-background px-2 py-2 text-sm"
+              className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={selectedPlanId}
               onChange={(e) => setSelectedPlanId(e.target.value)}
               disabled={foodLoading}
@@ -453,7 +453,7 @@ export default function MealPlansPage() {
             </button>
           </div>
 
-          <div className="mt-3 grid grid-cols-4 gap-2 text-xs">
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
             <div className="rounded-md bg-muted/30 p-2">
               <div className="opacity-70">kcal</div>
               <div className="font-semibold">{fmt(totals.kcal, 0)}</div>
@@ -474,17 +474,17 @@ export default function MealPlansPage() {
 
           <div className="mt-4 rounded-md border bg-muted/20 p-3">
             <div className="text-sm font-medium">Create / update plan</div>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <input className="rounded-md border bg-background px-2 py-2 text-sm" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Name" />
-              <select className="rounded-md border bg-background px-2 py-2 text-sm" value={createGoal} onChange={(e) => setCreateGoal(e.target.value as any)}>
+            <div className="mt-2 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
+              <input className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Name" />
+              <select className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm" value={createGoal} onChange={(e) => setCreateGoal(e.target.value as any)}>
                 <option value="cut">cut</option>
                 <option value="maintain">maintain</option>
                 <option value="bulk">bulk</option>
               </select>
-              <NumericInput className="rounded-md border bg-background px-2 py-2 text-sm" value={createKcal} onValueChange={setCreateKcal} mode="decimal" min={0} required placeholder="kcal" />
-              <NumericInput className="rounded-md border bg-background px-2 py-2 text-sm" value={createP} onValueChange={setCreateP} mode="decimal" min={0} required placeholder="protein g" />
-              <NumericInput className="rounded-md border bg-background px-2 py-2 text-sm" value={createC} onValueChange={setCreateC} mode="decimal" min={0} required placeholder="carbs g" />
-              <NumericInput className="rounded-md border bg-background px-2 py-2 text-sm" value={createF} onValueChange={setCreateF} mode="decimal" min={0} required placeholder="fat g" />
+              <NumericInput className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm" value={createKcal} onValueChange={setCreateKcal} mode="decimal" min={0} required placeholder="kcal" />
+              <NumericInput className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm" value={createP} onValueChange={setCreateP} mode="decimal" min={0} required placeholder="protein g" />
+              <NumericInput className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm" value={createC} onValueChange={setCreateC} mode="decimal" min={0} required placeholder="carbs g" />
+              <NumericInput className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm" value={createF} onValueChange={setCreateF} mode="decimal" min={0} required placeholder="fat g" />
             </div>
             <button className="mt-2 w-full rounded-md border px-3 py-2 text-sm" onClick={() => void createPlan()} disabled={!createName.trim()}>
               Save plan
@@ -495,21 +495,21 @@ export default function MealPlansPage() {
             <div className="text-sm font-medium">Items</div>
             <div className="mt-2 space-y-2">
               {planItems.map((it) => (
-                <div key={it.meal_plan_item_id} className="rounded-md border p-2">
-                  <div className="flex items-start justify-between gap-2">
+                <div key={it.meal_plan_item_id} className="min-w-0 rounded-md border p-2">
+                  <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">{it.display_name}</div>
                       <div className="mt-0.5 text-xs text-muted-foreground">
                         {it.brand ? it.brand : "—"} · {it.meal_label} · {itemQuantityLabel(it)}
                       </div>
                     </div>
-                    <div className="shrink-0 text-xs text-muted-foreground">
+                    <div className="text-xs text-muted-foreground sm:shrink-0 sm:text-right">
                       kcal {fmt(scaled(it.kcal, resolvedItemGrams(it)), 0)} · P {fmt(scaled(it.protein_g, resolvedItemGrams(it)), 0)} · C {fmt(scaled(it.carbs_g, resolvedItemGrams(it)), 0)} · F {fmt(scaled(it.fat_g, resolvedItemGrams(it)), 0)}
                     </div>
                   </div>
 
                   <details
-                    className="group mt-2"
+                    className="group mt-2 min-w-0"
                     onToggle={(event) => {
                       if (event.currentTarget.open) openPlanItemActions(it);
                     }}
@@ -520,7 +520,7 @@ export default function MealPlansPage() {
                       <span className="hidden group-open:inline">▴</span>
                     </summary>
 
-                    <div className="mt-2 grid gap-2 rounded-md border bg-background/40 p-2">
+                    <div className="mt-2 grid min-w-0 gap-2 rounded-md border bg-background/40 p-2">
                       <select
                         className="rounded-md border bg-background px-2 py-2 text-sm"
                         value={editLabelByItem[it.meal_plan_item_id] || it.meal_label}
@@ -583,12 +583,12 @@ export default function MealPlansPage() {
         </section>
 
         {/* Right: My Foods picker */}
-        <section className="rounded-lg border p-3">
+        <section className="min-w-0 rounded-lg border p-3">
           <div className="text-sm font-medium">Add from My Foods</div>
 
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
             <input
-              className="w-full rounded-md border bg-background px-2 py-2 text-sm"
+              className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={foodQ}
               onChange={(e) => setFoodQ(e.target.value)}
               placeholder='search your My Foods (e.g. "salmon", "96/4", "cheddar")'
@@ -617,7 +617,7 @@ export default function MealPlansPage() {
 
           <div className="mt-3 space-y-2">
             {foodHits.map((f) => (
-              <div key={f.my_food_id} className="rounded-md border p-2">
+              <div key={f.my_food_id} className="min-w-0 rounded-md border p-2">
                 <div>
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{f.display_name}</div>
