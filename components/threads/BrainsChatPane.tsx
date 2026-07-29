@@ -1573,6 +1573,13 @@ export function BrainsChatPane() {
             : "Trusted web search is currently unavailable.",
         );
       }
+      if (r.status === 502 && externalWeb) {
+        throw new Error(
+          currentNews
+            ? "Current news sources could not be verified. Please try again."
+            : "Trusted web sources could not be verified. Please try again.",
+        );
+      }
       throw new Error("The response could not be completed. Please try again.");
     }
     if (voiceTurnId && r.headers.get(VOICE_TURN_HEADER) !== voiceTurnId) {

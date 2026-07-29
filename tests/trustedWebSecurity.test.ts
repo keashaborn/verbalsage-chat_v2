@@ -258,6 +258,15 @@ test("composer hides test modes and delegates every normal request to the server
   assert.doesNotMatch(pane, /setWebMode/);
   assert.doesNotMatch(pane, /selectedWebMode/);
   assert.doesNotMatch(pane, /localStorage.*webMode/);
+  assert.match(
+    pane,
+    /Current news sources could not be verified\. Please try again\./,
+  );
+  assert.match(
+    pane,
+    /Trusted web sources could not be verified\. Please try again\./,
+  );
+  assert.match(pane, /r\.status === 502 && externalWeb/);
 });
 
 test("trusted-search markdown links are restricted to exact cited URLs", () => {
