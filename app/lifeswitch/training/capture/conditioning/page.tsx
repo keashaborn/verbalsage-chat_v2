@@ -397,36 +397,42 @@ export default function ConditioningCapturePage() {
     <div className="mx-auto max-w-5xl p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-lg font-semibold">Training · Capture</div>
+          <h1 className="text-lg font-semibold">Training · Capture</h1>
         </div>
 
         <input
           type="date"
+          aria-label="Workout date"
           value={day}
           onChange={(e) => setDay(e.target.value)}
-          className="rounded-xl border bg-background px-3 py-2 text-sm"
+          className="min-h-11 rounded-xl border bg-background px-3 py-2 text-sm"
         />
       </div>
 
       <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-xl border text-sm">
         <Link
           href="/lifeswitch/training/capture"
-          className="px-3 py-2 text-center hover:bg-muted/30"
+          className="flex min-h-11 items-center justify-center px-3 py-2 text-center hover:bg-muted/30"
         >
           Strength
         </Link>
-        <div className="bg-muted px-3 py-2 text-center font-semibold">Conditioning</div>
+        <div className="flex min-h-11 items-center justify-center bg-muted px-3 py-2 text-center font-semibold">Conditioning</div>
       </div>
 
-      {status ? <div className="mt-3 text-sm text-muted-foreground">{status}</div> : null}
+      {status ? <div role="status" aria-live="polite" className="mt-3 text-sm text-muted-foreground">{status}</div> : null}
 
       <div className="mt-6 grid gap-4">
         <aside className={selected ? "hidden" : "border-y border-border/50 py-4"}>
           <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold">Conditioning</div>
+            <div>
+              <h2 className="text-sm font-semibold">Choose a conditioning plan</h2>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Start today&apos;s session from one of your conditioning plans.
+              </div>
+            </div>
             <button
               type="button"
-              className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+              className="min-h-11 rounded-md border px-2 py-1 text-xs hover:bg-muted/30 sm:min-h-0"
               onClick={() => void loadPrescriptions()}
               disabled={loading}
             >
@@ -434,21 +440,43 @@ export default function ConditioningCapturePage() {
             </button>
           </div>
 
-          <select
-            className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm"
-            value={selectedId}
-            onChange={(e) => {
-              setRestoredDraft(false);
-              setSelectedId(e.target.value);
-            }}
-          >
-            <option value="">Select conditioning</option>
-            {prescriptions.map((p) => (
-              <option key={p.my_conditioning_prescription_id} value={p.my_conditioning_prescription_id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          {prescriptions.length ? (
+            <div className="mt-4 divide-y divide-border/50 border-y border-border/50">
+              {prescriptions.map((p) => {
+                const active =
+                  p.my_conditioning_prescription_id === selectedId;
+
+                return (
+                  <button
+                    type="button"
+                    key={p.my_conditioning_prescription_id}
+                    className={[
+                      "min-h-12 w-full px-1 py-3 text-left transition-colors",
+                      active ? "bg-muted/30" : "hover:bg-muted/20",
+                    ].join(" ")}
+                    onClick={() => {
+                      setRestoredDraft(false);
+                      setSelectedId(p.my_conditioning_prescription_id);
+                    }}
+                    aria-pressed={active}
+                  >
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <span className="truncate text-sm font-semibold text-foreground">
+                        {p.name}
+                      </span>
+                      <span className="text-[10px] font-semibold tracking-wide text-amber-700 uppercase dark:text-amber-300">
+                        Conditioning
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {p.target_duration_min || 0} min ·{" "}
+                      {p.target_frequency_per_week || 0}x/week
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
 
           {!selected && prescriptions.length === 0 ? (
             <div className="mt-4 text-sm text-muted-foreground">
@@ -470,7 +498,7 @@ export default function ConditioningCapturePage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                className="min-h-11 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
                 onClick={discardConditioningDraft}
                 disabled={saving}
               >
@@ -479,7 +507,7 @@ export default function ConditioningCapturePage() {
 
               <button
                 type="button"
-                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                className="min-h-11 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
                 onClick={() => void saveSession()}
                 disabled={!selected || saving}
               >
@@ -817,7 +845,7 @@ export default function ConditioningCapturePage() {
             </div>
           ) : (
             <div className="mt-4 text-sm text-muted-foreground">
-              Select a conditioning prescription to log a session.
+              Choose a conditioning plan to log a session.
             </div>
           )}
         </main>
