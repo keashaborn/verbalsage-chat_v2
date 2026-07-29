@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import {
   FoodQuantityControl,
   GRAMS_UNIT,
@@ -606,10 +606,11 @@ export default function NutritionCapturePage() {
                 </div>
 
                 <button
-                  className="rounded border border-emerald-500/60 bg-emerald-600 px-3 py-1 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-[5px] border border-emerald-600/35 bg-emerald-500/10 px-2.5 py-1.5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-500/20 disabled:opacity-50 dark:border-emerald-400/30 dark:text-emerald-300"
                   onClick={() => void logMealCombo()}
                   disabled={mealItemsLoading || mealItems.length === 0}
                 >
+                  <Check aria-hidden="true" size={14} strokeWidth={1.8} />
                   Log meal
                 </button>
               </div>
