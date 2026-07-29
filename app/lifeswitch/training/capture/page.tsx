@@ -216,7 +216,6 @@ export default function TrainingCapturePage() {
   const [day, setDay] = React.useState(todayLocalYYYYMMDD());
   const [templates, setTemplates] = React.useState<WorkoutTemplateRow[]>([]);
   const [selectedId, setSelectedId] = React.useState("");
-  const [showWorkoutSetup, setShowWorkoutSetup] = React.useState(false);
   const [templateExercises, setTemplateExercises] = React.useState<
     WorkoutTemplateExerciseRow[]
   >([]);
@@ -230,7 +229,7 @@ export default function TrainingCapturePage() {
   const [draftRows, setDraftRows] = React.useState<DraftSetRow[]>([]);
   const [finishLoading, setFinishLoading] = React.useState(false);
   const [prefillSource, setPrefillSource] = React.useState(
-    "Select a workout template to begin",
+    "Choose a workout to begin",
   );
   const [restoredLocalDraft, setRestoredLocalDraft] = React.useState(false);
   const [draftSavedAt, setDraftSavedAt] = React.useState("");
@@ -836,7 +835,7 @@ export default function TrainingCapturePage() {
     setSelectedId("");
     setTemplateExercises([]);
     setDraftRows([]);
-    setPrefillSource("Select a workout template to begin");
+    setPrefillSource("Choose a workout to begin");
     setRestoredLocalDraft(false);
     setDraftSavedAt("");
     setFlash("Discarded unfinished workout draft");
@@ -1125,7 +1124,12 @@ export default function TrainingCapturePage() {
         {setupOpen ? (
           <aside className="border-y border-border/50 py-4">
             <div className="flex items-center justify-between gap-2">
-              <label htmlFor="training-workout-template" className="text-sm font-semibold">Workout template</label>
+              <div>
+                <h2 className="text-sm font-semibold">Choose a workout</h2>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Start today&apos;s session from one of your workouts.
+                </div>
+              </div>
               <button
                 type="button"
                 className="min-h-11 rounded-md border px-2 py-1 text-xs hover:bg-muted/30 sm:min-h-0"
@@ -1136,28 +1140,53 @@ export default function TrainingCapturePage() {
               </button>
             </div>
 
-            <select
-              id="training-workout-template"
-              className="mt-3 min-h-11 w-full rounded-xl border bg-background px-3 py-2 text-sm"
-              value={selectedId}
-              onChange={(e) => {
-                setRestoredLocalDraft(false);
-                setTemplateExercises([]);
-                setDraftRows([]);
-                setSelectedId(e.target.value);
-              }}
-            >
-              <option value="">Select workout</option>
-              {templates.map((t) => (
-                <option
-                  key={t.workout_template_id}
-                  value={t.workout_template_id}
-                >
-                  {t.name}
-                  {t.workout_role ? "" : " · Unclassified"}
-                </option>
-              ))}
-            </select>
+            {templates.length ? (
+              <div className="mt-4 divide-y divide-border/50 border-y border-border/50">
+                {templates.map((t) => {
+                  const active = t.workout_template_id === selectedId;
+
+                  return (
+                    <button
+                      type="button"
+                      key={t.workout_template_id}
+                      className={[
+                        "flex min-h-12 w-full items-center gap-3 px-1 py-3 text-left transition-colors",
+                        active ? "bg-muted/30" : "hover:bg-muted/20",
+                      ].join(" ")}
+                      onClick={() => {
+                        setRestoredLocalDraft(false);
+                        setTemplateExercises([]);
+                        setDraftRows([]);
+                        setSelectedId(t.workout_template_id);
+                      }}
+                      aria-pressed={active}
+                    >
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
+                        {t.name}
+                      </span>
+                      <span
+                        className={[
+                          "shrink-0 text-[10px] font-semibold tracking-wide uppercase",
+                          t.workout_role === "rehab"
+                            ? "text-muted-foreground"
+                            : t.workout_role === "strength"
+                              ? "text-blue-700 dark:text-blue-300"
+                              : "text-amber-700 dark:text-amber-300",
+                        ].join(" ")}
+                      >
+                        {active && loadingTemplateExercises
+                          ? "Loading…"
+                          : t.workout_role === "rehab"
+                            ? "Rehab"
+                            : t.workout_role === "strength"
+                              ? "Strength"
+                              : "Unclassified"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
 
             {selected && !selected.workout_role ? (
               <div className="mt-3 border-l-2 border-amber-600/60 bg-amber-500/5 py-2 pl-3 text-sm">
@@ -1563,8 +1592,7 @@ export default function TrainingCapturePage() {
             </div>
           ) : (
             <div className="mt-4 border-y border-border/50 py-4 text-sm text-muted-foreground">
-              Select a workout template to generate today’s active session
-              draft.
+              Choose a workout to generate today&apos;s active session draft.
             </div>
           )}
         </main>
