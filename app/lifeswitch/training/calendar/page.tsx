@@ -64,10 +64,8 @@ type MonthSection = {
   conditioningSessions: ConditioningSessionRow[];
   events: TrainingLogEvent[];
   workoutDates: Set<string>;
-  rehabDates: Set<string>;
   conditioningDates: Set<string>;
   workouts: number;
-  rehabDays: number;
   conditioning: number;
   conditioningMinutes: number;
   volume: number;
@@ -126,11 +124,6 @@ function countsTowardStrength(row: TrainingSessionRow) {
   }
   const role = trainingSessionRole(row);
   return role === "strength" || role === "mixed";
-}
-
-function hasRehabWork(row: TrainingSessionRow) {
-  const role = trainingSessionRole(row);
-  return role === "rehab" || role === "mixed" || safeNum(row.rehab_set_count, 0) > 0;
 }
 
 function strengthMetric(row: TrainingSessionRow, summaryKey: "strength_set_count" | "strength_exercise_count" | "strength_volume", fallbackKey: "set_count" | "exercise_count" | "volume") {
@@ -322,11 +315,10 @@ async function fetchJson(url: string, init?: RequestInit) {
 function MonthCalendar(props: {
   ym: string;
   workoutDates: Set<string>;
-  rehabDates: Set<string>;
   conditioningDates: Set<string>;
   today: string;
 }) {
-  const { ym, workoutDates, rehabDates, conditioningDates, today } = props;
+  const { ym, workoutDates, conditioningDates, today } = props;
 
   const mm = String(ym || "").trim().match(/^(\d{4})-(\d{2})$/);
   if (!mm) return null;
@@ -354,13 +346,12 @@ function MonthCalendar(props: {
         ))}
       </div>
 
-      <div className="grid grid-cols-7 text-center text-sm">
+      <div className="grid grid-cols-7 text-center">
         {cells.map((dayNum, idx) => {
           if (!dayNum) return <div key={`e-${idx}`} className="h-7" />;
 
           const date = `${ym}-${pad2(dayNum)}`;
           const didWorkout = workoutDates.has(date);
-          const didRehab = rehabDates.has(date);
           const didConditioning = conditioningDates.has(date);
           const isToday = date === today;
           const state =
@@ -370,30 +361,24 @@ function MonthCalendar(props: {
                 ? "strength"
                 : didConditioning
                   ? "conditioning"
-                  : didRehab
-                    ? "rehab"
-                    : "none";
+                  : "none";
           const stateLabel = [
             didWorkout ? "strength" : "",
-            didRehab ? "rehab" : "",
             didConditioning ? "conditioning" : "",
           ].filter(Boolean).join(" + ") || "no log";
 
           const markerCls = [
-            "inline-flex h-6 items-center justify-center transition-colors",
+            "relative inline-flex h-7 min-w-7 items-center justify-center text-base transition-colors",
             state === "strength"
-              ? "font-semibold text-blue-700 dark:text-blue-300"
-              : "",
-            state === "rehab"
-              ? "font-semibold text-muted-foreground"
+              ? "font-semibold text-emerald-700 dark:text-emerald-300"
               : "",
             state === "conditioning"
               ? "font-semibold text-amber-700 dark:text-amber-300"
               : "",
             state === "both"
-              ? "font-semibold text-green-700 dark:text-green-300"
+              ? "font-semibold text-emerald-700 dark:text-emerald-300"
               : "",
-            state === "none" ? "text-muted-foreground" : "",
+            state === "none" ? "text-sm text-muted-foreground" : "",
             isToday ? "underline underline-offset-4" : "",
           ]
             .filter(Boolean)
@@ -402,19 +387,17 @@ function MonthCalendar(props: {
           return (
             <div
               key={date}
-              className="flex h-7 items-center justify-center"
+              className="flex h-8 items-center justify-center"
               title={`${date}: ${stateLabel}`}
               aria-label={`${date}: ${stateLabel}`}
             >
-              <span className="inline-flex items-start">
-                <span className={markerCls}>{dayNum}</span>
-                {didRehab ? (
-                  <sup
-                    className="relative -top-0.5 ml-0.5 text-[7px] font-black leading-none text-foreground"
-                    aria-label="Rehab"
-                  >
-                    R
-                  </sup>
+              <span className={markerCls}>
+                {dayNum}
+                {state === "both" ? (
+                  <span
+                    className="absolute bottom-0 left-1/2 h-0.5 w-3 -translate-x-1/2 rounded-full bg-amber-600 dark:bg-amber-300"
+                    aria-hidden="true"
+                  />
                 ) : null}
               </span>
             </div>
@@ -593,9 +576,6 @@ export default function TrainingCalendarPage() {
       const workoutDates = new Set<string>(
         strengthSessions.map((x) => String(x.day || "")),
       );
-      const rehabDates = new Set<string>(
-        ss.filter(hasRehabWork).map((x) => String(x.day || "")),
-      );
       const conditioningDates = new Set<string>(cc.map((x) => String(x.day || "")));
       const volume = ss.reduce(
         (acc, x) => acc + strengthMetric(x, "strength_volume", "volume"),
@@ -635,10 +615,8 @@ export default function TrainingCalendarPage() {
         conditioningSessions: cc,
         events,
         workoutDates,
-        rehabDates,
         conditioningDates,
         workouts: strengthSessions.length,
-        rehabDays: rehabDates.size,
         conditioning: cc.length,
         conditioningMinutes,
         volume,
@@ -684,29 +662,23 @@ export default function TrainingCalendarPage() {
 
       <div className="mt-4 text-xs text-muted-foreground">
         <div className="font-medium text-foreground">Training days</div>
-        <div className="mt-2 flex flex-wrap gap-3">
-          <span className="inline-flex items-center gap-1">
-            <span className="h-3 w-3 rounded-full border border-blue-500/80 bg-blue-500/10" />
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="font-medium text-emerald-700 dark:text-emerald-300">
             Strength
           </span>
-          <span className="inline-flex items-center gap-1">
-            <span className="h-3 w-3 rounded-full border border-amber-700/80 bg-amber-600/15" />
+          <span className="font-medium text-amber-700 dark:text-amber-300">
             Conditioning
           </span>
-          <span className="hidden items-center gap-1 sm:inline-flex">
-            <span className="h-3 w-3 rounded-full border border-green-500/80 bg-green-500/20" />
-            Both
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span className="inline-flex h-3 w-3 items-center justify-center text-[8px] font-black leading-none text-foreground">
-              R
+          <span className="inline-flex items-center gap-1.5">
+            <span className="relative font-medium text-emerald-700 dark:text-emerald-300">
+              Both
+              <span
+                className="absolute -bottom-1 left-1/2 h-0.5 w-3 -translate-x-1/2 rounded-full bg-amber-600 dark:bg-amber-300"
+                aria-hidden="true"
+              />
             </span>
-            Rehab
           </span>
-          <span className="inline-flex items-center gap-1">
-            <span className="h-3 w-3 rounded-full border border-muted/40" />
-            No log
-          </span>
+          <span>No log</span>
         </div>
       </div>
 
@@ -732,12 +704,11 @@ export default function TrainingCalendarPage() {
               <div className="text-base font-semibold">{m.label}</div>
 
               <div className="mt-3 grid grid-cols-[minmax(0,1fr)_3.75rem] items-start gap-2 sm:block">
-                <div className="order-2 grid gap-y-2 border-l border-border/50 pl-2 sm:order-none sm:grid-cols-6 sm:gap-x-4 sm:border-x-0 sm:border-y sm:py-3 sm:pl-0">
+                <div className="order-2 grid gap-y-2 border-l border-border/50 pl-2 sm:order-none sm:grid-cols-5 sm:gap-x-4 sm:border-x-0 sm:border-y sm:py-3 sm:pl-0">
                   {[
                     { label: "Workouts", value: m.workouts },
                     { label: "Volume", value: formatK(m.volume) },
                     { label: "Sets", value: m.sets },
-                    { label: "Rehab days", value: m.rehabDays },
                     { label: "Conditioning", value: m.conditioning },
                     {
                       label: "Time",
@@ -762,7 +733,6 @@ export default function TrainingCalendarPage() {
                   <MonthCalendar
                     ym={m.ym}
                     workoutDates={m.workoutDates}
-                    rehabDates={m.rehabDates}
                     conditioningDates={m.conditioningDates}
                     today={today}
                   />
