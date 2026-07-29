@@ -53,6 +53,21 @@ export type ResponseInspectionV1 = {
   };
 };
 
+export type ResponseInspectionV2 = Omit<
+  ResponseInspectionV1,
+  "contract_version" | "before_openai"
+> & {
+  contract_version: "response_inspection_v2";
+  before_openai: ResponseInspectionV1["before_openai"] & {
+    interaction_version: string;
+    interaction: string;
+    question_policy: string;
+    interaction_reason_codes: string[];
+  };
+};
+
+export type ResponseInspection = ResponseInspectionV1 | ResponseInspectionV2;
+
 export type ResponseTraceTimingV2 = {
   command_validation_ms?: number;
   conversation_snapshot_ms?: number;
@@ -127,10 +142,10 @@ export type ResponseTraceV2 = {
     validation: "passed" | "failed";
   };
   timings: ResponseTraceTimingV2 | null;
-  response_inspection: ResponseInspectionV1 | null;
+  response_inspection: ResponseInspection | null;
 };
 
-export type ResponseTrace = ResponseTraceV2 | ResponseInspectionV1;
+export type ResponseTrace = ResponseTraceV2 | ResponseInspection;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -146,10 +161,15 @@ function isNonnegativeNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
-export function responseInspectionV1FromValue(
+export function responseInspectionFromValue(
   value: unknown,
-): ResponseInspectionV1 | null {
-  if (!isRecord(value) || value.contract_version !== "response_inspection_v1") {
+): ResponseInspection | null {
+  if (
+    !isRecord(value) ||
+    !["response_inspection_v1", "response_inspection_v2"].includes(
+      String(value.contract_version),
+    )
+  ) {
     return null;
   }
   const before = value.before_openai;
@@ -216,12 +236,30 @@ export function responseInspectionV1FromValue(
   ) {
     return null;
   }
-  return value as ResponseInspectionV1;
+  if (
+    value.contract_version === "response_inspection_v2" &&
+    (typeof before.interaction_version !== "string" ||
+      typeof before.interaction !== "string" ||
+      typeof before.question_policy !== "string" ||
+      !isStringArray(before.interaction_reason_codes))
+  ) {
+    return null;
+  }
+  return value as ResponseInspection;
+}
+
+export function responseInspectionV1FromValue(
+  value: unknown,
+): ResponseInspectionV1 | null {
+  const inspection = responseInspectionFromValue(value);
+  return inspection?.contract_version === "response_inspection_v1"
+    ? inspection
+    : null;
 }
 
 export function responseInspectionFromTrace(
   trace: ResponseTrace | null,
-): ResponseInspectionV1 | null {
+): ResponseInspection | null {
   if (!trace) return null;
   return trace.contract_version === RESPONSE_TRACE_VERSION
     ? trace.response_inspection
@@ -230,8 +268,11 @@ export function responseInspectionFromTrace(
 
 export function responseTraceV2FromValue(value: unknown): ResponseTrace | null {
   if (!isRecord(value)) return null;
-  if (value.contract_version === "response_inspection_v1") {
-    return responseInspectionV1FromValue(value);
+  if (
+    value.contract_version === "response_inspection_v1" ||
+    value.contract_version === "response_inspection_v2"
+  ) {
+    return responseInspectionFromValue(value);
   }
   if (
     value.contract_version !== RESPONSE_TRACE_VERSION ||
@@ -240,7 +281,13 @@ export function responseTraceV2FromValue(value: unknown): ResponseTrace | null {
     !isRecord(value.authorization) ||
     !isRecord(value.routing) ||
     !isRecord(value.execution) ||
-    !Array.isArray(value.routing.reason_codes)
+    !isStringArray(value.routing.reason_codes)
+  ) {
+    return null;
+  }
+  if (
+    value.response_inspection !== null &&
+    responseInspectionFromValue(value.response_inspection) === null
   ) {
     return null;
   }
@@ -248,7 +295,7 @@ export function responseTraceV2FromValue(value: unknown): ResponseTrace | null {
 }
 
 function safeInspectionCopy(
-  inspection: ResponseInspectionV1,
+  inspection: ResponseInspection,
 ): Record<string, unknown> {
   return {
     contract_version: inspection.contract_version,
@@ -280,7 +327,10 @@ function safeInspectionCopy(
 export function safeResponseTraceForCopy(
   trace: ResponseTrace,
 ): Record<string, unknown> {
-  if (trace.contract_version === "response_inspection_v1") {
+  if (
+    trace.contract_version === "response_inspection_v1" ||
+    trace.contract_version === "response_inspection_v2"
+  ) {
     return {
       copy_contract: RESPONSE_TRACE_SAFE_COPY_VERSION,
       source_contract: trace.contract_version,

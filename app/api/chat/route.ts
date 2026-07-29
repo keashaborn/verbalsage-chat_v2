@@ -41,8 +41,8 @@ import {
   voiceSessionIdFromRequest,
 } from "@/lib/voiceSession";
 import {
-  responseInspectionV1FromValue,
-  type ResponseInspectionV1,
+  responseInspectionFromValue,
+  type ResponseInspection,
   type ResponseTraceTimingV2,
   type ResponseTraceV2,
 } from "@/lib/responseTraceV2";
@@ -445,7 +445,7 @@ function ordinaryResponseTraceV2({
   noStore: boolean;
   voice: boolean;
   timings: ResponseTraceTimingV2 | null;
-  responseInspection: ResponseInspectionV1 | null;
+  responseInspection: ResponseInspection | null;
 }): ResponseTraceV2 {
   const reasonCodes = automaticDecision
     ? [...automaticDecision.reason_codes]
@@ -729,13 +729,13 @@ export async function POST(req: Request) {
 
     let answer = raw;
     let answerId = "";
-    let responseInspection: ResponseInspectionV1 | null = null;
+    let responseInspection: ResponseInspection | null = null;
     let timings: ResponseTraceTimingV2 | null = null;
     try {
       const parsed = JSON.parse(raw);
       answer = String(parsed?.answer || "");
       answerId = String(parsed?.answer_id || "");
-      responseInspection = responseInspectionV1FromValue(parsed?.inspection);
+      responseInspection = responseInspectionFromValue(parsed?.inspection);
       timings = normalizedResponseTimings(parsed?.timings);
     } catch {}
     if (!answer) {

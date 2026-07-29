@@ -5,10 +5,12 @@ import test from "node:test";
 import {
   RESPONSE_TRACE_SAFE_COPY_VERSION,
   RESPONSE_TRACE_VERSION,
+  responseInspectionFromValue,
   responseInspectionV1FromValue,
   responseTraceV2FromValue,
   safeResponseTraceForCopy,
   type ResponseInspectionV1,
+  type ResponseInspectionV2,
   type ResponseTraceV2,
   // @ts-expect-error Node's strip-types runner requires the TypeScript extension.
 } from "../lib/responseTraceV2.ts";
@@ -62,6 +64,18 @@ const inspection: ResponseInspectionV1 = {
   },
 };
 
+const inspectionV2: ResponseInspectionV2 = {
+  ...inspection,
+  contract_version: "response_inspection_v2",
+  before_openai: {
+    ...inspection.before_openai,
+    interaction_version: "response_interaction_v3",
+    interaction: "CONVERSATIONAL",
+    question_policy: "NOT_APPLICABLE",
+    interaction_reason_codes: ["conversational_update_default"],
+  },
+};
+
 const trace: ResponseTraceV2 = {
   contract_version: RESPONSE_TRACE_VERSION,
   authorities: {
@@ -103,12 +117,14 @@ const trace: ResponseTraceV2 = {
     validation: "passed",
   },
   timings: { backend_total_ms: 850, answer_generation_ms: 500 },
-  response_inspection: inspection,
+  response_inspection: inspectionV2,
 };
 
-test("trace v2 preserves server authority and the strict backend inspection", () => {
+test("trace v2 preserves server authority and the current backend inspection", () => {
   assert.equal(responseTraceV2FromValue(trace), trace);
+  assert.equal(responseInspectionFromValue(inspectionV2), inspectionV2);
   assert.equal(responseInspectionV1FromValue(inspection), inspection);
+  assert.equal(responseInspectionV1FromValue(inspectionV2), null);
   assert.equal(trace.authorities.identity, "supabase");
   assert.equal(
     trace.authorization.inspection_verification,
@@ -122,7 +138,11 @@ test("trace v2 preserves server authority and the strict backend inspection", ()
   assert.equal(trace.execution.rejected_source_count, 0);
   assert.equal(
     trace.response_inspection?.contract_version,
-    "response_inspection_v1",
+    "response_inspection_v2",
+  );
+  assert.equal(
+    trace.response_inspection?.before_openai.interaction,
+    "CONVERSATIONAL",
   );
 });
 
@@ -132,6 +152,8 @@ test("safe copy removes operational identifiers without losing decisions", () =>
 
   assert.equal(safe.copy_contract, RESPONSE_TRACE_SAFE_COPY_VERSION);
   assert.match(serialized, /search_prohibited_by_user/);
+  assert.match(serialized, /CONVERSATIONAL/);
+  assert.match(serialized, /conversational_update_default/);
   assert.match(serialized, /request-correlation-id/);
   for (const forbidden of [
     "provider-sensitive-response-id",
@@ -144,13 +166,41 @@ test("safe copy removes operational identifiers without losing decisions", () =>
 });
 
 test("malformed backend inspection is rejected before trace composition", () => {
-  const malformed = structuredClone(inspection) as any;
+  const malformed = structuredClone(inspectionV2) as any;
   malformed.openai.total_tokens = -1;
-  assert.equal(responseInspectionV1FromValue(malformed), null);
+  assert.equal(responseInspectionFromValue(malformed), null);
   assert.equal(
     responseTraceV2FromValue({ contract_version: "invented_trace" }),
     null,
   );
+});
+
+test("inspection v2 requires all content-free interaction fields", () => {
+  for (const key of [
+    "interaction_version",
+    "interaction",
+    "question_policy",
+    "interaction_reason_codes",
+  ]) {
+    const malformed = structuredClone(inspectionV2) as any;
+    delete malformed.before_openai[key];
+    assert.equal(
+      responseInspectionFromValue(malformed),
+      null,
+      `missing ${key}`,
+    );
+  }
+});
+
+test("trace v2 rejects a malformed nested inspection", () => {
+  const malformedTrace = structuredClone(trace) as any;
+  delete malformedTrace.response_inspection.before_openai.question_policy;
+  assert.equal(responseTraceV2FromValue(malformedTrace), null);
+});
+
+test("inspection v1 remains readable only for rollback compatibility", () => {
+  assert.equal(responseInspectionFromValue(inspection), inspection);
+  assert.equal(responseTraceV2FromValue(inspection), inspection);
 });
 
 test("Inspector uses cookie-gated fresh Supabase verification", () => {
@@ -179,13 +229,14 @@ test("server composes trace v2 for ordinary and automatic web paths", () => {
   assert.match(chat, /automaticSearchTraceV2/);
   assert.match(chat, /responseTraceHeadersV2/);
   assert.match(chat, /fallbackToChat: automaticFallbackToChat/);
-  assert.match(chat, /responseInspectionV1FromValue/);
+  assert.match(chat, /responseInspectionFromValue/);
   assert.doesNotMatch(chat, /manualSearchResponseTraceV2/);
   assert.doesNotMatch(chat, /web_search\.override/);
   for (const route of [health, news]) {
     assert.match(route, /status: 410/);
     assert.doesNotMatch(route, /responseTraceHeadersV2/);
     assert.doesNotMatch(route, /manualSearchResponseTraceV2/);
+    assert.doesNotMatch(route, /body\?\.response_trace|body\?\.inspection/);
   }
   assert.doesNotMatch(chat, /body\?\.response_trace|body\?\.inspection/);
 });
@@ -199,6 +250,9 @@ test("read-only panel exposes decisions and copies only the safe trace", () => {
   assert.match(panel, /Web access/);
   assert.match(panel, /Copy safe trace/);
   assert.match(panel, /responseInspectionFromTrace/);
+  assert.match(panel, /Interaction/);
+  assert.match(panel, /Question policy/);
+  assert.match(panel, /interaction_reason_codes/);
   assert.match(pane, /safeResponseTraceForCopy\(inspect\)/);
   assert.doesNotMatch(pane, /JSON\.stringify\(inspect, null, 2\)/);
   assert.doesNotMatch(panel, /<select|<input|<textarea/);

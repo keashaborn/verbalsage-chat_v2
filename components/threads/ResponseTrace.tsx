@@ -89,6 +89,8 @@ export function ResponseTrace({
   const traceV2 =
     inspection?.contract_version === RESPONSE_TRACE_VERSION ? inspection : null;
   const backend = responseInspectionFromTrace(inspection);
+  const backendV2 =
+    backend?.contract_version === "response_inspection_v2" ? backend : null;
   const before = backend?.before_openai;
   const timings = traceV2 ? timingRows(traceV2) : [];
 
@@ -255,6 +257,31 @@ export function ResponseTrace({
                 <div className="mt-2 grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1">
                   <span className="text-muted-foreground">Mode</span>
                   <span>{backend.before_openai.response_mode}</span>
+                  {backendV2 && (
+                    <>
+                      <span className="text-muted-foreground">Interaction</span>
+                      <span>
+                        {titleCase(backendV2.before_openai.interaction)}
+                      </span>
+                      <span className="text-muted-foreground">
+                        Question policy
+                      </span>
+                      <span>
+                        {titleCase(backendV2.before_openai.question_policy)}
+                      </span>
+                      {backendV2.before_openai.interaction_reason_codes.length >
+                        0 && (
+                        <>
+                          <span className="text-muted-foreground">Reason</span>
+                          <span>
+                            {backendV2.before_openai.interaction_reason_codes
+                              .map(titleCase)
+                              .join(", ")}
+                          </span>
+                        </>
+                      )}
+                    </>
+                  )}
                   <span className="text-muted-foreground">Safety</span>
                   <span>
                     {backend.before_openai.high_stakes_gate === "pass"
