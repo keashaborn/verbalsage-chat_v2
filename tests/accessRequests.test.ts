@@ -20,6 +20,8 @@ test("public access requests validate input and use a server-only data path", ()
   assert.match(route, /createHash\("sha256"\)/);
   assert.match(route, /status: 202/);
   assert.match(route, /GENERIC_ACCEPTED_MESSAGE/);
+  assert.match(route, /verifyAccessRequestTurnstile/);
+  assert.match(route, /turnstile_token/);
   assert.match(route, /sendAccessRequestNotification/);
   assert.match(route, /persisted\.shouldNotify/);
   assert.match(route, /const shouldReopen = existing\.status !== "pending"/);
@@ -71,9 +73,13 @@ test("all public entry points require Owner approval for new accounts", () => {
 
   assert.match(gate, /Request access/);
   assert.match(gate, /fetch\("\/api\/access-requests"/);
+  assert.match(gate, /<TurnstileWidget/);
+  assert.match(gate, /turnstile_token: accessRequestToken/);
   assert.doesNotMatch(gate, /supabase\.auth\.signUp/);
   assert.match(relationshipInvite, /Request access/);
   assert.match(relationshipInvite, /fetch\("\/api\/access-requests"/);
+  assert.match(relationshipInvite, /<TurnstileWidget/);
+  assert.match(relationshipInvite, /turnstile_token: accessRequestToken/);
   assert.doesNotMatch(relationshipInvite, /supabase\.auth\.signUp/);
   assert.doesNotMatch(relationshipInvite, /Create account/);
   assert.doesNotMatch(relationshipInvite, />Sign up</);

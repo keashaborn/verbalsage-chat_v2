@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { sendAccessRequestNotification } from "@/lib/accessRequestNotification";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { verifyAccessRequestTurnstile } from "@/lib/turnstile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ type AccessRequestBody = {
   email: string;
   fullName: string | null;
   message: string | null;
+  turnstileToken: string;
 };
 
 type ExistingAccessRequest = {
@@ -91,14 +93,29 @@ async function requestBody(req: Request): Promise<AccessRequestBody | null> {
   try {
     const body = JSON.parse(raw);
     if (!body || typeof body !== "object" || Array.isArray(body)) return null;
-    const allowedKeys = new Set(["email", "full_name", "message"]);
+    const allowedKeys = new Set([
+      "email",
+      "full_name",
+      "message",
+      "turnstile_token",
+    ]);
     if (Object.keys(body).some((key) => !allowedKeys.has(key))) return null;
 
     const email = normalizedEmail(body.email);
     const fullName =
       typeof body.full_name === "string" ? body.full_name.trim() : "";
     const message = typeof body.message === "string" ? body.message.trim() : "";
-    if (!validEmail(email) || fullName.length > 120 || message.length > 1_000) {
+    const turnstileToken =
+      typeof body.turnstile_token === "string"
+        ? body.turnstile_token.trim()
+        : "";
+    if (
+      !validEmail(email) ||
+      fullName.length > 120 ||
+      message.length > 1_000 ||
+      !turnstileToken ||
+      turnstileToken.length > 2_048
+    ) {
       return null;
     }
 
@@ -106,6 +123,7 @@ async function requestBody(req: Request): Promise<AccessRequestBody | null> {
       email,
       fullName: fullName || null,
       message: message || null,
+      turnstileToken,
     };
   } catch {
     return null;
@@ -136,7 +154,7 @@ function withinLimit(key: string, maximum: number, now: number): boolean {
   return current.count <= maximum;
 }
 
-function rateLimited(req: Request, email: string): boolean {
+function networkRateLimited(req: Request): boolean {
   const now = Date.now();
   if (rateBuckets.size > 5_000) {
     for (const [key, bucket] of rateBuckets) {
@@ -144,17 +162,19 @@ function rateLimited(req: Request, email: string): boolean {
     }
   }
 
-  const emailAllowed = withinLimit(
-    rateKey("email", email),
-    MAX_REQUESTS_PER_EMAIL,
-    now,
-  );
-  const networkAllowed = withinLimit(
+  return !withinLimit(
     rateKey("network", networkIdentifier(req)),
     MAX_REQUESTS_PER_NETWORK,
     now,
   );
-  return !emailAllowed || !networkAllowed;
+}
+
+function emailRateLimited(email: string): boolean {
+  return !withinLimit(
+    rateKey("email", email),
+    MAX_REQUESTS_PER_EMAIL,
+    Date.now(),
+  );
 }
 
 async function persistAccessRequest(
@@ -236,7 +256,33 @@ export async function POST(req: Request) {
     );
   }
 
-  if (rateLimited(req, body.email)) {
+  if (networkRateLimited(req)) {
+    return acceptedResponse();
+  }
+
+  const verification = await verifyAccessRequestTurnstile({
+    token: body.turnstileToken,
+    remoteIp: networkIdentifier(req),
+  });
+  if (!verification.ok) {
+    console.warn(
+      JSON.stringify({
+        event: "access_request_turnstile_rejected_v1",
+        request_id: id,
+        reason: verification.reason,
+        at: new Date().toISOString(),
+      }),
+    );
+    return NextResponse.json(
+      { ok: false, error: "access_request_verification_failed" },
+      {
+        status: verification.reason === "configuration" ? 503 : 400,
+        headers: NO_STORE_HEADERS,
+      },
+    );
+  }
+
+  if (emailRateLimited(body.email)) {
     return acceptedResponse();
   }
 

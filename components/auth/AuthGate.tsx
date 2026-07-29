@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from "@/components/auth/TurnstileWidget";
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch } from "@/lib/authFetch";
 import { applyTheme, normalizeThemeValue } from "@/lib/theme";
@@ -134,6 +138,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [requestMessage, setRequestMessage] = useState("");
+  const [accessRequestToken, setAccessRequestToken] = useState("");
+  const accessRequestTurnstileRef = useRef<TurnstileWidgetHandle>(null);
   const [msg, setMsg] = useState("");
 
   async function syncIdentityBestEffort(s: any) {
@@ -321,6 +327,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   async function handleAccessRequest() {
     setMsg("");
+    if (!accessRequestToken) {
+      setMsg("Complete the security verification before requesting access.");
+      return;
+    }
     setBusy(true);
     try {
       const response = await withTimeout(
@@ -332,6 +342,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
             email,
             full_name: fullName,
             message: requestMessage,
+            turnstile_token: accessRequestToken,
           }),
         }),
         8000,
@@ -342,7 +353,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
         throw new Error(
           payload?.error === "invalid_access_request"
             ? "Enter a valid email address."
-            : "The request could not be submitted. Try again.",
+            : payload?.error === "access_request_verification_failed"
+              ? "Security verification failed. Complete it again and retry."
+              : "The request could not be submitted. Try again.",
         );
       }
       setMsg(
@@ -353,6 +366,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
     } catch (e: any) {
       setMsg(String(e?.message || e));
     } finally {
+      accessRequestTurnstileRef.current?.reset();
+      setAccessRequestToken("");
       setBusy(false);
     }
   }
@@ -528,7 +543,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
             <div className="mb-4 flex gap-2 text-sm">
               <button
                 className={`rounded-lg px-3 py-1 ${mode === "login" ? "bg-muted" : "bg-transparent hover:bg-muted/60"}`}
-                onClick={() => setMode("login")}
+                onClick={() => {
+                  setMode("login");
+                  setAccessRequestToken("");
+                  setMsg("");
+                }}
                 disabled={busy}
               >
                 Log in
@@ -537,6 +556,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 className={`rounded-lg px-3 py-1 ${mode === "request" ? "bg-muted" : "bg-transparent hover:bg-muted/60"}`}
                 onClick={() => {
                   setMode("request");
+                  setAccessRequestToken("");
                   setMsg("");
                 }}
                 disabled={busy}
@@ -573,20 +593,26 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 disabled={busy}
               />
             ) : (
-              <textarea
-                className="mb-3 min-h-24 w-full resize-y rounded-xl border bg-background px-3 py-2"
-                placeholder="How would you like to use LifeSwitch? (optional)"
-                value={requestMessage}
-                onChange={(e) => setRequestMessage(e.target.value)}
-                maxLength={1000}
-                disabled={busy}
-              />
+              <>
+                <textarea
+                  className="mb-3 min-h-24 w-full resize-y rounded-xl border bg-background px-3 py-2"
+                  placeholder="How would you like to use LifeSwitch? (optional)"
+                  value={requestMessage}
+                  onChange={(e) => setRequestMessage(e.target.value)}
+                  maxLength={1000}
+                  disabled={busy}
+                />
+                <TurnstileWidget
+                  ref={accessRequestTurnstileRef}
+                  onToken={setAccessRequestToken}
+                />
+              </>
             )}
 
             <button
               className="w-full rounded-xl bg-muted px-3 py-2 hover:bg-muted/60 disabled:opacity-50"
               onClick={mode === "login" ? handleLogin : handleAccessRequest}
-              disabled={busy}
+              disabled={busy || (mode === "request" && !accessRequestToken)}
             >
               {busy
                 ? "Working…"

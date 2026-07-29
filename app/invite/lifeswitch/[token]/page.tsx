@@ -2,6 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
+import {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from "@/components/auth/TurnstileWidget";
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch } from "@/lib/authFetch";
 
@@ -31,7 +35,8 @@ async function fetchJson(url: string, init?: RequestInit) {
     data = text;
   }
   if (!r.ok) {
-    const detail = typeof data === "object" && data ? data.detail || data.error : text;
+    const detail =
+      typeof data === "object" && data ? data.detail || data.error : text;
     throw new Error(String(detail || `HTTP ${r.status}`));
   }
   return data;
@@ -70,6 +75,8 @@ export default function LifeSwitchInvitePage({
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [accessRequestToken, setAccessRequestToken] = React.useState("");
+  const accessRequestTurnstileRef = React.useRef<TurnstileWidgetHandle>(null);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [accepted, setAccepted] = React.useState(false);
@@ -80,7 +87,9 @@ export default function LifeSwitchInvitePage({
     setMessage("");
 
     try {
-      const p = await fetchJson(`/api/lifeswitch/people/invitations/preview?token=${encodeURIComponent(token)}`);
+      const p = await fetchJson(
+        `/api/lifeswitch/people/invitations/preview?token=${encodeURIComponent(token)}`,
+      );
       setPreview(p as InvitePreview);
 
       const { data } = await supabase.auth.getUser();
@@ -108,7 +117,10 @@ export default function LifeSwitchInvitePage({
     setBusy(true);
     setMessage("");
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       if (error) throw error;
       await syncIdentityBestEffort();
       await load();
@@ -120,6 +132,12 @@ export default function LifeSwitchInvitePage({
   }
 
   async function requestAccess() {
+    if (!accessRequestToken) {
+      setMessage(
+        "Complete the security verification before requesting access.",
+      );
+      return;
+    }
     setBusy(true);
     setMessage("");
     try {
@@ -131,6 +149,7 @@ export default function LifeSwitchInvitePage({
           email,
           full_name: fullName,
           message: "Requested from a LifeSwitch relationship invitation.",
+          turnstile_token: accessRequestToken,
         }),
       });
       const payload = await response.json().catch(() => null);
@@ -138,7 +157,9 @@ export default function LifeSwitchInvitePage({
         throw new Error(
           payload?.error === "invalid_access_request"
             ? "Enter a valid email address."
-            : "The request could not be submitted. Try again.",
+            : payload?.error === "access_request_verification_failed"
+              ? "Security verification failed. Complete it again and retry."
+              : "The request could not be submitted. Try again.",
         );
       }
       setFullName("");
@@ -148,6 +169,8 @@ export default function LifeSwitchInvitePage({
     } catch (e: any) {
       setMessage(String(e?.message || e));
     } finally {
+      accessRequestTurnstileRef.current?.reset();
+      setAccessRequestToken("");
       setBusy(false);
     }
   }
@@ -173,7 +196,8 @@ export default function LifeSwitchInvitePage({
       }
 
       if (!r.ok) {
-        const detail = typeof data === "object" && data ? data.detail || data.error : text;
+        const detail =
+          typeof data === "object" && data ? data.detail || data.error : text;
         throw new Error(String(detail || `HTTP ${r.status}`));
       }
 
@@ -192,24 +216,29 @@ export default function LifeSwitchInvitePage({
   return (
     <div className="mx-auto max-w-2xl p-4 pb-24">
       <div className="rounded-2xl border bg-background p-5 shadow-sm">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           LifeSwitch
         </div>
 
         <h1 className="mt-2 text-2xl font-semibold">
-          {preview ? `${inviter} invited you to LifeSwitch` : "LifeSwitch invitation"}
+          {preview
+            ? `${inviter} invited you to LifeSwitch`
+            : "LifeSwitch invitation"}
         </h1>
 
         <div className="mt-4 grid gap-3 text-sm text-muted-foreground">
           <p>
-            LifeSwitch is a private app for planning, tracking, reflection, and personal change work.
+            LifeSwitch is a private app for planning, tracking, reflection, and
+            personal change work.
           </p>
           <p>
-            It helps organize plans, training, nutrition, measurements, relationships, and progress over time.
+            It helps organize plans, training, nutrition, measurements,
+            relationships, and progress over time.
           </p>
           {preview ? (
             <p>
-              Accepting this invitation connects you with {inviter} in LifeSwitch.
+              Accepting this invitation connects you with {inviter} in
+              LifeSwitch.
             </p>
           ) : null}
         </div>
@@ -226,7 +255,9 @@ export default function LifeSwitchInvitePage({
               <div>Connection type: {kindLabel(preview.relationship_kind)}</div>
               <div>Status: {preview.status}</div>
               {preview.expires_at ? (
-                <div>Expires: {new Date(preview.expires_at).toLocaleDateString()}</div>
+                <div>
+                  Expires: {new Date(preview.expires_at).toLocaleDateString()}
+                </div>
               ) : null}
             </div>
           </div>
@@ -281,14 +312,22 @@ export default function LifeSwitchInvitePage({
                 <div className="mt-3 flex gap-2 text-sm">
                   <button
                     className={`rounded-lg px-3 py-1 ${mode === "login" ? "bg-muted" : "hover:bg-muted/60"}`}
-                    onClick={() => setMode("login")}
+                    onClick={() => {
+                      setMode("login");
+                      setAccessRequestToken("");
+                      setMessage("");
+                    }}
                     disabled={busy}
                   >
                     Log in
                   </button>
                   <button
                     className={`rounded-lg px-3 py-1 ${mode === "request" ? "bg-muted" : "hover:bg-muted/60"}`}
-                    onClick={() => setMode("request")}
+                    onClick={() => {
+                      setMode("request");
+                      setAccessRequestToken("");
+                      setMessage("");
+                    }}
                     disabled={busy}
                   >
                     Request access
@@ -332,6 +371,13 @@ export default function LifeSwitchInvitePage({
                     />
                   ) : null}
 
+                  {mode === "request" ? (
+                    <TurnstileWidget
+                      ref={accessRequestTurnstileRef}
+                      onToken={setAccessRequestToken}
+                    />
+                  ) : null}
+
                   <button
                     type="button"
                     className="w-fit rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
@@ -339,7 +385,10 @@ export default function LifeSwitchInvitePage({
                       mode === "login" ? void login() : void requestAccess()
                     }
                     disabled={
-                      busy || !email || (mode === "login" && !password)
+                      busy ||
+                      !email ||
+                      (mode === "login" && !password) ||
+                      (mode === "request" && !accessRequestToken)
                     }
                   >
                     {busy

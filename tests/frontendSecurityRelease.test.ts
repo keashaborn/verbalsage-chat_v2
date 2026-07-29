@@ -65,6 +65,8 @@ test("CSP is restrictive while preserving required LifeSwitch capabilities", () 
 
   assert.match(proxy, /https:\/\/shvuircoviuuijthoqji\.supabase\.co/);
   assert.match(proxy, /wss:\/\/shvuircoviuuijthoqji\.supabase\.co/);
+  assert.match(proxy, /https:\/\/challenges\.cloudflare\.com/);
+  assert.match(proxy, /frame-src https:\/\/challenges\.cloudflare\.com/);
   assert.match(proxy, /camera=\(self\), microphone=\(self\)/);
   assert.doesNotMatch(proxy, /unsafe-eval/);
   assert.doesNotMatch(proxy, /script-src[^"\n]*\*/);
