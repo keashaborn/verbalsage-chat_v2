@@ -421,7 +421,7 @@ export default function ConditioningCapturePage() {
       {status ? <div className="mt-3 text-sm text-muted-foreground">{status}</div> : null}
 
       <div className="mt-6 grid gap-4">
-        <aside className={selected ? "hidden" : "rounded-xl border p-4"}>
+        <aside className={selected ? "hidden" : "border-y border-border/50 py-4"}>
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-semibold">Conditioning</div>
             <button
@@ -451,32 +451,52 @@ export default function ConditioningCapturePage() {
           </select>
 
           {!selected && prescriptions.length === 0 ? (
-            <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
+            <div className="mt-4 text-sm text-muted-foreground">
               No conditioning plans yet.
               Create one in Workouts.
             </div>
           ) : null}
         </aside>
 
-        <main className={selected ? "rounded-xl border p-4" : "hidden"}>
-          <div className="flex items-center justify-between gap-3">
+        <main className={selected ? "border-y border-border/50 py-4" : "hidden"}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">Active conditioning draft</div>
               <div className="mt-1 text-xs text-muted-foreground">
                 {selected?.name}
               </div>
             </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                onClick={discardConditioningDraft}
+                disabled={saving}
+              >
+                Discard draft
+              </button>
+
+              <button
+                type="button"
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                onClick={() => void saveSession()}
+                disabled={!selected || saving}
+              >
+                {saving ? "Saving..." : "Finish Session"}
+              </button>
+            </div>
           </div>
 
           {selected ? (
-            <div className="mt-4 grid gap-3 rounded-xl border border-blue-500/40 bg-blue-500/10 p-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="text-xs">
-                    <div className="text-muted-foreground">
+            <div className="mt-4 border-y border-border/50">
+                <div className="grid grid-cols-1 gap-x-4 border-b border-border/50 sm:grid-cols-[minmax(5rem,.55fr)_minmax(0,1.45fr)]">
+                  <label className="min-w-0 border-b border-border/50 py-3 text-xs sm:border-b-0">
+                    <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
                       Duration min
                     </div>
                     <NumericInput
-                      className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      className="mt-1 w-full min-w-0 border-0 bg-transparent p-0 text-sm font-medium tabular-nums outline-none focus:ring-0"
                       mode="integer"
                       min={0}
                       step="1"
@@ -485,12 +505,12 @@ export default function ConditioningCapturePage() {
                     />
                   </label>
 
-                  <label className="text-xs">
-                    <div className="text-muted-foreground">
+                  <label className="min-w-0 py-3 text-xs">
+                    <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
                       Intensity
                     </div>
                     <input
-                      className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      className="mt-1 w-full min-w-0 border-0 bg-transparent p-0 text-sm font-medium outline-none focus:ring-0"
                       value={intensity}
                       onChange={(e) =>
                         setIntensity(e.currentTarget.value)
@@ -500,8 +520,8 @@ export default function ConditioningCapturePage() {
                   </label>
                 </div>
 
-                <div className="rounded-xl border bg-background/40 p-3">
-                  <div className="text-xs font-semibold">
+                <div className="py-4">
+                  <div className="text-sm font-semibold">
                     {doseType === "open"
                       ? "Custom dose"
                       : doseType === "loaded_carry"
@@ -511,12 +531,12 @@ export default function ConditioningCapturePage() {
                   </div>
 
                   {doseType === "open" ? (
-                    <label className="mt-3 block text-xs">
-                      <div className="text-muted-foreground">
+                    <label className="mt-3 block border-t border-border/50 pt-3 text-xs">
+                      <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
                         Dose description
                       </div>
                       <textarea
-                      className="mt-1 min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      className="mt-1 min-h-20 w-full resize-y border-0 bg-transparent p-0 text-sm outline-none focus:ring-0"
                         value={doseString(
                           doseConfig,
                           "description"
@@ -539,7 +559,7 @@ export default function ConditioningCapturePage() {
                   ) : null}
 
                   {doseType === "distance" ? (
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <div className="mt-3 grid grid-cols-2 gap-x-4">
                       <DoseInput
                         label="Distance"
                         value={doseNumber(doseConfig, "distance")}
@@ -581,7 +601,7 @@ export default function ConditioningCapturePage() {
                   ) : null}
 
                   {doseType === "rounds" ? (
-                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                    <div className="mt-3 grid grid-cols-2 gap-x-4">
                       <DoseInput
                         label="Rounds completed"
                         value={doseNumber(doseConfig, "rounds")}
@@ -613,7 +633,7 @@ export default function ConditioningCapturePage() {
                   ) : null}
 
                   {doseType === "intervals" ? (
-                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                    <div className="mt-3 grid grid-cols-2 gap-x-4">
                       <DoseInput
                         label="Intervals completed"
                         value={doseNumber(
@@ -648,7 +668,7 @@ export default function ConditioningCapturePage() {
                   ) : null}
 
                   {doseType === "laps" ? (
-                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                    <div className="mt-3 grid grid-cols-2 gap-x-4">
                       <DoseInput
                         label="Laps completed"
                         value={doseNumber(doseConfig, "laps")}
@@ -681,7 +701,7 @@ export default function ConditioningCapturePage() {
                   ) : null}
 
                   {doseType === "repetitions" ? (
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <div className="mt-3 grid grid-cols-2 gap-x-4">
                       <DoseInput
                         label="Sets completed"
                         value={doseNumber(doseConfig, "sets")}
@@ -703,7 +723,7 @@ export default function ConditioningCapturePage() {
                   ) : null}
 
                   {doseType === "loaded_carry" ? (
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <div className="mt-3 grid grid-cols-2 gap-x-4">
                       <DoseInput
                         label="Left-side load"
                         value={doseNumber(
@@ -783,38 +803,20 @@ export default function ConditioningCapturePage() {
                   ) : null}
                 </div>
 
-              <label className="text-xs">
-                <div className="text-muted-foreground">Notes</div>
+              <label className="block border-t border-border/50 py-4 text-xs">
+                <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                  Notes
+                </div>
                 <textarea
-                  className="mt-1 min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  className="mt-1 min-h-20 w-full resize-y border-0 bg-transparent p-0 text-sm outline-none focus:ring-0"
                   value={notes}
                   onChange={(e) => setNotes(e.currentTarget.value)}
                   placeholder="load, incline, speed, rounds, constraints..."
                 />
               </label>
-
-              <div className="flex flex-wrap justify-end gap-2">
-                <button
-                  type="button"
-                  className="rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                  onClick={discardConditioningDraft}
-                  disabled={saving}
-                >
-                  Discard draft
-                </button>
-
-                <button
-                  type="button"
-                  className="rounded-xl border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                  onClick={() => void saveSession()}
-                  disabled={!selected || saving}
-                >
-                  {saving ? "Saving..." : "Finish Session"}
-                </button>
-              </div>
             </div>
           ) : (
-            <div className="mt-4 rounded-xl border p-4 text-sm text-muted-foreground">
+            <div className="mt-4 text-sm text-muted-foreground">
               Select a conditioning prescription to log a session.
             </div>
           )}
@@ -836,10 +838,12 @@ function DoseInput({
   onChange: (value: number) => void;
 }) {
   return (
-    <label className="text-xs">
-      <div className="text-muted-foreground">{label}</div>
+    <label className="min-w-0 border-t border-border/50 py-3 text-xs">
+      <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+        {label}
+      </div>
       <NumericInput
-        className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+        className="mt-1 w-full min-w-0 border-0 bg-transparent p-0 text-sm font-medium tabular-nums outline-none focus:ring-0"
         mode={step.includes(".") ? "decimal" : "integer"}
         min={0}
         step={step}
@@ -862,10 +866,12 @@ function DoseTextInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="text-xs">
-      <div className="text-muted-foreground">{label}</div>
+    <label className="min-w-0 border-t border-border/50 py-3 text-xs">
+      <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+        {label}
+      </div>
       <input
-        className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+        className="mt-1 w-full min-w-0 border-0 bg-transparent p-0 text-sm font-medium outline-none focus:ring-0"
         value={value}
         placeholder={placeholder}
         onChange={(e) =>
@@ -886,10 +892,12 @@ function DoseUnitInput({
   onChange: (value: DistanceUnit) => void;
 }) {
   return (
-    <label className="text-xs">
-      <div className="text-muted-foreground">{label}</div>
+    <label className="min-w-0 border-t border-border/50 py-3 text-xs">
+      <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+        {label}
+      </div>
       <select
-        className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+        className="mt-1 w-full min-w-0 border-0 bg-transparent p-0 text-sm font-medium outline-none focus:ring-0"
         value={value}
         onChange={(event) => onChange(event.currentTarget.value as DistanceUnit)}
       >
