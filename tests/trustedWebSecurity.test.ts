@@ -3,12 +3,6 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 // @ts-expect-error Node's strip-types test runner loads the TypeScript file directly.
 import { answerLinksAllowed } from "../app/api/_trusted-web/answerLinks.ts";
-// @ts-expect-error Node's strip-types test runner loads the TypeScript file directly.
-import {
-  AUTOMATIC_SEARCH_INVOCATION_V1,
-  recordManualSearchOverrideV1,
-  searchCapabilityForInvocationV1,
-} from "../app/api/_trusted-web/searchInvocation.ts";
 
 const source = (path: string) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
@@ -18,23 +12,26 @@ test("trusted web capability is explicit and backend enforced", () => {
     "components/admin/settings/permissions/permissionRegistry.ts",
   );
   assert.match(registry, /key: "web_search\.use"/);
-  assert.match(registry, /key: "web_search\.override"/);
+  assert.doesNotMatch(registry, /key: "web_search\.override"/);
   assert.match(registry, /category: "web_search"/);
   assert.match(registry, /backendEnforced: true/);
 });
 
-test("trusted web distinguishes automatic use from manual override", () => {
+test("chat is the only active trusted-search entrypoint", () => {
   const route = source("app/api/trusted-web/route.ts");
   const newsRoute = source("app/api/current-news/route.ts");
   const chatRoute = source("app/api/chat/route.ts");
-  const invocation = source("app/api/_trusted-web/searchInvocation.ts");
   const auth = source("app/api/_auth/supabaseUser.ts");
-  assert.match(route, /searchCapabilityForInvocationV1\(invocation\)/);
-  assert.match(newsRoute, /searchCapabilityForInvocationV1\(invocation\)/);
-  assert.match(route, /requireFreshCapability\(req, requiredCapability\)/);
-  assert.match(newsRoute, /requireFreshCapability\(req, requiredCapability\)/);
-  assert.match(invocation, /AUTOMATIC_SEARCH_INVOCATION_V1 = Symbol/);
-  assert.match(invocation, /\? "web_search\.use"\s*: "web_search\.override"/);
+  for (const retiredRoute of [route, newsRoute]) {
+    assert.match(retiredRoute, /status: 410/);
+    assert.match(
+      retiredRoute,
+      /Direct search route retired; use \/api\/chat\./,
+    );
+    assert.match(retiredRoute, /private, no-store/);
+    assert.doesNotMatch(retiredRoute, /fetch\(/);
+    assert.doesNotMatch(retiredRoute, /requireFreshCapability/);
+  }
   assert.match(chatRoute, /serverSearchExecutionRequest/);
   assert.match(chatRoute, /\/search\/execute/);
   assert.match(chatRoute, /authorization,/);
@@ -48,84 +45,28 @@ test("trusted web distinguishes automatic use from manual override", () => {
   );
   assert.doesNotMatch(chatRoute, /postCurrentNews/);
   assert.doesNotMatch(chatRoute, /postTrustedWeb/);
-  assert.doesNotMatch(invocation, /headers|get\(|body|query/);
+  assert.doesNotMatch(chatRoute, /web_search\.override/);
+  assert.doesNotMatch(chatRoute, /manualOverride/);
+  assert.doesNotMatch(chatRoute, /recordManualSearchOverrideV1/);
   assert.match(auth, /\/auth\/v1\/user/);
   assert.match(auth, /cache: "no-store"/);
   assert.match(auth, /String\(user\.id \|\| ""\) !== payload\.sub/);
   assert.match(auth, /getSupabaseBearerAuthorizationFromRequest/);
-  assert.match(route, /authorization: actorAuthorization/);
-  assert.match(newsRoute, /authorization: actorAuthorization/);
-  assert.doesNotMatch(route, /user_metadata/);
 });
 
-test("manual override authority cannot be selected by HTTP input", () => {
-  assert.equal(
-    searchCapabilityForInvocationV1(AUTOMATIC_SEARCH_INVOCATION_V1),
-    "web_search.use",
-  );
-  for (const untrustedValue of [
-    undefined,
-    null,
-    "automatic",
-    Symbol.for("verbalsage.automatic-search-invocation.v1"),
-    { header: "automatic" },
-  ]) {
-    assert.equal(
-      searchCapabilityForInvocationV1(untrustedValue),
-      "web_search.override",
-    );
-  }
-});
-
-test("manual override audit is prompt-free and automatic routing is excluded", () => {
-  const originalInfo = console.info;
-  const originalAuditFlag = process.env.SEARCH_DECISION_AUDIT_ENABLED;
-  const logged: string[] = [];
-  console.info = (...values: unknown[]) => {
-    logged.push(values.map(String).join(" "));
-  };
-  process.env.SEARCH_DECISION_AUDIT_ENABLED = "1";
-
-  try {
-    recordManualSearchOverrideV1({
-      actorUserId: "11111111-1111-4111-8111-111111111111",
-      requestId: "manual-request-1",
-      route: "current_news",
-      invocation: undefined,
-    });
-    recordManualSearchOverrideV1({
-      actorUserId: "11111111-1111-4111-8111-111111111111",
-      requestId: "automatic-request-1",
-      route: "current_news",
-      invocation: AUTOMATIC_SEARCH_INVOCATION_V1,
-    });
-  } finally {
-    console.info = originalInfo;
-    if (originalAuditFlag === undefined) {
-      delete process.env.SEARCH_DECISION_AUDIT_ENABLED;
-    } else {
-      process.env.SEARCH_DECISION_AUDIT_ENABLED = originalAuditFlag;
-    }
-  }
-
-  assert.equal(logged.length, 1);
-  const event = JSON.parse(logged[0]);
-  assert.equal(event.event, "search_manual_override_v1");
-  assert.equal(event.capability, "web_search.override");
-  assert.equal(event.selected_route, "current_news");
-  assert.doesNotMatch(logged[0], /prompt|query|input/);
-});
-
-test("browser request cannot choose model, domains, topic, or storage", () => {
-  const route = source("app/api/trusted-web/route.ts");
+test("browser request cannot choose search controls or provider policy", () => {
+  const control = source("lib/serverSearchAuthorityV1.ts");
   const pane = source("components/threads/BrainsChatPane.tsx");
-  assert.match(route, /Object\.keys\(record\)\.length !== 1/);
-  assert.match(route, /hasOwnProperty\.call\(record, "query"\)/);
+  assert.match(
+    control,
+    /if \(value\.search_override !== undefined\) return null/,
+  );
   assert.match(pane, /authFetch\(\s*"\/api\/chat"/);
   assert.doesNotMatch(pane, /authFetch\(\s*"\/api\/trusted-web"/);
   assert.doesNotMatch(pane, /authFetch\(\s*"\/api\/current-news"/);
   assert.doesNotMatch(pane, /allowed_domains/);
   assert.doesNotMatch(pane, /external_web_access/);
+  assert.doesNotMatch(pane, /search_override/);
 });
 
 test("composer preserves typed text and offers refresh on thread prep failure", () => {
@@ -138,28 +79,24 @@ test("composer preserves typed text and offers refresh on thread prep failure", 
   assert.match(pane, /window\.location\.reload\(\)/);
 });
 
-test("trusted web uses the internal service boundary and no memory route", () => {
-  const route = source("app/api/trusted-web/route.ts");
-  assert.match(route, /brainsUpstreamHeaders\(rid, userId, \{/);
-  assert.match(route, /\/trusted-web\/query/);
-  assert.doesNotMatch(route, /\/response\/query/);
-  assert.doesNotMatch(route, /\/log/);
-  assert.match(route, /no-store/);
+test("trusted web uses the server planner boundary and no browser route", () => {
+  const chat = source("app/api/chat/route.ts");
+  const pane = source("components/threads/BrainsChatPane.tsx");
+  assert.match(chat, /brainsUpstreamHeaders\(rid, userId\)/);
+  assert.match(chat, /\/search\/execute/);
+  assert.match(chat, /cache: "no-store"/);
+  assert.doesNotMatch(pane, /\/trusted-web\/query/);
+  assert.doesNotMatch(pane, /\/current-news\/query/);
 });
 
-test("BFF revalidates returned source domains", () => {
-  const route = source("app/api/trusted-web/route.ts");
-  const newsRoute = source("app/api/current-news/route.ts");
-  assert.match(route, /ALLOWED_SOURCE_DOMAINS/);
-  assert.match(route, /parsed\.protocol !== "https:"/);
-  assert.match(route, /parsed\.username/);
-  assert.match(route, /parsed\.port/);
-  assert.match(route, /normalizeSource/);
-  assert.match(route, /sourceUrlAllowed\(url\)/);
-  assert.match(route, /answerLinksAllowed\(/);
-  assert.match(route, /citedSources\.map\(\(source\) => source\.url\)/);
-  assert.match(newsRoute, /answerLinksAllowed\(/);
-  assert.match(newsRoute, /citedSources\.map\(\(source\) => source\.url\)/);
+test("BFF forwards only bounded search headers and source envelopes", () => {
+  const chat = source("app/api/chat/route.ts");
+  assert.match(chat, /normalized === "x-request-id"/);
+  assert.match(chat, /normalized\.startsWith\("x-vs-"\)/);
+  assert.match(chat, /cited_sources: payload\?\.cited_sources/);
+  assert.match(chat, /admitted_sources: payload\?\.admitted_sources/);
+  assert.match(chat, /consulted_sources: payload\?\.consulted_sources/);
+  assert.doesNotMatch(chat, /const headers = new Headers\(upstream\.headers\)/);
 });
 
 test("answer links fail closed outside the server allowlist", () => {
@@ -178,10 +115,7 @@ test("answer links fail closed outside the server allowlist", () => {
     true,
   );
   assert.equal(
-    answerLinksAllowed(
-      "See [injected](https://example.com/prompt).",
-      allowed,
-    ),
+    answerLinksAllowed("See [injected](https://example.com/prompt).", allowed),
     false,
   );
   assert.equal(
@@ -214,18 +148,20 @@ test("answer links fail closed outside the server allowlist", () => {
 test("composer hides test modes and delegates every normal request to the server", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
   const chatRoute = source("app/api/chat/route.ts");
-  assert.match(pane, /type SearchControl = "auto" \| "off"/);
+  assert.doesNotMatch(pane, /type SearchControl/);
   assert.doesNotMatch(pane, /classifyAutoWebMode/);
   assert.doesNotMatch(pane, /AUTO_CURRENT_NEWS_INTENT_TERMS/);
   assert.doesNotMatch(pane, /AUTO_HEALTH_EVIDENCE_INTENT_TERMS/);
   assert.doesNotMatch(pane, /isSearchExplicitlyProhibitedV1/);
   assert.doesNotMatch(pane, /search_mode:/);
   assert.match(pane, /authFetch\(\s*"\/api\/chat"/);
-  assert.match(pane, /search_override: "off"/);
+  assert.doesNotMatch(pane, /search_override/);
+  assert.doesNotMatch(pane, /X-VS-Trusted-Web-Fallback/);
   assert.match(pane, /r\.headers\.get\("X-VS-Search-Route"\)/);
   assert.doesNotMatch(chatRoute, /searchMode === "auto"/);
   assert.match(chatRoute, /resolveServerSearchControlV1/);
-  assert.match(chatRoute, /manualOverride/);
+  assert.doesNotMatch(chatRoute, /manualOverride/);
+  assert.doesNotMatch(chatRoute, /web_search\.override/);
   assert.match(chatRoute, /serverSearchExecutionRequest/);
   assert.match(chatRoute, /\/search\/execute/);
   assert.match(chatRoute, /function searchExecutionResponseHeaders/);
@@ -235,10 +171,7 @@ test("composer hides test modes and delegates every normal request to the server
     /const headers = new Headers\(upstream\.headers\)/,
   );
   assert.match(chatRoute, /runServerSearchPlan/);
-  assert.match(
-    chatRoute,
-    /Object\.entries\(voiceTurnHeaders\(voiceTurnId\)\)/,
-  );
+  assert.match(chatRoute, /Object\.entries\(voiceTurnHeaders\(voiceTurnId\)\)/);
   assert.match(chatRoute, /includeInspection,\s+voiceTurn\.value/);
   assert.doesNotMatch(chatRoute, /selectAutomaticSearchRouteV1/);
   assert.doesNotMatch(chatRoute, /runAutomaticSearch/);
@@ -281,29 +214,17 @@ test("trusted-search markdown links are restricted to exact cited URLs", () => {
   assert.match(markdown, /linkAllowed\(href\)/);
 });
 
-
 test("trusted web preserves structured source metadata for source cards", () => {
-  const route = source("app/api/trusted-web/route.ts");
+  const chat = source("app/api/chat/route.ts");
   const pane = source("components/threads/BrainsChatPane.tsx");
   const provenance = source("lib/webSourceProvenanceV2.ts");
-  assert.match(route, /Response\.json/);
-  assert.match(route, /normalizeSource/);
-  assert.match(route, /authority_type/);
-  assert.match(route, /evidence_type/);
-  assert.match(route, /WEB_SOURCE_PROVENANCE_CONTRACT/);
   assert.match(provenance, /web_source_provenance_v2/);
-  assert.match(route, /cited_sources: citedSources/);
-  assert.match(route, /admitted_sources: admittedSources/);
-  assert.doesNotMatch(route, /consulted_sources: providerConsultedSources/);
-  assert.match(route, /sourcesBelongToSources/);
-  assert.match(route, /WEB_EVIDENCE_ADMISSION_CONTRACT/);
-  assert.match(route, /CITATION_EVIDENCE_CONTRACT/);
-  assert.match(route, /citation_evidence_contract/);
-  assert.match(route, /citation_exact_page_source_count/);
-  assert.match(route, /isCitationAggregateFreshnessStatus/);
-  assert.match(route, /isCitationSourceFreshnessStatus/);
-  assert.match(route, /X-VS-Citation-Evidence-Contract/);
-  assert.match(route, /TRUSTED_HEALTH_MAX_ADMITTED_SOURCES/);
+  assert.match(chat, /cited_sources: payload\?\.cited_sources/);
+  assert.match(chat, /admitted_sources: payload\?\.admitted_sources/);
+  assert.match(chat, /consulted_sources: payload\?\.consulted_sources/);
+  assert.match(chat, /X-VS-Web-Cited-Source-Count/);
+  assert.match(chat, /X-VS-Web-Admitted-Source-Count/);
+  assert.match(chat, /normalized\.startsWith\("x-vs-"\)/);
   assert.match(pane, /type TrustedWebSource/);
   assert.match(pane, /TrustedWebSourceCards/);
   assert.match(pane, /trusted_web_sources/);
@@ -333,17 +254,13 @@ test("trusted web source cards replace plain trailing source list", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
   assert.match(pane, /stripTrustedWebSourceList/);
   assert.match(pane, /Sources:/);
-  assert.match(
-    pane,
-    /Sources: \{trustedWebSourceSummary\(cited, admitted\)\}/,
-  );
+  assert.match(pane, /Sources: \{trustedWebSourceSummary\(cited, admitted\)\}/);
   assert.match(pane, /Cited in this answer/);
   assert.match(pane, /Additional supporting sources/);
   assert.match(pane, /trustedWebSourceDisplayTitle/);
   assert.match(pane, /<details/);
   assert.match(pane, /<summary/);
 });
-
 
 test("trusted web source cards use a single link per source", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
@@ -360,17 +277,22 @@ test("trusted web source cards use a single link per source", () => {
   assert.match(block, /trustedWebHostLabel/);
 });
 
-
 test("trusted web non-search responses fall back to normal chat", () => {
-  const route = source("app/api/trusted-web/route.ts");
+  const chat = source("app/api/chat/route.ts");
   const pane = source("components/threads/BrainsChatPane.tsx");
-  assert.match(route, /FALLBACK_TO_CHAT_STATUS = 200/);
-  assert.match(route, /parsed\.searched !== true/);
-  assert.match(route, /X-VS-Trusted-Web-Fallback/);
-  assert.match(pane, /X-VS-Trusted-Web-Fallback/);
-  assert.match(pane, /trustedWebFallback: true/);
+  assert.match(
+    chat,
+    /payload\?\.executed !== true \|\| route === "normal_chat"/,
+  );
+  assert.match(chat, /fallbackToChat: payload\?\.fallback_to_chat === true/);
+  assert.match(chat, /const log = await fetch\(`\$\{brains\}\/log`/);
+  assert.match(
+    chat,
+    /const upstream = await fetch\(`\$\{brains\}\/response\/query`/,
+  );
+  assert.doesNotMatch(pane, /X-VS-Trusted-Web-Fallback/);
+  assert.doesNotMatch(pane, /trustedWebFallback: true/);
   assert.match(pane, /trustedWebFallback: false/);
-  assert.match(pane, /if \(reply\.trustedWebFallback\)/);
   assert.match(pane, /void loadMessages\(tid/);
   assert.match(pane, /trusted_web_fallback: true/);
   assert.match(

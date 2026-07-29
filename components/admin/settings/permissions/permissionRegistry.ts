@@ -180,20 +180,6 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     notes:
       "Canary-limited by role. Requires a fresh Supabase user check, the Verbal Sage BFF, the Brains service boundary, actor/owner matching, and the backend kill switch.",
   },
-  {
-    key: "web_search.override",
-    label: "Override Automatic Web Routing",
-    description:
-      "Expose temporary manual Health and News route controls for bounded testing.",
-    category: "web_search",
-    scope: "own_account",
-    access: "manage",
-    risk: "high",
-    defaultRoles: ["owner", "admin", "developer"],
-    backendEnforced: true,
-    notes:
-      "Testing only. Direct search endpoints require this fresh Supabase capability; automatic routing uses web_search.use instead.",
-  },
 
   // Memory
   {

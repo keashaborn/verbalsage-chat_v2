@@ -180,13 +180,14 @@ test("server composes trace v2 for ordinary and automatic web paths", () => {
   assert.match(chat, /responseTraceHeadersV2/);
   assert.match(chat, /fallbackToChat: automaticFallbackToChat/);
   assert.match(chat, /responseInspectionV1FromValue/);
-  assert.match(health, /X-VS-Web-Source-Count/);
-  assert.match(news, /X-VS-Web-Source-Count/);
-  assert.match(health, /manualSearchResponseTraceV2/);
-  assert.match(news, /manualSearchResponseTraceV2/);
-  for (const route of [chat, health, news]) {
-    assert.doesNotMatch(route, /body\?\.response_trace|body\?\.inspection/);
+  assert.doesNotMatch(chat, /manualSearchResponseTraceV2/);
+  assert.doesNotMatch(chat, /web_search\.override/);
+  for (const route of [health, news]) {
+    assert.match(route, /status: 410/);
+    assert.doesNotMatch(route, /responseTraceHeadersV2/);
+    assert.doesNotMatch(route, /manualSearchResponseTraceV2/);
   }
+  assert.doesNotMatch(chat, /body\?\.response_trace|body\?\.inspection/);
 });
 
 test("read-only panel exposes decisions and copies only the safe trace", () => {

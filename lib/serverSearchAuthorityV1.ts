@@ -2,12 +2,11 @@ export const SERVER_SEARCH_AUTHORITY_VERSION =
   "server_search_authority_v1" as const;
 
 export type LegacyBrowserSearchModeV1 = "off" | "auto";
-export type ServerSearchModeV1 = "auto" | "manual_override";
-export type ServerSearchOverrideV1 = "off";
+export type ServerSearchModeV1 = "auto";
 
 export type ServerSearchControlV1 = Readonly<{
   effective_mode: ServerSearchModeV1;
-  requested_override: ServerSearchOverrideV1 | null;
+  requested_override: null;
   ignored_legacy_request_fields: readonly string[];
 }>;
 
@@ -29,15 +28,11 @@ export function resolveServerSearchControlV1(
     return null;
   }
 
-  const requestedOverride = value.search_override;
-  if (requestedOverride !== undefined && requestedOverride !== "off") {
-    return null;
-  }
+  if (value.search_override !== undefined) return null;
 
   return {
-    effective_mode:
-      requestedOverride === "off" ? "manual_override" : "auto",
-    requested_override: requestedOverride === "off" ? "off" : null,
+    effective_mode: "auto",
+    requested_override: null,
     ignored_legacy_request_fields:
       legacyMode === undefined ? [] : ["search_mode"],
   };

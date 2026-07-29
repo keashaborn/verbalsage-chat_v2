@@ -5,75 +5,52 @@ import test from "node:test";
 const source = (path: string) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("current news manual route requires fresh override authorization", () => {
+test("legacy current-news endpoint is a no-store compatibility tombstone", () => {
   const route = source("app/api/current-news/route.ts");
-  const invocation = source("app/api/_trusted-web/searchInvocation.ts");
-  assert.match(route, /searchCapabilityForInvocationV1\(invocation\)/);
-  assert.match(invocation, /"web_search\.use" \| "web_search\.override"/);
-  assert.match(invocation, /\? "web_search\.use"\s*: "web_search\.override"/);
-  assert.match(route, /requireFreshCapability\(req, requiredCapability\)/);
-  assert.match(route, /recordManualSearchOverrideV1/);
-  assert.doesNotMatch(route, /user_metadata/);
+  assert.match(route, /status: 410/);
+  assert.match(route, /Direct search route retired; use \/api\/chat\./);
+  assert.match(route, /private, no-store/);
+  assert.match(route, /X-VS-Search-Route-Status/);
+  assert.doesNotMatch(route, /fetch\(/);
+  assert.doesNotMatch(route, /requireFreshCapability/);
+  assert.doesNotMatch(route, /recordSearchDecisionShadowV1/);
+  assert.doesNotMatch(route, /web_search\.override/);
 });
 
-test("current news browser request cannot choose model domains topic or storage", () => {
-  const route = source("app/api/current-news/route.ts");
-  assert.match(route, /Object\.keys\(record\)\.length !== 1/);
-  assert.match(route, /hasOwnProperty\.call\(record, "query"\)/);
-  assert.doesNotMatch(route, /allowed_domains/);
-  assert.doesNotMatch(route, /external_web_access/);
-});
-
-test("current news uses internal service boundary and no memory route", () => {
-  const route = source("app/api/current-news/route.ts");
-  assert.match(route, /brainsUpstreamHeaders\(rid, userId, \{/);
-  assert.match(route, /\/current-news\/query/);
-  assert.doesNotMatch(route, /\/response\/query/);
-  assert.doesNotMatch(route, /\/log/);
-  assert.match(route, /no-store/);
-});
-
-test("current news BFF revalidates returned source domains", () => {
-  const route = source("app/api/current-news/route.ts");
+test("current news is reachable only through server-owned chat planning", () => {
+  const chat = source("app/api/chat/route.ts");
+  const pane = source("components/threads/BrainsChatPane.tsx");
   const registry = source("lib/trustedSourceRegistryV1.ts");
-  assert.match(route, /ALLOWED_SOURCE_DOMAINS/);
-  assert.match(route, /CURRENT_NEWS_ALLOWED_SOURCE_DOMAINS/);
+
+  assert.match(chat, /serverSearchExecutionRequest/);
+  assert.match(chat, /\/search\/execute/);
+  assert.match(
+    chat,
+    /capabilityAllowsRole\("web_search\.use", permissionRole\)/,
+  );
+  assert.match(
+    chat,
+    /"x-vs-web-search-authorization": "supabase_fresh_web_search_v1"/,
+  );
+  assert.match(chat, /selectedRoute !== "normal_chat"/);
+  assert.match(chat, /routedSearchResponse/);
+  assert.doesNotMatch(chat, /web_search\.override/);
+  assert.doesNotMatch(pane, /"\/api\/current-news"/);
+  assert.doesNotMatch(pane, /search_override/);
   assert.match(registry, /openai\.com/);
   assert.match(registry, /huggingface\.co/);
   assert.match(registry, /apnews\.com/);
   assert.match(registry, /nhk\.or\.jp/);
-  assert.match(route, /parsed\.protocol !== "https:"/);
-  assert.match(route, /parsed\.username/);
-  assert.match(route, /parsed\.port/);
-  assert.match(route, /normalizeSource/);
-  assert.match(route, /sourceUrlAllowed\(url\)/);
 });
 
-test("current news BFF preserves structured skeleton fields", () => {
-  const route = source("app/api/current-news/route.ts");
-  const provenance = source("lib/webSourceProvenanceV2.ts");
-  assert.match(route, /current_news_v1/);
-  assert.match(route, /WEB_SOURCE_PROVENANCE_CONTRACT/);
-  assert.match(provenance, /web_source_provenance_v2/);
-  assert.match(route, /reason/);
-  assert.match(route, /searched: Boolean\(parsed\.searched\)/);
-  assert.match(route, /cited_sources: citedSources/);
-  assert.match(route, /admitted_sources: admittedSources/);
-  assert.doesNotMatch(route, /consulted_sources: providerConsultedSources/);
-  assert.match(route, /sourcesBelongToSources/);
-  assert.match(route, /WEB_EVIDENCE_ADMISSION_CONTRACT/);
-  assert.match(route, /CITATION_EVIDENCE_CONTRACT/);
-  assert.match(route, /citation_evidence_contract/);
-  assert.match(route, /citation_exact_page_source_count/);
-  assert.match(route, /isCitationAggregateFreshnessStatus/);
-  assert.match(route, /isCitationSourceFreshnessStatus/);
-  assert.match(route, /X-VS-Citation-Evidence-Contract/);
-  assert.match(route, /CURRENT_NEWS_MAX_ADMITTED_SOURCES/);
-  assert.match(route, /X-VS-Web-Cited-Source-Count/);
-  assert.match(route, /X-VS-Web-Admitted-Source-Count/);
-  assert.match(route, /X-VS-Web-Provider-Consulted-Source-Count/);
-  assert.match(route, /X-VS-Web-Rejected-Source-Count/);
-  assert.match(route, /X-VS-Web-Consulted-Source-Count/);
-  assert.match(route, /authority_type: sourceType/);
-  assert.match(route, /evidence_type: "current_news"/);
+test("chat preserves bounded source counts from the backend envelope", () => {
+  const chat = source("app/api/chat/route.ts");
+  assert.match(chat, /X-VS-Web-Cited-Source-Count/);
+  assert.match(chat, /X-VS-Web-Admitted-Source-Count/);
+  assert.match(chat, /X-VS-Web-Provider-Consulted-Source-Count/);
+  assert.match(chat, /X-VS-Web-Rejected-Source-Count/);
+  assert.match(chat, /boundedHeaderInteger/);
+  assert.match(chat, /cited_sources: payload\?\.cited_sources/);
+  assert.match(chat, /admitted_sources: payload\?\.admitted_sources/);
+  assert.match(chat, /consulted_sources: payload\?\.consulted_sources/);
 });

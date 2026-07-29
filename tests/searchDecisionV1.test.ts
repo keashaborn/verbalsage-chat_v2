@@ -237,9 +237,7 @@ test("uses bounded budgets for every decision class", () => {
 });
 
 test("routes named current-news entities when freshness is present", () => {
-  const prompts = [
-    "What happened with OpenAI today?",
-  ];
+  const prompts = ["What happened with OpenAI today?"];
   for (const input of prompts) {
     const decision = decideSearchV1(input);
     assert.equal(decision.decision, "live");
@@ -272,10 +270,7 @@ test("selects only server-supported automatic search routes", () => {
     ["Search the web for OpenAI documentation.", "trusted_health"],
     ["What's the biggest news in Japan right now?", "current_news"],
     ["Any current medical news?", "trusted_health"],
-    [
-      "What does the evidence say about training frequency?",
-      "trusted_health",
-    ],
+    ["What does the evidence say about training frequency?", "trusted_health"],
     ["Cite evidence about protein intake.", "trusted_health"],
     [
       "What do official dietary guidelines recommend for protein?",
@@ -453,13 +448,15 @@ test("server routes enforced decisions after fresh Supabase authorization", asyn
   assert.match(chat, /SERVER_SEARCH_AUTHORITY_VERSION/);
   assert.match(chat, /seebx_search_plan_v1/);
   assert.match(chat, /"X-VS-Search-Route": "normal_chat"/);
-  assert.match(chat, /manualOverride/);
-  assert.match(health, /requireFreshCapability/);
-  assert.match(health, /observedRoute: "trusted_health"/);
-  assert.match(news, /requireFreshCapability/);
-  assert.match(news, /observedRoute: "current_news"/);
+  assert.doesNotMatch(chat, /manualOverride/);
+  assert.doesNotMatch(chat, /web_search\.override/);
+  assert.doesNotMatch(chat, /recordManualSearchOverrideV1/);
   for (const route of [health, news]) {
-    assert.match(route, /recordSearchDecisionShadowV1/);
+    assert.match(route, /status: 410/);
+    assert.match(route, /Direct search route retired; use \/api\/chat\./);
+    assert.doesNotMatch(route, /recordSearchDecisionShadowV1/);
+    assert.doesNotMatch(route, /requireFreshCapability/);
+    assert.doesNotMatch(route, /fetch\(/);
   }
   const authIndex = chat.indexOf(
     "const auth = await getFreshSupabaseAuthContextFromRequest(req)",
@@ -470,17 +467,4 @@ test("server routes enforced decisions after fresh Supabase authorization", asyn
   );
   assert.ok(authIndex >= 0 && authIndex < threadIndex);
   assert.ok(threadIndex < dispatchIndex);
-  for (const route of [health, news]) {
-    const authIndex = route.indexOf(
-      "const actorAuthorization = getSupabaseBearerAuthorizationFromRequest",
-    );
-    const decisionIndex = route.indexOf(
-      "const searchDecision = recordSearchDecisionShadowV1",
-    );
-    const upstreamIndex = route.indexOf("const upstream = await fetch");
-    assert.ok(authIndex >= 0 && authIndex < decisionIndex);
-    assert.ok(decisionIndex < upstreamIndex);
-    assert.match(route, /search_prohibited_by_user/);
-    assert.match(route, /"X-VS-Search-Decision": "no_search"/);
-  }
 });

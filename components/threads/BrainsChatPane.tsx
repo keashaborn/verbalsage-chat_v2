@@ -80,8 +80,6 @@ import {
   type ForegroundThreadSyncState,
 } from "@/lib/foregroundThreadSync";
 
-type SearchControl = "auto" | "off";
-
 type TrustedWebSource = {
   url: string;
   title: string;
@@ -1494,7 +1492,6 @@ export function BrainsChatPane() {
     noStore = false,
     voiceTurnId?: string,
     voiceSessionId?: string,
-    searchControl: SearchControl = "auto",
     responseLanguage?: VoiceLanguage,
   ): Promise<ChatResult> {
     const { response: r, responseText } = await withRequestDeadline(
@@ -1516,7 +1513,6 @@ export function BrainsChatPane() {
             thread_id: tid,
             regen,
             noStore,
-            ...(searchControl === "off" ? { search_override: "off" } : {}),
           }),
           signal,
         });
@@ -1531,19 +1527,6 @@ export function BrainsChatPane() {
     const trustedWeb = routedSearchRoute === "trusted_health";
     const currentNews = routedSearchRoute === "current_news";
     const externalWeb = trustedWeb || currentNews;
-    if (trustedWeb && r.headers.get("X-VS-Trusted-Web-Fallback") === "chat") {
-      const fallbackReply = await callChat(
-        input,
-        tid,
-        regen,
-        noStore,
-        voiceTurnId,
-        voiceSessionId,
-        "off",
-        responseLanguage,
-      );
-      return { ...fallbackReply, trustedWebFallback: true };
-    }
     if (!r.ok) {
       if (r.status === 504) {
         throw new RequestDeadlineError(
@@ -1955,7 +1938,6 @@ export function BrainsChatPane() {
         false,
         options.voiceTurn?.voiceTurnId,
         options.voiceTurn?.voiceSessionId,
-        "auto",
         options.voiceTurn
           ? normalizeVoiceLanguage(options.voiceTurn.transcriptionLanguage)
           : undefined,
@@ -2524,7 +2506,7 @@ export function BrainsChatPane() {
                   </span>
                 </>
               )}
-            <button
+              <button
                 type="button"
                 className="grid h-8 w-8 shrink-0 place-items-center rounded-full border"
                 onClick={stopTTS}
@@ -2532,7 +2514,7 @@ export function BrainsChatPane() {
                 title="Stop and close"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
-            </button>
+              </button>
             </div>
           )}
           <div className="relative rounded-xl border bg-background px-3 py-2 pr-12">
@@ -2582,7 +2564,7 @@ export function BrainsChatPane() {
               </div>
             )}
             <textarea
-              className="field-sizing-content min-h-9 max-h-32 w-full resize-none bg-transparent py-2 text-sm outline-none"
+              className="field-sizing-content max-h-32 min-h-9 w-full resize-none bg-transparent py-2 text-sm outline-none"
               rows={1}
               placeholder="Send a message…"
               value={editingMessageId ? editingText : text}
@@ -2609,37 +2591,34 @@ export function BrainsChatPane() {
                 {liveComposerStatus}
               </div>
             )}
-              <button
-                type="button"
-                data-contextual-composer-action
-                onClick={() => void handleComposerAction()}
-                disabled={sending}
-                className={[
-                  "absolute right-2 bottom-2 inline-flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border transition-[background-color,color,transform] active:scale-95 disabled:opacity-50",
-                  composerHasText || voiceSessionVisible
-                    ? "border-foreground bg-foreground text-background"
-                    : "bg-background text-foreground",
-                ].join(" ")}
-                aria-label={composerActionLabel}
-                title={composerActionLabel}
-              >
-                {sending ? (
-                  <Loader2
-                    className="h-4 w-4 animate-spin"
-                    aria-hidden="true"
-                  />
-                ) : composerHasText ? (
-                  <ArrowUp className="h-4 w-4" aria-hidden="true" />
-                ) : voiceSessionVisible ? (
-                  <X className="h-4 w-4" aria-hidden="true" />
-                ) : (
-                  <span
-                    className="vs-voice-action-symbol h-6 w-6"
-                    aria-hidden="true"
-                  />
-                )}
-                <span className="sr-only">{composerActionLabel}</span>
-              </button>
+            <button
+              type="button"
+              data-contextual-composer-action
+              onClick={() => void handleComposerAction()}
+              disabled={sending}
+              className={[
+                "absolute right-2 bottom-2 inline-flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border transition-[background-color,color,transform] active:scale-95 disabled:opacity-50",
+                composerHasText || voiceSessionVisible
+                  ? "border-foreground bg-foreground text-background"
+                  : "bg-background text-foreground",
+              ].join(" ")}
+              aria-label={composerActionLabel}
+              title={composerActionLabel}
+            >
+              {sending ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : composerHasText ? (
+                <ArrowUp className="h-4 w-4" aria-hidden="true" />
+              ) : voiceSessionVisible ? (
+                <X className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <span
+                  className="vs-voice-action-symbol h-6 w-6"
+                  aria-hidden="true"
+                />
+              )}
+              <span className="sr-only">{composerActionLabel}</span>
+            </button>
           </div>
         </div>
       </div>

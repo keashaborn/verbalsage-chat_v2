@@ -25,21 +25,12 @@ test("legacy browser modes never control the server decision", () => {
   );
 });
 
-test("only the new explicit override field can request manual web off", () => {
-  const control = resolveServerSearchControlV1({
-    search_mode: "off",
-    search_override: "off",
-  });
-  assert.ok(control);
-  assert.equal(control.effective_mode, "manual_override");
-  assert.equal(control.requested_override, "off");
-});
-
-test("invalid client search controls fail closed", () => {
+test("manual and malformed client search controls fail closed", () => {
   for (const body of [
     null,
     [],
     { search_mode: "health" },
+    { search_override: "off" },
     { search_override: "auto" },
     { search_override: true },
   ]) {
@@ -59,10 +50,9 @@ test("chat route owns routing and uses fresh Supabase authorization", () => {
     route,
     /searchControl\.effective_mode === "auto"\s*&&\s*!noStore/,
   );
-  assert.match(
-    route,
-    /capabilityAllowsRole\("web_search\.override", permissionRole\)/,
-  );
+  assert.doesNotMatch(route, /web_search\.override/);
+  assert.doesNotMatch(route, /manualOverride/);
+  assert.doesNotMatch(route, /recordManualSearchOverrideV1/);
   assert.match(
     route,
     /capabilityAllowsRole\("web_search\.use", permissionRole\)/,
@@ -75,11 +65,11 @@ test("chat route owns routing and uses fresh Supabase authorization", () => {
     route,
     /fetch\(`\$\{brains\}\/response\/query`,[\s\S]*?automaticSearchAuthorized[\s\S]*?"x-vs-web-search-authorization":\s*"supabase_fresh_web_search_v1"/,
   );
-  assert.match(route, /recordManualSearchOverrideV1/);
   assert.match(route, /SERVER_SEARCH_AUTHORITY_VERSION/);
 
-  assert.match(pane, /search_override: "off"/);
-  assert.match(pane, /searchControl === "off"/);
+  assert.doesNotMatch(pane, /search_override/);
+  assert.doesNotMatch(pane, /SearchControl/);
+  assert.doesNotMatch(pane, /X-VS-Trusted-Web-Fallback/);
   assert.doesNotMatch(pane, /search_mode:/);
   assert.doesNotMatch(pane, /data-web-mode-selector/);
   assert.doesNotMatch(pane, /canOverrideWebSearch/);

@@ -27,11 +27,9 @@ import {
   type AutomaticSearchRouteV1,
   type SearchDecisionV1,
 } from "@/lib/searchDecisionV1";
-import { recordManualSearchOverrideV1 } from "@/app/api/_trusted-web/searchInvocation";
 import {
   resolveServerSearchControlV1,
   SERVER_SEARCH_AUTHORITY_VERSION,
-  type ServerSearchModeV1,
 } from "@/lib/serverSearchAuthorityV1";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
@@ -432,8 +430,6 @@ async function runServerSearchPlan(
 
 function ordinaryResponseTraceV2({
   rid,
-  searchMode,
-  manualOverride,
   automaticDecision,
   attemptedRoute,
   fallbackToChat,
@@ -443,8 +439,6 @@ function ordinaryResponseTraceV2({
   responseInspection,
 }: {
   rid: string;
-  searchMode: ServerSearchModeV1;
-  manualOverride: boolean;
   automaticDecision: SearchDecisionV1 | null;
   attemptedRoute: Exclude<AutomaticSearchRouteV1, "normal_chat"> | null;
   fallbackToChat: boolean;
@@ -455,23 +449,20 @@ function ordinaryResponseTraceV2({
 }): ResponseTraceV2 {
   const reasonCodes = automaticDecision
     ? [...automaticDecision.reason_codes]
-    : manualOverride
-      ? ["manual_override_authorized"]
-      : [
-          voice
-            ? "voice_search_disabled"
-            : noStore
-              ? "stateless_response_search_evaluated"
-              : "search_not_evaluated",
-        ];
+    : [
+        voice
+          ? "voice_search_disabled"
+          : noStore
+            ? "stateless_response_search_evaluated"
+            : "search_not_evaluated",
+      ];
   return {
     contract_version: "response_trace_v2",
     authorities: {
       identity: "supabase",
-      routing:
-        !manualOverride && automaticDecision
-          ? "seebx_search_plan_v1"
-          : "verbalsage_server_authority_v1",
+      routing: automaticDecision
+        ? "seebx_search_plan_v1"
+        : "verbalsage_server_authority_v1",
       response_runtime: "resse_response_v0_2",
     },
     request: {
@@ -483,19 +474,15 @@ function ordinaryResponseTraceV2({
     },
     authorization: {
       actor_verification: "supabase_fresh_user_lookup",
-      execution_authorization: manualOverride
-        ? "web_search.override"
-        : "supabase_authenticated",
+      execution_authorization: "supabase_authenticated",
       inspection_capability: "inspector.view",
       inspection_verification: "supabase_fresh_user_lookup",
     },
     routing: {
-      search_mode: searchMode,
+      search_mode: "auto",
       policy_version:
         automaticDecision?.policy_version || SEARCH_DECISION_POLICY_VERSION,
-      decision:
-        automaticDecision?.decision ||
-        (manualOverride ? "manual_override" : "not_evaluated"),
+      decision: automaticDecision?.decision || "not_evaluated",
       reason_codes: reasonCodes,
       policy_pack: automaticDecision?.policy_pack || "none",
       selected_route: "normal_chat",
@@ -530,8 +517,7 @@ export async function POST(req: Request) {
         headers: { "x-request-id": rid },
       });
     }
-    const searchControl = resolveServerSearchControlV1(body);
-    if (!searchControl) {
+    if (!resolveServerSearchControlV1(body)) {
       return new Response("Invalid search control", {
         status: 400,
         headers: {
@@ -560,33 +546,10 @@ export async function POST(req: Request) {
         headers: { "x-request-id": rid },
       });
     }
-    const manualOverride =
-      searchControl.effective_mode === "manual_override";
     const permissionRole = normalizePermissionRole(auth?.role);
     const automaticSearchAuthorized = Boolean(
       auth && capabilityAllowsRole("web_search.use", permissionRole),
     );
-    if (manualOverride) {
-      if (
-        !auth ||
-        !capabilityAllowsRole("web_search.override", permissionRole)
-      ) {
-        return new Response("capability required", {
-          status: 403,
-          headers: {
-            "x-request-id": rid,
-            "X-VS-Search-Authority": SERVER_SEARCH_AUTHORITY_VERSION,
-          },
-        });
-      }
-      recordManualSearchOverrideV1({
-        actorUserId: userId,
-        requestId: rid,
-        route: "normal_chat",
-        invocation: null,
-      });
-    }
-
     const voiceTurn = voiceTurnIdFromRequest(req);
     if (voiceTurn.supplied && !voiceTurn.value) {
       return new Response("invalid_voice_turn_id", {
@@ -604,7 +567,9 @@ export async function POST(req: Request) {
     const isVoiceRequest = Boolean(voiceTurn.value || voiceSession.value);
     const rawVoiceLanguage = String(
       req.headers.get(VOICE_LANGUAGE_HEADER) || "",
-    ).trim().toLowerCase();
+    )
+      .trim()
+      .toLowerCase();
     const responseLanguage = rawVoiceLanguage
       ? normalizeVoiceLanguage(rawVoiceLanguage)
       : "auto";
@@ -637,7 +602,7 @@ export async function POST(req: Request) {
       "normal_chat"
     > | null = null;
     let automaticFallbackToChat = false;
-    if (!manualOverride && automaticSearchAuthorized) {
+    if (automaticSearchAuthorized) {
       const searchResult = await runServerSearchPlan(
         req,
         rid,
@@ -714,8 +679,7 @@ export async function POST(req: Request) {
         ...(authorization ? { authorization } : {}),
         ...(automaticSearchAuthorized
           ? {
-              "x-vs-web-search-authorization":
-                "supabase_fresh_web_search_v1",
+              "x-vs-web-search-authorization": "supabase_fresh_web_search_v1",
             }
           : {}),
         ...voiceTurnHeaders(voiceTurn.value),
@@ -786,8 +750,6 @@ export async function POST(req: Request) {
       ? responseTraceHeadersV2(
           ordinaryResponseTraceV2({
             rid,
-            searchMode: searchControl.effective_mode,
-            manualOverride,
             automaticDecision,
             attemptedRoute: automaticAttemptedRoute,
             fallbackToChat: automaticFallbackToChat,
@@ -809,15 +771,11 @@ export async function POST(req: Request) {
         ...(answerId ? { "X-VS-Answer-Id": answerId } : {}),
         ...(timingsHeader ? { "X-VS-Response-Timings": timingsHeader } : {}),
         ...traceHeaders,
-        "X-VS-Search-Authority":
-          !manualOverride && automaticDecision
-            ? "seebx_search_plan_v1"
-            : SERVER_SEARCH_AUTHORITY_VERSION,
-        "X-VS-Search-Decision": manualOverride
-          ? "manual_override"
-          : automaticDecision?.decision || "no_search",
-        "X-VS-Search-Policy":
-          automaticDecision?.policy_pack || "none",
+        "X-VS-Search-Authority": automaticDecision
+          ? "seebx_search_plan_v1"
+          : SERVER_SEARCH_AUTHORITY_VERSION,
+        "X-VS-Search-Decision": automaticDecision?.decision || "no_search",
+        "X-VS-Search-Policy": automaticDecision?.policy_pack || "none",
         "X-VS-Search-Route": "normal_chat",
       },
     });
