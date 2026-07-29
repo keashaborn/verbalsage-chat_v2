@@ -17,6 +17,7 @@ import {
 } from "@/app/api/_trusted-web/searchInvocation";
 import { recordSearchDecisionShadowV1 } from "@/lib/searchDecisionV1";
 import { isAbortLike, requestDeadlineSignal } from "@/lib/requestDeadline";
+import { CURRENT_NEWS_ALLOWED_SOURCE_DOMAINS } from "@/lib/trustedSourceRegistryV1";
 import { WEB_SOURCE_PROVENANCE_CONTRACT } from "@/lib/webSourceProvenanceV2";
 import {
   CURRENT_NEWS_MAX_ADMITTED_SOURCES,
@@ -26,15 +27,9 @@ import {
 const CURRENT_NEWS_TIMEOUT_MS = 25_000;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ALLOWED_SOURCE_DOMAINS = new Set([
-  "openai.com",
-  "huggingface.co",
-  "apnews.com",
-  "reuters.com",
-  "arstechnica.com",
-  "wired.com",
-  "theverge.com",
-]);
+const ALLOWED_SOURCE_DOMAINS = new Set(
+  CURRENT_NEWS_ALLOWED_SOURCE_DOMAINS,
+);
 const ERROR_RESPONSE_HEADERS = {
   "Content-Type": "text/plain; charset=utf-8",
   "Cache-Control": "private, no-store, max-age=0, must-revalidate",

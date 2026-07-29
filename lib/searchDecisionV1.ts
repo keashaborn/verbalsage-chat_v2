@@ -1,5 +1,5 @@
 export const SEARCH_PLAN_CONTRACT_VERSION = "search_plan_v1";
-export const SEARCH_DECISION_POLICY_VERSION = "search_decision_v1_3";
+export const SEARCH_DECISION_POLICY_VERSION = "search_decision_v1_4";
 
 export type SearchDecisionPolicyVersionV1 =
   `search_decision_v1_${number}`;
@@ -15,6 +15,8 @@ export type SearchPolicyPackV1 =
   | "general"
   | "current_news"
   | "health"
+  | "nutrition"
+  | "exercise"
   | "software_security"
   | "legal_financial";
 
@@ -60,6 +62,8 @@ const SEARCH_POLICY_PACKS = new Set<SearchPolicyPackV1>([
   "general",
   "current_news",
   "health",
+  "nutrition",
+  "exercise",
   "software_security",
   "legal_financial",
 ]);
@@ -186,12 +190,20 @@ const STRONG_FRESHNESS_PATTERNS = [
   /\bjust happened\b/,
   /\bbreaking (?:news|story|update)\b/,
   /\bcurrent news\b/,
-  /\bnews (?:about|on)\b/,
+  /\bnews (?:about|on|in|from)\b/,
+  /\b(?:biggest|top|major)\s+(?:news|headline|story|stories)\b/,
+  /\b(?:top|major)\s+headlines?\b/,
   /\bany (?:new|recent|current) (?:news|updates?)\b/,
   /\bwhat updates? (?:are there )?(?:about|on)\b/,
   /\bupdates? (?:about|on)\b/,
   /\bis (?:this|that) still (?:true|accurate|current)\b/,
   /\bup[- ]to[- ]date\b/,
+];
+
+const GENERAL_CURRENT_NEWS_PATTERNS = [
+  /\bnews (?:about|on|in|from)\b/,
+  /\b(?:biggest|top|major)\s+(?:news|headline|story|stories)\b/,
+  /\b(?:top|major)\s+headlines?\b/,
 ];
 
 const WEAK_FRESHNESS_PATTERNS = [
@@ -248,6 +260,13 @@ const EVIDENCE_PATTERNS = [
   /\bfind (?:a |the )?(?:study|studies|paper|papers)\b/,
 ];
 
+const REFERENCE_LOOKUP_PATTERNS = [
+  /\bofficial (?:source|guidance|documentation|docs|recommendations?)\b/,
+  /\bofficial\b[a-z0-9 ._-]{0,80}\b(?:guidance|documentation|docs|recommendations?)\b/,
+  /\b(?:documentation|docs|specification|standard|advisory)\b/,
+  /\b(?:guideline|guidelines)\b/,
+];
+
 const TRANSFORM_PATTERNS = [
   /\b(?:summarize|rewrite|edit|translate|proofread|reformat)\b[\s\S]*\b(?:the following|this text|below|above|provided|attached)\b/,
   /\b(?:the following|this text|text below|text above)\b[\s\S]*\b(?:summarize|rewrite|edit|translate|proofread|reformat)\b/,
@@ -264,6 +283,13 @@ const INTERNAL_CONTEXT_PATTERNS = [
 ];
 
 const HEALTH_TOPIC_PATTERNS = [
+  /\bhealth\b/,
+  /\bmedical\b/,
+  /\bmedicine\b/,
+  /\bpublic health\b/,
+  /\bdiseases?\b/,
+  /\binfections?\b/,
+  /\bvaccines?\b/,
   /\bmedications?\b/,
   /\bdrugs?\b/,
   /\bdos(?:e|age|ing)\b/,
@@ -284,6 +310,29 @@ const HEALTH_TOPIC_PATTERNS = [
   /\bliver\b/,
   /\bheart\b/,
   /\bblood pressure\b/,
+];
+
+const NUTRITION_TOPIC_PATTERNS = [
+  /\bnutrition\b/,
+  /\bdiet(?:ary)?\b/,
+  /\bfood composition\b/,
+  /\bprotein intake\b/,
+  /\benergy balance\b/,
+  /\bcalorie deficit\b/,
+  /\bmeal timing\b/,
+  /\bnutrient timing\b/,
+];
+
+const EXERCISE_TOPIC_PATTERNS = [
+  /\bexercise\b/,
+  /\btraining\b/,
+  /\bweightlifting\b/,
+  /\bweight lifting\b/,
+  /\bresistance training\b/,
+  /\bstrength training\b/,
+  /\bhypertrophy\b/,
+  /\btraining volume\b/,
+  /\btraining frequency\b/,
 ];
 
 const HEALTH_RISK_PATTERNS = [
@@ -354,12 +403,17 @@ function uniqueReasons(
 }
 
 function policyPackFor(value: string): SearchPolicyPackV1 {
-  if (matchesAny(value, HEALTH_TOPIC_PATTERNS)) return "health";
-  if (
-    matchesAny(value, SOFTWARE_SECURITY_PATTERNS) ||
-    matchesAny(value, TRUSTED_CURRENT_NEWS_ENTITY_PATTERNS)
-  ) {
+  if (matchesAny(value, TRUSTED_CURRENT_NEWS_ENTITY_PATTERNS)) {
     return "software_security";
+  }
+  if (matchesAny(value, NUTRITION_TOPIC_PATTERNS)) return "nutrition";
+  if (matchesAny(value, EXERCISE_TOPIC_PATTERNS)) return "exercise";
+  if (matchesAny(value, HEALTH_TOPIC_PATTERNS)) return "health";
+  if (matchesAny(value, SOFTWARE_SECURITY_PATTERNS)) {
+    return "software_security";
+  }
+  if (matchesAny(value, GENERAL_CURRENT_NEWS_PATTERNS)) {
+    return "current_news";
   }
   if (matchesAny(value, LEGAL_FINANCIAL_PATTERNS)) {
     return "legal_financial";
@@ -429,6 +483,10 @@ export function decideSearchV1(input: string): SearchDecisionV1 {
     value,
     TRUSTED_CURRENT_NEWS_ENTITY_PATTERNS,
   );
+  const generalCurrentNewsScope = matchesAny(
+    value,
+    GENERAL_CURRENT_NEWS_PATTERNS,
+  );
   if (matchesAny(value, SPECIFIC_SOURCE_PATTERNS)) {
     return decisionV1(
       "live",
@@ -468,7 +526,9 @@ export function decideSearchV1(input: string): SearchDecisionV1 {
         ...(explicitWeb ? (["explicit_web_request"] as const) : []),
         ...(trustedCurrentNewsScope
           ? (["trusted_current_news_scope"] as const)
-          : []),
+          : generalCurrentNewsScope && policyPack === "current_news"
+            ? (["general_current_news_scope"] as const)
+            : []),
       ],
       policyPack,
       strongFreshness ? "high" : "medium",
@@ -477,19 +537,35 @@ export function decideSearchV1(input: string): SearchDecisionV1 {
 
   if (explicitWeb) {
     return decisionV1(
-      trustedCurrentNewsScope ? "live" : "indexed",
-      [
-        "explicit_web_request",
-        ...(trustedCurrentNewsScope
-          ? (["trusted_current_news_scope"] as const)
-          : []),
-      ],
+      policyPack === "current_news" ||
+        policyPack === "health" ||
+        policyPack === "nutrition" ||
+        policyPack === "exercise" ||
+        policyPack === "software_security"
+        ? "live"
+        : "indexed",
+      ["explicit_web_request"],
       policyPack,
       "high",
     );
   }
 
   const evidenceRequested = matchesAny(value, EVIDENCE_PATTERNS);
+  const referenceLookup = matchesAny(value, REFERENCE_LOOKUP_PATTERNS);
+  if (
+    referenceLookup &&
+    (policyPack === "health" ||
+      policyPack === "nutrition" ||
+      policyPack === "exercise" ||
+      policyPack === "software_security")
+  ) {
+    return decisionV1(
+      "live",
+      ["evidence_requested"],
+      policyPack,
+      "high",
+    );
+  }
   const highStakesHealth =
     matchesAny(value, HEALTH_TOPIC_PATTERNS) &&
     matchesAny(value, HEALTH_RISK_PATTERNS);
@@ -534,13 +610,27 @@ export function selectAutomaticSearchRouteV1(
   ) {
     return "normal_chat";
   }
-  if (decision.policy_pack === "health") return "trusted_health";
+  if (
+    decision.policy_pack === "health" ||
+    decision.policy_pack === "nutrition" ||
+    decision.policy_pack === "exercise"
+  ) {
+    return "trusted_health";
+  }
   if (
     decision.reason_codes.includes("trusted_current_news_scope") &&
     (decision.reason_codes.includes("freshness_required") ||
       decision.reason_codes.includes("explicit_web_request"))
   ) {
     return "current_news";
+  }
+  if (
+    decision.policy_pack === "software_security" &&
+    (decision.reason_codes.includes("explicit_web_request") ||
+      decision.reason_codes.includes("evidence_requested") ||
+      decision.reason_codes.includes("high_stakes_verification"))
+  ) {
+    return "trusted_health";
   }
   if (
     (decision.policy_pack === "current_news" ||

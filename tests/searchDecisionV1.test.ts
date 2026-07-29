@@ -60,6 +60,42 @@ const cases = [
     policyPack: "software_security",
   },
   {
+    input: "What's the biggest news in Japan right now?",
+    decision: "live",
+    reason: "freshness_required",
+    policyPack: "current_news",
+  },
+  {
+    input: "Any current medical news?",
+    decision: "live",
+    reason: "freshness_required",
+    policyPack: "health",
+  },
+  {
+    input: "What does the evidence say about training frequency?",
+    decision: "indexed",
+    reason: "evidence_requested",
+    policyPack: "exercise",
+  },
+  {
+    input: "Cite evidence about protein intake.",
+    decision: "indexed",
+    reason: "evidence_requested",
+    policyPack: "nutrition",
+  },
+  {
+    input: "What do official dietary guidelines recommend for protein?",
+    decision: "live",
+    reason: "evidence_requested",
+    policyPack: "nutrition",
+  },
+  {
+    input: "Search official guidance on resistance training volume.",
+    decision: "live",
+    reason: "evidence_requested",
+    policyPack: "exercise",
+  },
+  {
     input: "Search the web for the history of monism.",
     decision: "indexed",
     reason: "explicit_web_request",
@@ -200,11 +236,9 @@ test("uses bounded budgets for every decision class", () => {
   });
 });
 
-test("routes trusted current-news entities for fresh or explicit web requests", () => {
+test("routes named current-news entities when freshness is present", () => {
   const prompts = [
     "What happened with OpenAI today?",
-    "Check the web for that information about open eye and Hugging Face.",
-    "Search the web for OpenAI documentation.",
   ];
   for (const input of prompts) {
     const decision = decideSearchV1(input);
@@ -217,18 +251,47 @@ test("routes trusted current-news entities for fresh or explicit web requests", 
   }
 });
 
+test("routes official software references through trusted evidence", () => {
+  const prompts = [
+    "Search the web for OpenAI documentation.",
+    "Check the web for that information about open eye and Hugging Face.",
+  ];
+  for (const input of prompts) {
+    const decision = decideSearchV1(input);
+    assert.equal(decision.decision, "live");
+    assert.deepEqual(decision.reason_codes, ["explicit_web_request"]);
+    assert.equal(decision.policy_pack, "software_security");
+    assert.equal(selectAutomaticSearchRouteV1(decision), "trusted_health");
+  }
+});
+
 test("selects only server-supported automatic search routes", () => {
   const cases = [
     ["What is the capital of France?", "normal_chat"],
     ["What just happened with OpenAI?", "current_news"],
-    ["Search the web for OpenAI documentation.", "current_news"],
+    ["Search the web for OpenAI documentation.", "trusted_health"],
+    ["What's the biggest news in Japan right now?", "current_news"],
+    ["Any current medical news?", "trusted_health"],
+    [
+      "What does the evidence say about training frequency?",
+      "trusted_health",
+    ],
+    ["Cite evidence about protein intake.", "trusted_health"],
+    [
+      "What do official dietary guidelines recommend for protein?",
+      "trusted_health",
+    ],
+    [
+      "Search official guidance on resistance training volume.",
+      "trusted_health",
+    ],
     ["Search the web for the history of monism.", "normal_chat"],
     ["Is creatine safe with kidney disease? Cite studies.", "trusted_health"],
     ["Deep research the long-term evidence for creatine.", "normal_chat"],
     ["Deep research OpenAI safety.", "normal_chat"],
     ["What is today's weather?", "normal_chat"],
     ["Summarize https://openai.com/research/example", "normal_chat"],
-    ["Cite sources for this OpenAI security claim.", "normal_chat"],
+    ["Cite sources for this OpenAI security claim.", "trusted_health"],
   ] as const;
   for (const [input, expectedRoute] of cases) {
     const route = selectAutomaticSearchRouteV1(decideSearchV1(input));

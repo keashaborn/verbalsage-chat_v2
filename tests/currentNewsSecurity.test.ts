@@ -35,10 +35,13 @@ test("current news uses internal service boundary and no memory route", () => {
 
 test("current news BFF revalidates returned source domains", () => {
   const route = source("app/api/current-news/route.ts");
+  const registry = source("lib/trustedSourceRegistryV1.ts");
   assert.match(route, /ALLOWED_SOURCE_DOMAINS/);
-  assert.match(route, /openai\.com/);
-  assert.match(route, /huggingface\.co/);
-  assert.match(route, /apnews\.com/);
+  assert.match(route, /CURRENT_NEWS_ALLOWED_SOURCE_DOMAINS/);
+  assert.match(registry, /openai\.com/);
+  assert.match(registry, /huggingface\.co/);
+  assert.match(registry, /apnews\.com/);
+  assert.match(registry, /nhk\.or\.jp/);
   assert.match(route, /parsed\.protocol !== "https:"/);
   assert.match(route, /parsed\.username/);
   assert.match(route, /parsed\.port/);

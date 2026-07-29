@@ -17,6 +17,7 @@ import {
 } from "@/app/api/_trusted-web/searchInvocation";
 import { recordSearchDecisionShadowV1 } from "@/lib/searchDecisionV1";
 import { isAbortLike, requestDeadlineSignal } from "@/lib/requestDeadline";
+import { TRUSTED_EVIDENCE_ALLOWED_SOURCE_DOMAINS } from "@/lib/trustedSourceRegistryV1";
 import { WEB_SOURCE_PROVENANCE_CONTRACT } from "@/lib/webSourceProvenanceV2";
 import {
   TRUSTED_HEALTH_MAX_ADMITTED_SOURCES,
@@ -27,17 +28,9 @@ const TRUSTED_WEB_TIMEOUT_MS = 55_000;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FALLBACK_TO_CHAT_STATUS = 200;
-const ALLOWED_SOURCE_DOMAINS = new Set([
-  "ods.od.nih.gov",
-  "medlineplus.gov",
-  "dietaryguidelines.gov",
-  "realfood.gov",
-  "odphp.health.gov",
-  "fda.gov",
-  "pubmed.ncbi.nlm.nih.gov",
-  "pmc.ncbi.nlm.nih.gov",
-  "bacb.com",
-]);
+const ALLOWED_SOURCE_DOMAINS = new Set(
+  TRUSTED_EVIDENCE_ALLOWED_SOURCE_DOMAINS,
+);
 const ERROR_RESPONSE_HEADERS = {
   "Content-Type": "text/plain; charset=utf-8",
   "Cache-Control": "private, no-store, max-age=0, must-revalidate",

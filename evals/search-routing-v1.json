@@ -1,6 +1,6 @@
 {
   "schema_version": "search_routing_eval_v1",
-  "policy_version": "search_decision_v1_2",
+  "policy_version": "search_decision_v1_4",
   "data_classification": "synthetic_no_user_data",
   "thresholds": {
     "overall_min_accuracy": 0.95,
@@ -14,7 +14,12 @@
     "user_content_transform",
     "internal_context",
     "software_current_supported",
+    "software_reference_supported",
     "health_supported",
+    "medical_current_supported",
+    "nutrition_supported",
+    "exercise_supported",
+    "general_current_supported",
     "general_current_fail_closed",
     "legal_financial_fail_closed",
     "unsupported_research_fail_closed",
@@ -492,14 +497,62 @@
     },
     {
       "id": "software-current-010",
-      "category": "software_current_supported",
+      "category": "software_reference_supported",
       "prompt": "What if you check the web for that information about open eye and Hugging Face?",
       "hard_requirement": true,
       "expected": {
         "decision": "live",
         "policy_pack": "software_security",
-        "route": "current_news",
+        "route": "trusted_health",
         "required_reason": "explicit_web_request"
+      }
+    },
+    {
+      "id": "software-reference-001",
+      "category": "software_reference_supported",
+      "prompt": "Search the web for the official OpenAI API documentation.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "trusted_health",
+        "required_reason": "explicit_web_request"
+      }
+    },
+    {
+      "id": "software-reference-002",
+      "category": "software_reference_supported",
+      "prompt": "Cite sources for this OpenAI API authentication claim.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "software_security",
+        "route": "trusted_health",
+        "required_reason": "evidence_requested"
+      }
+    },
+    {
+      "id": "software-reference-003",
+      "category": "software_reference_supported",
+      "prompt": "What do the official Supabase docs say about authentication?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "trusted_health",
+        "required_reason": "evidence_requested"
+      }
+    },
+    {
+      "id": "software-reference-004",
+      "category": "software_reference_supported",
+      "prompt": "Use official OWASP guidance for this security question.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "software_security",
+        "route": "trusted_health",
+        "required_reason": "evidence_requested"
       }
     },
     {
@@ -544,10 +597,250 @@
       "prompt": "Search the web for evidence about vitamin D dosage.",
       "hard_requirement": false,
       "expected": {
-        "decision": "indexed",
+        "decision": "live",
         "policy_pack": "health",
         "route": "trusted_health",
         "required_reason": "explicit_web_request"
+      }
+    },
+    {
+      "id": "medical-current-001",
+      "category": "medical_current_supported",
+      "prompt": "Any current medical news?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "health",
+        "route": "trusted_health",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "medical-current-002",
+      "category": "medical_current_supported",
+      "prompt": "What is the latest public health news?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "health",
+        "route": "trusted_health",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "medical-current-003",
+      "category": "medical_current_supported",
+      "prompt": "Is there any news about vaccine safety today?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "health",
+        "route": "trusted_health",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "medical-current-004",
+      "category": "medical_current_supported",
+      "prompt": "Any recent medical updates?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "health",
+        "route": "trusted_health",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "medical-current-005",
+      "category": "medical_current_supported",
+      "prompt": "What is the current news in medicine?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "health",
+        "route": "trusted_health",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "nutrition-001",
+      "category": "nutrition_supported",
+      "prompt": "Cite evidence about protein intake.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "nutrition",
+        "route": "trusted_health",
+        "required_reason": "evidence_requested"
+      }
+    },
+    {
+      "id": "nutrition-002",
+      "category": "nutrition_supported",
+      "prompt": "What do official dietary guidelines recommend for protein?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "nutrition",
+        "route": "trusted_health",
+        "required_reason": "evidence_requested"
+      }
+    },
+    {
+      "id": "nutrition-003",
+      "category": "nutrition_supported",
+      "prompt": "Search official nutrition guidance for meal timing.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "nutrition",
+        "route": "trusted_health",
+        "required_reason": "evidence_requested"
+      }
+    },
+    {
+      "id": "nutrition-004",
+      "category": "nutrition_supported",
+      "prompt": "What does the evidence say about energy balance?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "nutrition",
+        "route": "trusted_health",
+        "required_reason": "evidence_requested"
+      }
+    },
+    {
+      "id": "nutrition-005",
+      "category": "nutrition_supported",
+      "prompt": "What are the current nutrition guidelines?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "nutrition",
+        "route": "trusted_health",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "exercise-001",
+      "category": "exercise_supported",
+      "prompt": "What does the evidence say about training frequency?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "exercise",
+        "route": "trusted_health",
+        "required_reason": "evidence_requested"
+      }
+    },
+    {
+      "id": "exercise-002",
+      "category": "exercise_supported",
+      "prompt": "Search official guidance on resistance training volume.",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "exercise",
+        "route": "trusted_health",
+        "required_reason": "evidence_requested"
+      }
+    },
+    {
+      "id": "exercise-003",
+      "category": "exercise_supported",
+      "prompt": "Cite research on hypertrophy training volume.",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "indexed",
+        "policy_pack": "exercise",
+        "route": "trusted_health",
+        "required_reason": "evidence_requested"
+      }
+    },
+    {
+      "id": "exercise-004",
+      "category": "exercise_supported",
+      "prompt": "What do official exercise guidelines recommend?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "exercise",
+        "route": "trusted_health",
+        "required_reason": "evidence_requested"
+      }
+    },
+    {
+      "id": "exercise-005",
+      "category": "exercise_supported",
+      "prompt": "What are the current strength training recommendations?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "exercise",
+        "route": "trusted_health",
+        "required_reason": "freshness_required"
+      }
+    },
+    {
+      "id": "general-supported-001",
+      "category": "general_current_supported",
+      "prompt": "What's the biggest news in Japan right now?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "current_news",
+        "route": "current_news",
+        "required_reason": "general_current_news_scope"
+      }
+    },
+    {
+      "id": "general-supported-002",
+      "category": "general_current_supported",
+      "prompt": "Is there any news in Japan today?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "current_news",
+        "route": "current_news",
+        "required_reason": "general_current_news_scope"
+      }
+    },
+    {
+      "id": "general-supported-003",
+      "category": "general_current_supported",
+      "prompt": "Is there any news about the US and Iran today?",
+      "hard_requirement": true,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "current_news",
+        "route": "current_news",
+        "required_reason": "general_current_news_scope"
+      }
+    },
+    {
+      "id": "general-supported-004",
+      "category": "general_current_supported",
+      "prompt": "What are the top headlines from Japan?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "current_news",
+        "route": "current_news",
+        "required_reason": "general_current_news_scope"
+      }
+    },
+    {
+      "id": "general-supported-005",
+      "category": "general_current_supported",
+      "prompt": "What is the biggest story in Europe right now?",
+      "hard_requirement": false,
+      "expected": {
+        "decision": "live",
+        "policy_pack": "current_news",
+        "route": "current_news",
+        "required_reason": "general_current_news_scope"
       }
     },
     {

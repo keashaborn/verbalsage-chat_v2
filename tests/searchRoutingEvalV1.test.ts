@@ -22,7 +22,7 @@ test("versioned synthetic routing corpus passes every promotion gate", async () 
   const report = evaluateSearchRoutingV1(corpus);
 
   assert.equal(corpus.data_classification, "synthetic_no_user_data");
-  assert.equal(corpus.cases.length, 78);
+  assert.equal(corpus.cases.length, 102);
   assert.equal(report.passed, true);
   assert.equal(report.overall_accuracy, 1);
   assert.equal(report.hard_requirement_accuracy, 1);

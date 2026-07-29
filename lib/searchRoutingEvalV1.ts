@@ -90,6 +90,8 @@ const POLICY_PACKS = new Set<SearchPolicyPackV1>([
   "general",
   "current_news",
   "health",
+  "nutrition",
+  "exercise",
   "software_security",
   "legal_financial",
 ]);
@@ -104,6 +106,7 @@ const REASONS = new Set<SearchDecisionReasonV1>([
   "explicit_research",
   "explicit_web_request",
   "trusted_current_news_scope",
+  "general_current_news_scope",
   "freshness_required",
   "evidence_requested",
   "high_stakes_verification",
@@ -314,7 +317,12 @@ function structuralViolationsForCase(
   }
   if (
     route === "trusted_health" &&
-    (decision.policy_pack !== "health" ||
+    (![
+      "health",
+      "nutrition",
+      "exercise",
+      "software_security",
+    ].includes(decision.policy_pack) ||
       decision.decision === "no_search" ||
       decision.decision === "research")
   ) {
