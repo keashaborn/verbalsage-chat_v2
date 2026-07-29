@@ -134,6 +134,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<"login" | "request">("login");
   const [busy, setBusy] = useState(false);
 
+  const [accessRequestSubmitted, setAccessRequestSubmitted] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -370,9 +371,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
               : "The request could not be submitted. Try again.",
         );
       }
-      setMsg(
-        "Request received. If access is approved, an invitation will be sent by email.",
-      );
+      setMsg("");
+      setAccessRequestSubmitted(true);
       setFullName("");
       setRequestMessage("");
     } catch (e: any) {
@@ -543,6 +543,42 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 disabled={mfaBusy}
               >
                 Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : !session && accessRequestSubmitted ? (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border bg-background p-6 text-foreground shadow-xl">
+            <div className="mb-4 text-lg font-semibold">LifeSwitch</div>
+            <div
+              className="rounded-2xl border bg-muted/30 px-5 py-6 text-center"
+              role="status"
+            >
+              <div
+                className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-2xl text-emerald-700"
+                aria-hidden="true"
+              >
+                ✓
+              </div>
+              <h2 className="text-lg font-semibold">Request received</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Your request was sent to the LifeSwitch owner for review. If it
+                is approved, an invitation will be sent by email. Delivery may
+                take a few minutes.
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                You may close this page.
+              </p>
+              <button
+                type="button"
+                className="mt-5 w-full rounded-xl bg-muted px-3 py-2 hover:bg-muted/60"
+                onClick={() => {
+                  setMode("login");
+                  setAccessRequestSubmitted(false);
+                }}
+              >
+                Return to log in
               </button>
             </div>
           </div>

@@ -85,6 +85,18 @@ test("all public entry points require Owner approval for new accounts", () => {
   assert.doesNotMatch(relationshipInvite, />Sign up</);
 });
 
+test("successful public access requests replace the form with confirmation", () => {
+  const gate = source("components/auth/AuthGate.tsx");
+
+  assert.match(gate, /setAccessRequestSubmitted\(true\)/);
+  assert.match(gate, /accessRequestSubmitted \?/);
+  assert.match(gate, /Request received/);
+  assert.match(gate, /sent to the LifeSwitch owner for review/);
+  assert.match(gate, /Delivery may\s+take a few minutes/);
+  assert.match(gate, /You may close this page/);
+  assert.match(gate, /Return to log in/);
+});
+
 test("access request directory requires a fresh Owner identity", () => {
   const route = source("app/api/admin/access-requests/route.ts");
 
