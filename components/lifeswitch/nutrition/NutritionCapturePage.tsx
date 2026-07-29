@@ -656,7 +656,7 @@ export default function NutritionCapturePage() {
                           </div>
                         </label>
 
-                        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                        <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:w-[21rem]">
                           <FoodQuantityControl
                             label={item.display_name}
                             value={selection}

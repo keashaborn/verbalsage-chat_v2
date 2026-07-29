@@ -104,7 +104,11 @@ export function FoodQuantityControl({
     : "min-w-0 rounded-md border bg-background px-3 py-2 text-sm";
 
   return (
-    <div className={`grid min-w-0 grid-cols-[6.5rem_minmax(0,1fr)] gap-2 ${compact ? "max-w-sm" : "w-full"}`}>
+    <div
+      className={`grid min-w-0 grid-cols-[6.5rem_minmax(0,1fr)] gap-2 ${
+        compact ? (unboxed ? "w-full" : "max-w-sm") : "w-full"
+      }`}
+    >
       <NumericInput
         className={controlClassName}
         value={value.quantity}
