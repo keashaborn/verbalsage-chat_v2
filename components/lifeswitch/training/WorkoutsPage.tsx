@@ -2,9 +2,14 @@
 
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
-import { ChevronUp, ChevronDown, Plus, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { NumericInput } from "@/components/lifeswitch/NumericInput";
-import { LifeSwitchToolPanel } from "@/components/lifeswitch/LifeSwitchToolPanel";
 
 type MyExerciseRow = {
   my_exercise_id: string;
@@ -161,6 +166,7 @@ export default function TrainingWorkoutsPage() {
   const [newRole, setNewRole] = React.useState<"strength" | "rehab">(
     "strength",
   );
+  const [newWorkoutOpen, setNewWorkoutOpen] = React.useState(false);
   const [q, setQ] = React.useState<string>("");
   const [catalogHits, setCatalogHits] = React.useState<ExerciseSearchHit[]>([]);
   const [catalogLoading, setCatalogLoading] = React.useState(false);
@@ -177,6 +183,11 @@ export default function TrainingWorkoutsPage() {
   const [browseGroup, setBrowseGroup] = React.useState("");
   const [openFamilyId, setOpenFamilyId] = React.useState("");
   const [myExerciseQuery, setMyExerciseQuery] = React.useState("");
+  const [newExerciseOpen, setNewExerciseOpen] = React.useState(false);
+  const [newExerciseName, setNewExerciseName] = React.useState("");
+  const [newExerciseRole, setNewExerciseRole] = React.useState<
+    "strength" | "rehab"
+  >("strength");
   const [addStatus, setAddStatus] = React.useState("");
   const [editingSelected, setEditingSelected] = React.useState(false);
   const [openExerciseIds, setOpenExerciseIds] = React.useState<
@@ -443,6 +454,7 @@ export default function TrainingWorkoutsPage() {
     )) as WorkoutTemplateRow;
 
     setNewName("");
+    setNewWorkoutOpen(false);
 
     const createdId = String(created?.workout_template_id || "").trim();
     if (createdId) {
@@ -631,6 +643,7 @@ export default function TrainingWorkoutsPage() {
     brand_name?: string | null;
     model_name?: string | null;
     matched_source?: string | null;
+    exercise_role?: "strength" | "rehab";
   }) {
     const qs = new URLSearchParams();
     qs.set("exercise_id", String(input.exercise_id || "").trim());
@@ -642,6 +655,8 @@ export default function TrainingWorkoutsPage() {
     if (input.model_name) qs.set("model_name", String(input.model_name));
     if (input.matched_source)
       qs.set("matched_source", String(input.matched_source));
+    if (input.exercise_role)
+      qs.set("exercise_role", input.exercise_role);
 
     const row = (await fetchJson(
       `/api/lifeswitch/training/my_exercises/upsert?${qs.toString()}`,
@@ -686,7 +701,7 @@ export default function TrainingWorkoutsPage() {
   async function createCustomAndAddToSelected() {
     if (!selected) return;
 
-    const name = q.trim();
+    const name = newExerciseName.trim();
     if (!name) return;
 
     setAddStatus("");
@@ -698,9 +713,13 @@ export default function TrainingWorkoutsPage() {
         kind: "strength",
         modality: "custom",
         matched_source: "custom",
+        exercise_role: newExerciseRole,
       });
 
       await addExerciseToSelected(row.exercise_id, row.display_name);
+      setNewExerciseName("");
+      setNewExerciseRole("strength");
+      setNewExerciseOpen(false);
       setAddStatus(
         `Created ${row.display_name} and added it to ${selected.name}.`,
       );
@@ -962,11 +981,11 @@ export default function TrainingWorkoutsPage() {
   }
 
   function renderSelectedWorkoutDetail() {
+    if (!selected) return null;
+
     return (
-      <main className="grid min-w-0 gap-4">
-        {selected ? (
-          <>
-            <section className="min-w-0 rounded-xl border p-4">
+      <main className="grid min-w-0 gap-6">
+            <section className="min-w-0 border-b border-border/50 pb-6">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm font-semibold">Selected workout</div>
@@ -978,20 +997,12 @@ export default function TrainingWorkoutsPage() {
                       {selected.notes}
                     </div>
                   ) : null}
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    Counts as{" "}
-                    {selected.workout_role === "rehab"
-                      ? "rehab / prehab"
-                      : selected.workout_role === "strength"
-                        ? "strength training"
-                        : "not classified"}
-                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    className="rounded-xl border px-3 py-1.5 text-sm hover:bg-muted/30 disabled:opacity-50"
+                    className="rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-50"
                     onClick={() => void createShareLink()}
                     disabled={!selected}
                   >
@@ -1000,7 +1011,7 @@ export default function TrainingWorkoutsPage() {
 
                   <button
                     type="button"
-                    className="rounded-xl border px-3 py-1.5 text-sm hover:bg-muted/30"
+                    className="rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                     onClick={() => setEditingSelected((v) => !v)}
                   >
                     {editingSelected ? "Done" : "Edit"}
@@ -1008,7 +1019,7 @@ export default function TrainingWorkoutsPage() {
 
                   <button
                     type="button"
-                    className="rounded-xl border px-3 py-1.5 text-sm font-medium text-primary hover:bg-muted/30"
+                    className="rounded-lg bg-muted px-2.5 py-1.5 text-sm font-medium hover:bg-muted/80"
                     onClick={clearSelectedWorkout}
                   >
                     Close
@@ -1038,12 +1049,12 @@ export default function TrainingWorkoutsPage() {
                     <div className="text-xs text-muted-foreground">
                       Workout type
                     </div>
-                    <div className="mt-1 inline-flex rounded-xl border p-1">
+                    <div className="mt-1 flex items-center gap-4">
                       {(["strength", "rehab"] as const).map((role) => (
                         <button
                           key={role}
                           type="button"
-                          className={`rounded-lg px-3 py-1.5 text-sm ${selected.workout_role === role ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/30"}`}
+                          className={`border-b-2 py-1 text-sm font-medium ${selected.workout_role === role ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
                           onClick={() => void setWorkoutRole(selected, role)}
                         >
                           {role === "strength" ? "Strength" : "Rehab / prehab"}
@@ -1080,7 +1091,7 @@ export default function TrainingWorkoutsPage() {
               ) : null}
             </section>
 
-            <section className="min-w-0 rounded-xl border p-4">
+            <section className="min-w-0 border-b border-border/50 pb-6">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <div className="text-sm font-semibold">
@@ -1099,7 +1110,7 @@ export default function TrainingWorkoutsPage() {
               </div>
 
               {templateExercises.length ? (
-                <div className="mt-3 space-y-2">
+                <div className="mt-3 divide-y divide-border/50 border-y border-border/50">
                   {templateExercises.map((e) => {
                     const meta = myExercisesById.get(e.exercise_id);
                     const title =
@@ -1119,9 +1130,9 @@ export default function TrainingWorkoutsPage() {
                     return (
                       <div
                         key={e.workout_template_exercise_id}
-                        className="min-w-0 rounded-xl border p-3"
+                        className="min-w-0 py-3"
                       >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-start justify-between gap-3">
                           <button
                             type="button"
                             className="min-w-0 flex-1 text-left"
@@ -1134,11 +1145,11 @@ export default function TrainingWorkoutsPage() {
                                 <ChevronDown className="h-4 w-4 shrink-0" />
                               )}
                               <div className="min-w-0">
-                                <div className="truncate text-sm font-semibold text-blue-400">
+                                <div className="truncate text-sm font-semibold text-foreground">
                                   {title}
                                 </div>
                                 {meta?.exercise_role === "rehab" ? (
-                                  <span className="mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                  <span className="mt-1 inline-flex text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
                                     Rehab · not a strength session
                                   </span>
                                 ) : null}
@@ -1187,7 +1198,7 @@ export default function TrainingWorkoutsPage() {
                             <div className="relative">
                               <button
                                 type="button"
-                                className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/20 active:bg-muted/30"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground active:bg-muted/70"
                                 onClick={() =>
                                   setOpenSelectedExerciseActionsId((prev) =>
                                     prev === e.workout_template_exercise_id
@@ -1199,15 +1210,10 @@ export default function TrainingWorkoutsPage() {
                                   openSelectedExerciseActionsId ===
                                   e.workout_template_exercise_id
                                 }
+                                aria-label={`Actions for ${title}`}
                                 title="Exercise actions"
                               >
-                                Actions
-                                {openSelectedExerciseActionsId ===
-                                e.workout_template_exercise_id ? (
-                                  <ChevronUp className="h-3 w-3" />
-                                ) : (
-                                  <ChevronDown className="h-3 w-3" />
-                                )}
+                                <MoreHorizontal className="h-4 w-4" />
                               </button>
 
                               {openSelectedExerciseActionsId ===
@@ -1421,7 +1427,7 @@ export default function TrainingWorkoutsPage() {
                 </div>
               )}
             </section>
-            <section className="min-w-0 rounded-xl border p-4">
+            <section className="min-w-0">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold">
@@ -1434,7 +1440,7 @@ export default function TrainingWorkoutsPage() {
                 </div>
                 <button
                   type="button"
-                  className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
+                  className="rounded-lg bg-muted px-3 py-2 text-sm font-medium hover:bg-muted/80"
                   onClick={() => setExerciseLibraryOpen((open) => !open)}
                   aria-expanded={exerciseLibraryOpen}
                 >
@@ -1447,7 +1453,7 @@ export default function TrainingWorkoutsPage() {
               {exerciseLibraryOpen ? (
                 <div className="mt-4">
                   <div
-                    className="grid grid-cols-3 rounded-xl border p-1"
+                    className="grid grid-cols-3 rounded-xl bg-muted/50 p-1"
                     role="tablist"
                     aria-label="Choose how to find an exercise"
                   >
@@ -1540,20 +1546,18 @@ export default function TrainingWorkoutsPage() {
                       ) : null}
 
                       {!browseLoading && !browseStatus ? (
-                        <div className="mt-3 space-y-2">
+                        <div className="mt-3 divide-y divide-border/50 border-y border-border/50">
                           {filteredBrowseFamilies.map((family) => {
                             const open =
                               openFamilyId === family.exercise_family_id;
                             return (
                               <div
                                 key={family.exercise_family_id}
-                                className={`rounded-xl border ${
-                                  open ? "bg-muted/20" : ""
-                                }`}
+                                className={open ? "bg-muted/10" : ""}
                               >
                                 <button
                                   type="button"
-                                  className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left hover:bg-muted/10"
+                                  className="flex w-full items-start justify-between gap-3 py-3 text-left hover:bg-muted/10"
                                   onClick={() =>
                                     setOpenFamilyId(
                                       open ? "" : family.exercise_family_id,
@@ -1586,7 +1590,7 @@ export default function TrainingWorkoutsPage() {
                                 </button>
 
                                 {open ? (
-                                  <div className="divide-y divide-muted/20 border-t px-3">
+                                  <div className="ml-4 divide-y divide-border/40 border-t border-border/40">
                                     {family.variants.map((variant) => {
                                       const alreadyIn = templateExercises.some(
                                         (exercise) =>
@@ -1645,8 +1649,8 @@ export default function TrainingWorkoutsPage() {
                             );
                           })}
 
-                          {!filteredBrowseFamilies.length ? (
-                            <div className="rounded-xl border p-3 text-sm text-muted-foreground">
+                      {!filteredBrowseFamilies.length ? (
+                        <div className="py-3 text-sm text-muted-foreground">
                               No movement family matches those filters.
                             </div>
                           ) : null}
@@ -1743,25 +1747,6 @@ export default function TrainingWorkoutsPage() {
                             </div>
                           ) : null}
 
-                          <div className="mt-4 rounded-xl border p-3">
-                            <div className="text-sm font-medium">
-                              Can’t find the exact exercise?
-                            </div>
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              Create “{q.trim()}” as a custom exercise and add
-                              it to this workout.
-                            </div>
-                            <button
-                              type="button"
-                              className="mt-3 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
-                              onClick={() =>
-                                void createCustomAndAddToSelected()
-                              }
-                              disabled={!q.trim()}
-                            >
-                              Create custom exercise
-                            </button>
-                          </div>
                         </div>
                       ) : (
                         <div className="mt-3 rounded-xl border p-3 text-sm text-muted-foreground">
@@ -1773,10 +1758,84 @@ export default function TrainingWorkoutsPage() {
 
                   {exercisePickerTab === "mine" ? (
                     <div className="mt-4">
-                      <div className="text-sm font-semibold">My exercises</div>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-semibold">My exercises</div>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-300"
+                          onClick={() => {
+                            setNewExerciseOpen((open) => !open);
+                            setAddStatus("");
+                          }}
+                          aria-expanded={newExerciseOpen}
+                        >
+                          {newExerciseOpen ? null : <Plus className="h-4 w-4" />}
+                          {newExerciseOpen ? "Cancel" : "Add exercise"}
+                        </button>
+                      </div>
                       <div className="mt-1 text-xs text-muted-foreground">
                         Exercises you have saved or created previously.
                       </div>
+
+                      {newExerciseOpen ? (
+                        <div className="mt-3 border-y border-border/50 py-3">
+                          <input
+                            className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                            value={newExerciseName}
+                            onChange={(event) =>
+                              setNewExerciseName(event.target.value)
+                            }
+                            placeholder="Exercise name"
+                            autoFocus
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                void createCustomAndAddToSelected();
+                              }
+                            }}
+                          />
+                          <div className="mt-3 flex flex-wrap items-center gap-3">
+                            <span className="text-xs text-muted-foreground">
+                              Type
+                            </span>
+                            <button
+                              type="button"
+                              className={`border-b-2 py-1 text-[11px] font-semibold tracking-wide ${
+                                newExerciseRole === "rehab"
+                                  ? "border-foreground text-muted-foreground"
+                                  : "border-blue-600 text-blue-700 dark:text-blue-300"
+                              }`}
+                              onClick={() =>
+                                setNewExerciseRole((role) =>
+                                  role === "strength" ? "rehab" : "strength",
+                                )
+                              }
+                              aria-label="Change exercise type"
+                            >
+                              {newExerciseRole.toUpperCase()}
+                            </button>
+                            <span className="text-xs text-muted-foreground">
+                              Click the type to change it
+                            </span>
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                            <span className="text-xs text-muted-foreground">
+                              Sets, weight, reps, and set type are configured
+                              after it is added.
+                            </span>
+                            <button
+                              type="button"
+                              className="rounded-lg border border-blue-500/25 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-500/20 disabled:opacity-50 dark:text-blue-300"
+                              onClick={() =>
+                                void createCustomAndAddToSelected()
+                              }
+                              disabled={!newExerciseName.trim()}
+                            >
+                              Create and add
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+
                       <input
                         className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm"
                         value={myExerciseQuery}
@@ -1843,7 +1902,7 @@ export default function TrainingWorkoutsPage() {
 
                   {addStatus ? (
                     <div
-                      className="mt-4 rounded-xl border bg-muted/20 px-3 py-2 text-sm"
+                      className="mt-4 rounded-xl bg-muted/30 px-3 py-2 text-sm"
                       aria-live="polite"
                     >
                       {addStatus}
@@ -1851,52 +1910,73 @@ export default function TrainingWorkoutsPage() {
                   ) : null}
                 </div>
               ) : (
-                <div className="mt-4 rounded-xl border p-3 text-sm text-muted-foreground">
+                <div className="mt-4 rounded-xl bg-muted/20 p-3 text-sm text-muted-foreground">
                   Open the exercise library when you want to add or compare
                   movements. Your existing workout and logged sessions are not
                   changed by browsing.
                 </div>
               )}
             </section>
-          </>
-        ) : (
-          <section className="rounded-xl border p-4">
-            <div className="text-sm text-muted-foreground">
-              Create or select a workout.
-            </div>
-          </section>
-        )}
       </main>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl overflow-x-hidden p-4">
-      <div className="grid min-w-0 gap-4">
-        {/* Left: create + workout list */}
-        <aside className="min-w-0 rounded-xl border p-4">
-          <LifeSwitchToolPanel
-            title="New workout"
-            subtitle="Create a reusable workout template."
-            storageKey="lifeswitch:training:workout-actions"
-            defaultOpen={templates.length === 0}
-          >
-            <div className="grid gap-2">
+    <div className="w-full min-w-0 overflow-x-hidden">
+      <div className="grid min-w-0 gap-6">
+        <section aria-labelledby="workout-list-heading">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 id="workout-list-heading" className="text-lg font-semibold">
+                Your workouts
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Select a workout to review its exercises and defaults.
+              </p>
+            </div>
+            {templates.length > 0 || newWorkoutOpen ? (
+              <button
+                type="button"
+                className={[
+                  "inline-flex h-9 items-center justify-center gap-2 self-start rounded-lg border px-3 text-sm font-medium transition-colors",
+                  newWorkoutOpen
+                    ? "border-border/60 bg-muted/70 text-foreground hover:bg-muted"
+                    : "border-blue-500/25 bg-blue-500/10 text-blue-700 hover:bg-blue-500/20 dark:text-blue-300",
+                ].join(" ")}
+                onClick={() => setNewWorkoutOpen((open) => !open)}
+                aria-expanded={newWorkoutOpen}
+              >
+                {newWorkoutOpen ? null : <Plus className="h-4 w-4" />}
+                {newWorkoutOpen ? "Cancel" : "New workout"}
+              </button>
+            ) : null}
+          </div>
+
+          {newWorkoutOpen ? (
+            <div className="mt-4 border-y border-border/50 py-4">
+              <div className="mb-4">
+                <div className="text-sm font-semibold">Create a workout</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Name the reusable template and choose its workout type.
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,0.45fr)_auto] sm:items-end">
               <input
-                className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                className="h-9 w-full rounded-lg border bg-background px-3 text-sm"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="New workout name"
+                aria-label="New workout name"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void createTemplate();
                 }}
               />
               <label>
-                <div className="mb-1 text-xs text-muted-foreground">
-                  This workout counts as
+                <div className="mb-1 text-xs font-medium text-muted-foreground">
+                  Workout type
                 </div>
                 <select
-                  className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+                  className="h-9 w-full rounded-lg border bg-background px-3 text-sm"
                   value={newRole}
                   onChange={(e) =>
                     setNewRole(
@@ -1910,72 +1990,82 @@ export default function TrainingWorkoutsPage() {
               </label>
               <button
                 type="button"
-                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                className="h-9 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90 disabled:opacity-40"
                 onClick={() => void createTemplate()}
                 disabled={!newName.trim()}
                 title="Create workout"
               >
-                Save new workout
+                Create
               </button>
             </div>
-          </LifeSwitchToolPanel>
+            </div>
+          ) : null}
 
-          <div className="mt-6 flex items-center justify-between">
-            <div className="text-sm font-semibold">Workouts</div>
-            {tplLoading ? (
-              <div className="text-xs text-muted-foreground">Loading…</div>
-            ) : null}
-          </div>
+          {tplLoading ? (
+            <div className="mt-4 text-sm text-muted-foreground">
+              Loading workouts…
+            </div>
+          ) : null}
 
           {workoutRoleStatus ? (
-            <div className="mt-3 rounded-xl border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            <div className="mt-4 rounded-xl bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
               {workoutRoleStatus}
             </div>
           ) : null}
 
           {templates.length ? (
-            <div className="mt-2 space-y-2">
+            <div className="mt-4 divide-y divide-border/50 border-y border-border/50">
               {templates.map((t) => {
                 const active = t.workout_template_id === selectedId;
 
                 return (
                   <div
                     key={t.workout_template_id}
-                    className={`rounded-xl border px-3 py-2 ${active ? "bg-muted/30" : "hover:bg-muted/10"}`}
+                    className={`px-1 py-3 ${active ? "bg-muted/30" : "hover:bg-muted/20"}`}
                   >
-                    <button
-                      type="button"
-                      className="w-full text-left"
-                      onClick={() => setSelectedId(t.workout_template_id)}
-                    >
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <div className="truncate text-sm font-semibold text-blue-400">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className="min-w-0 text-left"
+                        onClick={() => setSelectedId(t.workout_template_id)}
+                      >
+                        <span className="block truncate text-sm font-semibold text-foreground">
                           {t.name}
-                        </div>
-                        <span className="rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                          {t.workout_role === "rehab"
-                            ? "Rehab"
-                            : t.workout_role === "strength"
-                              ? "Strength"
-                              : "Unclassified"}
                         </span>
-                      </div>
-                    </button>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        Counts as
+                      </button>
+                      <span
+                        className={`text-[10px] font-semibold tracking-wide uppercase ${
+                          t.workout_role === "rehab"
+                            ? "text-muted-foreground"
+                            : t.workout_role === "strength"
+                              ? "text-blue-700 dark:text-blue-300"
+                              : "text-amber-700 dark:text-amber-300"
+                        }`}
+                      >
+                        {t.workout_role === "rehab"
+                          ? "Rehab"
+                          : t.workout_role === "strength"
+                            ? "Strength"
+                            : "Unclassified"}
                       </span>
-                      {(["strength", "rehab"] as const).map((role) => (
-                        <button
-                          key={role}
-                          type="button"
-                          className={`rounded-lg border px-2 py-1 text-xs ${t.workout_role === role ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/30"}`}
-                          onClick={() => void setWorkoutRole(t, role)}
-                        >
-                          {role === "strength" ? "Strength" : "Rehab"}
-                        </button>
-                      ))}
+                      <button
+                        type="button"
+                        className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                        onClick={() =>
+                          setOpenTemplateActionsId((prev) =>
+                            prev === t.workout_template_id
+                              ? ""
+                              : t.workout_template_id,
+                          )
+                        }
+                        aria-expanded={
+                          openTemplateActionsId === t.workout_template_id
+                        }
+                        aria-label={`Actions for ${t.name}`}
+                        title={`Actions for ${t.name}`}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
                     </div>
 
                     {t.workout_role &&
@@ -1993,65 +2083,53 @@ export default function TrainingWorkoutsPage() {
                       </button>
                     ) : null}
 
-                    <div className="mt-2">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
-                        onClick={() =>
-                          setOpenTemplateActionsId((prev) =>
-                            prev === t.workout_template_id
-                              ? ""
-                              : t.workout_template_id,
-                          )
-                        }
-                        aria-expanded={
-                          openTemplateActionsId === t.workout_template_id
-                        }
-                        title="Workout actions"
-                      >
-                        Actions
-                        {openTemplateActionsId === t.workout_template_id ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3" />
-                        )}
-                      </button>
-
-                      {openTemplateActionsId === t.workout_template_id ? (
-                        <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                          <div className="text-[11px] font-semibold tracking-wide text-red-500 uppercase">
-                            Danger zone
-                          </div>
-                          <button
-                            type="button"
-                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
-                            onClick={() =>
-                              void deactivateTemplate(t.workout_template_id)
-                            }
-                            title="Delete workout"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                            Delete workout
-                          </button>
+                    {openTemplateActionsId === t.workout_template_id ? (
+                      <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+                        <div className="text-[11px] font-semibold tracking-wide text-red-500 uppercase">
+                          Danger zone
                         </div>
-                      ) : null}
-                    </div>
-
-                    {active ? (
-                      <div className="mt-3">
-                        {renderSelectedWorkoutDetail()}
+                        <button
+                          type="button"
+                          className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                          onClick={() =>
+                            void deactivateTemplate(t.workout_template_id)
+                          }
+                          title="Delete workout"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Delete workout
+                        </button>
                       </div>
                     ) : null}
+
                   </div>
                 );
               })}
             </div>
-          ) : (
-            <div className="mt-2 text-sm text-muted-foreground">
-              No workouts yet. Create one above.
+          ) : newWorkoutOpen ? null : (
+            <div className="mt-4 rounded-2xl bg-muted/20 px-5 py-8 text-center">
+              <div className="text-sm font-semibold">No workouts yet</div>
+              <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+                Create a reusable workout, then add exercises from the catalog
+                or your library.
+              </p>
+              <button
+                type="button"
+                className="mt-4 inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90"
+                onClick={() => setNewWorkoutOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                New workout
+              </button>
             </div>
           )}
-        </aside>
+        </section>
+
+        {selected ? (
+          <section className="border-t border-border/50 pt-6">
+            {renderSelectedWorkoutDetail()}
+          </section>
+        ) : null}
       </div>
     </div>
   );

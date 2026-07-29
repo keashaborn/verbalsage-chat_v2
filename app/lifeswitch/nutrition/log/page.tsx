@@ -299,16 +299,16 @@ function MonthCalendar(props: {
           const isToday = date === today;
 
           const cls = [
-            "h-7 flex items-center justify-center rounded-md border text-xs",
+            "h-8 flex items-center justify-center text-sm transition-colors",
             inProgress
-              ? "border-sky-500/30 bg-sky-500/10 font-semibold"
+              ? "font-semibold text-sky-600 dark:text-sky-400"
               : hit
-              ? "border-emerald-500/30 bg-emerald-500/10 font-semibold"
+              ? "font-semibold text-emerald-600 dark:text-emerald-400"
               : hasAny
-                ? "border-amber-500/30 bg-amber-500/10"
-                : "border-transparent opacity-55",
+                ? "font-semibold text-amber-700 dark:text-amber-400"
+                : "text-muted-foreground/55",
             isToday ? "underline underline-offset-4" : "",
-            selectedDate === date ? "ring-1 ring-blue-500/70" : "",
+            selectedDate === date ? "font-bold opacity-100" : "",
           ].join(" ");
 
           if (hasAny) {
@@ -316,7 +316,7 @@ function MonthCalendar(props: {
               <button
                 key={date}
                 type="button"
-                className={`${cls} w-full hover:brightness-125`}
+                className={`${cls} w-full hover:text-foreground`}
                 aria-label={`Open nutrition log for ${date}`}
                 aria-pressed={selectedDate === date}
                 onClick={() => onSelectDate(date)}
@@ -733,31 +733,27 @@ export default function NutritionLogPage() {
           targetUserId={targetUserId}
         />
 
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-muted/20 py-3 text-xs text-muted-foreground">
           <div className="font-medium text-foreground">Status</div>
           <div className="flex flex-wrap gap-3">
-            <span className="inline-flex items-center gap-1">
-              <span className="h-3 w-3 rounded-full border border-sky-500/30 bg-sky-500/10" />
+            <span className="font-medium text-sky-600 dark:text-sky-400">
               In progress
             </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="h-3 w-3 rounded-full border border-emerald-500/30 bg-emerald-500/10" />
+            <span className="font-medium text-emerald-600 dark:text-emerald-400">
               Hit
             </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="h-3 w-3 rounded-full border border-amber-500/30 bg-amber-500/10" />
-              Logged but not hit
+            <span className="font-medium text-amber-700 dark:text-amber-400">
+              Not hit
             </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="h-3 w-3 rounded-full border border-muted/40" />
+            <span className="text-muted-foreground/60">
               No log
             </span>
           </div>
         </div>
 
         {rollingScore.windowDays ? (
-          <details className="mt-3 rounded-xl border bg-muted/10 px-3 py-2 text-xs">
-            <summary className="cursor-pointer font-medium">
+          <details className="mt-3 border-b border-muted/20 pb-3 text-xs">
+            <summary className="cursor-pointer py-1 font-medium">
               {rollingScore.windowDays}-day Plan check through {rollingAsOfDay} · {rollingStatusLabel}
             </summary>
             <div className="mt-3 grid gap-3 text-muted-foreground sm:grid-cols-3">
@@ -828,7 +824,7 @@ export default function NutritionLogPage() {
                 />
 
                 <div className="flex justify-center">
-                  <div className="w-[6.25rem] rounded-xl border border-muted/20 px-2 py-2 text-center">
+                  <div className="w-[6.25rem] border-l border-muted/20 px-2 py-1 text-center">
                     <div className="text-sm font-semibold leading-none">{m.hitCount}</div>
                     <div className="mt-0.5 text-[9px] tracking-wide opacity-70">HIT DAYS</div>
 
@@ -856,11 +852,11 @@ export default function NutritionLogPage() {
                     >
                       <span className="flex flex-wrap items-center gap-2">
                         <span className="text-lg font-semibold">{d.day}</span>
-                        <span className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-wide ${!d.finalized
-                          ? "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+                        <span className={`text-[11px] font-semibold uppercase tracking-wide ${!d.finalized
+                          ? "text-sky-600 dark:text-sky-400"
                           : d.hit
-                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                          : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-amber-700 dark:text-amber-400"
                           }`}>
                           {!d.finalized ? "In progress" : d.hit ? "Hit" : "Not hit"}
                         </span>
@@ -869,7 +865,7 @@ export default function NutritionLogPage() {
                         {expandedDay === d.day ? "▴" : "▾"}
                       </span>
                     </button>
-                    <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-xl border border-muted/20 bg-background/40 px-3 py-2 text-xs">
+                    <div className="mt-2 grid grid-cols-2 gap-x-5 gap-y-1 text-xs sm:grid-cols-4">
                       <div className="flex items-baseline gap-2">
                         <div className="opacity-70">KCAL</div>
                         <div className="font-semibold">{fmt1tight(safeNum(d.kcal, 0))}</div>
@@ -888,7 +884,7 @@ export default function NutritionLogPage() {
                       </div>
                     </div>
                     {d.day === today && !isDelegatedView ? (
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/10 px-3 py-2">
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-muted/20 pt-3">
                         <div className="text-xs text-muted-foreground">
                           {d.completedAt
                             ? "Day finished. It is included in Plan scoring."
@@ -913,7 +909,7 @@ export default function NutritionLogPage() {
                     ) : null}
                     {expandedDay === d.day ? (
                       Array.isArray(d.raw?.entries) && d.raw.entries.length ? (
-                      <div id={`nutrition-day-${d.day}`} className="mt-4 rounded-xl border border-muted/20 overflow-hidden">
+                      <div id={`nutrition-day-${d.day}`} className="mt-4 border-y border-muted/20">
                         {(() => {
                           const entries = [...d.raw.entries];
 

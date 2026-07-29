@@ -14,19 +14,6 @@ import { authFetchJson } from "@/lib/authFetch";
 import Image from "next/image";
 import { Loader2, MessageSquarePlus } from "lucide-react";
 
-const BRAND_FILTER_SILVER = "grayscale brightness-125 contrast-125 opacity-85";
-
-function AssistantBadge() {
-  return (
-    <div className="min-w-0 flex-1 leading-tight">
-      <div className="truncate text-sm font-semibold">RESSE</div>
-      <div className="truncate text-[11px] tracking-wide text-muted-foreground uppercase">
-        Assistant
-      </div>
-    </div>
-  );
-}
-
 export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const [query, setQuery] = React.useState("");
   const [creatingChat, setCreatingChat] = React.useState(false);
@@ -72,7 +59,7 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar {...props}>
       <SidebarHeader className="aui-sidebar-header mb-2 border-b">
-        <div className="flex items-center gap-3 px-2 py-2">
+        <div className="flex items-center justify-between gap-3 px-2 py-2">
           <div className="flex aspect-square size-10 items-center justify-center overflow-hidden rounded-lg">
             <Image
               src="/brand/lifeswitch/symbol-dark-64.png"
@@ -91,8 +78,6 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
               className="hidden dark:block"
             />
           </div>
-
-          <AssistantBadge />
 
           <button
             type="button"

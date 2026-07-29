@@ -449,7 +449,7 @@ export default function MealsPage() {
         </div>
       </details>
 
-      <section className="mt-6 min-w-0 rounded-md border p-3 sm:p-4">
+      <section className="mt-8 min-w-0">
         <div className="text-sm font-semibold">Meals</div>
 
         {meals.length ? (
@@ -463,22 +463,15 @@ export default function MealsPage() {
                     {mealType}
                   </div>
 
-                  <div className="mt-2 space-y-2">
+                  <div className="mt-2 divide-y divide-muted/20 border-y border-muted/20">
                     {typedMeals.map((m) => {
                       const active = selectedMealId === m.meal_id;
 
                       return (
-                        <div
-                          key={m.meal_id}
-                          className={`min-w-0 rounded-md border ${
-                            active
-                              ? "border-foreground bg-muted/20 ring-1 ring-foreground/60"
-                              : ""
-                          }`}
-                        >
+                        <div key={m.meal_id} className={`min-w-0 ${active ? "bg-muted/[0.06]" : ""}`}>
                           <button
                             type="button"
-                            className="w-full px-3 py-3 text-left hover:bg-muted/10"
+                            className="w-full py-3 text-left hover:bg-muted/10"
                             onClick={() => {
                               setOpenMealActions(false);
                               setOpenItemActionsId("");
@@ -510,8 +503,8 @@ export default function MealsPage() {
                           </button>
 
                           {active && selectedMeal ? (
-                            <div className="grid min-w-0 gap-3 border-t p-3 sm:gap-4 sm:p-4">
-                              <section className="min-w-0 sm:rounded-md sm:border sm:p-4">
+                            <div className="grid min-w-0 gap-5 border-t border-muted/20 py-4">
+                              <section className="min-w-0">
                                 <div className="flex min-w-0 items-start justify-between gap-3">
                                   <div className="min-w-0">
                                     <div className="text-sm font-semibold">Meal items</div>
@@ -590,12 +583,9 @@ export default function MealsPage() {
                                 </div>
 
                                 {items.length ? (
-                                  <div className="mt-4 space-y-2">
+                                  <div className="mt-4 divide-y divide-muted/20 border-y border-muted/20">
                                     {items.map((it) => (
-                                      <div
-                                        key={it.meal_item_id}
-                                        className="min-w-0 rounded-md border p-3"
-                                      >
+                                      <div key={it.meal_item_id} className="min-w-0 py-3">
                                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                           <div className="min-w-0">
                                             <div className="break-words text-sm font-medium">
@@ -737,7 +727,7 @@ export default function MealsPage() {
                                 )}
                               </section>
 
-                              <section className="min-w-0 sm:rounded-md sm:border sm:p-4">
+                              <section className="min-w-0 border-t border-muted/20 pt-4">
                                 <div className="text-sm font-semibold">
                                   Add foods to this meal
                                 </div>
@@ -765,13 +755,13 @@ export default function MealsPage() {
                                 </div>
 
                                 {hits.length ? (
-                                  <div className="mt-4 space-y-2">
+                                  <div className="mt-4 divide-y divide-muted/20 border-y border-muted/20">
                                     {hits.map((f) => {
                                       const selection = quantityByFoodId[f.my_food_id] || preferredQuantitySelection(f);
                                       const servings = servingsByFoodId[f.my_food_id] || preferredServingSeed(f);
                                       const grams = resolvedQuantityGrams(selection, servings);
                                       return (
-                                        <div key={f.my_food_id} className="min-w-0 rounded-md border p-3">
+                                        <div key={f.my_food_id} className="min-w-0 py-3">
                                           <div className="break-words text-sm font-medium">{f.display_name}</div>
                                           <div className="mt-1 text-xs text-muted-foreground">
                                             {f.brand || "—"}{f.variant ? ` · ${f.variant}` : ""}

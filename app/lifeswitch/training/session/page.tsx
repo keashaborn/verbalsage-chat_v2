@@ -273,9 +273,9 @@ export default function TrainingSessionPage() {
         ) : sets.length === 0 ? (
           <div className="rounded-xl border p-4 text-sm text-muted-foreground">No sets found for this session.</div>
         ) : (
-          <div className="space-y-5">
+          <div className="divide-y divide-border/50 border-y border-border/50">
             {byExercise.map((block) => (
-              <section key={block.key} className="rounded-xl border p-4">
+              <section key={block.key} className="py-5">
                 <div className="flex items-baseline justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="text-base font-semibold">{block.exerciseName}</div>
@@ -285,7 +285,7 @@ export default function TrainingSessionPage() {
                       </span>
                     ) : null}
                     {block.role === "rehab" || block.role === "mixed" ? (
-                      <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-purple-400">
+                      <span className="rounded-full border border-border/60 bg-muted/30 px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                         Rehab
                       </span>
                     ) : null}
@@ -344,7 +344,7 @@ export default function TrainingSessionPage() {
                         )}
 
                         {String(r.set_type || "straight").toLowerCase() === "drop" ? (
-                          <div className="mt-3 rounded-xl border border-muted/20 p-2">
+                          <div className="mt-3 border-t border-border/40 pt-3">
                             <div className="mb-2 text-xs font-medium text-muted-foreground">Drop set detail</div>
                             {(segmentsBySet[r.training_set_log_id] || []).length ? (
                               <div className="space-y-1">

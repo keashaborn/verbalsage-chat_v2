@@ -178,7 +178,7 @@ function Metric({
   detail: string;
 }) {
   return (
-    <div className="rounded-lg border p-2.5">
+    <div className="border-t border-muted/20 py-2 first:border-t-0 sm:border-t-0 sm:border-l sm:px-3 sm:first:border-l-0 sm:first:pl-0">
       <div className="text-[11px] text-muted-foreground">{label}</div>
       <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
       <div className="mt-1 text-[11px] text-muted-foreground">{detail}</div>
@@ -382,14 +382,14 @@ export function UsageAnalyticsPanel() {
       </div>
 
       {overviewLoading ? (
-        <div className="rounded-xl border p-3 text-xs text-muted-foreground">
+        <div className="border-y border-muted/20 py-3 text-xs text-muted-foreground">
           Loading overview…
         </div>
       ) : overviewError ? (
         <ErrorCard>{overviewError}</ErrorCard>
       ) : overview ? (
         <>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid border-y border-muted/20 sm:grid-cols-2 lg:grid-cols-4">
             <Metric
               label="Active users"
               value={number(overview.active_users)}
@@ -411,7 +411,7 @@ export function UsageAnalyticsPanel() {
               detail={`${number(overview.training.strength_sessions)} strength · ${number(overview.training.conditioning_sessions)} conditioning`}
             />
           </div>
-          <div className="space-y-3 rounded-xl border p-3">
+          <section className="space-y-3 border-t border-muted/20 pt-5">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <div className="text-sm font-semibold">
@@ -435,7 +435,7 @@ export function UsageAnalyticsPanel() {
                 period.
               </div>
             ) : (
-              <div className="divide-y rounded-lg border">
+              <div className="divide-y divide-muted/20 border-y border-muted/20">
                 {overview.system_ai.workloads.map((workload) => (
                   <div
                     key={workload.workload_key}
@@ -465,8 +465,8 @@ export function UsageAnalyticsPanel() {
               Corpus-evaluation and external agent calls are not instrumented
               yet.
             </div>
-          </div>
-          <div className="rounded-xl border p-3 text-xs text-muted-foreground">
+          </section>
+          <div className="border-b border-muted/20 pb-4 text-xs text-muted-foreground">
             Product AI tracking: {date(overview.ai_tracking_started_at)}.
             Earlier usage is not estimated or backfilled. Pricing is omitted
             until a versioned rate catalog is released.
@@ -474,7 +474,7 @@ export function UsageAnalyticsPanel() {
         </>
       ) : null}
 
-      <div className="space-y-3 rounded-xl border p-3">
+      <section className="space-y-3 border-t border-muted/20 pt-5">
         <div>
           <div className="text-sm font-semibold">User explorer</div>
           <div className="text-xs text-muted-foreground">
@@ -542,7 +542,7 @@ export function UsageAnalyticsPanel() {
             No measured activity matched this period and query.
           </div>
         ) : users ? (
-          <div className="divide-y rounded-lg border">
+          <div className="divide-y divide-muted/20 border-y border-muted/20">
             {users.items.map((user) => (
               <button
                 key={user.user_id}
@@ -619,10 +619,10 @@ export function UsageAnalyticsPanel() {
             Next
           </button>
         </div>
-      </div>
+      </section>
 
       {selectedUserId ? (
-        <div className="space-y-3 rounded-xl border p-3">
+        <section className="space-y-3 border-t border-muted/20 pt-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">User detail</div>
@@ -666,7 +666,7 @@ export function UsageAnalyticsPanel() {
               </div>
 
               <div className="grid gap-3 lg:grid-cols-2">
-                <div className="rounded-lg border p-2.5">
+                <div className="border-y border-muted/20 py-3">
                   <div className="text-xs font-medium">AI by model</div>
                   <div className="mt-2 space-y-1 text-xs">
                     {detail.summary.ai.by_model.length === 0 ? (
@@ -688,7 +688,7 @@ export function UsageAnalyticsPanel() {
                     )}
                   </div>
                 </div>
-                <div className="rounded-lg border p-2.5">
+                <div className="border-y border-muted/20 py-3">
                   <div className="text-xs font-medium">AI by channel</div>
                   <div className="mt-2 space-y-1 text-xs">
                     {detail.summary.ai.by_channel.length === 0 ? (
@@ -757,7 +757,7 @@ export function UsageAnalyticsPanel() {
               </div>
             </>
           ) : null}
-        </div>
+        </section>
       ) : null}
     </div>
   );

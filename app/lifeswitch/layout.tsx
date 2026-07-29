@@ -7,25 +7,21 @@ import { LifeSwitchHelper } from "@/components/lifeswitch/helper/LifeSwitchHelpe
 
 export default function LifeSwitchLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-svh overflow-x-clip">
-      {/* Top bar */}
-      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+    <div className="min-h-svh overflow-x-clip bg-background">
+      <header className="sticky top-0 z-50 bg-background/95 shadow-xs backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />
           <AccountMenu />
         </div>
       </header>
 
-      {/* Content (pad bottom so fixed nav doesn't cover it) */}
-      <main className="mx-auto max-w-5xl px-4 pt-4 overflow-x-clip pb-[calc(5.0rem+env(safe-area-inset-bottom))]">
+      <LifeSwitchModeNav />
+
+      <main className="mx-auto max-w-5xl overflow-x-clip px-4 pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-10">
         {children}
       </main>
 
-      {/* Floating page-aware helper */}
       <LifeSwitchHelper />
-
-      {/* Mode bottom nav */}
-      <LifeSwitchModeNav />
     </div>
   );
 }

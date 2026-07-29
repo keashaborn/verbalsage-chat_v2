@@ -40,7 +40,8 @@ test("Data controls retain existing protected routes with accurate labels", () =
   assert.match(panel, /authFetch\("\/api\/admin\/export"/);
   assert.match(panel, /\/api\/admin\/forget_recent\?minutes=/);
   assert.match(panel, /authFetch\("\/api\/admin\/delete_all"/);
-  assert.match(panel, /Download my data/);
+  assert.match(panel, /Conversation and memory data/);
+  assert.match(panel, /Downloads chat threads, transcripts/);
   assert.match(panel, /Forget recent conversations/);
   assert.match(panel, /Delete conversation and memory data/);
   assert.match(panel, /structured\s+LifeSwitch tracking data remain active/);

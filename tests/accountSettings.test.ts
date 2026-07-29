@@ -14,18 +14,18 @@ test("account names are trimmed and internal whitespace is normalized", () => {
   assert.equal(normalizeAccountFullName(null), "");
 });
 
-test("account page saves display identity while keeping email read-only", () => {
+test("account page saves display identity while presenting email as non-editable text", () => {
   const page = source("app/settings/account/page.tsx");
 
   assert.match(page, /supabase\.auth\.updateUser\(\{/);
   assert.match(page, /data: nextMetadata/);
   assert.match(page, /\{ \.\.\.metadata, full_name: nextFullName \}/);
-  assert.match(page, /readOnly/);
-  assert.match(page, /aria-readonly="true"/);
-  assert.match(page, /Email status/);
+  assert.match(page, /\{email \|\| "Unavailable"\}/);
   assert.match(page, /Verified/);
-  assert.match(page, /Save name/);
+  assert.match(page, /Not verified/);
+  assert.match(page, /Save changes/);
   assert.doesNotMatch(page, /updateUser\(\{\s*email:/);
+  assert.doesNotMatch(page, /type="email"/);
 });
 
 test("saved account names update the open navigation without a reload", () => {

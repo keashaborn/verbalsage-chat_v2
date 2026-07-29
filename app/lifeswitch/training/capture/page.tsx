@@ -3,7 +3,7 @@
 import { authFetch } from "@/lib/authFetch";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { Plus } from "lucide-react";
+import { Check, Plus } from "lucide-react";
 import { NumericInput } from "@/components/lifeswitch/NumericInput";
 import {
   clearPendingSubmission,
@@ -80,6 +80,10 @@ type DraftSetRow = {
   weight: string;
   reps: string;
   flags: string;
+  previous_weight?: string;
+  previous_reps?: string;
+  previous_flags?: string;
+  previous_day?: string;
   done: boolean;
 };
 
@@ -184,6 +188,28 @@ function formatSavedAt(savedAt: string) {
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+function formatWorkoutDay(day: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!match) return "Last";
+
+  const date = new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+  );
+  if (!Number.isFinite(date.getTime())) return "Last";
+
+  return date.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatPreviousSet(weight?: string, reps?: string) {
+  if (weight === undefined && reps === undefined) return "—";
+  return `${weight || "0"} × ${reps || "—"}`;
+}
+
 export default function TrainingCapturePage() {
   const router = useRouter();
 
@@ -213,6 +239,7 @@ export default function TrainingCapturePage() {
   const [exerciseSearch, setExerciseSearch] = React.useState("");
   const [catalogHits, setCatalogHits] = React.useState<ExerciseSearchHit[]>([]);
   const [catalogLoading, setCatalogLoading] = React.useState(false);
+  const legacyDraftHistoryHydratedRef = React.useRef("");
 
   const selected = React.useMemo(() => {
     return templates.find((t) => t.workout_template_id === selectedId) || null;
@@ -544,6 +571,10 @@ export default function TrainingCapturePage() {
           weight: String(safeNum(setRow.weight, 0)),
           reps: String(safeNum(setRow.reps, 0) || ""),
           flags: setRow.flags || "",
+          previous_weight: String(safeNum(setRow.weight, 0)),
+          previous_reps: String(safeNum(setRow.reps, 0) || ""),
+          previous_flags: setRow.flags || "",
+          previous_day: latest.day,
           done: false,
         };
 
@@ -601,6 +632,12 @@ export default function TrainingCapturePage() {
                 weight: String(safeNum(seg.weight, 0)),
                 reps: String(safeNum(seg.reps, 0)),
                 flags: [prev.flags, seg.label].filter(Boolean).join(" · "),
+                previous_weight: String(safeNum(seg.weight, 0)),
+                previous_reps: String(safeNum(seg.reps, 0)),
+                previous_flags: [prev.flags, seg.label]
+                  .filter(Boolean)
+                  .join(" · "),
+                previous_day: prev.previous_day,
                 done: false,
               });
               nextSetIndex += 1;
@@ -688,6 +725,69 @@ export default function TrainingCapturePage() {
         : "Using workout template defaults",
     );
   }
+
+  React.useEffect(() => {
+    if (!restoredLocalDraft || !selectedId || !draftRows.length) return;
+    if (legacyDraftHistoryHydratedRef.current === selectedId) return;
+
+    legacyDraftHistoryHydratedRef.current = selectedId;
+    let cancelled = false;
+
+    async function hydrateLegacyDraftHistory() {
+      try {
+        const list = (await fetchJson(
+          `/api/lifeswitch/training/workout_templates/${encodeURIComponent(selectedId)}/exercises`,
+        )) as WorkoutTemplateExerciseRow[];
+        const rows = Array.isArray(list)
+          ? [...list].sort(
+              (a, b) =>
+                safeNum(a.sort_order, 0) - safeNum(b.sort_order, 0),
+            )
+          : [];
+        const previousRowsByExercise = await loadLastSessionDraftRows(
+          selectedId,
+          rows,
+        );
+
+        if (cancelled) return;
+        setTemplateExercises(rows);
+        setDraftRows((current) =>
+          current.map((row) => {
+            if (row.previous_weight !== undefined) return row;
+
+            const previousRows =
+              previousRowsByExercise.get(row.exercise_id) || [];
+            const previous =
+              previousRows.find(
+                (candidate) => candidate.set_index === row.set_index,
+              ) || previousRows[row.set_index - 1];
+
+            if (!previous) return row;
+
+            return {
+              ...row,
+              previous_weight:
+                previous.previous_weight ?? previous.weight ?? "",
+              previous_reps: previous.previous_reps ?? previous.reps ?? "",
+              previous_flags:
+                previous.previous_flags ?? previous.flags ?? "",
+              previous_day: previous.previous_day,
+            };
+          }),
+        );
+      } catch {
+        // A saved draft remains usable even when history cannot be refreshed.
+      }
+    }
+
+    void hydrateLegacyDraftHistory();
+    return () => {
+      cancelled = true;
+    };
+    // Draft rows intentionally stay out of the dependency list; this is a
+    // one-time compatibility pass for drafts saved before history columns.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoredLocalDraft, selectedId]);
 
   React.useEffect(() => {
     void loadTemplates();
@@ -1024,7 +1124,7 @@ export default function TrainingCapturePage() {
 
       <div className="mt-6 grid gap-4">
         {setupOpen ? (
-          <aside className="rounded-xl border p-4">
+          <aside className="border-y border-border/50 py-4">
             <div className="flex items-center justify-between gap-2">
               <div className="text-sm font-semibold">Workout template</div>
               <button
@@ -1060,7 +1160,7 @@ export default function TrainingCapturePage() {
             </select>
 
             {selected && !selected.workout_role ? (
-              <div className="mt-3 rounded-xl border border-amber-600/40 bg-amber-500/10 p-3 text-sm">
+              <div className="mt-3 border-l-2 border-amber-600/60 bg-amber-500/5 py-2 pl-3 text-sm">
                 This workout must be classified before it can be finished. Set
                 it to Strength or Rehab on the Workouts page.
               </div>
@@ -1077,7 +1177,7 @@ export default function TrainingCapturePage() {
         <main
           className={
             draftRows.length || loadingTemplateExercises
-              ? "rounded-xl border p-4"
+              ? "border-y border-border/50 py-4"
               : "hidden"
           }
         >
@@ -1113,12 +1213,15 @@ export default function TrainingCapturePage() {
           </div>
 
           {draftRows.length ? (
-            <div className="mt-4 space-y-5">
+            <div className="mt-4 divide-y divide-border/50 border-y border-border/50">
               {byExercise.map((block) => {
                 const first = block.rows[0];
+                const previousDay =
+                  block.rows.find((row) => row.previous_day)?.previous_day ||
+                  "";
 
                 return (
-                  <section key={block.key} className="rounded-xl border p-2">
+                  <section key={block.key} className="py-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -1127,7 +1230,7 @@ export default function TrainingCapturePage() {
                           </div>
                           {myExercisesById.get(first.exercise_id)
                             ?.exercise_role === "rehab" ? (
-                            <span className="rounded-full border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            <span className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
                               Rehab
                             </span>
                           ) : null}
@@ -1140,7 +1243,7 @@ export default function TrainingCapturePage() {
                       <div className="relative shrink-0">
                         <button
                           type="button"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border text-lg hover:bg-muted/30"
+                          className="inline-flex h-8 w-8 items-center justify-center text-lg text-muted-foreground hover:text-foreground"
                           onClick={() =>
                             setOpenExerciseOptionsId((prev) =>
                               prev === first.exercise_id
@@ -1257,156 +1360,215 @@ export default function TrainingCapturePage() {
                       </div>
                     </div>
 
-                    <div className="mt-3 space-y-2">
-                      {block.rows.map((row) => (
-                        <div
-                          key={row.draft_id}
-                          className={[
-                            "grid grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)_4.75rem] items-end gap-2 rounded-xl border p-2",
-                            row.done
-                              ? "border-muted bg-muted/10 opacity-60"
-                              : "border-blue-500/40 bg-blue-500/10",
-                          ].join(" ")}
-                        >
-                          <div className="order-1 pb-2 text-xs text-muted-foreground">
-                            Set {row.set_index}
-                          </div>
+                    <div className="mt-3 border-y border-border/50">
+                      <div className="grid grid-cols-[3.75rem_minmax(5.5rem,1.25fr)_minmax(3.75rem,.75fr)_minmax(3.25rem,.65fr)_2.25rem] gap-2 border-b border-border/50 py-2 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                        <div>Set</div>
+                        <div>
+                          {previousDay
+                            ? formatWorkoutDay(previousDay)
+                            : "Last"}
+                        </div>
+                        <div className="text-center">Pounds</div>
+                        <div className="text-center">Reps</div>
+                        <div className="sr-only">Done</div>
+                      </div>
 
-                          {row.set_type === "drop" ? (
-                            <div className="order-2 col-span-3 grid gap-2">
-                              {(row.segments || []).map((seg) => (
+                      <div className="divide-y divide-border/50">
+                        {block.rows.map((row) =>
+                          row.set_type === "drop" ? (
+                            <React.Fragment key={row.draft_id}>
+                              {(row.segments || []).map((seg, segmentIndex) => (
                                 <div
                                   key={`${row.draft_id}:${seg.segment_index}`}
-                                  className="grid grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,1fr)] items-end gap-2 rounded-xl border bg-background/30 p-2"
+                                  className={[
+                                    "grid min-h-14 grid-cols-[3.75rem_minmax(5.5rem,1.25fr)_minmax(3.75rem,.75fr)_minmax(3.25rem,.65fr)_2.25rem] items-center gap-2 py-2",
+                                    row.done ? "bg-muted/20" : "",
+                                  ].join(" ")}
                                 >
-                                  <div className="pb-2 text-xs text-muted-foreground">
-                                    {seg.label}
+                                  <div className="min-w-0">
+                                    <div className="text-sm tabular-nums">
+                                      {segmentIndex === 0
+                                        ? row.set_index
+                                        : ""}
+                                    </div>
+                                    <div className="truncate text-[10px] text-muted-foreground">
+                                      {seg.label}
+                                    </div>
                                   </div>
-
-                                  <label className="text-xs">
-                                    <div className="text-muted-foreground">
-                                      Weight
-                                    </div>
-                                    <NumericInput
-                                      className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                                      mode="decimal"
-                                      min={0}
-                                      value={seg.weight}
-                                      disabled={row.done}
-                                      readOnly={row.done}
-                                      onValueChange={(weight) =>
-                                        updateDraftSegment(
-                                          row.draft_id,
-                                          seg.segment_index,
-                                          { weight },
+                                  <div className="text-sm text-muted-foreground tabular-nums">
+                                    {segmentIndex === 0
+                                      ? formatPreviousSet(
+                                          row.previous_weight,
+                                          row.previous_reps,
                                         )
+                                      : "—"}
+                                  </div>
+                                  <NumericInput
+                                    aria-label={`${first.exercise_name} set ${row.set_index} ${seg.label} pounds`}
+                                    className="w-full min-w-0 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0 disabled:opacity-100"
+                                    mode="decimal"
+                                    min={0}
+                                    value={seg.weight}
+                                    disabled={row.done}
+                                    readOnly={row.done}
+                                    onValueChange={(weight) =>
+                                      updateDraftSegment(
+                                        row.draft_id,
+                                        seg.segment_index,
+                                        { weight },
+                                      )
+                                    }
+                                  />
+                                  <NumericInput
+                                    aria-label={`${first.exercise_name} set ${row.set_index} ${seg.label} reps`}
+                                    className="w-full min-w-0 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0 disabled:opacity-100"
+                                    mode="integer"
+                                    min={0}
+                                    value={seg.reps}
+                                    disabled={row.done}
+                                    readOnly={row.done}
+                                    onValueChange={(reps) =>
+                                      updateDraftSegment(
+                                        row.draft_id,
+                                        seg.segment_index,
+                                        { reps },
+                                      )
+                                    }
+                                  />
+                                  {segmentIndex === 0 ? (
+                                    <button
+                                      type="button"
+                                      className={[
+                                        "inline-flex size-9 items-center justify-center justify-self-end outline-none transition-[color,transform] focus-visible:scale-110 focus-visible:text-blue-600 dark:focus-visible:text-blue-400",
+                                        row.done
+                                          ? "text-blue-600 dark:text-blue-400"
+                                          : "text-muted-foreground/35 hover:text-foreground",
+                                      ].join(" ")}
+                                      onClick={() =>
+                                        updateDraftRow(row.draft_id, {
+                                          done: !row.done,
+                                        })
                                       }
-                                    />
-                                  </label>
-
-                                  <label className="text-xs">
-                                    <div className="text-muted-foreground">
-                                      Reps
-                                    </div>
-                                    <NumericInput
-                                      className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                                      mode="integer"
-                                      min={0}
-                                      value={seg.reps}
-                                      disabled={row.done}
-                                      readOnly={row.done}
-                                      onValueChange={(reps) =>
-                                        updateDraftSegment(
-                                          row.draft_id,
-                                          seg.segment_index,
-                                          { reps },
-                                        )
+                                      aria-pressed={row.done}
+                                      aria-label={
+                                        row.done
+                                          ? `Mark ${first.exercise_name} set ${row.set_index} pending`
+                                          : `Complete ${first.exercise_name} set ${row.set_index}`
                                       }
-                                    />
-                                  </label>
+                                      title={
+                                        row.done
+                                          ? "Mark pending"
+                                          : "Mark done"
+                                      }
+                                    >
+                                      <Check
+                                        className="size-5"
+                                        strokeWidth={2.25}
+                                        aria-hidden="true"
+                                      />
+                                    </button>
+                                  ) : (
+                                    <span />
+                                  )}
                                 </div>
                               ))}
-                            </div>
+                            </React.Fragment>
                           ) : (
-                            <>
-                              <label className="order-2 text-xs">
-                                <div className="text-muted-foreground">
-                                  Weight
-                                </div>
-                                <NumericInput
-                                  className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                                  mode="decimal"
-                                  min={0}
-                                  value={row.weight}
-                                  disabled={row.done}
-                                  readOnly={row.done}
-                                  onValueChange={(weight) =>
-                                    updateDraftRow(row.draft_id, { weight })
-                                  }
-                                />
-                              </label>
-
-                              <label className="order-3 text-xs">
-                                <div className="text-muted-foreground">
-                                  Reps
-                                </div>
-                                <NumericInput
-                                  className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
-                                  mode="integer"
-                                  min={0}
-                                  value={row.reps}
-                                  disabled={row.done}
-                                  readOnly={row.done}
-                                  onValueChange={(reps) =>
-                                    updateDraftRow(row.draft_id, { reps })
-                                  }
-                                />
-                              </label>
-
-                              <label className="order-5 col-span-4 text-xs">
-                                <div className="text-muted-foreground">
-                                  Notes
+                            <div
+                              key={row.draft_id}
+                              className={[
+                                "grid min-h-14 grid-cols-[3.75rem_minmax(5.5rem,1.25fr)_minmax(3.75rem,.75fr)_minmax(3.25rem,.65fr)_2.25rem] items-center gap-2 py-2",
+                                row.done ? "bg-muted/20" : "",
+                              ].join(" ")}
+                            >
+                              <div className="min-w-0">
+                                <div className="text-sm tabular-nums">
+                                  {row.set_index}
                                 </div>
                                 <input
-                                  className="mt-1 w-full rounded-md border bg-background px-2 py-1 text-sm"
+                                  aria-label={`${first.exercise_name} set ${row.set_index} label`}
+                                  className="mt-0.5 w-full min-w-0 border-0 bg-transparent p-0 text-[10px] leading-tight text-muted-foreground outline-none focus:text-foreground"
                                   value={row.flags}
                                   disabled={row.done}
                                   readOnly={row.done}
-                                  onChange={(e) => {
-                                    const value = e.currentTarget.value;
+                                  onChange={(event) =>
                                     updateDraftRow(row.draft_id, {
-                                      flags: value,
-                                    });
-                                  }}
-                                  placeholder="optional note"
+                                      flags: event.currentTarget.value,
+                                    })
+                                  }
+                                  placeholder="note"
                                 />
-                              </label>
-                            </>
-                          )}
-                          <button
-                            type="button"
-                            className={[
-                              "order-4 self-end rounded-xl border px-3 py-2 text-sm hover:bg-muted/30",
-                              row.done ? "bg-muted/30" : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
-                            onClick={() =>
-                              updateDraftRow(row.draft_id, { done: !row.done })
-                            }
-                            title={row.done ? "Mark pending" : "Mark done"}
-                          >
-                            {row.done ? "Done ✓" : "Enter"}
-                          </button>
-                        </div>
-                      ))}
+                              </div>
+                              <div className="truncate text-sm text-muted-foreground tabular-nums">
+                                {formatPreviousSet(
+                                  row.previous_weight,
+                                  row.previous_reps,
+                                )}
+                              </div>
+                              <NumericInput
+                                aria-label={`${first.exercise_name} set ${row.set_index} pounds`}
+                                className="w-full min-w-0 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0 disabled:opacity-100"
+                                mode="decimal"
+                                min={0}
+                                value={row.weight}
+                                disabled={row.done}
+                                readOnly={row.done}
+                                onValueChange={(weight) =>
+                                  updateDraftRow(row.draft_id, { weight })
+                                }
+                              />
+                              <NumericInput
+                                aria-label={`${first.exercise_name} set ${row.set_index} reps`}
+                                className="w-full min-w-0 border-0 bg-transparent p-0 text-center text-sm font-medium tabular-nums outline-none focus:ring-0 disabled:opacity-100"
+                                mode="integer"
+                                min={0}
+                                value={row.reps}
+                                disabled={row.done}
+                                readOnly={row.done}
+                                onValueChange={(reps) =>
+                                  updateDraftRow(row.draft_id, { reps })
+                                }
+                              />
+                              <button
+                                type="button"
+                                className={[
+                                  "inline-flex size-9 items-center justify-center justify-self-end outline-none transition-[color,transform] focus-visible:scale-110 focus-visible:text-blue-600 dark:focus-visible:text-blue-400",
+                                  row.done
+                                    ? "text-blue-600 dark:text-blue-400"
+                                    : "text-muted-foreground/35 hover:text-foreground",
+                                ].join(" ")}
+                                onClick={() =>
+                                  updateDraftRow(row.draft_id, {
+                                    done: !row.done,
+                                  })
+                                }
+                                aria-pressed={row.done}
+                                aria-label={
+                                  row.done
+                                    ? `Mark ${first.exercise_name} set ${row.set_index} pending`
+                                    : `Complete ${first.exercise_name} set ${row.set_index}`
+                                }
+                                title={
+                                  row.done ? "Mark pending" : "Mark done"
+                                }
+                              >
+                                <Check
+                                  className="size-5"
+                                  strokeWidth={2.25}
+                                  aria-hidden="true"
+                                />
+                              </button>
+                            </div>
+                          ),
+                        )}
+                      </div>
                     </div>
                   </section>
                 );
               })}
             </div>
           ) : (
-            <div className="mt-4 rounded-xl border p-4 text-sm text-muted-foreground">
+            <div className="mt-4 border-y border-border/50 py-4 text-sm text-muted-foreground">
               Select a workout template to generate today’s active session
               draft.
             </div>

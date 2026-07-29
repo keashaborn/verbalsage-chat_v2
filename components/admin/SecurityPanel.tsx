@@ -12,18 +12,30 @@ function Group({
   title,
   children,
   footer,
+  danger = false,
 }: {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  danger?: boolean;
 }) {
   return (
     <div className="space-y-2">
-      <div className="px-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+      <div
+        className={`px-1 text-[11px] font-semibold tracking-wide uppercase ${
+          danger ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
+        }`}
+      >
         {title}
       </div>
-      <div className="overflow-hidden rounded-xl border">
-        <div className="divide-y">{children}</div>
+      <div
+        className={`border-y ${
+          danger
+            ? "border-red-500/30 bg-red-500/[0.03]"
+            : "border-muted/20"
+        }`}
+      >
+        <div className="divide-y divide-muted/20">{children}</div>
       </div>
       {footer != null && (
         <div className="px-1 text-xs leading-relaxed text-muted-foreground">
@@ -270,7 +282,7 @@ export function SecurityPanel() {
     }
     if (!passwordResetToken) {
       setSecurityStatus(
-        "Complete the security verification before requesting a code.",
+        "Complete the security check before requesting a password-change code.",
       );
       return;
     }
@@ -558,7 +570,7 @@ export function SecurityPanel() {
   const mfaReadyForEnforcement = mfaFactors.length >= 2;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <Group
         title="Account security"
         footer={
@@ -579,7 +591,13 @@ export function SecurityPanel() {
             </div>
           }
           right={
-            <span className="rounded-full border px-2.5 py-1 text-xs text-muted-foreground">
+            <span
+              className={`text-xs font-medium ${
+                emailVerified
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-amber-700 dark:text-amber-400"
+              }`}
+            >
               {accountLoading
                 ? "Checking"
                 : emailVerified
@@ -676,7 +694,13 @@ export function SecurityPanel() {
                 </div>
               }
               right={
-                <span className="rounded-full border px-2.5 py-1 text-xs text-muted-foreground">
+                <span
+                  className={`text-xs font-medium ${
+                    mfaReadyForEnforcement
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-amber-700 dark:text-amber-400"
+                  }`}
+                >
                   {mfaLoading
                     ? "Checking"
                     : mfaReadyForEnforcement
@@ -702,12 +726,18 @@ export function SecurityPanel() {
                 </div>
               }
               right={
-                <span className="rounded-full border px-2.5 py-1 text-xs text-muted-foreground">
+                <span
+                  className={`text-xs font-medium ${
+                    mfaCurrentLevel === "aal2"
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-amber-700 dark:text-amber-400"
+                  }`}
+                >
                   {mfaLoading
                     ? "Checking"
                     : mfaCurrentLevel === "aal2"
-                      ? "AAL2"
-                      : "AAL1"}
+                      ? "Protected"
+                      : "Standard"}
                 </span>
               }
             />
@@ -854,19 +884,25 @@ export function SecurityPanel() {
         </p>
       </div>
 
-      <Group
-        title="Download"
-        footer={
-          <>
-            Downloads chat threads, transcripts, and latest memory cards as
-            JSON.
-          </>
-        }
-      >
-        <ActionRow
-          label={exportBusy ? "Preparing download…" : "Download my data"}
-          disabled={exportBusy}
-          onClick={() => void downloadExport()}
+      <Group title="Download">
+        <Row
+          left={
+            <div>
+              <div className="font-medium">Conversation and memory data</div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                Downloads chat threads, transcripts, and latest memory cards as
+                JSON.
+              </div>
+            </div>
+          }
+          right={
+            <SmallButton
+              disabled={exportBusy}
+              onClick={() => void downloadExport()}
+            >
+              {exportBusy ? "Preparing…" : "Download"}
+            </SmallButton>
+          }
         />
       </Group>
 
@@ -903,6 +939,7 @@ export function SecurityPanel() {
 
       <Group
         title="Delete conversation and memory data"
+        danger
         footer={
           <>
             Permanently deletes all chat threads, transcripts, and stored

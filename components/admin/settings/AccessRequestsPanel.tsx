@@ -109,7 +109,7 @@ export function AccessRequestsPanel({ access }: { access: AdminAccess }) {
 
   if (access.role !== "owner") {
     return (
-      <div className="rounded-xl border p-3">
+      <div className="border-y border-muted/20 py-3">
         <div className="text-sm font-semibold">Access requests</div>
         <div className="mt-1 text-xs text-muted-foreground">
           Only the Owner can approve new accounts.
@@ -124,15 +124,15 @@ export function AccessRequestsPanel({ access }: { access: AdminAccess }) {
     .slice(0, 5);
 
   return (
-    <div className="overflow-hidden rounded-xl border">
-      <div className="border-b p-3">
+    <div>
+      <div className="pb-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <div className="text-sm font-semibold">Access requests</div>
               {pending.length ? (
-                <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-semibold text-background">
-                  {pending.length}
+                <span className="text-[10px] font-semibold text-muted-foreground">
+                  {pending.length} pending
                 </span>
               ) : null}
             </div>
@@ -144,7 +144,7 @@ export function AccessRequestsPanel({ access }: { access: AdminAccess }) {
             type="button"
             onClick={() => void loadRequests()}
             disabled={loading || Boolean(changingRequestId)}
-            className="rounded-lg border px-2.5 py-1 text-xs disabled:opacity-50"
+            className="px-1 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
           >
             Refresh
           </button>
@@ -162,7 +162,7 @@ export function AccessRequestsPanel({ access }: { access: AdminAccess }) {
           No pending access requests.
         </div>
       ) : (
-        <div className="divide-y">
+        <div className="divide-y divide-muted/20 border-y border-muted/20">
           {pending.map((request) => {
             const isChanging = changingRequestId === request.id;
             const isConfirming = confirmation?.requestId === request.id;

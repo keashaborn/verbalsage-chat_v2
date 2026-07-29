@@ -43,12 +43,12 @@ export function PersonalizationPanel() {
   }, []);
 
   return (
-    <div className="mb-4 rounded-xl border p-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Theme</div>
+    <section className="space-y-3">
+      <div className="text-sm font-semibold">Theme</div>
 
-      <div className="mt-3 space-y-2">
+      <div className="space-y-2">
         <select
-          className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+          className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
           value={theme}
           onChange={(e) => {
             const t = e.target.value as VSTheme;
@@ -64,9 +64,9 @@ export function PersonalizationPanel() {
         </select>
 
         <div className="text-xs text-muted-foreground">
-          Mist is the default. Graphite and Slate provide darker alternatives; Paper remains softly neutral. Your choice syncs to your account.
+          Applies across LifeSwitch and Verbal Sage and syncs to your account.
         </div>
       </div>
-    </div>
+    </section>
   );
 }

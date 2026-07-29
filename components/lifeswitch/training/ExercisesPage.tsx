@@ -2,7 +2,7 @@
 
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
-import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { MoreHorizontal, Trash2 } from "lucide-react";
 
 type ExerciseSearchHit = {
   exercise_id: string;
@@ -335,7 +335,7 @@ export default function TrainingExercisesPage() {
         </div>
 
         <div
-          className="mt-3 inline-flex max-w-full flex-wrap gap-1 rounded-xl border p-1"
+          className="mt-3 flex max-w-full flex-wrap gap-4 border-b border-border/50"
           role="group"
           aria-label="Filter exercise library by role"
         >
@@ -349,10 +349,10 @@ export default function TrainingExercisesPage() {
             <button
               key={value}
               type="button"
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+              className={`border-b-2 py-2 text-xs font-medium ${
                 exerciseRoleFilter === value
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:bg-muted/40"
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
               aria-pressed={exerciseRoleFilter === value}
               onClick={() => setExerciseRoleFilter(value)}
@@ -370,7 +370,7 @@ export default function TrainingExercisesPage() {
                 className="flex min-w-0 flex-col gap-3 py-3 sm:flex-row sm:items-start sm:justify-between"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold text-blue-400">
+                  <div className="truncate text-sm font-semibold text-foreground">
                     {x.display_name}
                   </div>
                   <div className="mt-1 text-xs break-words whitespace-normal text-muted-foreground">
@@ -389,16 +389,16 @@ export default function TrainingExercisesPage() {
 
                 <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
                   <div
-                    className="inline-flex rounded-lg border p-0.5"
+                    className="flex items-center gap-3"
                     role="group"
                     aria-label={`Analysis role for ${x.display_name}`}
                   >
                     <button
                       type="button"
-                      className={`rounded-md px-2 py-1 text-xs font-medium ${
+                      className={`border-b-2 py-1 text-xs font-medium ${
                         x.exercise_role === "strength"
-                          ? "bg-muted text-foreground"
-                          : "text-muted-foreground hover:bg-muted/40"
+                          ? "border-blue-600 text-blue-700 dark:text-blue-300"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
                       }`}
                       aria-pressed={x.exercise_role === "strength"}
                       disabled={roleSavingId === x.my_exercise_id}
@@ -408,10 +408,10 @@ export default function TrainingExercisesPage() {
                     </button>
                     <button
                       type="button"
-                      className={`rounded-md px-2 py-1 text-xs font-medium ${
+                      className={`border-b-2 py-1 text-xs font-medium ${
                         x.exercise_role === "rehab"
-                          ? "bg-muted text-foreground"
-                          : "text-muted-foreground hover:bg-muted/40"
+                          ? "border-foreground text-foreground"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
                       }`}
                       aria-pressed={x.exercise_role === "rehab"}
                       disabled={roleSavingId === x.my_exercise_id}
@@ -421,27 +421,24 @@ export default function TrainingExercisesPage() {
                     </button>
                   </div>
 
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/30"
-                    onClick={() =>
-                      setOpenExerciseActionsId((prev) =>
-                        prev === x.my_exercise_id ? "" : x.my_exercise_id,
-                      )
-                    }
-                    aria-expanded={openExerciseActionsId === x.my_exercise_id}
-                  >
-                    Actions
-                    {openExerciseActionsId === x.my_exercise_id ? (
-                      <ChevronUp className="h-3 w-3" />
-                    ) : (
-                      <ChevronDown className="h-3 w-3" />
-                    )}
-                  </button>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                      onClick={() =>
+                        setOpenExerciseActionsId((prev) =>
+                          prev === x.my_exercise_id ? "" : x.my_exercise_id,
+                        )
+                      }
+                      aria-expanded={openExerciseActionsId === x.my_exercise_id}
+                      aria-label={`Actions for ${x.display_name}`}
+                      title={`Actions for ${x.display_name}`}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
 
-                  {openExerciseActionsId === x.my_exercise_id ? (
-                    <div className="grid w-56 gap-2 rounded-lg border bg-background p-2 shadow-lg">
-                      <div className="rounded-md border border-red-500/20 bg-red-500/5 p-2">
+                    {openExerciseActionsId === x.my_exercise_id ? (
+                      <div className="absolute right-0 z-20 mt-2 w-48 rounded-lg border border-red-500/20 bg-background p-2 shadow-lg">
                         <div className="text-[11px] font-semibold tracking-wide text-red-500 uppercase">
                           Danger zone
                         </div>
@@ -454,8 +451,8 @@ export default function TrainingExercisesPage() {
                           Remove exercise
                         </button>
                       </div>
-                    </div>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </div>
               </div>
             ))}

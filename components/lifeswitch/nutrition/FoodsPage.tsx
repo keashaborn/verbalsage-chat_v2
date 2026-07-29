@@ -840,7 +840,7 @@ export default function NutritionFoodsPage() {
                       <span>{f.brand || "Unbranded"}</span>
                       {f.variant ? ` · ${f.variant}` : ""}
                       {f.source_type === "usda" ? (
-                        <span className="rounded-full border px-1.5 py-0.5 text-[10px]">USDA</span>
+                        <span className="text-[10px] font-medium uppercase tracking-wide">USDA</span>
                       ) : null}
                     </div>
 

@@ -45,7 +45,7 @@ function TextField({
     <label className="block space-y-1.5">
       <span className="text-sm font-semibold">{label}</span>
       <input
-        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+        className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -68,7 +68,7 @@ function TextArea({
     <label className="block space-y-1.5">
       <span className="text-sm font-semibold">{label}</span>
       <textarea
-        className="w-full rounded-xl border bg-background px-3 py-2 text-sm leading-relaxed"
+        className="w-full rounded-lg border bg-background px-3 py-2 text-sm leading-relaxed"
         rows={rows}
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -92,13 +92,15 @@ function SelectField({
     <label className="block space-y-1.5">
       <span className="text-sm font-semibold">{label}</span>
       <select
-        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
+        className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
         {options.map((option) => (
           <option key={option} value={option}>
-            {option.replaceAll("_", " ")}
+            {option
+              .replaceAll("_", " ")
+              .replace(/\b\w/g, (character) => character.toUpperCase())}
           </option>
         ))}
       </select>
@@ -170,11 +172,14 @@ export function AssistantPreferences() {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-6">
-        <div className="rounded-xl border p-4 text-sm text-muted-foreground">
-          RESSE is the single assistant. These fields adjust presentation and
-          relevant user context; they cannot change safety, memory ownership,
-          response mode, or Fractal Monism routing.
+      <section className="space-y-5" aria-labelledby="about-you-title">
+        <div>
+          <h2 id="about-you-title" className="text-base font-semibold">
+            About you
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Information the assistant can use when it is relevant.
+          </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
@@ -194,7 +199,7 @@ export function AssistantPreferences() {
         </div>
         <TextArea
           label="More about you"
-          rows={5}
+          rows={4}
           value={form.more_about_you}
           onChange={(more_about_you) =>
             setForm((state) => ({ ...state, more_about_you }))
@@ -202,12 +207,26 @@ export function AssistantPreferences() {
         />
         <TextArea
           label="Custom instructions"
-          rows={5}
+          rows={4}
           value={form.custom_instructions}
           onChange={(custom_instructions) =>
             setForm((state) => ({ ...state, custom_instructions }))
           }
         />
+      </section>
+
+      <section
+        className="space-y-5 border-t border-muted/20 pt-7"
+        aria-labelledby="response-preferences-title"
+      >
+        <div>
+          <h2 id="response-preferences-title" className="text-base font-semibold">
+            Response preferences
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Set the default level of detail, format, and conversational style.
+          </p>
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
           <SelectField
             label="Response length"
@@ -257,23 +276,21 @@ export function AssistantPreferences() {
             }
           />
         </div>
-        <div className="rounded-xl border px-4 py-3 text-xs leading-relaxed text-muted-foreground">
-          Conversation style changes presentation, not judgment. RESSE remains
-          neutral, avoids automatic praise, and does not agree merely to
-          validate a claim.
+        <div className="text-xs leading-relaxed text-muted-foreground">
+          These preferences affect presentation, not judgment or safety.
         </div>
         <div className="flex items-center justify-end gap-3">
           <span className="text-xs text-muted-foreground">{status}</span>
           <button
             type="button"
-            className="rounded-lg bg-muted px-4 py-2 text-sm font-semibold disabled:opacity-40"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-40"
             disabled={!ready || saving}
             onClick={save}
           >
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving…" : "Save changes"}
           </button>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

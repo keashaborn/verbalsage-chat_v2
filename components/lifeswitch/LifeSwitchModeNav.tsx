@@ -53,25 +53,35 @@ function Tab({
   Icon,
   active,
   onClick,
+  compact = false,
 }: {
   href: string;
   label: string;
   Icon: React.ComponentType<{ className?: string }>;
   active: boolean;
   onClick?: () => void;
+  compact?: boolean;
 }) {
   return (
     <Link
       href={href}
       onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={[
-        "flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-[10px]",
-        "hover:bg-muted/30 active:bg-muted/40",
-        active ? "opacity-100" : "opacity-80",
+        "flex min-w-0 items-center justify-center rounded-xl transition-colors",
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        compact
+          ? "flex-col gap-1 px-2 py-2 text-[10px]"
+          : "gap-2 px-4 py-2 text-sm font-medium",
+        active
+          ? "bg-background text-foreground shadow-sm ring-1 ring-border/40"
+          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground active:bg-muted/80",
       ].join(" ")}
     >
-      <Icon className="h-5 w-5" />
-      <span className="leading-none">{label}</span>
+      <Icon className={compact ? "h-5 w-5" : "h-4 w-4"} />
+      <span className={compact ? "leading-none" : "whitespace-nowrap"}>
+        {label}
+      </span>
     </Link>
   );
 }
@@ -89,12 +99,6 @@ function planHrefForDomain(domain: string) {
 function designHrefForDomain(domain: string) {
   if (domain === "training") return "/lifeswitch/training/design/workouts";
   return `/lifeswitch/${domain}/design`;
-}
-
-function designLabelForDomain(domain: string) {
-  if (domain === "training") return "Workouts";
-  if (domain === "measurements") return "Methods";
-  return "Library";
 }
 
 export function LifeSwitchModeNav() {
@@ -131,7 +135,6 @@ export function LifeSwitchModeNav() {
       : `/lifeswitch/${domain}/log`;
   const captureHref = `/lifeswitch/${domain}/capture`;
   const designHref = designHrefForDomain(domain);
-  const designLabel = designLabelForDomain(domain);
   const DesignIcon = domain === "training" ? Dumbbell : BookOpen;
 
   const rememberDomain = () => {
@@ -140,46 +143,69 @@ export function LifeSwitchModeNav() {
     }
   };
 
+  const tabs = [
+    {
+      href: logHref,
+      label: "Log",
+      Icon: CalendarDays,
+      active: mode === "log",
+    },
+    {
+      href: designHref,
+      label: domain === "training" ? "Workouts" : "Library",
+      Icon: DesignIcon,
+      active: mode === "design",
+    },
+    {
+      href: captureHref,
+      label: "Capture",
+      Icon: PlusSquare,
+      active: mode === "capture",
+    },
+    {
+      href: planHrefForDomain(domain),
+      label: "Plan",
+      Icon: ClipboardList,
+      active: mode === "plan",
+    },
+    {
+      href: `/lifeswitch/${domain}/analyze`,
+      label: "Analyze",
+      Icon: LineChart,
+      active: mode === "analyze",
+    },
+  ];
+
   return (
-    <nav className="fixed right-0 bottom-0 left-0 z-50 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-      <div className="mx-auto grid max-w-5xl grid-cols-5 px-2 pt-2">
-        <Tab
-          href={logHref}
-          label="Log"
-          Icon={CalendarDays}
-          active={mode === "log"}
-          onClick={rememberDomain}
-        />
-        <Tab
-          href={designHref}
-          label={designLabel}
-          Icon={DesignIcon}
-          active={mode === "design"}
-          onClick={rememberDomain}
-        />
-        <Tab
-          href={captureHref}
-          label="Capture"
-          Icon={PlusSquare}
-          active={mode === "capture"}
-          onClick={rememberDomain}
-        />
-        <Tab
-          href={planHrefForDomain(domain)}
-          label="Plan"
-          Icon={ClipboardList}
-          active={mode === "plan"}
-          onClick={rememberDomain}
-        />
-        <Tab
-          href={`/lifeswitch/${domain}/analyze`}
-          label="Analyze"
-          Icon={LineChart}
-          active={mode === "analyze"}
-          onClick={rememberDomain}
-        />
-      </div>
-      <div className="mx-auto max-w-5xl border-t border-muted/20" />
-    </nav>
+    <>
+      <nav
+        aria-label={`${domain} workflow`}
+        className="sticky top-14 z-40 hidden bg-background/95 backdrop-blur-xl md:block"
+      >
+        <div className="mx-auto flex max-w-5xl px-4 py-2">
+          <div className="inline-grid grid-cols-5 gap-1 rounded-2xl bg-muted/50 p-1">
+            {tabs.map((tab) => (
+              <Tab key={tab.href} {...tab} onClick={rememberDomain} />
+            ))}
+          </div>
+        </div>
+      </nav>
+
+      <nav
+        aria-label={`${domain} workflow`}
+        className="fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-50 rounded-2xl bg-card/95 p-1.5 shadow-xl ring-1 ring-foreground/5 backdrop-blur-xl md:hidden"
+      >
+        <div className="grid grid-cols-5 gap-1">
+          {tabs.map((tab) => (
+            <Tab
+              key={tab.href}
+              {...tab}
+              compact
+              onClick={rememberDomain}
+            />
+          ))}
+        </div>
+      </nav>
+    </>
   );
 }

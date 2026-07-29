@@ -3,19 +3,22 @@ import { SegmentTabs } from "@/components/lifeswitch/SegmentTabs";
 
 export default function TrainingDesignLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="grid gap-4">
-      <div>
-        <div className="text-lg font-semibold">Training · Workouts</div>
-        <div className="mt-1 text-sm text-muted-foreground">
-          Build workout templates directly from the catalog or your exercise library.
+    <div className="grid gap-6">
+      <header>
+        <div className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+          Training
         </div>
-      </div>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Workouts</h1>
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          Build workouts, organize conditioning, and manage the exercises you use.
+        </p>
+      </header>
 
       <SegmentTabs
         segments={[
           { href: "/lifeswitch/training/design/workouts", label: "Workouts" },
           { href: "/lifeswitch/training/design/conditioning", label: "Conditioning" },
-          { href: "/lifeswitch/training/design/exercises", label: "My Training Library" },
+          { href: "/lifeswitch/training/design/exercises", label: "Exercises" },
         ]}
       />
 

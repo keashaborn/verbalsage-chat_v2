@@ -499,7 +499,7 @@ export default function NutritionCapturePage() {
       </div>
 
       {mode === "meals" && (
-        <div className="mt-4 border rounded p-3">
+        <div className="mt-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">Meals</div>
@@ -509,7 +509,7 @@ export default function NutritionCapturePage() {
             </div>
 
             <button
-              className="border rounded px-3 py-1 text-sm"
+              className="text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
               onClick={() => void loadMeals()}
               disabled={mealsLoading}
             >
@@ -531,7 +531,7 @@ export default function NutritionCapturePage() {
           </select>
 
           {selectedMeal && (
-            <div className="mt-3 rounded border p-3">
+            <div className="mt-5 border-t border-muted/20 pt-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold">{selectedMeal.name}</div>
@@ -550,7 +550,7 @@ export default function NutritionCapturePage() {
                 </button>
               </div>
 
-              <div className="mt-3 space-y-2">
+              <div className="mt-3 divide-y divide-muted/20 border-y border-muted/20">
                 {mealItemsLoading && (
                   <div className="text-xs text-muted-foreground">Loading meal foods…</div>
                 )}
@@ -570,7 +570,7 @@ export default function NutritionCapturePage() {
                     const included = includedMealItemIds[item.meal_item_id] !== false;
 
                     return (
-                      <div key={item.meal_item_id} className={`grid gap-3 rounded border p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center ${included ? "" : "opacity-50"}`}>
+                      <div key={item.meal_item_id} className={`grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center ${included ? "" : "opacity-50"}`}>
                         <label className="flex min-w-0 flex-1 items-start gap-2">
                           <input
                             type="checkbox"
@@ -632,7 +632,7 @@ export default function NutritionCapturePage() {
                   })}
 
                 {!mealItemsLoading && selectedMeal && mealItems.length === 0 && (
-                  <div className="rounded-xl border bg-muted/20 p-3 text-xs text-muted-foreground">
+                  <div className="border-y border-muted/20 py-3 text-xs text-muted-foreground">
                     This meal has no foods yet. Add foods in{" "}
                     <Link href="/lifeswitch/nutrition/design/meals" className="font-medium underline underline-offset-4">
                       Library / Meals
@@ -674,7 +674,7 @@ export default function NutritionCapturePage() {
             </button>
           </div>
 
-          <div className="mt-3 space-y-2">
+          <div className="mt-4 divide-y divide-muted/20 border-y border-muted/20">
             {foods.map((food) => {
               const servings = servingsByFood[food.my_food_id] || [];
               const selection = foodQuantityByFood[food.my_food_id] || preferredQuantitySelection(food);
@@ -683,13 +683,10 @@ export default function NutritionCapturePage() {
               const expanded = expandedFoodId === food.my_food_id;
 
               return (
-                <div
-                  key={food.my_food_id}
-                  className="overflow-hidden rounded-xl border bg-muted/10"
-                >
+                <div key={food.my_food_id}>
                   <button
                     type="button"
-                    className="flex min-h-16 w-full items-center justify-between gap-3 p-3 text-left hover:bg-muted/20 active:bg-muted/30"
+                    className="flex min-h-16 w-full items-center justify-between gap-3 py-3 text-left hover:bg-muted/10 active:bg-muted/20"
                     aria-expanded={expanded}
                     aria-controls={`capture-food-${food.my_food_id}`}
                     onClick={() => setExpandedFoodId((current) => current === food.my_food_id ? "" : food.my_food_id)}
@@ -711,7 +708,7 @@ export default function NutritionCapturePage() {
                   </button>
 
                   {expanded ? (
-                    <div id={`capture-food-${food.my_food_id}`} className="grid gap-2 border-t p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                    <div id={`capture-food-${food.my_food_id}`} className="grid gap-2 border-t border-muted/20 bg-muted/[0.04] py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                       <FoodQuantityControl
                         label={displayName}
                         value={selection}
@@ -738,7 +735,7 @@ export default function NutritionCapturePage() {
             })}
 
             {!foodsLoading && foods.length === 0 && (
-              <div className="rounded-xl border bg-muted/20 p-3 text-xs text-muted-foreground">
+              <div className="py-3 text-xs text-muted-foreground">
                 No foods loaded. Search again or add foods in{" "}
                 <Link href="/lifeswitch/nutrition/design/foods" className="font-medium underline underline-offset-4">
                   Library / Foods

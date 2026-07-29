@@ -4,7 +4,7 @@ import { authFetch } from "@/lib/authFetch";
 import { RecoveryAdjustmentApplied } from "@/components/lifeswitch/RecoveryAdjustmentApplied";
 import Link from "next/link";
 import * as React from "react";
-import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { MoreHorizontal, Trash2 } from "lucide-react";
 
 type TrainingSessionRow = {
   training_session_id: string;
@@ -379,27 +379,44 @@ function MonthCalendar(props: {
             didConditioning ? "conditioning" : "",
           ].filter(Boolean).join(" + ") || "no log";
 
-          const cls = [
-            "relative h-7 flex items-center justify-center rounded-md border transition-colors",
-            state === "strength" ? "border-blue-500/80 bg-blue-500/10 text-blue-900 dark:text-blue-100 font-semibold" : "",
-            state === "rehab" ? "border-purple-500/80 bg-purple-500/15 text-purple-900 dark:text-purple-100 font-semibold" : "",
-            state === "conditioning" ? "border-yellow-400/80 bg-yellow-500/20 text-yellow-100 font-semibold" : "",
-            state === "both" ? "border-green-700/80 bg-green-500/30 text-green-950 dark:border-green-400/80 dark:bg-green-500/20 dark:text-green-100 font-semibold" : "",
-            state === "none" ? "border-muted/40 text-muted-foreground" : "",
+          const markerCls = [
+            "inline-flex h-6 items-center justify-center transition-colors",
+            state === "strength"
+              ? "font-semibold text-blue-700 dark:text-blue-300"
+              : "",
+            state === "rehab"
+              ? "font-semibold text-muted-foreground"
+              : "",
+            state === "conditioning"
+              ? "font-semibold text-amber-700 dark:text-amber-300"
+              : "",
+            state === "both"
+              ? "font-semibold text-green-700 dark:text-green-300"
+              : "",
+            state === "none" ? "text-muted-foreground" : "",
             isToday ? "underline underline-offset-4" : "",
           ]
             .filter(Boolean)
             .join(" ");
 
           return (
-            <div key={date} className={cls} title={`${date}: ${stateLabel}`}>
-              {dayNum}
-              {didRehab && state !== "rehab" ? (
-                <span
-                  className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-purple-400"
-                  aria-hidden="true"
-                />
-              ) : null}
+            <div
+              key={date}
+              className="flex h-7 items-center justify-center"
+              title={`${date}: ${stateLabel}`}
+              aria-label={`${date}: ${stateLabel}`}
+            >
+              <span className="inline-flex items-start">
+                <span className={markerCls}>{dayNum}</span>
+                {didRehab ? (
+                  <sup
+                    className="relative -top-0.5 ml-0.5 text-[7px] font-black leading-none text-foreground"
+                    aria-label="Rehab"
+                  >
+                    R
+                  </sup>
+                ) : null}
+              </span>
             </div>
           );
         })}
@@ -662,9 +679,10 @@ export default function TrainingCalendarPage() {
       <RecoveryAdjustmentApplied
         domain="strength"
         targetUserId={targetUserId}
+        variant="plain"
       />
 
-      <div className="mt-4 rounded-xl border bg-muted/10 p-3 text-xs text-muted-foreground">
+      <div className="mt-4 text-xs text-muted-foreground">
         <div className="font-medium text-foreground">Training days</div>
         <div className="mt-2 flex flex-wrap gap-3">
           <span className="inline-flex items-center gap-1">
@@ -672,15 +690,17 @@ export default function TrainingCalendarPage() {
             Strength
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="h-3 w-3 rounded-full border border-yellow-400/80 bg-yellow-500/20" />
+            <span className="h-3 w-3 rounded-full border border-amber-700/80 bg-amber-600/15" />
             Conditioning
           </span>
-          <span className="inline-flex items-center gap-1">
+          <span className="hidden items-center gap-1 sm:inline-flex">
             <span className="h-3 w-3 rounded-full border border-green-500/80 bg-green-500/20" />
             Both
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="h-3 w-3 rounded-full border border-purple-500/80 bg-purple-500/15" />
+            <span className="inline-flex h-3 w-3 items-center justify-center text-[8px] font-black leading-none text-foreground">
+              R
+            </span>
             Rehab
           </span>
           <span className="inline-flex items-center gap-1">
@@ -711,44 +731,53 @@ export default function TrainingCalendarPage() {
             <section key={m.ym} className={idx ? "mt-10 border-t border-muted/20 pt-10" : ""}>
               <div className="text-base font-semibold">{m.label}</div>
 
-              <div className="mt-4 grid grid-cols-[1fr_6.5rem] items-start gap-2">
-                <MonthCalendar
-                  ym={m.ym}
-                  workoutDates={m.workoutDates}
-                  rehabDates={m.rehabDates}
-                  conditioningDates={m.conditioningDates}
-                  today={today}
-                />
-
-                <div className="flex justify-center">
-                  <div className="w-[6.25rem] rounded-xl border border-muted/20 px-2 py-2 text-center">
-                    <div className="text-sm font-semibold leading-none">{m.workouts}</div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">WORKOUTS</div>
-
-                    <div className="mt-2 text-sm font-semibold leading-none">{formatK(m.volume)}</div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">VOLUME</div>
-
-                    <div className="mt-2 text-sm font-semibold leading-none">{m.sets}</div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">SETS</div>
-
-                    <div className="mt-2 text-sm font-semibold leading-none">{m.rehabDays}</div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">REHAB DAYS</div>
-
-                    <div className="mt-2 text-sm font-semibold leading-none">{m.conditioning}</div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">COND</div>
-
-                    <div className="mt-2 text-sm font-semibold leading-none">
-                      {m.conditioningMinutes >= 60
-                        ? `${String(Math.round((m.conditioningMinutes / 60) * 10) / 10).replace(/\.0$/, "")}h`
-                        : `${Math.round(m.conditioningMinutes)}m`}
+              <div className="mt-3 grid grid-cols-[minmax(0,1fr)_3.75rem] items-start gap-2 sm:block">
+                <div className="order-2 grid gap-y-2 border-l border-border/50 pl-2 sm:order-none sm:grid-cols-6 sm:gap-x-4 sm:border-x-0 sm:border-y sm:py-3 sm:pl-0">
+                  {[
+                    { label: "Workouts", value: m.workouts },
+                    { label: "Volume", value: formatK(m.volume) },
+                    { label: "Sets", value: m.sets },
+                    { label: "Rehab days", value: m.rehabDays },
+                    { label: "Conditioning", value: m.conditioning },
+                    {
+                      label: "Time",
+                      value:
+                        m.conditioningMinutes >= 60
+                          ? `${String(Math.round((m.conditioningMinutes / 60) * 10) / 10).replace(/\.0$/, "")}h`
+                          : `${Math.round(m.conditioningMinutes)}m`,
+                    },
+                  ].map((metric) => (
+                    <div key={metric.label}>
+                      <div className="text-sm font-semibold leading-none sm:text-base">
+                        {metric.value}
+                      </div>
+                      <div className="mt-0.5 text-[8px] leading-tight tracking-wide text-muted-foreground uppercase sm:mt-1 sm:text-[10px]">
+                        {metric.label}
+                      </div>
                     </div>
-                    <div className="mt-0.5 text-[9px] tracking-wide opacity-70">TIME</div>
-                  </div>
+                  ))}
+                </div>
+
+                <div className="order-1 min-w-0 sm:order-none sm:mt-4">
+                  <MonthCalendar
+                    ym={m.ym}
+                    workoutDates={m.workoutDates}
+                    rehabDates={m.rehabDates}
+                    conditioningDates={m.conditioningDates}
+                    today={today}
+                  />
                 </div>
               </div>
 
-              <div className="mt-6 space-y-3">
-                {m.events.map((event) => {
+              <div className="mt-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold">Sessions</div>
+                  <div className="text-xs text-muted-foreground">
+                    {m.events.length} {m.events.length === 1 ? "session" : "sessions"}
+                  </div>
+                </div>
+                <div className="mt-2 divide-y divide-border/50 border-y border-border/50">
+                  {m.events.map((event) => {
                   if (event.kind === "strength") {
                     const s = event.row;
                     const role = trainingSessionRole(s);
@@ -782,24 +811,24 @@ export default function TrainingCalendarPage() {
                     return (
                       <article
                         key={`strength:${s.training_session_id}`}
-                        className="rounded-xl border p-4 transition-colors hover:bg-muted/30"
+                        className="py-4 transition-colors hover:bg-muted/10"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <div className="truncate text-sm font-semibold">{s.name}</div>
                               {role === "strength" || role === "mixed" ? (
-                                <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-blue-400">
+                                <span className="text-[10px] font-semibold tracking-wide text-blue-700 uppercase dark:text-blue-300">
                                   Strength
                                 </span>
                               ) : null}
                               {role === "rehab" || role === "mixed" ? (
-                                <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-purple-400">
+                                <span className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
                                   Rehab
                                 </span>
                               ) : null}
                               {role === "unclassified" ? (
-                                <span className="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                                <span className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
                                   Unclassified
                                 </span>
                               ) : null}
@@ -824,56 +853,64 @@ export default function TrainingCalendarPage() {
                             {s.notes ? <div className="mt-2 text-xs text-muted-foreground">{s.notes}</div> : null}
                           </div>
 
-                          <div className="flex shrink-0 flex-col items-end gap-2 text-xs">
+                          {!readOnly ? (
+                            <div className="relative shrink-0">
+                              <button
+                                type="button"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                onClick={() => {
+                                  setOpenSessionActionsId((prev) =>
+                                    prev === s.training_session_id ? "" : s.training_session_id
+                                  );
+                                }}
+                                aria-expanded={actionsOpen}
+                                aria-controls={actionsId}
+                                aria-haspopup="menu"
+                                aria-label={`Actions for ${s.name}`}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+
+                              {actionsOpen ? (
+                                <div
+                                  id={actionsId}
+                                  role="menu"
+                                  className="absolute right-0 top-9 z-20 w-32 rounded-lg border bg-popover p-1 text-sm shadow-lg"
+                                >
+                                  <Link
+                                    href={sessionHref}
+                                    role="menuitem"
+                                    className="flex w-full items-center rounded-md px-2 py-1.5 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label={`View ${s.name} session`}
+                                  >
+                                    View
+                                  </Link>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-red-600 hover:bg-red-500/10"
+                                    onClick={() => {
+                                      void deleteSession(
+                                        s.training_session_id,
+                                        s.name,
+                                      );
+                                    }}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Delete
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : (
                             <Link
                               href={sessionHref}
-                              className="inline-flex min-h-8 items-center rounded-md px-2 py-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="inline-flex min-h-8 shrink-0 items-center rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               aria-label={`View ${s.name} session`}
                             >
                               View
                             </Link>
-                            {!readOnly ? (
-                              <>
-                                <button
-                                  type="button"
-                                  className="inline-flex min-h-8 items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                  onClick={() => {
-                                    setOpenSessionActionsId((prev) =>
-                                      prev === s.training_session_id ? "" : s.training_session_id
-                                    );
-                                  }}
-                                  aria-expanded={actionsOpen}
-                                  aria-controls={actionsId}
-                                  aria-label={`Actions for ${s.name}`}
-                                >
-                                  Actions
-                                  {actionsOpen ? (
-                                    <ChevronUp className="h-3 w-3" />
-                                  ) : (
-                                    <ChevronDown className="h-3 w-3" />
-                                  )}
-                                </button>
-
-                                {actionsOpen ? (
-                                  <div id={actionsId} className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                                    <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
-                                      Danger zone
-                                    </div>
-                                    <button
-                                      type="button"
-                                      className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-[11px] text-red-600 hover:bg-red-500/10"
-                                      onClick={() => {
-                                        void deleteSession(s.training_session_id, s.name);
-                                      }}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                      Delete session
-                                    </button>
-                                  </div>
-                                ) : null}
-                              </>
-                            ) : null}
-                          </div>
+                          )}
                         </div>
                       </article>
                     );
@@ -894,12 +931,15 @@ export default function TrainingCalendarPage() {
                     `conditioning-actions-${c.conditioning_session_log_id}`;
 
                   return (
-                    <article key={`conditioning:${c.conditioning_session_log_id}`} className="rounded-xl border p-4">
+                    <article
+                      key={`conditioning:${c.conditioning_session_log_id}`}
+                      className="py-4 transition-colors hover:bg-muted/10"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <div className="truncate text-sm font-semibold">{c.name}</div>
-                            <span className="rounded-full border border-yellow-400/30 bg-yellow-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-yellow-300">
+                            <span className="text-[10px] font-semibold tracking-wide text-amber-700 uppercase dark:text-amber-300">
                               Conditioning
                             </span>
                           </div>
@@ -918,10 +958,10 @@ export default function TrainingCalendarPage() {
                         </div>
 
                         {!readOnly ? (
-                          <div className="flex shrink-0 flex-col items-end gap-2 text-xs">
+                          <div className="relative shrink-0">
                             <button
                               type="button"
-                              className="inline-flex min-h-8 items-center gap-1 rounded-md border px-2 py-1 text-muted-foreground hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               onClick={() =>
                                 setOpenSessionActionsId((previous) =>
                                   previous === conditioningActionsKey
@@ -931,27 +971,22 @@ export default function TrainingCalendarPage() {
                               }
                               aria-expanded={conditioningActionsOpen}
                               aria-controls={conditioningActionsId}
+                              aria-haspopup="menu"
                               aria-label={`Actions for ${c.name}`}
                             >
-                              Actions
-                              {conditioningActionsOpen ? (
-                                <ChevronUp className="h-3 w-3" />
-                              ) : (
-                                <ChevronDown className="h-3 w-3" />
-                              )}
+                              <MoreHorizontal className="h-4 w-4" />
                             </button>
 
                             {conditioningActionsOpen ? (
                               <div
                                 id={conditioningActionsId}
-                                className="rounded-lg border border-red-500/20 bg-red-500/5 p-2"
+                                role="menu"
+                                className="absolute right-0 top-9 z-20 w-32 rounded-lg border bg-popover p-1 text-sm shadow-lg"
                               >
-                                <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
-                                  Danger zone
-                                </div>
                                 <button
                                   type="button"
-                                  className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-[11px] text-red-600 hover:bg-red-500/10"
+                                  role="menuitem"
+                                  className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-red-600 hover:bg-red-500/10"
                                   onClick={() =>
                                     void deleteConditioningSession(
                                       c.conditioning_session_log_id,
@@ -959,8 +994,8 @@ export default function TrainingCalendarPage() {
                                     )
                                   }
                                 >
-                                  <Trash2 className="h-3 w-3" />
-                                  Delete session
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete
                                 </button>
                               </div>
                             ) : null}
@@ -969,7 +1004,8 @@ export default function TrainingCalendarPage() {
                       </div>
                     </article>
                   );
-                })}
+                  })}
+                </div>
               </div>
             </section>
           ))

@@ -54,12 +54,12 @@ function historicalStatusLabel(status: VoiceHealthStatus): string {
 
 function statusClass(status: VoiceHealthStatus): string {
   if (status === "pass") {
-    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+    return "text-emerald-700 dark:text-emerald-300";
   }
   if (status === "fail") {
-    return "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300";
+    return "text-red-700 dark:text-red-300";
   }
-  return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+  return "text-amber-700 dark:text-amber-300";
 }
 
 function metric(value: number | null, format: "percent" | "duration") {
@@ -113,7 +113,7 @@ export function VoiceSystemHealthPanel() {
   }, [load]);
 
   return (
-    <div className="rounded-xl border p-3">
+    <section>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold">Voice System Health</div>
@@ -126,7 +126,7 @@ export function VoiceSystemHealthPanel() {
           type="button"
           onClick={() => void load()}
           disabled={loading}
-          className="shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-muted/50 disabled:opacity-50"
+          className="shrink-0 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50"
         >
           {loading ? "Checking…" : "Refresh"}
         </button>
@@ -143,7 +143,7 @@ export function VoiceSystemHealthPanel() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium">Current canary</span>
             <span
-              className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClass(health.status)}`}
+              className={`text-xs font-semibold ${statusClass(health.status)}`}
             >
               {statusLabel(health.status)}
             </span>
@@ -165,7 +165,7 @@ export function VoiceSystemHealthPanel() {
                 </div>
               </div>
               <span
-                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${statusClass(health.source_status)}`}
+                className={`text-[10px] font-semibold uppercase ${statusClass(health.source_status)}`}
               >
                 {historicalStatusLabel(health.source_status)}
               </span>
@@ -190,7 +190,7 @@ export function VoiceSystemHealthPanel() {
                         {metric(check.actual, row.format)}
                       </span>
                       <span
-                        className={`rounded-full border px-2 py-0.5 text-[10px] uppercase ${statusClass(check.status)}`}
+                        className={`text-[10px] font-semibold uppercase ${statusClass(check.status)}`}
                       >
                         {check.status === "pass"
                           ? "Pass"
@@ -205,14 +205,14 @@ export function VoiceSystemHealthPanel() {
             </div>
           </div>
 
-          <div className="grid gap-2 text-xs sm:grid-cols-2">
-            <div className="rounded-lg border p-2">
+          <div className="grid border-y text-xs sm:grid-cols-2 sm:divide-x">
+            <div className="py-3 sm:pr-3">
               <div className="font-medium">Latest canary sample</div>
               <div className="mt-0.5 text-muted-foreground">
                 {timeLabel(health.latest_sample_at)}
               </div>
             </div>
-            <div className="rounded-lg border p-2">
+            <div className="border-t py-3 sm:border-t-0 sm:pl-3">
               <div className="font-medium">Freshness</div>
               <div className="mt-0.5 text-muted-foreground">
                 {health.freshness.age_minutes === null
@@ -221,7 +221,7 @@ export function VoiceSystemHealthPanel() {
               </div>
             </div>
             {health.current.latest_failure_at ? (
-              <div className="rounded-lg border p-2 sm:col-span-2">
+              <div className="border-t py-3 sm:col-span-2">
                 <div className="font-medium">Last retained failure</div>
                 <div className="mt-0.5 text-muted-foreground">
                   {timeLabel(health.current.latest_failure_at)}
@@ -243,6 +243,6 @@ export function VoiceSystemHealthPanel() {
           </div>
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }

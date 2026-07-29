@@ -42,9 +42,11 @@ function periodForDomain(
 export function RecoveryAdjustmentApplied({
   domain,
   targetUserId = "",
+  variant = "default",
 }: {
   domain: RecoveryDomain;
   targetUserId?: string;
+  variant?: "default" | "plain";
 }) {
   const today = React.useMemo(() => localDay(), []);
   const [period, setPeriod] = React.useState<RecoveryPeriod | null>(null);
@@ -100,7 +102,13 @@ export function RecoveryAdjustmentApplied({
     : "/lifeswitch/plan";
 
   return (
-    <details className="mt-3 w-fit max-w-full rounded-lg border bg-muted/10 px-3 py-1.5 text-xs text-muted-foreground">
+    <details
+      className={
+        variant === "plain"
+          ? "mt-3 max-w-full text-xs text-muted-foreground"
+          : "mt-3 w-fit max-w-full rounded-lg border bg-muted/10 px-3 py-1.5 text-xs text-muted-foreground"
+      }
+    >
       <summary className="cursor-pointer font-medium text-foreground select-none">
         Recovery adjustment applied
       </summary>

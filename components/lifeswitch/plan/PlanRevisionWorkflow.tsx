@@ -393,19 +393,19 @@ function PlanSummary({
   }
 
   return (
-    <div className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="grid gap-0">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold">{title}</h2>
         <div className="flex gap-2">
           <button
-            className="rounded-lg border px-3 py-2 text-xs font-medium"
+            className="text-xs font-medium text-muted-foreground hover:text-foreground"
             type="button"
             onClick={() => setExpandedSections(new Set(sectionKeys))}
           >
             Expand all
           </button>
           <button
-            className="rounded-lg border px-3 py-2 text-xs font-medium"
+            className="text-xs font-medium text-muted-foreground hover:text-foreground"
             type="button"
             onClick={() => setExpandedSections(new Set())}
           >
@@ -413,7 +413,7 @@ function PlanSummary({
           </button>
         </div>
       </div>
-      <section className="rounded-xl border bg-background">
+      <section className="border-y border-border/50 bg-background">
         <button
           className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm font-medium"
           type="button"
@@ -431,7 +431,7 @@ function PlanSummary({
           </span>
         </button>
         {expandedSections.has("overview") ? (
-          <dl className="grid gap-3 border-t bg-muted/40 p-3 sm:grid-cols-2">
+          <dl className="grid gap-3 border-t border-border/50 p-3 sm:grid-cols-2">
             <div>
               <dt className="text-xs font-medium text-muted-foreground">
                 Current phase
@@ -506,7 +506,7 @@ function PlanSummary({
             : "Additional guidance";
         const expanded = expandedSections.has(String(field));
         return (
-          <section key={field} className="rounded-xl border bg-background">
+          <section key={field} className="border-b border-border/50 bg-background">
             <button
               className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm font-medium"
               type="button"
@@ -527,7 +527,7 @@ function PlanSummary({
                   <LinkedConditioningPlanSummary value={linkedConditioning} />
                 ) : null}
                 {entries.length && hasPinnedPrescription ? (
-                  <details className="rounded-xl border bg-muted/20 sm:col-span-2">
+                  <details className="border-y border-border/50 sm:col-span-2">
                     <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground">
                       {additionalLabel}
                     </summary>
@@ -547,7 +547,7 @@ function PlanSummary({
       })}
 
       {document.coach_notes ? (
-        <section className="rounded-xl border bg-background">
+        <section className="border-b border-border/50 bg-background">
           <button
             className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm font-medium"
             type="button"
@@ -815,7 +815,7 @@ export function PlanRevisionWorkflow() {
 
   return (
     <section className="mx-auto grid max-w-6xl gap-4 px-4 pt-4 md:px-6 md:pt-6">
-      <div className="rounded-2xl border bg-background p-4 shadow-sm md:p-5">
+      <div className="bg-background">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
@@ -843,15 +843,15 @@ export function PlanRevisionWorkflow() {
             ) : null}
           </div>
           {viewingDraft && revision ? (
-            <span className="rounded-full border px-3 py-1 text-xs font-medium">
+            <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               {humanize(revision.state)}
             </span>
           ) : activePlan ? (
-            <span className="rounded-full border px-3 py-1 text-xs font-medium">
+            <span className="text-xs font-semibold tracking-wide text-blue-700 uppercase dark:text-blue-300">
               Active version {activePlan.version_number}
             </span>
           ) : (
-            <span className="rounded-full border px-3 py-1 text-xs font-medium">
+            <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               Not prepared
             </span>
           )}
@@ -915,7 +915,7 @@ export function PlanRevisionWorkflow() {
           <div className="mt-4 grid gap-4">
             {revision.state === "draft" && canEdit ? (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/30 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-y border-border/50 py-3">
                   <div>
                     <div className="text-sm font-semibold">
                       {revisionMatchesActive

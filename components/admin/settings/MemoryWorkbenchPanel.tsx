@@ -144,12 +144,12 @@ function interpretationTone(
   kind: WorkbenchItem["gpu"]["interpretations"][number]["kind"],
 ) {
   if (kind === "observation") {
-    return "border-blue-500/25 bg-blue-500/5";
+    return "border-blue-500/50";
   }
   if (kind === "entity") {
-    return "border-violet-500/25 bg-violet-500/5";
+    return "border-violet-500/50";
   }
-  return "border-amber-500/25 bg-amber-500/5";
+  return "border-amber-500/50";
 }
 
 function SourceContext({
@@ -324,7 +324,7 @@ export function MemoryWorkbenchPanel() {
   );
 
   return (
-    <section className="rounded-xl border p-3">
+    <section>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold">Memory Workbench</div>
@@ -339,21 +339,21 @@ export function MemoryWorkbenchPanel() {
           type="button"
           onClick={() => void load(false)}
           disabled={loading}
-          className="shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-muted/50 disabled:opacity-50"
+          className="shrink-0 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50"
         >
           {loading ? "Loading…" : "Refresh"}
         </button>
       </div>
 
       {payload ? (
-        <div className="mt-3 grid gap-2 sm:grid-cols-4">
+        <div className="mt-3 grid divide-y border-y sm:grid-cols-4 sm:divide-x sm:divide-y-0">
           {[
             ["Awaiting review", payload.summary.pending],
             ["Marked correct", payload.summary.correct],
             ["Marked not correct", payload.summary.not_correct],
             ["Reviewable total", payload.summary.total],
           ].map(([label, value]) => (
-            <div key={String(label)} className="rounded-lg border p-3">
+            <div key={String(label)} className="py-3 sm:px-3 sm:first:pl-0 sm:last:pr-0">
               <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                 {label}
               </div>
@@ -363,7 +363,7 @@ export function MemoryWorkbenchPanel() {
         </div>
       ) : null}
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-5 border-b">
         {(
           [
             ["pending", "Awaiting review"],
@@ -375,10 +375,10 @@ export function MemoryWorkbenchPanel() {
             key={state}
             type="button"
             onClick={() => setFilter(state)}
-            className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+            className={`border-b-2 py-2 text-xs font-semibold ${
               filter === state
-                ? "border-foreground bg-foreground text-background"
-                : "hover:bg-muted/50"
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
             {label}
@@ -393,16 +393,16 @@ export function MemoryWorkbenchPanel() {
       ) : null}
 
       {!loading && payload?.items.length === 0 ? (
-        <div className="mt-3 rounded-lg border p-4 text-sm text-muted-foreground">
+        <div className="mt-3 border-y py-4 text-sm text-muted-foreground">
           Nothing is waiting in this view.
         </div>
       ) : null}
 
-      <div className="mt-3 space-y-3">
+      <div className="mt-3 divide-y border-y">
         {payload?.items.map((item) => {
           const busy = submitting === item.packet_id;
           return (
-            <article key={item.packet_id} className="rounded-xl border p-3">
+            <article key={item.packet_id} className="py-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs font-semibold">
                   {decisionLabel(item.review.decision)}
@@ -412,8 +412,8 @@ export function MemoryWorkbenchPanel() {
                 </div>
               </div>
 
-              <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                <div className="rounded-lg border p-3">
+              <div className="mt-3 grid lg:grid-cols-2">
+                <div className="py-1 lg:pr-4">
                   <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                     What was sent to the private GPU
                   </div>
@@ -427,7 +427,7 @@ export function MemoryWorkbenchPanel() {
                   ) : null}
                 </div>
 
-                <div className="rounded-lg border p-3">
+                <div className="mt-4 border-t pt-4 lg:mt-0 lg:border-t-0 lg:border-l lg:pt-1 lg:pl-4">
                   <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                     What the GPU inferred
                   </div>
@@ -436,7 +436,7 @@ export function MemoryWorkbenchPanel() {
                       item.gpu.interpretations.map((interpretation, index) => (
                         <div
                           key={`${interpretation.kind}-${interpretation.code}-${index}`}
-                          className={`rounded-lg border p-2 text-sm ${interpretationTone(
+                          className={`border-l-2 py-1 pl-3 text-sm ${interpretationTone(
                             interpretation.kind,
                           )}`}
                         >
@@ -448,11 +448,11 @@ export function MemoryWorkbenchPanel() {
                               : ""}
                           </div>
                           {interpretation.reason_codes.length > 0 ? (
-                            <div className="mt-1 flex flex-wrap gap-1">
+                            <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1">
                               {interpretation.reason_codes.map((reason) => (
                                 <span
                                   key={reason}
-                                  className="rounded-full border px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground"
+                                  className="font-mono text-[9px] text-muted-foreground"
                                 >
                                   {reason}
                                 </span>
@@ -468,22 +468,18 @@ export function MemoryWorkbenchPanel() {
                       </div>
                     )}
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
-                    <span className="rounded-full border px-2 py-1">
-                      {item.gpu.entity_count} entities
-                    </span>
-                    <span className="rounded-full border px-2 py-1">
-                      {item.gpu.observation_count} observations
-                    </span>
-                    <span className="rounded-full border px-2 py-1">
+                  <div className="mt-3 flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+                    <span>
+                      {item.gpu.entity_count} entities ·{" "}
+                      {item.gpu.observation_count} observations ·{" "}
                       {item.gpu.deferral_count} deferrals
                     </span>
-                    <span className="rounded-full border px-2 py-1 font-mono">
-                      {item.routing.route}
+                    <span className="font-mono">
+                      · {item.routing.route}
                     </span>
                     {item.routing.reason_code ? (
-                      <span className="rounded-full border px-2 py-1 font-mono">
-                        {item.routing.reason_code}
+                      <span className="font-mono">
+                        · {item.routing.reason_code}
                       </span>
                     ) : null}
                   </div>
@@ -491,7 +487,7 @@ export function MemoryWorkbenchPanel() {
               </div>
 
               <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                <details className="rounded-lg border p-3">
+                <details className="border-t py-3">
                   <summary className="cursor-pointer text-xs font-semibold">
                     Available source-message context
                   </summary>
@@ -504,7 +500,7 @@ export function MemoryWorkbenchPanel() {
                   </div>
                 </details>
 
-                <details className="rounded-lg border p-3">
+                <details className="border-t py-3">
                   <summary className="cursor-pointer text-xs font-semibold">
                     Structured diagnostic JSON
                   </summary>
@@ -519,7 +515,7 @@ export function MemoryWorkbenchPanel() {
                 </details>
               </div>
 
-              <details className="mt-3 rounded-lg border p-3">
+              <details className="mt-1 border-t py-3">
                 <summary className="cursor-pointer text-xs font-semibold">
                   Diagnostic feedback
                 </summary>

@@ -120,13 +120,12 @@ export default function AccountSettingsPage() {
       title="Account"
       description="Manage your account identity and current session."
     >
-      <div className="space-y-6">
-        <section className="space-y-4 rounded-xl border p-4">
+      <div className="space-y-8">
+        <section className="space-y-5">
           <div>
-            <h2 className="text-sm font-semibold">Account identity</h2>
+            <h2 className="text-base font-semibold">Account identity</h2>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Your full name identifies your account. It is separate from the
-              nickname RESSE uses in conversation.
+              Your full name identifies your account.
             </p>
           </div>
 
@@ -143,47 +142,47 @@ export default function AccountSettingsPage() {
             />
           </label>
 
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium">Email</span>
-            <input
-              type="email"
-              autoComplete="email"
-              value={email || ""}
-              readOnly
-              aria-readonly="true"
-              className="w-full rounded-lg border bg-muted/30 px-3 py-2 text-sm text-muted-foreground"
-            />
-          </label>
-
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span>Email status</span>
-            <span className="rounded-full border px-2.5 py-1 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-y border-muted/20 py-3">
+            <div>
+              <div className="text-sm font-medium">Email</div>
+              <div className="mt-0.5 text-sm text-muted-foreground">
+                {email || "Unavailable"}
+              </div>
+            </div>
+            <span
+              className={`text-xs font-medium ${
+                emailVerified
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-amber-700 dark:text-amber-400"
+              }`}
+            >
               {emailVerified ? "Verified" : "Not verified"}
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={saveIdentity}
-            disabled={
-              loading ||
-              saving ||
-              !normalizeAccountFullName(fullName) ||
-              normalizeAccountFullName(fullName) === savedFullName
-            }
-            className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving ? "Saving…" : "Save name"}
-          </button>
-
-          <p className="min-h-5 text-xs text-muted-foreground" aria-live="polite">
-            {status}
-          </p>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <p className="text-xs text-muted-foreground" aria-live="polite">
+              {status}
+            </p>
+            <button
+              type="button"
+              onClick={saveIdentity}
+              disabled={
+                loading ||
+                saving ||
+                !normalizeAccountFullName(fullName) ||
+                normalizeAccountFullName(fullName) === savedFullName
+              }
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+          </div>
         </section>
 
-        <section className="space-y-3 rounded-xl border p-4">
+        <section className="flex flex-col gap-3 border-t border-muted/20 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-sm font-semibold">Current session</h2>
+            <h2 className="text-base font-semibold">Current session</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Signed in as {label}
             </p>
@@ -192,7 +191,7 @@ export default function AccountSettingsPage() {
           <button
             type="button"
             onClick={handleSignOut}
-            className="rounded-md border px-3 py-2 text-sm hover:bg-muted/40"
+            className="self-start rounded-md border px-3 py-2 text-sm hover:bg-muted/40 sm:self-auto"
           >
             Sign out
           </button>

@@ -355,11 +355,11 @@ export default function TrainingAnalyzePage() {
   }[strengthFrequency.status];
 
   const strengthFrequencyStatusClass = {
-    met: "border-emerald-700/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-    below: "border-amber-700/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-    above: "border-sky-700/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-    insufficient_data: "border-muted-foreground/30 bg-muted/30 text-muted-foreground",
-    paused: "border-violet-700/40 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+    met: "text-emerald-700 dark:text-emerald-300",
+    below: "text-amber-700 dark:text-amber-300",
+    above: "text-sky-700 dark:text-sky-300",
+    insufficient_data: "text-muted-foreground",
+    paused: "text-violet-700 dark:text-violet-300",
   }[strengthFrequency.status];
 
   const strengthProgression = React.useMemo(
@@ -512,7 +512,7 @@ export default function TrainingAnalyzePage() {
             <button
               key={r.value}
               type="button"
-              className={`rounded-full border px-3 py-1 text-sm ${rangeDays === r.value ? "border-foreground bg-foreground text-background" : "hover:bg-muted/20"}`}
+              className={`border-b-2 py-1 text-sm font-medium ${rangeDays === r.value ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
               onClick={() => setRangeDays(r.value as RangeDays)}
             >
               {r.label}
@@ -540,7 +540,7 @@ export default function TrainingAnalyzePage() {
         </details>
       ) : null}
 
-      <section className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <section className="mt-6 grid grid-cols-2 gap-x-4 gap-y-3 border-y border-border/50 py-3 md:grid-cols-5">
         <MetricCard label="Training days" value={summary.trainingDays} sub={`${summary.strengthDays} strength · ${summary.rehabDays} rehab · ${summary.conditioningDays} conditioning`} />
         <MetricCard label="Strength sessions" value={summary.strengthSessions} sub={`${summary.sets} sets · ${summary.exercises} exercises`} />
         <MetricCard label="Strength volume" value={formatK(summary.volume)} sub="logged load × reps" />
@@ -548,25 +548,25 @@ export default function TrainingAnalyzePage() {
         <MetricCard label="Conditioning" value={formatDuration(summary.conditioningMinutes)} sub={`${summary.conditioningSessions} sessions`} />
       </section>
 
-      <section className="mt-6 rounded-xl border p-4" aria-label="Plan versus actual strength frequency">
+      <section className="mt-6 border-y border-border/50 py-4" aria-label="Plan versus actual strength frequency">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold">Plan vs actual · Strength frequency</div>
             <div className="mt-1 text-xs text-muted-foreground">{planEvidence}</div>
           </div>
-          <div className={`rounded-full border px-3 py-1 text-xs font-semibold ${strengthFrequencyStatusClass}`}>
+          <div className={`text-xs font-semibold tracking-wide uppercase ${strengthFrequencyStatusClass}`}>
             {strengthFrequencyStatus}
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border p-4">
+        <div className="mt-4 grid grid-cols-2 divide-x divide-border/50 border-y border-border/50 py-3">
+          <div className="px-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Planned</div>
             <div className="mt-2 text-2xl font-semibold">
               {strengthFrequency.target?.label ?? "Not set"}
             </div>
           </div>
-          <div className="rounded-xl border p-4">
+          <div className="px-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Completed</div>
             <div className="mt-2 text-2xl font-semibold">{strengthFrequency.completed}</div>
             <div className="mt-1 text-xs text-muted-foreground">canonical strength sessions</div>
@@ -599,7 +599,7 @@ export default function TrainingAnalyzePage() {
         ) : null}
       </section>
 
-      <section className="mt-6 rounded-xl border p-4" aria-label="Strength exercise progression">
+      <section className="mt-6 border-y border-border/50 py-4" aria-label="Strength exercise progression">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold">Strength progression</div>
@@ -637,10 +637,10 @@ export default function TrainingAnalyzePage() {
                 <button
                   key={metric.value}
                   type="button"
-                  className={`rounded-full border px-3 py-1.5 text-sm ${
+                  className={`border-b-2 py-1.5 text-sm font-medium ${
                     progressionMetric === metric.value
-                      ? "border-foreground bg-foreground text-background"
-                      : "hover:bg-muted/30"
+                      ? "border-foreground text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
                   }`}
                   onClick={() => setProgressionMetric(metric.value)}
                 >
@@ -652,12 +652,12 @@ export default function TrainingAnalyzePage() {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
-          <span className="rounded-full border px-3 py-1">{progressionSufficiency.comparable} with comparable history</span>
-          <span className="rounded-full border px-3 py-1">{progressionSufficiency.baseline} baseline only</span>
+          <span>{progressionSufficiency.comparable} with comparable history</span>
+          <span>· {progressionSufficiency.baseline} baseline only</span>
           {progressionSufficiency.unitMismatch ? (
-            <span className="rounded-full border px-3 py-1">{progressionSufficiency.unitMismatch} with unit mismatch</span>
+            <span>· {progressionSufficiency.unitMismatch} with unit mismatch</span>
           ) : null}
-          <span className="rounded-full border px-3 py-1">{startDay} → {today}</span>
+          <span>· {startDay} → {today}</span>
         </div>
 
         {progressionError ? (
@@ -670,7 +670,7 @@ export default function TrainingAnalyzePage() {
           </div>
         ) : selectedProgression && selectedProgressionSignal ? (
           <div className="mt-4 space-y-4">
-            <div className="rounded-xl border bg-muted/20 p-4">
+            <div className="border-l-2 border-border/60 pl-3">
               <div className="text-base font-semibold">{selectedProgressionSignal.headline}</div>
               <div className="mt-1 text-sm text-muted-foreground">{selectedProgressionSignal.detail}</div>
             </div>
@@ -686,7 +686,7 @@ export default function TrainingAnalyzePage() {
               heightPx={300}
             />
 
-            <div className="rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <div className="border-t border-border/50 pt-3 text-xs text-muted-foreground">
               <div>
                 Latest {selectedProgression.latest.day}: {selectedProgression.latest.setCount} sets · {formatMetricNumber(selectedProgression.latest.totalReps)} reps · top {formatLoad(selectedProgression.latest.maxLoad, selectedProgression.latest.loadUnit)} · volume {formatK(selectedProgression.latest.totalVolume)}
               </div>
@@ -713,9 +713,9 @@ export default function TrainingAnalyzePage() {
 
 function MetricCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {
   return (
-    <div className="rounded-xl border p-4">
+    <div>
       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-2 text-2xl font-semibold">{value}</div>
+      <div className="mt-1 text-xl font-semibold">{value}</div>
       {sub ? <div className="mt-1 text-xs text-muted-foreground">{sub}</div> : null}
     </div>
   );

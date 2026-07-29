@@ -200,7 +200,7 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
 
   if (access.role !== "owner") {
     return (
-      <div className="rounded-xl border p-3">
+      <div className="border-y border-muted/20 py-3">
         <div className="text-sm font-semibold">Administrator management</div>
         <div className="mt-1 text-xs text-muted-foreground">
           Only the Owner can appoint or remove administrators.
@@ -220,8 +220,8 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
     : users;
 
   return (
-    <div className="overflow-hidden rounded-xl border">
-      <div className="border-b p-3">
+    <div>
+      <div className="pb-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold">
@@ -236,7 +236,7 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
             type="button"
             onClick={() => void loadUsers()}
             disabled={loading || Boolean(changingUserId)}
-            className="rounded-lg border px-2.5 py-1 text-xs disabled:opacity-50"
+            className="px-1 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
           >
             Refresh
           </button>
@@ -263,7 +263,7 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
           {query ? "No users match this search." : "No users found."}
         </div>
       ) : (
-        <div className="divide-y">
+        <div className="divide-y divide-muted/20 border-y border-muted/20">
           {filteredUsers.map((user) => {
             const nextRole = user.role === "admin" ? "member" : "admin";
             const isOwner = user.role === "owner";
@@ -305,7 +305,7 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">
-                    <span className="rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize">
+                    <span className="text-[11px] font-semibold capitalize text-muted-foreground">
                       {user.role}
                     </span>
                     {!isOwner ? (
@@ -323,7 +323,7 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
                         disabled={Boolean(changingUserId)}
                         aria-label={`Actions for ${user.email || "account"}`}
                         aria-expanded={isActionsOpen}
-                        className="rounded-lg border px-2.5 py-1 text-xs tracking-widest disabled:opacity-50"
+                        className="px-1.5 py-1 text-xs tracking-widest text-muted-foreground hover:text-foreground disabled:opacity-50"
                       >
                         •••
                       </button>
@@ -540,10 +540,10 @@ function AdminSection({
 
   return (
     <details
-      className="overflow-hidden rounded-xl border"
+      className="group"
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      <summary className="cursor-pointer list-none px-3 py-3 hover:bg-muted/40">
+      <summary className="cursor-pointer list-none py-4 hover:bg-muted/20 focus:outline-none focus-visible:bg-muted/30">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-sm font-semibold">{title}</div>
@@ -553,13 +553,16 @@ function AdminSection({
               </div>
             ) : null}
           </div>
-          <div className="shrink-0 rounded-lg border px-2 py-0.5 text-xs text-muted-foreground">
-            {open ? "Close" : "Open"}
+          <div
+            className="shrink-0 text-xl text-muted-foreground transition-transform group-open:rotate-90"
+            aria-hidden="true"
+          >
+            ›
           </div>
         </div>
       </summary>
       {!mountWhenOpen || open ? (
-        <div className="border-t p-3">{children}</div>
+        <div className="border-t border-muted/20 py-5">{children}</div>
       ) : null}
     </details>
   );
@@ -630,14 +633,7 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border bg-muted/20 p-3">
-        <div className="text-sm font-semibold">Administration</div>
-        <div className="mt-1 text-xs text-muted-foreground">
-          System tools, user access, and memory evaluation.
-        </div>
-      </div>
-
+    <div className="divide-y divide-muted/20 border-y border-muted/20">
       <AdminSection
         title="Voice Health"
         description="Current voice availability, latency, and retained reliability history."
@@ -651,7 +647,7 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
         description="Inspect governed response routing and execution details."
         mountWhenOpen
       >
-        <div className="rounded-xl border p-3">
+        <div className="border-y border-muted/20 py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="text-sm font-semibold">Response trace</div>
@@ -691,8 +687,8 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
         title="Users & Access"
         description="Review account requests and manage administrative access."
       >
-        <div className="space-y-3">
-          <div className="rounded-xl border p-3">
+        <div className="space-y-6">
+          <div className="flex items-start justify-between gap-3 border-y border-muted/20 py-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-semibold">Your access</div>
@@ -700,7 +696,7 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
                   Verified by the identity service for this session.
                 </div>
               </div>
-              <div className="rounded-full border px-2.5 py-1 text-xs font-semibold">
+              <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                 {access.role_label}
               </div>
             </div>
@@ -710,20 +706,20 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
 
           <UsersAccessPanel access={access} />
 
-          <div className="grid gap-2 text-xs sm:grid-cols-3">
-            <div className="rounded-xl border p-3">
+          <div className="grid border-y border-muted/20 text-xs sm:grid-cols-3 sm:divide-x sm:divide-muted/20">
+            <div className="py-3 sm:px-3 sm:first:pl-0">
               <div className="font-semibold">Owner</div>
               <div className="mt-1 text-muted-foreground">
                 Protected authority that appoints or removes Admins.
               </div>
             </div>
-            <div className="rounded-xl border p-3">
+            <div className="border-t border-muted/20 py-3 sm:border-t-0 sm:px-3">
               <div className="font-semibold">Admin</div>
               <div className="mt-1 text-muted-foreground">
                 Delegated access to administrative tools.
               </div>
             </div>
-            <div className="rounded-xl border p-3">
+            <div className="border-t border-muted/20 py-3 sm:border-t-0 sm:px-3 sm:last:pr-0">
               <div className="font-semibold">Member</div>
               <div className="mt-1 text-muted-foreground">
                 Standard product access without administration.

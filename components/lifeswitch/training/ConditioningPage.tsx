@@ -333,7 +333,7 @@ export default function ConditioningPage() {
 
         <div className="mt-6 grid gap-4">
           {libraryOpen ? (
-            <section className="min-w-0 rounded-xl border p-4">
+            <section className="min-w-0 border-y border-border/50 py-4">
               <div className="text-sm font-semibold">
                 Conditioning library
               </div>
@@ -345,13 +345,13 @@ export default function ConditioningPage() {
                 placeholder="Search walking, zone 2, bike, intervals..."
               />
 
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-4 border-b border-border/50">
                 <button
                   type="button"
-                  className={`rounded-full border px-3 py-1 text-xs ${
+                  className={`border-b-2 py-2 text-xs font-medium ${
                     !categoryFilter
-                      ? "border-foreground bg-foreground text-background"
-                      : "hover:bg-muted/10"
+                      ? "border-foreground text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
                   }`}
                   onClick={() => setCategoryFilter("")}
                 >
@@ -362,10 +362,10 @@ export default function ConditioningPage() {
                   <button
                     type="button"
                     key={cat}
-                    className={`rounded-full border px-3 py-1 text-xs ${
+                    className={`border-b-2 py-2 text-xs font-medium ${
                       categoryFilter === cat
-                        ? "border-foreground bg-foreground text-background"
-                        : "hover:bg-muted/10"
+                        ? "border-foreground text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
                     }`}
                     onClick={() => setCategoryFilter(cat)}
                   >
@@ -374,7 +374,7 @@ export default function ConditioningPage() {
                 ))}
               </div>
 
-              <div className="mt-3 space-y-2">
+              <div className="mt-3 divide-y divide-border/50 border-y border-border/50">
                 {filteredLibrary.map((row) => {
                   const active =
                     row.conditioning_library_id === selectedLibraryId;
@@ -382,23 +382,28 @@ export default function ConditioningPage() {
                   return (
                     <div
                       key={row.conditioning_library_id}
-                      className={`min-w-0 rounded-xl border ${
+                      className={`min-w-0 ${
                         active
-                          ? "border-foreground bg-muted/20 ring-1 ring-foreground/60"
-                          : ""
+                          ? "bg-muted/20"
+                          : "hover:bg-muted/10"
                       }`}
                     >
                       <button
                         type="button"
-                        className="w-full px-3 py-3 text-left hover:bg-muted/10"
+                        className="w-full px-1 py-3 text-left"
                         onClick={() =>
                           setSelectedLibraryId(
                             active ? "" : row.conditioning_library_id
                           )
                         }
                       >
-                        <div className="text-sm font-semibold text-blue-400">
-                          {row.name}
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <span className="truncate text-sm font-semibold text-foreground">
+                            {row.name}
+                          </span>
+                          <span className="text-[10px] font-semibold tracking-wide text-amber-700 uppercase dark:text-amber-300">
+                            Conditioning
+                          </span>
                         </div>
 
                         <div className="mt-1 text-xs text-muted-foreground">
@@ -419,7 +424,7 @@ export default function ConditioningPage() {
                       </button>
 
                       {active && selectedLibrary ? (
-                        <div className="grid gap-3 border-t p-3 text-sm">
+                        <div className="grid gap-3 border-t border-border/50 px-1 py-4 text-sm">
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
                               <div className="text-sm font-semibold">
@@ -442,7 +447,7 @@ export default function ConditioningPage() {
                             </button>
                           </div>
 
-                          <div className="rounded-xl border p-3">
+                          <div className="border-l-2 border-border/60 pl-3">
                             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                               Purpose
                             </div>
@@ -503,7 +508,7 @@ export default function ConditioningPage() {
                   {query.trim() &&
                   !categoryFilter &&
                   filteredLibrary.length === 0 ? (
-                    <section className="rounded-xl border p-3">
+                    <section className="border-y border-border/50 py-3">
                       <div className="text-sm text-muted-foreground">
                         No matching conditioning method.
                       </div>
@@ -534,7 +539,7 @@ export default function ConditioningPage() {
           ) : null}
 
         <main className="grid min-w-0 gap-4">
-          <section className="min-w-0 rounded-xl border p-4">
+          <section className="min-w-0 border-y border-border/50 py-4">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <div className="text-sm font-semibold">My conditioning plans</div>
@@ -545,7 +550,7 @@ export default function ConditioningPage() {
               {selectedPrescriptionId ? (
                 <button
                   type="button"
-                  className="rounded-xl border px-3 py-1.5 text-sm hover:bg-muted/30"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground"
                   onClick={() => {
                     setSelectedPrescriptionId("");
                     setOpenPrescriptionActions(false);
@@ -557,7 +562,7 @@ export default function ConditioningPage() {
             </div>
 
             {prescriptions.length ? (
-              <div className="mt-4 space-y-2">
+              <div className="mt-4 divide-y divide-border/50 border-y border-border/50">
                 {prescriptions.map((p) => {
                   const active =
                     p.my_conditioning_prescription_id === selectedPrescriptionId;
@@ -565,22 +570,27 @@ export default function ConditioningPage() {
                   return (
                     <div
                       key={p.my_conditioning_prescription_id}
-                      className={`min-w-0 rounded-xl border ${active
-                          ? "border-foreground bg-muted/20 ring-1 ring-foreground/60"
-                          : ""
+                      className={`min-w-0 ${active
+                          ? "bg-muted/20"
+                          : "hover:bg-muted/10"
                         }`}
                     >
                       <button
                         type="button"
-                        className="w-full px-3 py-3 text-left hover:bg-muted/10"
+                        className="w-full px-1 py-3 text-left"
                         onClick={() =>
                           setSelectedPrescriptionId(
                             active ? "" : p.my_conditioning_prescription_id
                           )
                         }
                       >
-                        <div className="text-sm font-semibold text-blue-400">
-                          {p.name}
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <span className="truncate text-sm font-semibold text-foreground">
+                            {p.name}
+                          </span>
+                          <span className="text-[10px] font-semibold tracking-wide text-amber-700 uppercase dark:text-amber-300">
+                            Conditioning
+                          </span>
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
                           {p.target_duration_min || 0} min ·{" "}
@@ -589,7 +599,7 @@ export default function ConditioningPage() {
                       </button>
 
                       {active && selectedPrescription ? (
-                        <div className="grid gap-3 border-t p-3">
+                        <div className="grid gap-3 border-t border-border/50 px-1 py-4">
                           <div>
                             <div className="text-sm font-semibold">
                               Selected conditioning plan
@@ -764,7 +774,7 @@ export default function ConditioningPage() {
 
 function Info({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-xl border p-3">
+    <div className="border-l-2 border-border/60 pl-3">
       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="mt-1 text-sm">{value || "—"}</div>
     </div>
@@ -812,7 +822,7 @@ function ConditioningDoseEditor({
   }
 
   return (
-    <section className="grid gap-3 rounded-xl border p-3">
+    <section className="grid gap-3 border-y border-border/50 py-3">
       <label className="grid gap-1">
         <div className="text-xs font-medium text-muted-foreground">
           Tracking method

@@ -348,7 +348,7 @@ export function VoicePanel() {
     >
       <div className="space-y-1">
         <h2 id="voice-settings-title" className="text-base font-semibold">
-          Voice identity
+          Choose a voice
         </h2>
         <p className="text-sm text-muted-foreground">
           Swipe the symbol or use the arrows to hear each voice. Your choice
@@ -423,7 +423,7 @@ export function VoicePanel() {
           </div>
 
           {selectedRecommended ? (
-            <div className="mt-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase">
+            <div className="mt-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
               Recommended
             </div>
           ) : null}
@@ -447,7 +447,7 @@ export function VoicePanel() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border">
+      <div className="border-y border-muted/20">
         <button
           type="button"
           className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
@@ -461,7 +461,7 @@ export function VoicePanel() {
           </div>
         </button>
         {languageOpen ? (
-          <div className="border-t p-3">
+          <div className="border-t border-muted/20 py-3">
             <label className="sr-only" htmlFor="voice-language-search">
               Search languages
             </label>
@@ -475,7 +475,7 @@ export function VoicePanel() {
               className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
             <div
-              className="mt-2 max-h-72 overflow-y-auto rounded-lg border"
+              className="mt-2 max-h-72 overflow-y-auto border-y border-muted/20"
               role="listbox"
               aria-label="Voice language"
             >

@@ -44,15 +44,13 @@ export function SettingsPageFrame({
           <button
             type="button"
             onClick={goBack}
-            className="shrink-0 rounded-md border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/40"
+            className="shrink-0 px-1 py-1.5 text-sm text-muted-foreground hover:text-foreground"
           >
-            Back
+            ← Back
           </button>
         </div>
 
-        <div className="rounded-lg border bg-background p-4 shadow-sm">
-          {children}
-        </div>
+        {children}
       </main>
     </div>
   );

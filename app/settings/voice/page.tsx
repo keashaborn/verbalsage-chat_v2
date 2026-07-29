@@ -5,7 +5,7 @@ export default function VoiceSettingsPage() {
   return (
     <SettingsPageFrame
       title="Voice"
-      description="Choose the voice RESSE uses for spoken replies."
+      description="Choose the voice used for spoken replies."
     >
       <VoicePanel />
     </SettingsPageFrame>

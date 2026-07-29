@@ -211,7 +211,7 @@ export function RecoveryAdjustmentCard() {
 
   return (
     <section className="mx-auto max-w-6xl px-4 pb-4 md:px-6">
-      <div className="rounded-2xl border bg-background p-4 shadow-sm md:p-5">
+      <div className="border-t border-border/50 bg-background pt-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold">Recovery adjustment</h2>
@@ -247,11 +247,11 @@ export function RecoveryAdjustmentCard() {
         ) : null}
 
         {!loading && adjustments.length ? (
-          <div className="mt-4 grid gap-3">
+          <div className="mt-4 divide-y divide-border/50 border-y border-border/50">
             {adjustments.map((adjustment) => (
               <div
                 key={adjustment.adjustment_id}
-                className="rounded-xl border bg-muted/20 p-4"
+                className="py-4"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>

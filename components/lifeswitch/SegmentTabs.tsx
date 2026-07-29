@@ -9,7 +9,7 @@ export function SegmentTabs({ segments }: { segments: Segment[] }) {
   const pathname = usePathname() || "";
 
   return (
-    <div className="w-full max-w-full overflow-hidden rounded-xl border border-muted/30 bg-background/40">
+    <div className="w-full max-w-full overflow-hidden rounded-xl bg-muted/50 p-1">
       <div
         className="grid w-full"
         style={{ gridTemplateColumns: `repeat(${segments.length}, minmax(0, 1fr))` }}
@@ -20,10 +20,12 @@ export function SegmentTabs({ segments }: { segments: Segment[] }) {
             <Link
               key={seg.href}
               href={seg.href}
+              aria-current={active ? "page" : undefined}
               className={[
-                "min-w-0 px-3 py-3 text-center text-sm font-semibold",
-                "truncate",
-                active ? "bg-muted/30" : "hover:bg-muted/20",
+                "min-w-0 rounded-lg px-3 py-2.5 text-center text-sm font-semibold whitespace-nowrap transition-colors",
+                active
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
               ].join(" ")}
             >
               {seg.label}

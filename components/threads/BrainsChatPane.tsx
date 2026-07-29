@@ -503,6 +503,12 @@ export function BrainsChatPane() {
                       : "Voice off";
   const visibleRequestError =
     requestError || (governedVoiceHasError ? governedVoice.lastError : "");
+  const liveComposerStatus =
+    effectiveVoiceMode === "governed" && governedVoice.partialTranscript
+      ? `${voiceStatusLabel} · ${governedVoice.partialTranscript}`
+      : voiceIsConnecting || voiceIsActive
+        ? voiceStatusLabel
+        : "";
   const didAutoScrollForThreadRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
@@ -2273,14 +2279,11 @@ export function BrainsChatPane() {
             const isCopied = copiedIdx === idx;
 
             return (
-              <div
-                key={idx}
-                className={m.role === "user" ? "text-left" : "text-left"}
-              >
+              <div key={idx} className="text-left">
                 <div
                   className={
                     m.role === "user"
-                      ? "inline-block rounded-2xl bg-muted px-4 py-2 text-sm"
+                      ? "ml-auto block w-fit max-w-[84%] rounded-xl bg-muted px-4 py-2 text-sm sm:max-w-[72%]"
                       : "block max-w-full min-w-0 overflow-hidden text-sm leading-7"
                   }
                 >
@@ -2316,7 +2319,7 @@ export function BrainsChatPane() {
                 </div>
 
                 {m.role === "user" && (
-                  <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="mt-2 flex items-center justify-end gap-2 text-xs text-muted-foreground">
                     <button
                       className="inline-flex items-center justify-center rounded-md p-2 hover:bg-muted"
                       onClick={() => startEditingMessage(m)}
@@ -2437,7 +2440,7 @@ export function BrainsChatPane() {
 
       {!atBottom && (
         <button
-          className="fixed right-4 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-20 rounded-full border bg-background/80 p-3 shadow-lg backdrop-blur"
+          className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 rounded-full border bg-background/80 p-2.5 shadow-lg backdrop-blur"
           onClick={() => scrollToBottom("smooth")}
           aria-label="Scroll to bottom"
         >
@@ -2446,7 +2449,7 @@ export function BrainsChatPane() {
       )}
 
       <div className="sticky bottom-0 z-10 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto w-full max-w-[44rem] px-5 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+        <div className="mx-auto w-full max-w-[44rem] px-4 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {playbackState && (
             <div
               className="mb-2 flex min-h-12 items-center gap-3 rounded-full border bg-background px-3 py-2 shadow-lg"
@@ -2505,7 +2508,7 @@ export function BrainsChatPane() {
                   </span>
                 </>
               )}
-              <button
+            <button
                 type="button"
                 className="grid h-8 w-8 shrink-0 place-items-center rounded-full border"
                 onClick={stopTTS}
@@ -2513,10 +2516,10 @@ export function BrainsChatPane() {
                 title="Stop and close"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
-              </button>
+            </button>
             </div>
           )}
-          <div className="rounded-3xl border bg-background px-4 py-3">
+          <div className="relative rounded-xl border bg-background px-3 py-2 pr-12">
             {pendingActiveThreadSync && (
               <div
                 className="mb-2 flex items-center justify-between gap-3 rounded-xl border bg-muted/40 px-3 py-2 text-xs"
@@ -2563,8 +2566,8 @@ export function BrainsChatPane() {
               </div>
             )}
             <textarea
-              className="w-full resize-none bg-transparent text-sm outline-none"
-              rows={2}
+              className="field-sizing-content min-h-9 max-h-32 w-full resize-none bg-transparent py-2 text-sm outline-none"
+              rows={1}
               placeholder="Send a message…"
               value={editingMessageId ? editingText : text}
               onChange={(e) => {
@@ -2581,24 +2584,22 @@ export function BrainsChatPane() {
                 }
               }}
             />
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <span className="min-w-0 flex-1 text-[11px] text-muted-foreground">
-                  {`OpenAI transcription · AI-generated reply · ${voiceStatusLabel}`}
-                  {effectiveVoiceMode === "governed" &&
-                  governedVoice.partialTranscript
-                    ? ` · ${governedVoice.partialTranscript}`
-                    : ""}
-                </span>
+            {liveComposerStatus && (
+              <div
+                className="truncate pb-1 text-[11px] text-muted-foreground"
+                role="status"
+                aria-live="polite"
+              >
+                {liveComposerStatus}
               </div>
-
+            )}
               <button
                 type="button"
                 data-contextual-composer-action
                 onClick={() => void handleComposerAction()}
                 disabled={sending}
                 className={[
-                  "relative inline-flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border transition-[background-color,color,transform] active:scale-95 disabled:opacity-50",
+                  "absolute right-2 bottom-2 inline-flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border transition-[background-color,color,transform] active:scale-95 disabled:opacity-50",
                   composerHasText || voiceSessionVisible
                     ? "border-foreground bg-foreground text-background"
                     : "bg-background text-foreground",
@@ -2608,22 +2609,21 @@ export function BrainsChatPane() {
               >
                 {sending ? (
                   <Loader2
-                    className="h-5 w-5 animate-spin"
+                    className="h-4 w-4 animate-spin"
                     aria-hidden="true"
                   />
                 ) : composerHasText ? (
-                  <ArrowUp className="h-5 w-5" aria-hidden="true" />
+                  <ArrowUp className="h-4 w-4" aria-hidden="true" />
                 ) : voiceSessionVisible ? (
-                  <X className="h-5 w-5" aria-hidden="true" />
+                  <X className="h-4 w-4" aria-hidden="true" />
                 ) : (
                   <span
-                    className="vs-voice-action-symbol h-8 w-8"
+                    className="vs-voice-action-symbol h-6 w-6"
                     aria-hidden="true"
                   />
                 )}
                 <span className="sr-only">{composerActionLabel}</span>
               </button>
-            </div>
           </div>
         </div>
       </div>

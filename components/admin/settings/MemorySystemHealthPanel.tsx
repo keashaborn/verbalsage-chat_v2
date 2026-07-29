@@ -79,15 +79,15 @@ function statusLabel(status: HealthStatus): string {
 
 function statusClass(status: HealthStatus | WarningSeverity): string {
   if (status === "healthy") {
-    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+    return "text-emerald-700 dark:text-emerald-300";
   }
   if (status === "critical") {
-    return "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300";
+    return "text-red-700 dark:text-red-300";
   }
   if (status === "attention") {
-    return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+    return "text-amber-700 dark:text-amber-300";
   }
-  return "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300";
+  return "text-blue-700 dark:text-blue-300";
 }
 
 function timeLabel(value: string | null): string {
@@ -110,7 +110,7 @@ function Metric({
   detail: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border p-3">
+    <div className="py-3 sm:px-3 sm:first:pl-0 sm:last:pr-0">
       <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
         {label}
       </div>
@@ -158,7 +158,7 @@ export function MemorySystemHealthPanel() {
   }, [load]);
 
   return (
-    <div className="rounded-xl border p-3">
+    <section>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold">Governed Memory Health</div>
@@ -171,7 +171,7 @@ export function MemorySystemHealthPanel() {
           type="button"
           onClick={() => void load()}
           disabled={loading}
-          className="shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-muted/50 disabled:opacity-50"
+          className="shrink-0 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50"
         >
           {loading ? "Checking…" : "Refresh"}
         </button>
@@ -187,7 +187,7 @@ export function MemorySystemHealthPanel() {
         <div className="mt-3 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClass(health.status)}`}
+              className={`text-xs font-semibold ${statusClass(health.status)}`}
             >
               {statusLabel(health.status)}
             </span>
@@ -196,7 +196,7 @@ export function MemorySystemHealthPanel() {
             </span>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid divide-y border-y md:grid-cols-4 md:divide-x md:divide-y-0">
             <Metric
               label="Governed claims"
               value={health.runtime.lanes.claims.supported}
@@ -253,8 +253,8 @@ export function MemorySystemHealthPanel() {
             </div>
           </div>
 
-          <div className="grid gap-2 text-xs sm:grid-cols-2">
-            <div className="rounded-lg border p-3">
+          <div className="grid border-y text-xs sm:grid-cols-2 sm:divide-x">
+            <div className="py-3 sm:pr-3">
               <div className="font-semibold">Processing</div>
               <div className="mt-1 text-muted-foreground">
                 {health.processing.review_required} need review ·{" "}
@@ -265,7 +265,7 @@ export function MemorySystemHealthPanel() {
                 Oldest pending: {timeLabel(health.processing.oldest_pending_at)}
               </div>
             </div>
-            <div className="rounded-lg border p-3">
+            <div className="border-t py-3 sm:border-t-0 sm:pl-3">
               <div className="font-semibold">Freshness</div>
               <div className="mt-1 text-muted-foreground">
                 Latest evidence: {timeLabel(health.freshness.last_evidence_at)}
@@ -283,14 +283,14 @@ export function MemorySystemHealthPanel() {
               {health.warnings.map((warning) => (
                 <div
                   key={warning.code}
-                  className={`rounded-lg border p-3 text-xs ${statusClass(warning.severity)}`}
+                  className={`border-l-2 py-1 pl-3 text-xs ${statusClass(warning.severity)}`}
                 >
                   {warning.message}
                 </div>
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-300">
+            <div className="text-xs text-emerald-700 dark:text-emerald-300">
               No operational warnings for this account.
             </div>
           )}
@@ -300,6 +300,6 @@ export function MemorySystemHealthPanel() {
           </div>
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }
