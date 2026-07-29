@@ -309,7 +309,7 @@ export default function ConditioningPage() {
 
 
   return (
-    <div className="mx-auto w-full max-w-6xl overflow-x-hidden p-4">
+    <div className="mx-auto w-full max-w-6xl p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-xl font-semibold">Training · Conditioning</div>

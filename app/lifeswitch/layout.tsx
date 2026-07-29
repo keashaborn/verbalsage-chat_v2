@@ -11,7 +11,7 @@ export default function LifeSwitchLayout({
   children: ReactNode;
 }) {
   return (
-    <div data-lifeswitch-root className="min-h-svh overflow-x-clip bg-background">
+    <div data-lifeswitch-root className="min-h-svh bg-background">
       <header className="sticky top-0 z-50 bg-background/95 shadow-xs backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />
@@ -24,7 +24,7 @@ export default function LifeSwitchLayout({
 
       <LifeSwitchModeNav />
 
-      <main className="mx-auto max-w-5xl overflow-x-clip px-4 pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-10">
+      <main className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-10">
         {children}
       </main>
     </div>

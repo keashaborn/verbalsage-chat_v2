@@ -1922,7 +1922,7 @@ export default function TrainingWorkoutsPage() {
   }
 
   return (
-    <div className="w-full min-w-0 overflow-x-hidden">
+    <div className="w-full min-w-0">
       <div className="grid min-w-0 gap-6">
         <section aria-labelledby="workout-list-heading">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

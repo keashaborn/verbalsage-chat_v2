@@ -489,7 +489,7 @@ export default function TrainingAnalyzePage() {
   }, [filteredStrength, filteredRehab, filteredConditioning]);
 
   return (
-    <div className="mx-auto max-w-6xl p-4 overflow-x-hidden">
+    <div className="mx-auto max-w-6xl p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-lg font-semibold">Training · Analyze</div>

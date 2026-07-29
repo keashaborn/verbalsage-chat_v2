@@ -3051,7 +3051,7 @@ export function PlanDraftWorkspace({
           aria-modal="true"
           aria-label="Sage Plan review"
         >
-          <div className="mx-auto flex min-h-full w-full max-w-3xl min-w-0 flex-col overflow-x-hidden">
+          <div className="mx-auto flex min-h-full w-full max-w-3xl min-w-0 flex-col">
             <header className="sticky top-0 z-10 w-full min-w-0 border-b bg-background/95 px-4 py-3 backdrop-blur">
               <div className="flex min-w-0 items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -3070,7 +3070,7 @@ export function PlanDraftWorkspace({
               </div>
             </header>
 
-            <main className="grid w-full min-w-0 flex-1 content-start gap-4 overflow-x-hidden px-4 py-6">
+            <main className="grid w-full min-w-0 flex-1 content-start gap-4 px-4 py-6">
               <div className="max-w-full min-w-0 rounded-xl border bg-muted/30 p-3 text-sm [overflow-wrap:anywhere] text-muted-foreground">
                 Sage can read this saved inactive draft, deterministic
                 validation, and bounded summaries from the LifeSwitch data you

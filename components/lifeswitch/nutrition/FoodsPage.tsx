@@ -555,7 +555,7 @@ export default function NutritionFoodsPage() {
 
   return (
 
-    <div className="mx-auto max-w-5xl p-4 overflow-x-hidden">
+    <div className="mx-auto max-w-5xl p-4">
 
       <div className="flex flex-col gap-3 lg:flex-row [@media(pointer:coarse)]:flex-col lg:items-start lg:justify-between">
         <div className="min-w-0" />

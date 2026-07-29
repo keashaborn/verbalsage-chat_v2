@@ -547,7 +547,7 @@ export default function LifeSwitchPeopleMessagesPage() {
   }, [selectedId]);
 
   return (
-    <div className="grid max-w-full min-w-0 gap-4 overflow-x-hidden">
+    <div className="grid max-w-full min-w-0 gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="text-2xl font-semibold">Messages</div>
