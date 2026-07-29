@@ -550,7 +550,7 @@ export default function LifeSwitchPeopleMessagesPage() {
     <div className="grid max-w-full min-w-0 gap-4 overflow-x-hidden">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="text-lg font-semibold">Messages</div>
+          <div className="text-2xl font-semibold">Messages</div>
           <div className="mt-1 text-sm [overflow-wrap:anywhere] break-words text-muted-foreground">
             One-to-one LifeSwitch conversations with your connections.
           </div>
@@ -581,7 +581,7 @@ export default function LifeSwitchPeopleMessagesPage() {
       </div>
 
       {showNewMessage ? (
-        <div className="max-w-full min-w-0 overflow-hidden rounded-xl border p-4">
+        <div className="max-w-full min-w-0 overflow-hidden border-y py-4">
           <div className="min-w-0 truncate text-sm font-semibold">
             New message
           </div>
@@ -629,7 +629,7 @@ export default function LifeSwitchPeopleMessagesPage() {
       <div className="grid max-w-full min-w-0 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
         <section
           className={[
-            "max-w-full min-w-0 overflow-hidden rounded-xl border",
+            "max-w-full min-w-0 overflow-hidden border-y",
             selectedConversation ? "hidden lg:order-1 lg:block" : "order-1",
           ].join(" ")}
         >
@@ -690,7 +690,7 @@ export default function LifeSwitchPeopleMessagesPage() {
                           )}
                       </div>
                       {!canSendToConversation ? (
-                        <span className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
+                        <span className="shrink-0 text-[10px] text-muted-foreground">
                           History only
                         </span>
                       ) : null}
@@ -710,7 +710,7 @@ export default function LifeSwitchPeopleMessagesPage() {
 
         <section
           className={[
-            "max-w-full min-w-0 overflow-hidden rounded-xl border",
+            "max-w-full min-w-0 overflow-hidden border-y",
             selectedConversation
               ? "order-1 lg:order-2"
               : "hidden lg:order-2 lg:block",
@@ -741,7 +741,7 @@ export default function LifeSwitchPeopleMessagesPage() {
               </div>
               {selectedConversation && !canSend ? (
                 <>
-                  <span className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
+                  <span className="shrink-0 text-[10px] text-muted-foreground">
                     Messaging unavailable · history only
                   </span>
                   <button
@@ -787,7 +787,7 @@ export default function LifeSwitchPeopleMessagesPage() {
                   <div
                     key={m.message_id}
                     className={[
-                      "max-w-[85%] min-w-0 overflow-hidden rounded-xl border p-3",
+                      "max-w-[85%] min-w-0 overflow-hidden rounded-md border p-3",
                       mine
                         ? "justify-self-end bg-muted/30"
                         : "justify-self-start",

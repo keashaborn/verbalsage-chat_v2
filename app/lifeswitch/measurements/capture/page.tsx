@@ -95,7 +95,7 @@ function Field({
         </div>
       ) : null}
       <NumericInput
-        className="mt-2 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+        className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm"
         mode="decimal"
         min={0}
         value={value}
@@ -128,7 +128,7 @@ function TextField({
         </div>
       ) : null}
       <input
-        className="mt-2 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+        className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm"
         value={value}
         onChange={(e) => onChange(e.currentTarget.value)}
         placeholder={placeholder || ""}
@@ -159,7 +159,7 @@ function SelectField({
         </div>
       ) : null}
       <select
-        className="mt-2 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+        className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm"
         value={value}
         onChange={(e) => onChange(e.currentTarget.value)}
       >
@@ -461,9 +461,9 @@ export default function MeasurementsCapturePage() {
     <div className="mx-auto max-w-3xl pb-8">
       <Link
         href="/lifeswitch/measurements"
-        className="inline-flex rounded-lg border px-3 py-2 text-sm hover:bg-muted/30"
+        className="inline-flex text-sm text-muted-foreground hover:text-foreground"
       >
-        Back to Measurements
+        ← Measurements
       </Link>
 
       <div className="mt-5 flex flex-wrap items-start justify-between gap-3">
@@ -479,7 +479,7 @@ export default function MeasurementsCapturePage() {
           type="date"
           value={localDate}
           onChange={(e) => setLocalDate(e.currentTarget.value)}
-          className="rounded-xl border bg-background px-3 py-2 text-sm"
+          className="rounded-md border bg-background px-3 py-2 text-sm"
         />
       </div>
 
@@ -487,9 +487,9 @@ export default function MeasurementsCapturePage() {
         <div className="mt-4 text-sm text-red-600">{status}</div>
       ) : null}
 
-      <main className="mt-6 rounded-xl border p-4 sm:p-5">
+      <main className="mt-6 border-t pt-4">
         <div className="text-sm font-medium">What are you recording?</div>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-2 grid grid-cols-2 border-y sm:grid-cols-4 sm:divide-x">
           {(
             [
               ["weight", "Weight"],
@@ -501,10 +501,10 @@ export default function MeasurementsCapturePage() {
             <button
               key={kind}
               type="button"
-              className={`rounded-xl border px-3 py-3 text-sm font-medium ${
+              className={`border-b-2 px-3 py-3 text-sm font-medium sm:border-b-0 ${
                 entryKind === kind
-                  ? "bg-foreground text-background"
-                  : "hover:bg-muted/30"
+                  ? "border-foreground text-foreground sm:bg-muted/20"
+                  : "border-transparent text-muted-foreground hover:bg-muted/20 hover:text-foreground"
               }`}
               onClick={() => setEntryKindWithDefaults(kind)}
             >
@@ -551,7 +551,7 @@ export default function MeasurementsCapturePage() {
         </div>
 
         {entryKind === "weight" ? (
-          <section className="mt-6 rounded-xl border p-4">
+          <section className="mt-6 border-t pt-5">
             <div className="text-sm font-semibold">Weight entry</div>
             <p className="mt-1 text-xs leading-snug text-muted-foreground">
               Best practice: weigh at a consistent time, ideally morning after
@@ -575,7 +575,7 @@ export default function MeasurementsCapturePage() {
         ) : null}
 
         {entryKind === "tape" ? (
-          <section className="mt-6 rounded-xl border p-4">
+          <section className="mt-6 border-t pt-5">
             <div className="text-sm font-semibold">Tape measurements</div>
             <p className="mt-1 text-xs leading-snug text-muted-foreground">
               Use the same tape, same posture, same anatomical locations, and
@@ -653,7 +653,7 @@ export default function MeasurementsCapturePage() {
         ) : null}
 
         {entryKind === "skinfolds" ? (
-          <section className="mt-6 rounded-xl border p-4">
+          <section className="mt-6 border-t pt-5">
             <div className="text-sm font-semibold">Skinfolds / calipers</div>
             <p className="mt-1 text-xs leading-snug text-muted-foreground">
               Harpenden/Jackson-Pollock 7-site entry. Take each site
@@ -678,14 +678,14 @@ export default function MeasurementsCapturePage() {
                 <option value="female">Female</option>
               </SelectField>
 
-              <div className="rounded-xl border p-3 text-sm">
+              <div className="border-l pl-3 text-sm">
                 <div className="text-muted-foreground">7-site sum</div>
                 <div className="mt-1 text-lg font-semibold">
                   {skinfoldSum != null ? `${round1(skinfoldSum)} mm` : "—"}
                 </div>
               </div>
 
-              <div className="rounded-xl border p-3 text-sm">
+              <div className="border-l pl-3 text-sm">
                 <div className="text-muted-foreground">Calculated body fat</div>
                 <div className="mt-1 text-lg font-semibold">
                   {calculatedSkinfoldBodyFat != null
@@ -743,7 +743,7 @@ export default function MeasurementsCapturePage() {
         ) : null}
 
         {entryKind === "scan" ? (
-          <section className="mt-6 rounded-xl border p-4">
+          <section className="mt-6 border-t pt-5">
             <div className="text-sm font-semibold">Body scan result</div>
             <p className="mt-1 text-xs leading-snug text-muted-foreground">
               Enter the main values reported by a DEXA, InBody, BodPod,
@@ -794,7 +794,7 @@ export default function MeasurementsCapturePage() {
           </section>
         ) : null}
 
-        <details className="mt-6 rounded-xl border p-4">
+        <details className="mt-6 border-y py-4">
           <summary className="cursor-pointer text-sm font-medium">
             Optional context
           </summary>
@@ -820,7 +820,7 @@ export default function MeasurementsCapturePage() {
           <label className="mt-4 block text-sm">
             <div className="text-muted-foreground">Notes</div>
             <textarea
-              className="mt-2 min-h-28 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              className="mt-2 min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm"
               value={notes}
               onChange={(e) => setNotes(e.currentTarget.value)}
               placeholder="Time of day, hydration, soreness, device, facility, or other measurement context."
@@ -829,7 +829,7 @@ export default function MeasurementsCapturePage() {
         </details>
 
         {saved ? (
-          <div className="mt-6 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+          <div className="mt-6 border-y border-emerald-500/30 py-4">
             <div className="font-medium text-emerald-500">
               {flash || "Measurement saved."}
             </div>
@@ -839,13 +839,13 @@ export default function MeasurementsCapturePage() {
             <div className="mt-4 flex flex-wrap gap-3">
               <Link
                 href="/lifeswitch/measurements"
-                className="rounded-xl bg-foreground px-4 py-2 text-sm font-medium text-background"
+                className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background"
               >
                 View measurements
               </Link>
               <button
                 type="button"
-                className="rounded-xl border px-4 py-2 text-sm hover:bg-muted/30"
+                className="rounded-md border px-4 py-2 text-sm hover:bg-muted/30"
                 onClick={clearForm}
               >
                 Record another
@@ -856,7 +856,7 @@ export default function MeasurementsCapturePage() {
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               type="button"
-              className="rounded-xl bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
+              className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
               onClick={() => void saveEntry()}
               disabled={saving}
             >
@@ -867,7 +867,7 @@ export default function MeasurementsCapturePage() {
 
             <button
               type="button"
-              className="rounded-xl border px-4 py-2 text-sm hover:bg-muted/30"
+              className="rounded-md border px-4 py-2 text-sm hover:bg-muted/30"
               onClick={clearForm}
             >
               Clear form

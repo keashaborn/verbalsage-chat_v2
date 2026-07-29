@@ -348,11 +348,11 @@ function MetricCard({
   method?: string | null;
 }) {
   return (
-    <div className="min-w-0 rounded-xl border p-3 sm:p-4">
+    <div className="min-w-0 px-3 py-4 sm:px-5">
       <div className="text-[11px] tracking-wide text-muted-foreground uppercase sm:text-xs">
         {label}
       </div>
-      <div className="mt-2 text-xl font-semibold break-words sm:text-2xl">
+      <div className="mt-1.5 text-xl font-semibold break-words sm:text-2xl">
         {value}
       </div>
       <div className="mt-1 text-[11px] leading-snug text-muted-foreground sm:text-xs">
@@ -373,7 +373,7 @@ function TrendCard({
   const points = series.points;
 
   return (
-    <section className="rounded-xl border p-4">
+    <section className="border-t pt-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold">{title}</h3>
@@ -381,17 +381,17 @@ function TrendCard({
             Comparable series: {series.methodLabel}
           </p>
         </div>
-        <div className="rounded-full border px-2 py-1 text-[11px] text-muted-foreground">
+        <div className="text-[11px] text-muted-foreground">
           {points.length} observation{points.length === 1 ? "" : "s"}
         </div>
       </div>
 
       {points.length === 0 ? (
-        <div className="mt-4 rounded-lg bg-muted/20 p-4 text-sm text-muted-foreground">
+        <div className="mt-4 border-y py-4 text-sm text-muted-foreground">
           No comparable observations have been recorded.
         </div>
       ) : points.length === 1 ? (
-        <div className="mt-4 rounded-lg bg-muted/20 p-4 text-sm text-muted-foreground">
+        <div className="mt-4 border-y py-4 text-sm text-muted-foreground">
           Baseline established on {longDate(points[0].date)}. Another
           observation using the same method is needed before a change can be
           calculated.
@@ -542,7 +542,7 @@ export function MeasurementWorkspace({
         {!isDelegatedView ? (
           <Link
             href="/lifeswitch/measurements/capture"
-            className="rounded-xl bg-foreground px-4 py-2.5 text-sm font-medium text-background hover:opacity-90"
+            className="rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background hover:opacity-90"
           >
             Record measurements
           </Link>
@@ -562,7 +562,7 @@ export function MeasurementWorkspace({
         </div>
       ) : null}
 
-      <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-4">
+      <div className="mt-6 grid grid-cols-3 divide-x border-y">
         <MetricCard
           label="Weight"
           value={
@@ -639,20 +639,20 @@ export function MeasurementWorkspace({
       </div>
 
       {loading ? (
-        <div className="mt-6 rounded-xl border p-5 text-sm text-muted-foreground">
+        <div className="mt-6 border-y py-5 text-sm text-muted-foreground">
           Loading measurements…
         </div>
       ) : view === "history" ? (
         <section className="mt-6">
           {byDate.length === 0 ? (
-            <div className="rounded-xl border p-5 text-sm text-muted-foreground">
+            <div className="border-y py-5 text-sm text-muted-foreground">
               No measurements have been recorded.
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="border-t">
               {byDate.map(([date, rows]) => (
-                <section key={date} className="rounded-xl border">
-                  <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+                <section key={date} className="border-b py-1">
+                  <div className="flex items-center justify-between gap-3 px-1 py-3">
                     <h2 className="text-sm font-semibold">{longDate(date)}</h2>
                     <span className="text-xs text-muted-foreground">
                       {rows.length} observation{rows.length === 1 ? "" : "s"}
@@ -665,7 +665,7 @@ export function MeasurementWorkspace({
                       return (
                         <div
                           key={entry.measurement_entry_id}
-                          className="px-4 py-3"
+                          className="px-1 py-3"
                         >
                           <div className="flex flex-wrap items-start justify-between gap-2">
                             <div className="min-w-0">
@@ -720,7 +720,7 @@ export function MeasurementWorkspace({
         </section>
       ) : (
         <section className="mt-6 space-y-4">
-          <div className="rounded-xl bg-muted/20 p-4 text-sm text-muted-foreground">
+          <div className="border-y py-4 text-sm text-muted-foreground">
             Each chart uses one consistent source and method. Different body-fat
             methods and scan types are not combined.
           </div>

@@ -72,7 +72,9 @@ export default function LifeSwitchNetworkHelpingPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await fetchJson<GrantedPermission[]>("/api/lifeswitch/people/permissions/granted-to-me");
+      const data = await fetchJson<GrantedPermission[]>(
+        "/api/lifeswitch/people/permissions/granted-to-me",
+      );
       setRows(data);
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
@@ -89,14 +91,19 @@ export default function LifeSwitchNetworkHelpingPage() {
     <div className="grid gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="text-lg font-semibold">Viewing</div>
+          <div className="text-2xl font-semibold">Viewing</div>
           <div className="mt-1 text-sm text-muted-foreground">
-            People who have granted you access to view or help with their LifeSwitch data.
+            People who have granted you access to view or help with their
+            LifeSwitch data.
           </div>
         </div>
 
         <div className="flex gap-2">
-            <BackButton fallbackHref="/lifeswitch/people" label="People" className="rounded-md px-3 py-2 text-sm" />
+          <BackButton
+            fallbackHref="/lifeswitch/people"
+            label="People"
+            className="rounded-md px-3 py-2 text-sm"
+          />
           <button
             type="button"
             onClick={() => void loadGranted()}
@@ -114,42 +121,58 @@ export default function LifeSwitchNetworkHelpingPage() {
         </div>
       ) : null}
 
-      <div className="rounded-xl border">
-        <div className="flex items-center gap-2 border-b px-4 py-3">
+      <div className="border-y">
+        <div className="flex items-center gap-2 border-b py-3">
           <ShieldCheck className="h-4 w-4" />
           <div>
             <div className="text-sm font-semibold">Shared with me</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              These people have granted you access to view or help with selected LifeSwitch data.
+              These people have granted you access to view or help with selected
+              LifeSwitch data.
             </div>
           </div>
         </div>
 
-        <div className="grid gap-3 p-4">
+        <div className="divide-y">
           {loading ? (
-            <div className="text-sm text-muted-foreground">Loading shared access…</div>
+            <div className="text-sm text-muted-foreground">
+              Loading shared access…
+            </div>
           ) : groups.length === 0 ? (
             <div className="text-sm text-muted-foreground">
               No one has shared LifeSwitch access with you yet.
             </div>
           ) : (
             groups.map((group) => {
-              const canMessage = group.permissions.some((p) => p.permission_scope === "messages:send");
-              const canViewPlan = group.permissions.some((p) => p.permission_scope === "plan:view");
-              const canViewTraining = group.permissions.some((p) => p.permission_scope === "training:view");
-              const canViewNutrition = group.permissions.some((p) => p.permission_scope === "nutrition:view");
-              const canViewMeasurements = group.permissions.some((p) => p.permission_scope === "measurements:view");
+              const canMessage = group.permissions.some(
+                (p) => p.permission_scope === "messages:send",
+              );
+              const canViewPlan = group.permissions.some(
+                (p) => p.permission_scope === "plan:view",
+              );
+              const canViewTraining = group.permissions.some(
+                (p) => p.permission_scope === "training:view",
+              );
+              const canViewNutrition = group.permissions.some(
+                (p) => p.permission_scope === "nutrition:view",
+              );
+              const canViewMeasurements = group.permissions.some(
+                (p) => p.permission_scope === "measurements:view",
+              );
 
               return (
-              <div key={group.grantor_user_id} className="rounded-xl border p-4">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="text-sm font-semibold">{group.grantor_display_name}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      Relationship: {group.relationship_kind.replaceAll("_", " ")}
+                <div key={group.grantor_user_id} className="py-4">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-sm font-semibold">
+                        {group.grantor_display_name}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Relationship:{" "}
+                        {group.relationship_kind.replaceAll("_", " ")}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {canMessage ? (
                         <Link
                           href="/lifeswitch/people/messages"
@@ -158,49 +181,54 @@ export default function LifeSwitchNetworkHelpingPage() {
                           Message
                         </Link>
                       ) : null}
-                    {canViewPlan ? (
-                      <Link
-                        href={`/lifeswitch/plan?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
-                        className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
-                      >
-                        View plan
-                      </Link>
-                    ) : null}
-                    {canViewTraining ? (
-                      <Link
-                        href={`/lifeswitch/training/calendar?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
-                        className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
-                      >
-                        View training
-                      </Link>
-                    ) : null}
-                    {canViewNutrition ? (
-                      <Link
-                        href={`/lifeswitch/nutrition/log?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
-                        className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
-                      >
-                        View nutrition
-                      </Link>
-                    ) : null}
-                    {canViewMeasurements ? (
-                      <Link
-                        href={`/lifeswitch/measurements/log?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
-                        className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
-                      >
-                        View measurements
-                      </Link>
-                    ) : null}
+                      {canViewPlan ? (
+                        <Link
+                          href={`/lifeswitch/plan?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
+                          className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                        >
+                          View plan
+                        </Link>
+                      ) : null}
+                      {canViewTraining ? (
+                        <Link
+                          href={`/lifeswitch/training/calendar?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
+                          className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                        >
+                          View training
+                        </Link>
+                      ) : null}
+                      {canViewNutrition ? (
+                        <Link
+                          href={`/lifeswitch/nutrition/log?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
+                          className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                        >
+                          View nutrition
+                        </Link>
+                      ) : null}
+                      {canViewMeasurements ? (
+                        <Link
+                          href={`/lifeswitch/measurements/log?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
+                          className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                        >
+                          View measurements
+                        </Link>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
 
-                  <details className="mt-3 rounded-lg border">
-                    <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/20 [&::-webkit-details-marker]:hidden">
+                  <details className="mt-3 border-t">
+                    <summary className="cursor-pointer list-none py-2 text-xs font-medium text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
                       Permission details
                     </summary>
-                    <div className="grid gap-2 border-t p-3 sm:grid-cols-2">
+                    <div className="grid border-t sm:grid-cols-2 sm:divide-x">
                       {group.permissions.map((p) => (
-                        <div key={p.relationship_permission_id} className="rounded-lg border p-3">
-                          <div className="text-sm font-medium">{labelScope(p.permission_scope)}</div>
+                        <div
+                          key={p.relationship_permission_id}
+                          className="py-3 sm:px-3"
+                        >
+                          <div className="text-sm font-medium">
+                            {labelScope(p.permission_scope)}
+                          </div>
                           <div className="mt-1 text-xs text-muted-foreground">
                             Level: {p.permission_level}
                           </div>
@@ -208,7 +236,7 @@ export default function LifeSwitchNetworkHelpingPage() {
                       ))}
                     </div>
                   </details>
-              </div>
+                </div>
               );
             })
           )}
