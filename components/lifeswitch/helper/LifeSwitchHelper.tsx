@@ -12,6 +12,7 @@ import {
 } from "@/lib/conversationStyle";
 import { readSpeechVoice } from "@/lib/speechSettings";
 import { speechResponseToWavBlob } from "@/lib/voiceSpeech";
+import { isServerOwnedSageHelperRoute } from "@/lib/lifeswitch/sage/helperRoutes";
 
 type LifeSwitchDomain =
   | "plan"
@@ -485,23 +486,42 @@ export function LifeSwitchHelper() {
         typeof window !== "undefined" ? window.location.search : "",
       );
 
-      const contextResult = await fetchLifeSwitchContext(pathname, {
-        targetUserId: String(params.get("target_user_id") || "").trim(),
-        targetName: String(params.get("target_name") || "").trim(),
-      });
-      const contextBundle = contextResult.ok
-        ? contextResult.context
-        : { context_error: contextResult.error };
+      const targetUserId = String(params.get("target_user_id") || "").trim();
+      let r: Response;
 
-      const r = await authFetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: buildHelperPrompt(pathname, text, contextBundle),
-          noStore: true,
-          top_k: 3,
-        }),
-      });
+      if (isServerOwnedSageHelperRoute(pathname)) {
+        r = await authFetch("/api/lifeswitch/helper/respond", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-lifeswitch-owner-timezone":
+              Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+          },
+          body: JSON.stringify({
+            route: pathname,
+            question: text,
+            ...(targetUserId ? { target_user_id: targetUserId } : {}),
+          }),
+        });
+      } else {
+        const contextResult = await fetchLifeSwitchContext(pathname, {
+          targetUserId,
+          targetName: String(params.get("target_name") || "").trim(),
+        });
+        const contextBundle = contextResult.ok
+          ? contextResult.context
+          : { context_error: contextResult.error };
+
+        r = await authFetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: buildHelperPrompt(pathname, text, contextBundle),
+            noStore: true,
+            top_k: 3,
+          }),
+        });
+      }
 
       const reply = await r.text();
       const assistantText = r.ok
