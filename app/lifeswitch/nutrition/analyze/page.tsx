@@ -427,6 +427,14 @@ export default function NutritionAnalyzePage() {
           : rollingScore.status === "paused"
             ? "Paused for recovery"
           : "Not configured";
+  const rollingStatusClass =
+    rollingScore.status === "hit"
+      ? "text-emerald-700 dark:text-emerald-300"
+      : rollingScore.status === "not_hit"
+        ? "text-amber-700 dark:text-amber-300"
+        : rollingScore.status === "paused"
+          ? "text-violet-700 dark:text-violet-300"
+          : "text-muted-foreground";
   const calorieTargetLabel = nutritionTargets.dailyRangeKcal
     ? `${nutritionTargets.dailyRangeKcal.lower}–${nutritionTargets.dailyRangeKcal.upper} kcal acceptable daily range`
     : nutritionTargets.nominalKcal != null
@@ -487,7 +495,11 @@ export default function NutritionAnalyzePage() {
             <button
               key={d}
               type="button"
-              className={`rounded-full border px-3 py-1 text-sm ${rangeDays === d ? "border-foreground bg-foreground text-background" : "hover:bg-muted/20"}`}
+              className={`border-b-2 py-1 text-sm font-medium ${
+                rangeDays === d
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
               onClick={() => setRangeDays(d as RangeDays)}
             >
               {d}d
@@ -524,7 +536,7 @@ export default function NutritionAnalyzePage() {
         </div>
       ) : null}
 
-      <section className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section className="mt-6 grid grid-cols-2 gap-x-4 gap-y-3 border-y border-border/50 py-3 md:grid-cols-4">
         <MetricCard
           label="Logged days"
           value={summary.loggedDays}
@@ -547,7 +559,7 @@ export default function NutritionAnalyzePage() {
         />
       </section>
 
-      <section className="mt-6 rounded-xl border p-4" aria-label="Plan versus actual nutrition adherence">
+      <section className="mt-6 border-y border-border/50 py-4" aria-label="Plan versus actual nutrition adherence">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold">Plan vs actual · Nutrition adherence</div>
@@ -557,14 +569,15 @@ export default function NutritionAnalyzePage() {
             </div>
           </div>
           {rollingScore.windowDays ? (
-            <div className="rounded-full border px-3 py-1 text-xs font-semibold">
+            <div className={`text-xs font-semibold tracking-wide uppercase ${rollingStatusClass}`}>
               {rollingScore.windowDays}-day check · {rollingStatusLabel}
             </div>
           ) : null}
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid divide-y divide-border/50 border-y border-border/50 md:grid-cols-3 md:divide-x md:divide-y-0">
           <MetricCard
+            className="py-3 md:px-3"
             label="Data"
             value={rollingScore.windowDays
               ? `${rollingScore.loggedDays}/${rollingScore.eligibleDays}`
@@ -574,6 +587,7 @@ export default function NutritionAnalyzePage() {
               : "completed logged days in selected range"}
           />
           <MetricCard
+            className="py-3 md:px-3"
             label="Calories"
             value={nutritionTargets.rollingAverageKcal
               ? rollingScore.calorieAverage == null
@@ -589,6 +603,7 @@ export default function NutritionAnalyzePage() {
                 : calorieTargetLabel}
           />
           <MetricCard
+            className="py-3 md:px-3"
             label="Protein"
             value={nutritionTargets.proteinWeeklyAdherence
               ? `${rollingScore.proteinDaysMeetingMinimum ?? 0}/${rollingScore.eligibleDays}`
@@ -602,7 +617,7 @@ export default function NutritionAnalyzePage() {
         </div>
       </section>
 
-      <section className="mt-6 rounded-xl border p-4" aria-label="Nutrition trends">
+      <section className="mt-6 border-y border-border/50 py-4" aria-label="Nutrition trends">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <div className="text-sm font-semibold">Nutrition trends</div>
@@ -617,10 +632,10 @@ export default function NutritionAnalyzePage() {
                 <button
                   key={metric.value}
                   type="button"
-                  className={`rounded-full border px-3 py-1.5 text-sm ${
+                  className={`border-b-2 py-1.5 text-sm font-medium ${
                     nutritionMetric === metric.value
-                      ? "border-foreground bg-foreground text-background"
-                      : "hover:bg-muted/30"
+                      ? "border-foreground text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
                   }`}
                   onClick={() => setNutritionMetric(metric.value)}
                 >
@@ -631,7 +646,7 @@ export default function NutritionAnalyzePage() {
           </div>
         </div>
 
-        <div className="mt-4 rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        <div className="mt-4 border-l-2 border-border/60 pl-3 text-xs text-muted-foreground">
           {selectedMetricTargetLabel}
         </div>
 
@@ -654,11 +669,21 @@ export default function NutritionAnalyzePage() {
   );
 }
 
-function MetricCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {
+function MetricCard({
+  label,
+  value,
+  sub,
+  className = "",
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="rounded-xl border p-4">
+    <div className={className}>
       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-2 text-2xl font-semibold">{value}</div>
+      <div className="mt-1 text-xl font-semibold">{value}</div>
       {sub ? <div className="mt-1 text-xs text-muted-foreground">{sub}</div> : null}
     </div>
   );
