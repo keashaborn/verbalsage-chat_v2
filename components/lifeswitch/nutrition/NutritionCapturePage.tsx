@@ -139,6 +139,7 @@ export default function NutritionCapturePage() {
 
   const [meals, setMeals] = React.useState<MealCombo[]>([]);
   const [mealsLoading, setMealsLoading] = React.useState(false);
+  const [mealQuery, setMealQuery] = React.useState("");
   const [selectedMealId, setSelectedMealId] = React.useState<string>("");
   const [mealItems, setMealItems] = React.useState<MealComboItem[]>([]);
   const [mealItemsLoading, setMealItemsLoading] = React.useState(false);
@@ -152,6 +153,15 @@ export default function NutritionCapturePage() {
   const selectedMeal = React.useMemo(() => {
     return meals.find((m) => m.meal_id === selectedMealId) || null;
   }, [meals, selectedMealId]);
+
+  const filteredMeals = React.useMemo(() => {
+    const query = mealQuery.trim().toLowerCase();
+    if (!query) return meals;
+
+    return meals.filter((meal) =>
+      `${meal.name} ${meal.meal_type}`.toLowerCase().includes(query)
+    );
+  }, [mealQuery, meals]);
 
   const mealTotals = React.useMemo(() => {
     const sum = (k: "kcal" | "protein_g" | "carbs_g" | "fat_g") => {
@@ -500,16 +510,25 @@ export default function NutritionCapturePage() {
 
       {mode === "meals" && (
         <div className="mt-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold">Meals</div>
-              <div className="text-xs text-muted-foreground">
-                Select a meal, adjust quantities if needed, then log the selected foods.
-              </div>
+          <div>
+            <div className="text-sm font-semibold">Meals</div>
+            <div className="text-xs text-muted-foreground">
+              Search your saved meals, select one, then adjust or log its foods.
             </div>
+          </div>
 
+          <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <input
+              type="search"
+              className="min-h-12 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              placeholder="Search meals"
+              value={mealQuery}
+              onChange={(event) => setMealQuery(event.target.value)}
+              aria-label="Search meals"
+            />
             <button
-              className="text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+              type="button"
+              className="min-h-12 rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/30 disabled:opacity-50"
               onClick={() => void loadMeals()}
               disabled={mealsLoading}
             >
@@ -517,21 +536,66 @@ export default function NutritionCapturePage() {
             </button>
           </div>
 
-          <select
-            className="mt-3 w-full border rounded px-2 py-1 text-sm"
-            value={selectedMealId}
-            onChange={(e) => setSelectedMealId(e.target.value)}
-          >
-            <option value="">Select meal</option>
-            {meals.map((m) => (
-              <option key={m.meal_id} value={m.meal_id}>
-                {m.name} · {m.meal_type}
-              </option>
-            ))}
-          </select>
+          <div className="mt-4 divide-y divide-muted/20 border-y border-muted/20">
+            {filteredMeals.map((meal) => {
+              const selected = meal.meal_id === selectedMealId;
+
+              return (
+                <button
+                  key={meal.meal_id}
+                  type="button"
+                  aria-pressed={selected}
+                  className={[
+                    "flex min-h-16 w-full items-center justify-between gap-3 py-3 text-left hover:bg-muted/10 active:bg-muted/20",
+                    selected ? "bg-muted/[0.08]" : "",
+                  ].join(" ")}
+                  onClick={() =>
+                    setSelectedMealId((current) =>
+                      current === meal.meal_id ? "" : meal.meal_id
+                    )
+                  }
+                >
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">
+                      {meal.name}
+                    </div>
+                    <div className="text-xs capitalize text-muted-foreground">
+                      {meal.meal_type}
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-muted-foreground" aria-hidden="true">
+                    {selected ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+
+            {!mealsLoading && meals.length === 0 ? (
+              <div className="py-3 text-xs text-muted-foreground">
+                No saved meals. Create one in{" "}
+                <Link
+                  href="/lifeswitch/nutrition/design/meals"
+                  className="font-medium underline underline-offset-4"
+                >
+                  Library / Meals
+                </Link>
+                .
+              </div>
+            ) : null}
+
+            {!mealsLoading && meals.length > 0 && filteredMeals.length === 0 ? (
+              <div className="py-3 text-xs text-muted-foreground">
+                No meals match “{mealQuery.trim()}”.
+              </div>
+            ) : null}
+          </div>
 
           {selectedMeal && (
-            <div className="mt-5 border-t border-muted/20 pt-4">
+            <div className="border-b border-muted/20 py-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold">{selectedMeal.name}</div>
