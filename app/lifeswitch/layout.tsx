@@ -11,7 +11,7 @@ export default function LifeSwitchLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-svh overflow-x-clip bg-background">
+    <div data-lifeswitch-root className="min-h-svh overflow-x-clip bg-background">
       <header className="sticky top-0 z-50 bg-background/95 shadow-xs backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />

@@ -682,7 +682,7 @@ export default function NutritionFoodsPage() {
               {usdaQ.trim() || barcodeQ.trim() || usdaRows.length || usdaErr ? (
                 <button
                   type="button"
-                  className="mt-3 inline-flex min-h-10 items-center justify-center rounded-full border px-3 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                  className="mt-3 inline-flex min-h-11 items-center justify-center rounded-full border px-3 py-1 text-xs text-muted-foreground hover:bg-muted/30"
                   onClick={clearLookup}
                 >
                   Clear lookup
@@ -697,7 +697,7 @@ export default function NutritionFoodsPage() {
             ) : null}
 
             {usdaErr ? (
-              <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-500">
+              <div role="alert" className="mt-3 border-l-2 border-red-500/60 bg-red-500/5 py-2 pl-3 text-xs text-red-500">
                 {usdaErr}
               </div>
             ) : null}
@@ -779,7 +779,7 @@ export default function NutritionFoodsPage() {
 
                         <div className="flex justify-end lg:ml-3 lg:shrink-0">
                           <button
-                            className="w-full lg:w-auto rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                            className="min-h-11 w-full rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50 lg:w-auto"
                             onClick={() => void importFromUsda(h)}
                             disabled={
                               importingFdc === h.fdc_id ||
@@ -806,12 +806,12 @@ export default function NutritionFoodsPage() {
         <div>
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-medium">Foods</div>
-            <button className="rounded-md border px-3 py-1.5 text-xs" onClick={() => void loadMyFoods()} disabled={myLoading}>
+            <button className="min-h-11 rounded-md border px-3 py-1.5 text-xs sm:min-h-0" onClick={() => void loadMyFoods()} disabled={myLoading}>
               {myLoading ? "Loading…" : "Refresh"}
             </button>
           </div>
 
-          {myErr ? <div className="mt-2 text-xs text-red-500">{myErr}</div> : null}
+          {myErr ? <div role="alert" className="mt-2 border-l-2 border-red-500/60 bg-red-500/5 py-2 pl-3 text-xs text-red-500">{myErr}</div> : null}
 
           <div className="mt-3 divide-y divide-muted/20">
             {myFoods.map((f) => {
@@ -1004,7 +1004,7 @@ export default function NutritionFoodsPage() {
                       <div className="text-sm font-semibold">Serving units</div>
                       <div className="mt-1 text-xs text-muted-foreground">Each unit resolves to grams for calculations.</div>
 
-                      {servErr[f.my_food_id] ? <div className="mt-2 text-xs text-red-500">{servErr[f.my_food_id]}</div> : null}
+                      {servErr[f.my_food_id] ? <div role="alert" className="mt-2 text-xs text-red-500">{servErr[f.my_food_id]}</div> : null}
                       {servLoading[f.my_food_id] ? <div className="mt-2 text-xs text-muted-foreground">Loading…</div> : null}
 
                       <div className="mt-3 space-y-2">
@@ -1129,7 +1129,7 @@ export default function NutritionFoodsPage() {
                       >
                         {editSaving ? "Saving…" : "Save changes"}
                       </button>
-                      {editStatus ? <div className={`text-xs ${editStatus === "Saved." ? "text-muted-foreground" : "text-red-500"}`}>{editStatus}</div> : null}
+                      {editStatus ? <div role={editStatus === "Saved." ? "status" : "alert"} className={`text-xs ${editStatus === "Saved." ? "text-muted-foreground" : "text-red-500"}`}>{editStatus}</div> : null}
                     </div>
 
                     <div className="rounded-xl border border-red-500/20 bg-red-500/[0.03]">

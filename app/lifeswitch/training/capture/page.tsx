@@ -1090,44 +1090,45 @@ export default function TrainingCapturePage() {
     <div className="mx-auto max-w-6xl p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-lg font-semibold">Training · Capture</div>
+          <h1 className="text-lg font-semibold">Training · Capture</h1>
         </div>
 
         <input
           type="date"
+          aria-label="Workout date"
           value={day}
           onChange={(e) => setDay(e.target.value)}
-          className="rounded-xl border bg-background px-3 py-2 text-sm"
+          className="min-h-11 rounded-xl border bg-background px-3 py-2 text-sm"
         />
       </div>
 
       <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-xl border text-sm">
-        <div className="bg-muted px-3 py-2 text-center font-semibold">
+        <div className="flex min-h-11 items-center justify-center bg-muted px-3 py-2 text-center font-semibold">
           Strength
         </div>
         <a
           href="/lifeswitch/training/capture/conditioning"
-          className="px-3 py-2 text-center hover:bg-muted/30"
+          className="flex min-h-11 items-center justify-center px-3 py-2 text-center hover:bg-muted/30"
         >
           Conditioning
         </a>
       </div>
 
       {flash ? (
-        <div className="mt-3 text-sm text-green-600">{flash}</div>
+        <div role="status" aria-live="polite" className="mt-3 text-sm text-green-600">{flash}</div>
       ) : null}
       {status ? (
-        <div className="mt-3 text-sm text-red-600">{status}</div>
+        <div role="alert" className="mt-3 border-l-2 border-red-500/60 bg-red-500/5 py-2 pl-3 text-sm text-red-600">{status}</div>
       ) : null}
 
       <div className="mt-6 grid gap-4">
         {setupOpen ? (
           <aside className="border-y border-border/50 py-4">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-sm font-semibold">Workout template</div>
+              <label htmlFor="training-workout-template" className="text-sm font-semibold">Workout template</label>
               <button
                 type="button"
-                className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                className="min-h-11 rounded-md border px-2 py-1 text-xs hover:bg-muted/30 sm:min-h-0"
                 onClick={() => void loadTemplates()}
                 disabled={loadingTemplates}
               >
@@ -1136,7 +1137,8 @@ export default function TrainingCapturePage() {
             </div>
 
             <select
-              className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              id="training-workout-template"
+              className="mt-3 min-h-11 w-full rounded-xl border bg-background px-3 py-2 text-sm"
               value={selectedId}
               onChange={(e) => {
                 setRestoredLocalDraft(false);
@@ -1186,7 +1188,7 @@ export default function TrainingCapturePage() {
               {draftRows.length ? (
                 <button
                   type="button"
-                  className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
+                  className="min-h-11 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
                   onClick={discardLocalDraft}
                   disabled={finishLoading}
                 >
@@ -1196,7 +1198,7 @@ export default function TrainingCapturePage() {
 
               <button
                 type="button"
-                className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                className="min-h-11 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
                 onClick={() => void finishSession()}
                 disabled={
                   !selected ||
@@ -1241,7 +1243,8 @@ export default function TrainingCapturePage() {
                       <div className="relative shrink-0">
                         <button
                           type="button"
-                          className="inline-flex h-8 w-8 items-center justify-center text-lg text-muted-foreground hover:text-foreground"
+                          className="inline-flex h-11 w-11 items-center justify-center text-lg text-muted-foreground hover:text-foreground"
+                          aria-label={`Open options for ${first.exercise_name}`}
                           onClick={() =>
                             setOpenExerciseOptionsId((prev) =>
                               prev === first.exercise_id
@@ -1257,7 +1260,7 @@ export default function TrainingCapturePage() {
                           <div className="absolute right-0 z-20 mt-2 w-44 rounded-lg border bg-background p-2 shadow-lg">
                             <button
                               type="button"
-                              className="w-full rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                              className="min-h-11 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted/30 sm:min-h-0"
                               onClick={() =>
                                 addSetAfter(block.rows[block.rows.length - 1])
                               }
@@ -1267,7 +1270,7 @@ export default function TrainingCapturePage() {
 
                             <button
                               type="button"
-                              className="mt-2 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted/30"
+                              className="mt-2 min-h-11 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted/30 sm:min-h-0"
                               onClick={() => {
                                 setOpenAddExerciseId(first.exercise_id);
                                 setExerciseSearch("");
@@ -1278,7 +1281,8 @@ export default function TrainingCapturePage() {
                             {openAddExerciseId === first.exercise_id ? (
                               <div className="mt-2">
                                 <input
-                                  className="w-full rounded-md border bg-background px-2 py-1 text-xs"
+                                  className="min-h-11 w-full rounded-md border bg-background px-2 py-1 text-xs"
+                                  aria-label="Search exercises to add"
                                   placeholder="Search exercises"
                                   value={exerciseSearch}
                                   onChange={(e) =>
@@ -1298,7 +1302,7 @@ export default function TrainingCapturePage() {
                                       <button
                                         key={exercise.exercise_id}
                                         type="button"
-                                        className="w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30"
+                                        className="min-h-11 w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30 sm:min-h-0"
                                         onClick={() =>
                                           addExerciseToDraft(
                                             first.exercise_id,
@@ -1320,7 +1324,7 @@ export default function TrainingCapturePage() {
                                     <button
                                       key={hit.exercise_id}
                                       type="button"
-                                      className="w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30"
+                                      className="min-h-11 w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30 sm:min-h-0"
                                       onClick={() =>
                                         addExerciseToDraft(first.exercise_id, {
                                           my_exercise_id: "",
@@ -1346,7 +1350,7 @@ export default function TrainingCapturePage() {
                             ) : null}
                             <button
                               type="button"
-                              className="mt-2 w-full rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                              className="mt-2 min-h-11 w-full rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 sm:min-h-0"
                               onClick={() =>
                                 removeExerciseFromDraft(first.exercise_id)
                               }

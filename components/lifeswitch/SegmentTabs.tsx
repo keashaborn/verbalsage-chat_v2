@@ -22,7 +22,7 @@ export function SegmentTabs({ segments }: { segments: Segment[] }) {
               href={seg.href}
               aria-current={active ? "page" : undefined}
               className={[
-                "min-w-0 rounded-lg px-3 py-2.5 text-center text-sm font-semibold whitespace-nowrap transition-colors",
+                "min-h-11 min-w-0 rounded-lg px-3 py-2.5 text-center text-sm font-semibold whitespace-nowrap transition-colors",
                 active
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",

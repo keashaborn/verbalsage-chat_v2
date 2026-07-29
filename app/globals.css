@@ -361,6 +361,42 @@
   }
 }
 
+/* LifeSwitch interaction baseline: visible keyboard focus and explicit states. */
+[data-lifeswitch-root]
+  :where(
+    a[href],
+    button,
+    input,
+    select,
+    textarea,
+    summary,
+    [role="button"],
+    [tabindex]:not([tabindex="-1"])
+  ):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+[data-lifeswitch-root] :where(button, input, select, textarea):disabled,
+[data-lifeswitch-root] [aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+[data-lifeswitch-root]
+  :where(input, select, textarea)[aria-invalid="true"] {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 3px
+    color-mix(in oklab, var(--destructive) 20%, transparent);
+}
+
+@media (max-width: 767px) {
+  [data-lifeswitch-root] > header button {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
+
 @keyframes vs-realtime-orb-turn {
   to {
     transform: rotate(360deg);

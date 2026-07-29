@@ -5,7 +5,7 @@ export default function NutritionDesignLayout({ children }: { children: ReactNod
   return (
     <div className="grid min-w-0 gap-4">
       <div>
-        <div className="text-lg font-semibold">Nutrition · Library</div>
+        <h1 className="text-lg font-semibold">Nutrition · Library</h1>
 
       </div>
 

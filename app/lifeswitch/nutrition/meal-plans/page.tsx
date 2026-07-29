@@ -418,16 +418,16 @@ export default function MealPlansPage() {
     <div className="mx-auto min-w-0 max-w-5xl p-4">
 
       <div className="mb-3 flex justify-end">
-        <Link href="/lifeswitch/plan#nutrition-targets" className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30">
+        <Link href="/lifeswitch/plan#nutrition-targets" className="inline-flex min-h-11 items-center rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 sm:min-h-0">
           Back
         </Link>
       </div>
-      <div className="text-lg font-semibold">Nutrition · Meal Plans</div>
+      <h1 className="text-lg font-semibold">Nutrition · Meal Plans</h1>
       <div className="mt-1 text-sm text-muted-foreground">
         Build reusable plans from foods in your library.
       </div>
 
-      {err ? <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900">{err}</div> : null}
+      {err ? <div role="alert" className="mt-3 border-l-2 border-destructive/60 bg-destructive/5 py-2 pl-3 text-sm text-destructive">{err}</div> : null}
 
       <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-2">
         {/* Left: Plans + totals */}
@@ -436,7 +436,8 @@ export default function MealPlansPage() {
 
           <div className="mt-2 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
             <select
-              className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm"
+              aria-label="Meal plan"
+              className="min-h-11 min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm sm:min-h-0"
               value={selectedPlanId}
               onChange={(e) => setSelectedPlanId(e.target.value)}
               disabled={foodLoading}
@@ -448,7 +449,7 @@ export default function MealPlansPage() {
                 </option>
               ))}
             </select>
-            <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void loadPlans()}>
+            <button className="min-h-11 rounded-md border px-3 py-2 text-sm sm:min-h-0" onClick={() => void loadPlans()}>
               Refresh
             </button>
           </div>
@@ -475,18 +476,36 @@ export default function MealPlansPage() {
           <div className="mt-4 rounded-md border bg-muted/20 p-3">
             <div className="text-sm font-medium">Create / update plan</div>
             <div className="mt-2 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
-              <input className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Name" />
-              <select className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm" value={createGoal} onChange={(e) => setCreateGoal(e.target.value as any)}>
-                <option value="cut">cut</option>
-                <option value="maintain">maintain</option>
-                <option value="bulk">bulk</option>
-              </select>
-              <NumericInput className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm" value={createKcal} onValueChange={setCreateKcal} mode="decimal" min={0} required placeholder="kcal" />
-              <NumericInput className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm" value={createP} onValueChange={setCreateP} mode="decimal" min={0} required placeholder="protein g" />
-              <NumericInput className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm" value={createC} onValueChange={setCreateC} mode="decimal" min={0} required placeholder="carbs g" />
-              <NumericInput className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm" value={createF} onValueChange={setCreateF} mode="decimal" min={0} required placeholder="fat g" />
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                <span>Name</span>
+                <input className="min-h-11 min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm text-foreground" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Example: Cut v1" />
+              </label>
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                <span>Goal</span>
+                <select className="min-h-11 min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm text-foreground" value={createGoal} onChange={(e) => setCreateGoal(e.target.value as any)}>
+                  <option value="cut">cut</option>
+                  <option value="maintain">maintain</option>
+                  <option value="bulk">bulk</option>
+                </select>
+              </label>
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                <span>Calories</span>
+                <NumericInput className="min-h-11 min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm text-foreground" value={createKcal} onValueChange={setCreateKcal} mode="decimal" min={0} required />
+              </label>
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                <span>Protein (g)</span>
+                <NumericInput className="min-h-11 min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm text-foreground" value={createP} onValueChange={setCreateP} mode="decimal" min={0} required />
+              </label>
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                <span>Carbs (g)</span>
+                <NumericInput className="min-h-11 min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm text-foreground" value={createC} onValueChange={setCreateC} mode="decimal" min={0} required />
+              </label>
+              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                <span>Fat (g)</span>
+                <NumericInput className="min-h-11 min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm text-foreground" value={createF} onValueChange={setCreateF} mode="decimal" min={0} required />
+              </label>
             </div>
-            <button className="mt-2 w-full rounded-md border px-3 py-2 text-sm" onClick={() => void createPlan()} disabled={!createName.trim()}>
+            <button className="mt-2 min-h-11 w-full rounded-md border px-3 py-2 text-sm" onClick={() => void createPlan()} disabled={!createName.trim()}>
               Save plan
             </button>
           </div>
@@ -514,7 +533,7 @@ export default function MealPlansPage() {
                       if (event.currentTarget.open) openPlanItemActions(it);
                     }}
                   >
-                    <summary className="inline-flex list-none cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground [&::-webkit-details-marker]:hidden">
+                    <summary className="inline-flex min-h-11 list-none cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground sm:min-h-0 [&::-webkit-details-marker]:hidden">
                       Actions
                       <span className="group-open:hidden">▾</span>
                       <span className="hidden group-open:inline">▴</span>
@@ -522,7 +541,7 @@ export default function MealPlansPage() {
 
                     <div className="mt-2 grid min-w-0 gap-2 rounded-md border bg-background/40 p-2">
                       <select
-                        className="rounded-md border bg-background px-2 py-2 text-sm"
+                        className="min-h-11 rounded-md border bg-background px-2 py-2 text-sm sm:min-h-0"
                         value={editLabelByItem[it.meal_plan_item_id] || it.meal_label}
                         onChange={(event) => setEditLabelByItem((previous) => ({
                           ...previous,
@@ -552,7 +571,7 @@ export default function MealPlansPage() {
                           disabled={savingItemId === it.meal_plan_item_id}
                         />
                         <button
-                          className="min-h-10 rounded-md border px-3 py-2 text-xs disabled:opacity-50"
+                          className="min-h-11 rounded-md border px-3 py-2 text-xs disabled:opacity-50"
                           onClick={() => void savePlanItem(it)}
                           disabled={savingItemId === it.meal_plan_item_id}
                         >
@@ -563,7 +582,7 @@ export default function MealPlansPage() {
                       <div className="rounded-md border border-red-500/20 bg-red-500/5 p-2">
                         <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">Danger zone</div>
                         <button
-                          className="mt-2 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 disabled:opacity-50"
+                          className="mt-2 min-h-11 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 disabled:opacity-50 sm:min-h-0"
                           onClick={() => {
                             if (!window.confirm(`Remove ${it.display_name} from this meal plan?`)) return;
                             void removePlanItem(it);
@@ -586,24 +605,28 @@ export default function MealPlansPage() {
         <section className="min-w-0 rounded-lg border p-3">
           <div className="text-sm font-medium">Add from My Foods</div>
 
-          <div className="mt-2 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
+          <label htmlFor="meal-plan-food-search" className="mt-2 block text-xs text-muted-foreground">Search My Foods</label>
+          <div className="mt-1 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
             <input
-              className="min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm"
+              id="meal-plan-food-search"
+              className="min-h-11 min-w-0 w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={foodQ}
               onChange={(e) => setFoodQ(e.target.value)}
-              placeholder='search your My Foods (e.g. "salmon", "96/4", "cheddar")'
+              placeholder='Example: salmon, 96/4, cheddar'
               onKeyDown={(e) => {
                 if (e.key === "Enter") void searchMyFoods();
               }}
             />
-            <button className="rounded-md border px-3 py-2 text-sm" onClick={() => void searchMyFoods()} disabled={foodLoading}>
+            <button className="min-h-11 rounded-md border px-3 py-2 text-sm" onClick={() => void searchMyFoods()} disabled={foodLoading}>
               {foodLoading ? "…" : "Search"}
             </button>
           </div>
 
           <div className="mt-2">
+            <label htmlFor="meal-plan-meal" className="mb-1 block text-xs text-muted-foreground">Meal</label>
             <select
-              className="w-full rounded-md border bg-background px-2 py-2 text-sm"
+              id="meal-plan-meal"
+              className="min-h-11 w-full rounded-md border bg-background px-2 py-2 text-sm"
               value={addMealLabel}
               onChange={(e) => setAddMealLabel(e.target.value as any)}
             >
@@ -644,7 +667,7 @@ export default function MealPlansPage() {
                       disabled={addingId === f.my_food_id}
                     />
                     <button
-                    className="min-h-10 shrink-0 rounded-md border px-3 py-1.5 text-xs"
+                    className="min-h-11 shrink-0 rounded-md border px-3 py-1.5 text-xs"
                     onClick={() => void addToPlan(f)}
                     disabled={!selectedPlanId || addingId === f.my_food_id}
                     title={!selectedPlanId ? "Select a plan first" : "Add to plan"}
