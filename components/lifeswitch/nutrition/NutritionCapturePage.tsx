@@ -662,6 +662,7 @@ export default function NutritionCapturePage() {
                             value={selection}
                             servings={servings}
                             compact
+                            unboxed
                             disabled={!included}
                             onChange={(next) =>
                               setMealQuantityByItem((previous) => ({

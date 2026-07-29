@@ -86,6 +86,7 @@ type Props = {
   onChange: (next: FoodQuantitySelection) => void;
   disabled?: boolean;
   compact?: boolean;
+  unboxed?: boolean;
 };
 
 export function FoodQuantityControl({
@@ -95,12 +96,17 @@ export function FoodQuantityControl({
   onChange,
   disabled = false,
   compact = false,
+  unboxed = false,
 }: Props) {
   const activeServings = servings.filter((row) => row.is_active !== false);
+  const controlClassName = unboxed
+    ? "min-w-0 rounded-none border-0 border-b border-transparent bg-transparent px-1 py-1 text-sm hover:border-muted-foreground/25 focus:border-muted-foreground/60 focus:outline-none focus:ring-0"
+    : "min-w-0 rounded-md border bg-background px-3 py-2 text-sm";
+
   return (
     <div className={`grid min-w-0 grid-cols-[6.5rem_minmax(0,1fr)] gap-2 ${compact ? "max-w-sm" : "w-full"}`}>
       <NumericInput
-        className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm"
+        className={controlClassName}
         value={value.quantity}
         mode="decimal"
         min={0.001}
@@ -110,7 +116,7 @@ export function FoodQuantityControl({
         onValueChange={(quantity) => onChange({ ...value, quantity })}
       />
       <select
-        className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm"
+        className={controlClassName}
         value={value.unit}
         aria-label={`${label} unit`}
         disabled={disabled}
