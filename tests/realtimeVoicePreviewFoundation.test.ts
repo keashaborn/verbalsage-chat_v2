@@ -35,12 +35,17 @@ test("settings expose one server-owned speech model and the compatible voice cat
 
 test("live overlay keeps captions optional", () => {
   const overlay = source("components/voice/RealtimeVoiceOverlay.tsx");
+  const chat = source("components/threads/BrainsChatPane.tsx");
   assert.match(overlay, /data-realtime-state=\{state\}/);
   assert.match(overlay, /vs-realtime-orb__symbol--front/);
   assert.match(overlay, /vs-realtime-orb__symbol--back/);
   assert.match(overlay, />\s*CC\s*</);
   assert.match(overlay, /captionsEnabled && caption\?\.text/);
   assert.match(overlay, /AI-generated voice/);
+  assert.match(chat, /speaker:\s*"You"\s*\|\s*"Assistant"/);
+  assert.match(chat, /speaker:\s*"Assistant",\s*text:\s*turn\.answer/);
+  assert.doesNotMatch(overlay, /RESSE/);
+  assert.doesNotMatch(chat, /speaker:\s*"RESSE"/);
 });
 
 test("preview overlay motion is state-aware and accessibility bounded", () => {

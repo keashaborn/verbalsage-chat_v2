@@ -469,7 +469,7 @@ export function BrainsChatPane() {
   const [realtimeCaptionsEnabled, setRealtimeCaptionsEnabled] =
     React.useState(false);
   const [realtimeCaption, setRealtimeCaption] = React.useState<{
-    speaker: "You" | "RESSE";
+    speaker: "You" | "Assistant";
     text: string;
   } | null>(null);
   const voiceStatus =
@@ -1752,7 +1752,7 @@ export function BrainsChatPane() {
           void loadMessages(tid);
 
           realtimeVoice.setAssistantSpeaking(true);
-          setRealtimeCaption({ speaker: "RESSE", text: turn.answer });
+          setRealtimeCaption({ speaker: "Assistant", text: turn.answer });
           let speechMetrics: VoiceSpeechMetrics | null = null;
           try {
             speechMetrics = await speak(

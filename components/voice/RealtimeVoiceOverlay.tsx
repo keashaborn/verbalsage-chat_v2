@@ -15,7 +15,7 @@ type Props = {
   error?: string;
   captionsEnabled: boolean;
   caption?: {
-    speaker: "You" | "RESSE";
+    speaker: "You" | "Assistant";
     text: string;
   } | null;
   onToggleCaptions: () => void;
