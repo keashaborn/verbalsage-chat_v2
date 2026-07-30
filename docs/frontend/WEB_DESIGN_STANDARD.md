@@ -193,6 +193,10 @@ Every translucent surface must keep an opaque theme-token fallback when backdrop
 
 Do not apply glass styling to lists, forms, capture rows, calendars, analytics content, ordinary cards, or nested page sections. Glass is an elevation cue, not a general decoration.
 
+Compact navigation dropdowns use denser glass than navigation bars or docks. Their background should be opaque enough that underlying page text cannot compete with menu labels. Workspace, Account, and Admin navigation must use the same dropdown treatment in Chat and LifeSwitch.
+
+Larger navigation surfaces, including the phone bottom bar, may use greater translucency because their controls have more space and do not place dense text over page content.
+
 ## Borders, Rounding, and Elevation
 
 - The global radius is intentionally moderate, currently approximately `0.45rem`.

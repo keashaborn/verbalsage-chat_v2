@@ -20,8 +20,8 @@ test("glass surfaces keep opaque fallbacks", async () => {
     shell: ["bg-background", "supports-[backdrop-filter]:bg-background/80"],
     workflow: ["bg-card", "supports-[backdrop-filter]:bg-card/80"],
     helper: ["bg-background", "supports-[backdrop-filter]:bg-background/85"],
-    account: ["bg-popover", "supports-[backdrop-filter]:bg-popover/85"],
-    workspace: ["bg-popover", "supports-[backdrop-filter]:bg-popover/85"],
+    account: ["bg-popover", "supports-[backdrop-filter]:bg-popover/95"],
+    workspace: ["bg-popover", "supports-[backdrop-filter]:bg-popover/95"],
   };
 
   for (const [name, classes] of Object.entries(expected)) {
@@ -34,6 +34,14 @@ test("glass surfaces keep opaque fallbacks", async () => {
       );
     }
   }
+});
+
+test("global navigation menus use the same dense glass treatment", async () => {
+  const account = await source("account");
+  const workspace = await source("workspace");
+
+  assert.doesNotMatch(account, /bg-popover\/85/);
+  assert.doesNotMatch(workspace, /bg-popover\/85/);
 });
 
 test("glass remains limited to elevated shared surfaces", async () => {

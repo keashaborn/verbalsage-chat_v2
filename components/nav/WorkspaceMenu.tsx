@@ -58,7 +58,7 @@ export function WorkspaceMenu({
       : "rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30";
 
   const panelClass = [
-    "absolute z-50 mt-2 w-48 overflow-hidden rounded-xl border border-border/70 bg-popover text-popover-foreground shadow-xl ring-1 ring-foreground/5 supports-[backdrop-filter]:bg-popover/85 supports-[backdrop-filter]:backdrop-blur-xl",
+    "absolute z-50 mt-2 w-48 overflow-hidden rounded-xl border border-border/70 bg-popover text-popover-foreground shadow-xl ring-1 ring-foreground/5 supports-[backdrop-filter]:bg-popover/95 supports-[backdrop-filter]:backdrop-blur-xl",
     align === "left" ? "left-0" : "right-0",
   ].join(" ");
 
