@@ -339,6 +339,9 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
                       className="mx-2 my-1 grid min-w-0 gap-2 border-y py-3"
                       onSubmit={(event) => {
                         event.preventDefault();
+                        const input =
+                          event.currentTarget.elements.namedItem("chat-name");
+                        if (input instanceof HTMLInputElement) input.blur();
                         void commitRename(tid);
                       }}
                     >
@@ -350,13 +353,13 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
                       </label>
                       <input
                         id={`rename-chat-${tid}`}
-                        className="w-full min-w-0 bg-transparent px-0 py-2 text-base outline-none"
+                        name="chat-name"
+                        className="w-full min-w-0 touch-manipulation bg-transparent px-0 py-2 text-[16px] outline-none"
                         value={editingTitle}
                         onChange={(event) =>
                           setEditingTitle(event.target.value)
                         }
                         aria-label="Chat name"
-                        autoFocus
                       />
                       <div className="flex justify-end gap-2">
                         <button

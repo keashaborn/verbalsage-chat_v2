@@ -31,11 +31,21 @@ test("thread delete no longer uses the browser-native confirmation dialog", () =
 });
 
 test("thread rename avoids nested mobile dialogs and keeps desktop portaled", () => {
+  const mobileEditor = listSource.match(
+    /if \(isMobile && isEditing\)[\s\S]*?<\/form>/,
+  )?.[0];
+
+  assert.ok(mobileEditor);
   assert.match(listSource, /from "@\/components\/ui\/dialog"/);
   assert.match(listSource, /<DialogContent/);
   assert.match(listSource, /if \(isMobile && isEditing\)/);
   assert.match(listSource, /\{!isMobile && \(/);
   assert.match(listSource, /id=\{`rename-chat-\$\{tid\}`\}/);
+  assert.match(mobileEditor, /elements\.namedItem\("chat-name"\)/);
+  assert.match(mobileEditor, /input instanceof HTMLInputElement/);
+  assert.match(mobileEditor, /input\.blur\(\)/);
+  assert.match(mobileEditor, /text-\[16px\]/);
+  assert.doesNotMatch(mobileEditor, /autoFocus/);
   assert.match(listSource, /text-base outline-none sm:text-sm/);
   assert.doesNotMatch(listSource, /z-\[10000\]/);
 });
