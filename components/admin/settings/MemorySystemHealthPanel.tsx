@@ -64,6 +64,27 @@ type MemoryHealth = {
     memory_bound_answers: number;
     memory_bound_percent: number;
   };
+  pipeline_schema?: "memory_pipeline_status_v1";
+  pipeline?: {
+    stages: {
+      evidence_rows: number;
+      extracted_evidence_rows: number;
+      durable_observations: number;
+      bound_observations: number;
+      evaluated_observations: number;
+      claim_plan_items: number;
+      reviewed_claim_plan_items: number;
+      supported_claims: number;
+      indexed_vectors: number | null;
+      memory_bound_answers_7d: number;
+    };
+    backlog: {
+      waiting_for_binding: number;
+      waiting_for_entailment: number;
+      waiting_for_claim_review: number;
+      ready_for_materialization: number;
+    };
+  };
   warnings: Array<{
     code: string;
     severity: WarningSeverity;
@@ -116,6 +137,25 @@ function Metric({
       </div>
       <div className="mt-1 text-lg font-semibold">{value}</div>
       <div className="mt-0.5 text-xs text-muted-foreground">{detail}</div>
+    </div>
+  );
+}
+
+function PipelineStage({
+  label,
+  value,
+}: {
+  label: string;
+  value: number | null;
+}) {
+  return (
+    <div className="min-w-24 rounded-md border bg-muted/20 px-3 py-2 text-center">
+      <div className="text-base font-semibold">
+        {value === null ? "—" : value.toLocaleString()}
+      </div>
+      <div className="mt-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+        {label}
+      </div>
     </div>
   );
 }
@@ -252,6 +292,90 @@ export function MemorySystemHealthPanel() {
               </div>
             </div>
           </div>
+
+          {health.pipeline ? (
+            <div className="overflow-hidden rounded-lg border">
+              <div className="border-b px-3 py-2">
+                <div className="text-xs font-semibold">
+                  Governed memory pipeline
+                </div>
+                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                  Aggregate counts for this account. Each stage is a different
+                  record type, not a conversion percentage.
+                </div>
+              </div>
+              <div className="overflow-x-auto p-3">
+                <div className="flex min-w-max items-center gap-2">
+                  {[
+                    ["Evidence", health.pipeline.stages.evidence_rows],
+                    [
+                      "Extracted",
+                      health.pipeline.stages.extracted_evidence_rows,
+                    ],
+                    [
+                      "Observations",
+                      health.pipeline.stages.durable_observations,
+                    ],
+                    ["Bound", health.pipeline.stages.bound_observations],
+                    ["Evaluated", health.pipeline.stages.evaluated_observations],
+                    ["Claim plans", health.pipeline.stages.claim_plan_items],
+                    [
+                      "Reviewed",
+                      health.pipeline.stages.reviewed_claim_plan_items,
+                    ],
+                    ["Active", health.pipeline.stages.supported_claims],
+                    ["Indexed", health.pipeline.stages.indexed_vectors],
+                    [
+                      "Used · 7d",
+                      health.pipeline.stages.memory_bound_answers_7d,
+                    ],
+                  ].map(([label, value], index, stages) => (
+                    <React.Fragment key={String(label)}>
+                      <PipelineStage
+                        label={String(label)}
+                        value={value as number | null}
+                      />
+                      {index < stages.length - 1 ? (
+                        <span
+                          aria-hidden="true"
+                          className="text-sm text-muted-foreground"
+                        >
+                          →
+                        </span>
+                      ) : null}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 border-t px-3 py-2">
+                {[
+                  [
+                    "Awaiting entity binding",
+                    health.pipeline.backlog.waiting_for_binding,
+                  ],
+                  [
+                    "Awaiting GPU evaluation",
+                    health.pipeline.backlog.waiting_for_entailment,
+                  ],
+                  [
+                    "Awaiting claim review",
+                    health.pipeline.backlog.waiting_for_claim_review,
+                  ],
+                  [
+                    "Ready to materialize",
+                    health.pipeline.backlog.ready_for_materialization,
+                  ],
+                ].map(([label, value]) => (
+                  <span
+                    key={String(label)}
+                    className="rounded-full border px-2 py-1 text-[11px] text-muted-foreground"
+                  >
+                    {String(label)} · {Number(value).toLocaleString()}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="grid border-y text-xs sm:grid-cols-2 sm:divide-x">
             <div className="py-3 sm:pr-3">
