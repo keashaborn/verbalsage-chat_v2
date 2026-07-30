@@ -2,7 +2,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
+import {
+  getSupabaseBearerAuthorizationFromRequest,
+  getSupabaseUserIdFromRequest,
+} from "@/app/api/_auth/supabaseUser";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 function requestId(req: Request): string {
@@ -52,6 +55,13 @@ async function upstream(
       { status: 401, headers: { "x-request-id": rid } },
     );
   }
+  const authorization = getSupabaseBearerAuthorizationFromRequest(req);
+  if (!authorization) {
+    return NextResponse.json(
+      { error: "unauthorized" },
+      { status: 401, headers: { "x-request-id": rid } },
+    );
+  }
   const brains = process.env.BRAINS_URL || "http://172.31.32.171:8088";
   const body =
     method === "PUT" ? await req.json().catch(() => null) : undefined;
@@ -81,6 +91,7 @@ async function upstream(
     {
       method,
       headers: brainsUpstreamHeaders(rid, owner, {
+        authorization,
         ...(method === "PUT" ? { "Content-Type": "application/json" } : {}),
       }),
       body: payload ? JSON.stringify(payload) : undefined,

@@ -65,6 +65,10 @@ test("personalization no longer uses legacy instruction cards", () => {
   assert.doesNotMatch(api, /RESSE_USER_PREFERENCES/);
   assert.doesNotMatch(api, /vantage_id/);
   assert.doesNotMatch(preferences, /supabase\.auth\.updateUser/);
+  assert.match(api, /getSupabaseBearerAuthorizationFromRequest/);
+  assert.match(api, /authorization,/);
+  assert.match(api, /brainsUpstreamHeaders\(rid, owner/);
+  assert.doesNotMatch(api, /service_token_owner_override/);
   assert.doesNotMatch(preferences, /vs_conversation_style/);
   assert.match(authGate, /\/api\/user\/assistant-preferences/);
   assert.doesNotMatch(authGate, /md\.vs_conversation_style/);
