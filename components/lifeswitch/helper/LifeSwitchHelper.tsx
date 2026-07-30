@@ -7,10 +7,7 @@ import { Send, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/authFetch";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
-import {
-  conversationStyleTtsInstructions,
-  readConversationStyle,
-} from "@/lib/conversationStyle";
+import { readConversationStyle } from "@/lib/conversationStyle";
 import { readSpeechVoice } from "@/lib/speechSettings";
 import { speechResponseToWavBlob } from "@/lib/voiceSpeech";
 import { isServerOwnedSageHelperRoute } from "@/lib/lifeswitch/sage/helperRoutes";
@@ -452,9 +449,7 @@ export function LifeSwitchHelper() {
     setTtsPreparing(true);
 
     const voice = readSpeechVoice();
-    const instructions = conversationStyleTtsInstructions(
-      readConversationStyle(),
-    );
+    const conversationStyle = readConversationStyle();
 
     const ac = new AbortController();
     ttsAbortRef.current = ac;
@@ -466,7 +461,7 @@ export function LifeSwitchHelper() {
         body: JSON.stringify({
           text: textToSpeak,
           voice,
-          instructions,
+          conversation_style: conversationStyle,
         }),
         signal: ac.signal,
       });

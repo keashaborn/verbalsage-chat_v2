@@ -57,6 +57,7 @@ test("assistant name is optional, account-scoped, and narrowly validated", () =>
 test("personalization no longer uses legacy instruction cards", () => {
   const preferences = source("components/settings/AssistantPreferences.tsx");
   const api = source("app/api/user/assistant-preferences/route.ts");
+  const shared = source("app/api/user/assistant-preferences/_shared.ts");
   const authGate = source("components/auth/AuthGate.tsx");
 
   assert.match(preferences, /\/api\/user\/assistant-preferences/);
@@ -65,13 +66,89 @@ test("personalization no longer uses legacy instruction cards", () => {
   assert.doesNotMatch(api, /RESSE_USER_PREFERENCES/);
   assert.doesNotMatch(api, /vantage_id/);
   assert.doesNotMatch(preferences, /supabase\.auth\.updateUser/);
-  assert.match(api, /getSupabaseBearerAuthorizationFromRequest/);
-  assert.match(api, /authorization,/);
-  assert.match(api, /brainsUpstreamHeaders\(rid, owner/);
+  assert.match(shared, /getSupabaseBearerAuthorizationFromRequest/);
+  assert.match(shared, /authorization: context\.authorization/);
+  assert.match(shared, /brainsUpstreamHeaders\(context\.rid, context\.owner/);
   assert.doesNotMatch(api, /service_token_owner_override/);
   assert.doesNotMatch(preferences, /vs_conversation_style/);
   assert.match(authGate, /\/api\/user\/assistant-preferences/);
   assert.doesNotMatch(authGate, /md\.vs_conversation_style/);
+});
+
+test("guided response preferences use review then explicit apply", () => {
+  const preferences = source("components/settings/AssistantPreferences.tsx");
+  const compile = source("app/api/user/assistant-preferences/compile/route.ts");
+  const approve = source("app/api/user/assistant-preferences/approve/route.ts");
+
+  assert.match(preferences, />\s*AI response preferences\s*</);
+  assert.match(preferences, /Describe how you want responses to feel/);
+  assert.match(preferences, /What will change/);
+  assert.match(preferences, /Not applied/);
+  assert.match(preferences, /Nothing changes until you apply this review/);
+  assert.match(preferences, /Review preferences/);
+  assert.match(preferences, /Apply preferences/);
+  assert.match(preferences, /maxLength=\{1200\}/);
+  assert.match(
+    preferences,
+    /Your wording is never\s+placed directly into the assistant prompt/,
+  );
+  assert.match(preferences, /\/api\/user\/assistant-preferences\/compile/);
+  assert.match(preferences, /\/api\/user\/assistant-preferences\/approve/);
+  assert.match(compile, /expected_revision/);
+  assert.match(compile, /narrative/);
+  assert.match(approve, /candidate_id/);
+  assert.match(approve, /expected_revision/);
+  assert.doesNotMatch(preferences, /Sage Helper/);
+  assert.doesNotMatch(preferences, /rounded-2xl/);
+});
+
+test("primary response controls remain simple and advanced controls are tucked away", () => {
+  const preferences = source("components/settings/AssistantPreferences.tsx");
+
+  const primaryStart = preferences.indexOf("AI response preferences");
+  const advancedStart = preferences.indexOf("<details");
+  assert.ok(primaryStart >= 0);
+  assert.ok(advancedStart > primaryStart);
+  assert.ok(
+    preferences.indexOf('label="Conversation style"', primaryStart) <
+      advancedStart,
+  );
+  assert.ok(
+    preferences.indexOf('label="Response length"', primaryStart) <
+      advancedStart,
+  );
+  assert.ok(
+    preferences.indexOf('label="Technical depth"', advancedStart) >
+      advancedStart,
+  );
+  assert.ok(
+    preferences.indexOf('label="Format"', advancedStart) > advancedStart,
+  );
+  assert.match(preferences, />\s*Advanced\s*</);
+});
+
+test("TTS accepts only the fixed conversation-style boundary", () => {
+  const route = source("app/api/tts/route.ts");
+  const styles = source("lib/conversationStyle.ts");
+  const callers = [
+    source("components/lifeswitch/helper/LifeSwitchHelper.tsx"),
+    source("components/admin/VoicePanel.tsx"),
+    source("components/threads/BrainsChatPane.tsx"),
+    source("components/assistant-ui/thread.tsx"),
+  ];
+
+  assert.match(route, /conversationStyleFromTtsRequest/);
+  assert.match(route, /unsupported_tts_conversation_style/);
+  assert.match(route, /conversation_style: conversationStyle/);
+  assert.doesNotMatch(route, /instructions:\s*body/);
+  assert.match(styles, /conversationStyleFromTtsRequest/);
+  assert.match(styles, /instructions === conversationStyleTtsInstructions/);
+  assert.match(styles, /return null/);
+  for (const caller of callers) {
+    assert.match(caller, /conversation_style:/);
+    assert.doesNotMatch(caller, /conversationStyleTtsInstructions/);
+    assert.doesNotMatch(caller, /\binstructions[:,]/);
+  }
 });
 
 test("preview and message speech wrap raw PCM before browser playback", () => {

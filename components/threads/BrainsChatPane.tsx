@@ -27,10 +27,7 @@ import {
 } from "@/components/voice/RealtimeVoiceOverlay";
 import { VOICE_TURN_HEADER } from "@/lib/voiceObservability";
 import { VOICE_SESSION_HEADER } from "@/lib/voiceSession";
-import {
-  conversationStyleTtsInstructions,
-  readConversationStyle,
-} from "@/lib/conversationStyle";
+import { readConversationStyle } from "@/lib/conversationStyle";
 import {
   readSpeechVoice,
   SPEECH_MODEL,
@@ -974,9 +971,7 @@ export function BrainsChatPane() {
     const voice = readSpeechVoice();
     const model = SPEECH_MODEL;
     const speed = SPEECH_SPEED;
-    const instructions = conversationStyleTtsInstructions(
-      readConversationStyle(),
-    );
+    const conversationStyle = readConversationStyle();
     const abort = new AbortController();
     ttsAbortRef.current = abort;
     const ttsStartedAt = performance.now();
@@ -1022,7 +1017,7 @@ export function BrainsChatPane() {
             body: JSON.stringify({
               text: chunks[segmentIndex],
               voice,
-              instructions,
+              conversation_style: conversationStyle,
             }),
             signal,
           });

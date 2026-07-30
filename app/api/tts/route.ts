@@ -21,6 +21,7 @@ import {
   SPEECH_SPEED,
   SPEECH_VOICES,
 } from "@/lib/speechSettings";
+import { conversationStyleFromTtsRequest } from "@/lib/conversationStyle";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -115,7 +116,16 @@ export async function POST(req: Request) {
       );
     }
     const voice = normalizeSpeechVoice(requestedVoice);
-    const instructions = String(body?.instructions ?? "").trim();
+    const conversationStyle = conversationStyleFromTtsRequest(
+      body?.conversation_style,
+      body?.instructions,
+    );
+    if (!conversationStyle) {
+      return NextResponse.json(
+        { ok: false, error: "unsupported_tts_conversation_style" },
+        { status: 422, headers: { "x-request-id": requestId } },
+      );
+    }
 
     if (!text) {
       return NextResponse.json(
@@ -144,7 +154,7 @@ export async function POST(req: Request) {
       voice,
       model: SPEECH_MODEL,
       speed: SPEECH_SPEED,
-      instructions,
+      conversation_style: conversationStyle,
     });
     let upstream: Response | null = null;
     let lastTransportError: unknown = null;

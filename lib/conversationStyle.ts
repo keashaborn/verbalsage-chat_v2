@@ -56,3 +56,19 @@ export function conversationStyleTtsInstructions(value: unknown): string {
   }
   return "Speak naturally in a relaxed, conversational manner. Avoid sounding formal, clinical, or theatrical.";
 }
+
+export function conversationStyleFromTtsRequest(
+  styleValue: unknown,
+  legacyInstructions: unknown,
+): ConversationStyle | null {
+  if (styleValue != null && String(styleValue).trim() !== "") {
+    const raw = String(styleValue).trim().toLowerCase();
+    return raw === "direct" || raw === "natural" || raw === "warm" ? raw : null;
+  }
+  const instructions = String(legacyInstructions ?? "").trim();
+  if (!instructions) return "natural";
+  for (const style of ["direct", "natural", "warm"] as const) {
+    if (instructions === conversationStyleTtsInstructions(style)) return style;
+  }
+  return null;
+}

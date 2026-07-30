@@ -37,10 +37,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { authFetch } from "@/lib/authFetch";
-import {
-  conversationStyleTtsInstructions,
-  readConversationStyle,
-} from "@/lib/conversationStyle";
+import { readConversationStyle } from "@/lib/conversationStyle";
 import { readSpeechVoice } from "@/lib/speechSettings";
 import { speechResponseToWavBlob } from "@/lib/voiceSpeech";
 
@@ -198,14 +195,16 @@ async function speakTextFromButton(btn: HTMLElement) {
   } catch {}
 
   const voice = readSpeechVoice();
-  const instructions = conversationStyleTtsInstructions(
-    readConversationStyle(),
-  );
+  const conversationStyle = readConversationStyle();
 
   const r = await authFetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: cleaned, voice, instructions }),
+    body: JSON.stringify({
+      text: cleaned,
+      voice,
+      conversation_style: conversationStyle,
+    }),
   });
 
   if (!r.ok) {

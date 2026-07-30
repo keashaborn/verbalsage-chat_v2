@@ -3,10 +3,7 @@
 import * as React from "react";
 
 import { authFetch } from "@/lib/authFetch";
-import {
-  conversationStyleTtsInstructions,
-  readConversationStyle,
-} from "@/lib/conversationStyle";
+import { readConversationStyle } from "@/lib/conversationStyle";
 import {
   normalizeSpeechVoice,
   SPEECH_MODEL,
@@ -260,9 +257,7 @@ export function VoicePanel() {
         body: JSON.stringify({
           text: PREVIEW_TEXT,
           voice: nextVoice,
-          instructions: conversationStyleTtsInstructions(
-            readConversationStyle(),
-          ),
+          conversation_style: readConversationStyle(),
         }),
       });
       if (!response.ok) {
