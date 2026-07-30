@@ -53,3 +53,32 @@ test("dropdowns remain denser than the top navigation surface", () => {
   assert.match(workspace, /supports-\[backdrop-filter\]:bg-popover\/95/);
   assert.match(account, /supports-\[backdrop-filter\]:bg-popover\/95/);
 });
+
+test("chat flex boundaries cannot grow wider than the viewport", () => {
+  const sidebar = read("components/ui/sidebar.tsx");
+  const assistant = read("app/assistant.tsx");
+  const chat = read("components/threads/BrainsChatPane.tsx");
+
+  assert.match(
+    sidebar,
+    /group\/sidebar-wrapper flex min-h-svh w-full max-w-full min-w-0/,
+  );
+  assert.match(
+    sidebar,
+    /relative flex max-w-full min-w-0 flex-1 flex-col bg-background/,
+  );
+  assert.doesNotMatch(
+    sidebar,
+    /relative flex w-full flex-1 flex-col bg-background/,
+  );
+  assert.match(
+    assistant,
+    /flex h-dvh w-full max-w-full min-w-0 overflow-hidden/,
+  );
+  assert.match(assistant, /max-w-full min-w-0 flex-1 overflow-hidden/);
+  assert.match(
+    chat,
+    /relative flex h-full max-w-full min-w-0 flex-col overflow-hidden/,
+  );
+  assert.match(chat, /sticky bottom-0 z-10 max-w-full min-w-0/);
+});

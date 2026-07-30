@@ -30,9 +30,12 @@ test("thread delete no longer uses the browser-native confirmation dialog", () =
   assert.match(listSource, /text-destructive/);
 });
 
-test("thread rename uses the shared portaled dialog and mobile-safe input", () => {
+test("thread rename avoids nested mobile dialogs and keeps desktop portaled", () => {
   assert.match(listSource, /from "@\/components\/ui\/dialog"/);
   assert.match(listSource, /<DialogContent/);
+  assert.match(listSource, /if \(isMobile && isEditing\)/);
+  assert.match(listSource, /\{!isMobile && \(/);
+  assert.match(listSource, /id=\{`rename-chat-\$\{tid\}`\}/);
   assert.match(listSource, /text-base outline-none sm:text-sm/);
   assert.doesNotMatch(listSource, /z-\[10000\]/);
 });

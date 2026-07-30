@@ -37,7 +37,7 @@ export const Assistant = () => {
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <SidebarProvider>
-        <div className="flex h-dvh w-full pr-0.5">
+        <div className="flex h-dvh w-full max-w-full min-w-0 overflow-hidden pr-0.5">
           <ThreadListSidebar />
           <SidebarInset>
             <AppTopBar className="flex h-16 items-center justify-between px-4">
@@ -51,7 +51,7 @@ export const Assistant = () => {
               </div>
               <AccountMenu />
             </AppTopBar>
-            <div className="flex-1 overflow-hidden">
+            <div className="max-w-full min-w-0 flex-1 overflow-hidden">
               <BrainsChatPane />
             </div>
           </SidebarInset>

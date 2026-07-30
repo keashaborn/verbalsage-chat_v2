@@ -330,6 +330,54 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
 
                 const isMenuOpen = actionMenu?.thread.thread_id === tid;
                 const isBusy = busyThreadId === tid;
+                const isEditing = editingId === tid;
+
+                if (isMobile && isEditing) {
+                  return (
+                    <form
+                      key={tid}
+                      className="mx-2 my-1 grid min-w-0 gap-2 border-y py-3"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void commitRename(tid);
+                      }}
+                    >
+                      <label
+                        className="text-xs font-medium text-muted-foreground"
+                        htmlFor={`rename-chat-${tid}`}
+                      >
+                        Rename chat
+                      </label>
+                      <input
+                        id={`rename-chat-${tid}`}
+                        className="w-full min-w-0 bg-transparent px-0 py-2 text-base outline-none"
+                        value={editingTitle}
+                        onChange={(event) =>
+                          setEditingTitle(event.target.value)
+                        }
+                        aria-label="Chat name"
+                        autoFocus
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          className="px-2 py-2 text-sm text-muted-foreground"
+                          onClick={cancelRename}
+                          disabled={isBusy}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-2 py-2 text-sm font-medium"
+                          disabled={isBusy || !editingTitle.trim()}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </form>
+                  );
+                }
 
                 return (
                   <div
@@ -446,54 +494,58 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
         </div>
       )}
 
-      <Dialog
-        open={editingId !== null}
-        onOpenChange={(open) => {
-          if (!open && busyThreadId !== editingId) cancelRename();
-        }}
-      >
-        <DialogContent
-          className="max-w-sm rounded-2xl p-4"
-          aria-describedby={undefined}
-          showCloseButton={busyThreadId !== editingId}
+      {!isMobile && (
+        <Dialog
+          open={editingId !== null}
+          onOpenChange={(open) => {
+            if (!open && busyThreadId !== editingId) cancelRename();
+          }}
         >
-          <DialogHeader>
-            <DialogTitle className="text-sm">Rename chat</DialogTitle>
-          </DialogHeader>
-          <input
-            className="w-full rounded-xl border bg-background px-3 py-2 text-base outline-none sm:text-sm"
-            value={editingTitle}
-            onChange={(event) => setEditingTitle(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && editingId) {
-                void commitRename(editingId);
-              }
-            }}
-            aria-label="Chat name"
-            autoFocus
-          />
-          <DialogFooter className="mt-1 flex-row justify-end">
-            <button
-              className="rounded-xl bg-muted px-3 py-2 text-sm"
-              onClick={cancelRename}
-              disabled={busyThreadId === editingId}
-            >
-              Cancel
-            </button>
-            <button
-              className="rounded-xl bg-foreground px-3 py-2 text-sm text-background"
-              onClick={() => {
-                if (editingId) void commitRename(editingId);
+          <DialogContent
+            className="max-w-sm rounded-2xl p-4"
+            aria-describedby={undefined}
+            showCloseButton={busyThreadId !== editingId}
+          >
+            <DialogHeader>
+              <DialogTitle className="text-sm">Rename chat</DialogTitle>
+            </DialogHeader>
+            <input
+              className="w-full rounded-xl border bg-background px-3 py-2 text-base outline-none sm:text-sm"
+              value={editingTitle}
+              onChange={(event) => setEditingTitle(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && editingId) {
+                  void commitRename(editingId);
+                }
               }}
-              disabled={
-                busyThreadId === editingId || !editingId || !editingTitle.trim()
-              }
-            >
-              Save
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              aria-label="Chat name"
+              autoFocus
+            />
+            <DialogFooter className="mt-1 flex-row justify-end">
+              <button
+                className="rounded-xl bg-muted px-3 py-2 text-sm"
+                onClick={cancelRename}
+                disabled={busyThreadId === editingId}
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded-xl bg-foreground px-3 py-2 text-sm text-background"
+                onClick={() => {
+                  if (editingId) void commitRename(editingId);
+                }}
+                disabled={
+                  busyThreadId === editingId ||
+                  !editingId ||
+                  !editingTitle.trim()
+                }
+              >
+                Save
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -2198,7 +2198,7 @@ export function BrainsChatPane() {
         : "Start voice conversation";
 
   return (
-    <div className="relative flex h-full flex-col">
+    <div className="relative flex h-full max-w-full min-w-0 flex-col overflow-hidden">
       {/* keep-awake video (hidden) */}
       <video
         ref={keepAwakeVideoRef}
@@ -2446,8 +2446,8 @@ export function BrainsChatPane() {
         </button>
       )}
 
-      <div className="sticky bottom-0 z-10 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto w-full max-w-[44rem] px-4 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div className="sticky bottom-0 z-10 max-w-full min-w-0 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto w-full max-w-[44rem] min-w-0 px-4 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {playbackState && (
             <div
               className="mb-2 flex min-h-12 items-center gap-3 rounded-full border bg-background px-3 py-2 shadow-lg"
@@ -2564,7 +2564,7 @@ export function BrainsChatPane() {
               </div>
             )}
             <textarea
-              className="field-sizing-content max-h-32 min-h-9 w-full resize-none bg-transparent py-2 text-sm outline-none"
+              className="field-sizing-content max-h-32 min-h-9 w-full min-w-0 resize-none bg-transparent py-2 text-sm outline-none"
               rows={1}
               placeholder="Send a message…"
               value={editingMessageId ? editingText : text}
