@@ -1,8 +1,9 @@
 import { assertValidSagePageContract } from "./pageContract";
 import type { SagePageContract } from "./pageContract";
+import { nutritionLogContract } from "./pageContracts/nutritionLog";
 import { trainingCalendarContract } from "./pageContracts/trainingCalendar";
 
-const contracts = [trainingCalendarContract] as const;
+const contracts = [nutritionLogContract, trainingCalendarContract] as const;
 
 for (const contract of contracts) {
   assertValidSagePageContract(contract);

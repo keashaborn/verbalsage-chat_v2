@@ -302,6 +302,25 @@ function speechTextFromMarkdown(input: string): string {
     .trim();
 }
 
+function helperFailureMessage(response: Response): string {
+  const requestId = String(response.headers.get("x-request-id") || "").trim();
+  const suffix = requestId ? ` Request ID: ${requestId}` : "";
+
+  if (response.status === 401) {
+    return `Sage could not verify your session. Sign in again and retry.${suffix}`;
+  }
+  if (response.status === 403) {
+    return `Sage does not have permission to read this page for the selected person.${suffix}`;
+  }
+  if (response.status === 413) {
+    return `Sage could not prepare this page context safely.${suffix}`;
+  }
+  if (response.status === 504) {
+    return `Sage took too long to answer. Please retry.${suffix}`;
+  }
+  return `Sage could not answer from this page right now.${suffix}`;
+}
+
 export function LifeSwitchHelper() {
   const pathname = usePathname() || "/lifeswitch";
   const [open, setOpen] = React.useState(false);
@@ -524,9 +543,7 @@ export function LifeSwitchHelper() {
       }
 
       const reply = await r.text();
-      const assistantText = r.ok
-        ? reply
-        : `Helper error: ${reply.slice(0, 1200)}`;
+      const assistantText = r.ok ? reply : helperFailureMessage(r);
 
       setMessages((prev) => [
         ...prev,
@@ -540,11 +557,12 @@ export function LifeSwitchHelper() {
         void prepareHelperSpeech(assistantText);
       }
     } catch (err: any) {
+      console.error("LifeSwitch helper request failed:", err);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          text: `Helper error: ${err?.message || String(err)}`,
+          text: "Sage could not answer from this page right now.",
         },
       ]);
     } finally {

@@ -10,6 +10,7 @@ export type SageDomain =
 export type SagePlanSection =
   | "primary_goal"
   | "phase"
+  | "nutrition_targets"
   | "training_targets"
   | "conditioning_targets"
   | "recovery_targets"
@@ -25,12 +26,13 @@ export type SagePageDataSource = Readonly<{
   id: string;
   consumer: "page" | "helper";
   operation: "read" | "mutate";
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "PATCH" | "DELETE";
   frontendPath: string;
   upstreamPath: string;
   purpose: string;
   authorization:
     | "authenticated_owner"
+    | "authenticated_owner_or_nutrition_view"
     | "authenticated_owner_or_training_view"
     | "authenticated_owner_or_plan_view"
     | "authenticated_owner_self_only";
@@ -53,7 +55,7 @@ export type SagePageControl = Readonly<{
   destination?: string;
   dataSourceId?: string;
   confirmation: "none" | "browser_confirm";
-  auditResult: "none" | "preserved";
+  auditResult: "none" | "preserved" | "updated" | "deleted";
 }>;
 
 export type SagePageState = Readonly<{
@@ -197,16 +199,17 @@ export function validateSagePageContract(
       if (!control.dataSourceId) {
         errors.push(`mutation control ${control.id} requires a data source`);
       }
-      if (control.confirmation === "none") {
-        errors.push(`mutation control ${control.id} requires confirmation`);
-      }
       if (control.usableForTargetBy !== "owner_only") {
         errors.push(`mutation control ${control.id} must be owner-only`);
       }
-      if (control.auditResult !== "preserved") {
-        errors.push(
-          `mutation control ${control.id} must preserve audit history`,
-        );
+      if (control.auditResult === "none") {
+        errors.push(`mutation control ${control.id} requires an audit result`);
+      }
+      if (
+        control.auditResult === "deleted" &&
+        control.confirmation !== "browser_confirm"
+      ) {
+        errors.push(`deletion control ${control.id} requires confirmation`);
       }
     }
   }

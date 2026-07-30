@@ -17,6 +17,7 @@ import {
   parseSageHelperRequest,
   SAGE_HELPER_MAX_BODY_BYTES,
 } from "@/lib/lifeswitch/sage/helperRequest";
+import { buildNutritionLogSageContext } from "@/lib/lifeswitch/sage/nutritionLogContext";
 import { resolveSagePageContract } from "@/lib/lifeswitch/sage/pageRegistry";
 import { buildTrainingCalendarSageContext } from "@/lib/lifeswitch/sage/trainingCalendarContext";
 
@@ -89,7 +90,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const matched = resolveSagePageContract(parsed.value.route);
-  if (!matched || matched.contract.pageId !== "training.calendar") {
+  if (!matched) {
     return errorResponse(404, rid, "No server-owned helper contract");
   }
 
@@ -98,18 +99,27 @@ export async function POST(req: Request): Promise<Response> {
     return errorResponse(422, rid, "invalid_owner_timezone");
   }
 
-  const contextResult = await buildTrainingCalendarSageContext({
+  const contextInput = {
     actorUserId: auth.user_id,
     targetUserId: parsed.value.targetUserId,
     requestId: rid,
     timezone,
     signal: req.signal,
-  });
+  };
+  const contextResult =
+    matched.contract.pageId === "nutrition.log"
+      ? await buildNutritionLogSageContext(contextInput)
+      : matched.contract.pageId === "training.calendar"
+        ? await buildTrainingCalendarSageContext(contextInput)
+        : null;
+  if (!contextResult) {
+    return errorResponse(404, rid, "No server-owned helper contract");
+  }
   if (!contextResult.ok) {
     return errorResponse(
       contextResult.status,
       rid,
-      "Training data is not authorized",
+      "Page data is not authorized",
     );
   }
 

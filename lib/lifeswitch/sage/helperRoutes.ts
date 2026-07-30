@@ -1,4 +1,5 @@
 export const SERVER_OWNED_SAGE_HELPER_ROUTES = [
+  "/lifeswitch/nutrition/log",
   "/lifeswitch/training/calendar",
   "/lifeswitch/training",
   "/lifeswitch/training/log",
