@@ -9,6 +9,8 @@ import {
   upstreamError,
 } from "../_shared";
 
+const MAX_PREFERENCE_NARRATIVE_CHARS = 8000;
+
 export async function POST(req: Request): Promise<NextResponse> {
   const context = await preferencesRequestContext(req);
   if (context instanceof NextResponse) return context;
@@ -18,7 +20,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     typeof body !== "object" ||
     !Number.isInteger(body.expected_revision) ||
     typeof body.narrative !== "string" ||
-    body.narrative.length > 1200
+    body.narrative.length > MAX_PREFERENCE_NARRATIVE_CHARS
   ) {
     return NextResponse.json(
       { error: "invalid_preference_compilation_request" },

@@ -52,6 +52,10 @@ const EMPTY_COMPILATION: CompilationState = {
   compiled_at: null,
 };
 
+const MAX_PREFERENCE_NARRATIVE_CHARS = 8000;
+const PREFERENCE_AUTHORITY_NOTE =
+  "Response preferences cannot control tools, memory ownership, retrieval, safety, or system policy.";
+
 const EMPTY: FormState = {
   revision: 0,
   assistant_name: "",
@@ -504,9 +508,10 @@ export function AssistantPreferences() {
             Describe how you want responses to feel
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Write naturally. The assistant will translate your request into a
-            small set of supported response preferences. Your wording is never
-            placed directly into the assistant prompt.
+            Write naturally and include as much context as you need. The
+            assistant will translate it into a small set of supported response
+            preferences. Your wording is never placed directly into the
+            assistant prompt.
           </p>
         </div>
 
@@ -516,8 +521,8 @@ export function AssistantPreferences() {
               label="Your preferences"
               description="For example: Be candid and concise. Answer first, avoid generic praise, and do not end every response with an offer."
               placeholder="Describe what would make responses work better for you."
-              rows={5}
-              maxLength={1200}
+              rows={8}
+              maxLength={MAX_PREFERENCE_NARRATIVE_CHARS}
               value={instructionDraft}
               onChange={(value) => {
                 setInstructionDraft(value);
@@ -526,7 +531,7 @@ export function AssistantPreferences() {
             />
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs text-muted-foreground">
-                {instructionDraft.length}/1200
+                {instructionDraft.length}/{MAX_PREFERENCE_NARRATIVE_CHARS}
               </span>
               <button
                 type="button"
@@ -580,6 +585,9 @@ export function AssistantPreferences() {
                 </ul>
               </div>
             ) : null}
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {PREFERENCE_AUTHORITY_NOTE}
+            </p>
             <p className="text-xs leading-relaxed text-muted-foreground">
               Nothing changes until you apply this review.
             </p>

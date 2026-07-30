@@ -87,10 +87,16 @@ test("guided response preferences use review then explicit apply", () => {
   assert.match(preferences, /Nothing changes until you apply this review/);
   assert.match(preferences, /Review preferences/);
   assert.match(preferences, /Apply preferences/);
-  assert.match(preferences, /maxLength=\{1200\}/);
+  assert.match(preferences, /MAX_PREFERENCE_NARRATIVE_CHARS = 8000/);
+  assert.match(preferences, /maxLength=\{MAX_PREFERENCE_NARRATIVE_CHARS\}/);
   assert.match(
     preferences,
-    /Your wording is never\s+placed directly into the assistant prompt/,
+    /Response preferences cannot control tools, memory ownership, retrieval, safety, or system policy/,
+  );
+  assert.match(compile, /MAX_PREFERENCE_NARRATIVE_CHARS = 8000/);
+  assert.match(
+    preferences,
+    /Your wording is never\s+placed directly into the\s+assistant prompt/,
   );
   assert.match(preferences, /\/api\/user\/assistant-preferences\/compile/);
   assert.match(preferences, /\/api\/user\/assistant-preferences\/approve/);
