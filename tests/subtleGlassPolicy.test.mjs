@@ -4,6 +4,7 @@ import test from "node:test";
 
 const files = {
   shell: "app/lifeswitch/layout.tsx",
+  topBar: "components/nav/AppTopBar.tsx",
   workflow: "components/lifeswitch/LifeSwitchModeNav.tsx",
   helper: "components/lifeswitch/helper/LifeSwitchHelper.tsx",
   account: "components/nav/AccountMenu.tsx",
@@ -17,7 +18,7 @@ async function source(name) {
 
 test("glass surfaces keep opaque fallbacks", async () => {
   const expected = {
-    shell: ["bg-background", "supports-[backdrop-filter]:bg-background/80"],
+    topBar: ["bg-background/95", "supports-[backdrop-filter]:bg-background/70"],
     workflow: ["bg-card", "supports-[backdrop-filter]:bg-card/80"],
     helper: ["bg-background", "supports-[backdrop-filter]:bg-background/85"],
     account: ["bg-popover", "supports-[backdrop-filter]:bg-popover/95"],
@@ -34,6 +35,8 @@ test("glass surfaces keep opaque fallbacks", async () => {
       );
     }
   }
+
+  assert.match(await source("shell"), /AppTopBar/);
 });
 
 test("global navigation menus use the same dense glass treatment", async () => {

@@ -197,6 +197,10 @@ Compact navigation dropdowns use denser glass than navigation bars or docks. The
 
 Larger navigation surfaces, including the phone bottom bar, may use greater translucency because their controls have more space and do not place dense text over page content.
 
+The global top bar remains visible while content scrolls. Use one shared surface treatment across Chat, LifeSwitch, Settings, Admin, and Capture: approximately 70 percent theme background with strong blur when backdrop filtering is available, plus an opaque fallback. Secondary workflow navigation may use approximately 80 percent background. Dropdown menus remain denser at approximately 95 percent background.
+
+Ordinary pages use one document scrolling root. Do not make both `html` and `body` independent vertical scroll containers. Chat may explicitly lock document scrolling because its conversation viewport owns the scroll.
+
 ## Borders, Rounding, and Elevation
 
 - The global radius is intentionally moderate, currently approximately `0.45rem`.
@@ -301,6 +305,7 @@ An editable value can look like text when its placement and label make editabili
 ### Phone
 
 - Preserve the fixed bottom navigation and provide enough bottom padding so content is not obscured.
+- Keep workflow navigation mounted while moving between Log, Library or Workouts, Capture, Plan, and Analyze. Do not remove it temporarily while resolving Plan context.
 - Keep touch targets at least 44 by 44 CSS pixels where practical.
 - Stack long text fields instead of clipping meaningful content.
 - Keep short numerical pairs in aligned two-column rows when readable.

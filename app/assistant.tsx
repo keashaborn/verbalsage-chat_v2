@@ -6,6 +6,7 @@ import { useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { TextStreamChatTransport } from "ai";
 import { ThreadViewer } from "@/components/threads/ThreadViewer";
 import { BrainsChatPane } from "@/components/threads/BrainsChatPane";
+import { AppTopBar } from "@/components/nav/AppTopBar";
 import { WorkspaceMenu } from "@/components/nav/WorkspaceMenu";
 import { AccountMenu } from "@/components/nav/AccountMenu";
 
@@ -28,7 +29,7 @@ import {
 export const Assistant = () => {
   const transport = useMemo(
     () => new TextStreamChatTransport({ api: "/api/chat" }),
-    []
+    [],
   );
 
   const runtime = useChatRuntime({ transport });
@@ -36,16 +37,20 @@ export const Assistant = () => {
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <SidebarProvider>
-        <div className="flex h-svh w-full pr-0.5">
+        <div className="flex h-dvh w-full pr-0.5">
           <ThreadListSidebar />
           <SidebarInset>
-              <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
-                <div className="flex items-center gap-3">
-                  <SidebarTrigger />
-                  <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />
-                </div>
-                <AccountMenu />
-              </header>
+            <AppTopBar className="flex h-16 items-center justify-between px-4">
+              <div className="flex items-center gap-3">
+                <SidebarTrigger />
+                <WorkspaceMenu
+                  label="LifeSwitch"
+                  align="left"
+                  variant="plain"
+                />
+              </div>
+              <AccountMenu />
+            </AppTopBar>
             <div className="flex-1 overflow-hidden">
               <BrainsChatPane />
             </div>

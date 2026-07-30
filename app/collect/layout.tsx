@@ -2,14 +2,16 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { AppTopBar } from "@/components/nav/AppTopBar";
+import { AccountMenu } from "@/components/nav/AccountMenu";
 import { WorkspaceMenu } from "@/components/nav/WorkspaceMenu";
 import { LifeSwitchModeNav } from "@/components/lifeswitch/LifeSwitchModeNav";
 
 export default function CollectLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-svh">
-      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+    <div className="min-h-dvh">
+      <AppTopBar>
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <div className="flex items-center gap-2">
             <Link
               href="/"
@@ -18,15 +20,14 @@ export default function CollectLayout({ children }: { children: ReactNode }) {
             >
               <ChevronLeft className="h-4 w-4" />
             </Link>
-
-            <div className="text-sm font-semibold tracking-wide">Capture</div>
+            <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />
           </div>
 
-          <WorkspaceMenu label="Workspace" />
+          <AccountMenu />
         </div>
-      </header>
+      </AppTopBar>
 
-      <main className="mx-auto max-w-5xl px-4 pt-4 overflow-x-hidden pb-[calc(5.0rem+env(safe-area-inset-bottom))]">
+      <main className="mx-auto max-w-5xl overflow-x-hidden px-4 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))]">
         {children}
       </main>
 

@@ -219,24 +219,25 @@
     color-scheme: dark;
   }
 
-  html,
-  body {
-    height: 100%;
+  html {
+    min-height: 100%;
     width: 100%;
-    overflow-y: auto;
+    overflow-x: clip;
   }
 
   /* Lock page scroll only where we explicitly opt-in (iOS chat stability) */
   html.vs-lock-body-scroll,
   body.vs-lock-body-scroll {
+    height: 100%;
     overflow: hidden !important;
     overscroll-behavior-y: none;
     -webkit-overflow-scrolling: auto;
   }
 
   body {
+    width: 100%;
     min-height: 100dvh;
-    /* stabilize viewport height */
+    overflow-x: clip;
     @apply bg-background text-foreground;
   }
 }
@@ -382,11 +383,9 @@
   opacity: 0.5;
 }
 
-[data-lifeswitch-root]
-  :where(input, select, textarea)[aria-invalid="true"] {
+[data-lifeswitch-root] :where(input, select, textarea)[aria-invalid="true"] {
   border-color: var(--destructive);
-  box-shadow: 0 0 0 3px
-    color-mix(in oklab, var(--destructive) 20%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 20%, transparent);
 }
 
 @media (max-width: 767px) {

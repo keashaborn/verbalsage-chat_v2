@@ -1,5 +1,6 @@
 // app/lifeswitch/layout.tsx
 import type { ReactNode } from "react";
+import { AppTopBar } from "@/components/nav/AppTopBar";
 import { WorkspaceMenu } from "@/components/nav/WorkspaceMenu";
 import { AccountMenu } from "@/components/nav/AccountMenu";
 import { LifeSwitchModeNav } from "@/components/lifeswitch/LifeSwitchModeNav";
@@ -11,8 +12,8 @@ export default function LifeSwitchLayout({
   children: ReactNode;
 }) {
   return (
-    <div data-lifeswitch-root className="min-h-svh bg-background">
-      <header className="sticky top-0 z-50 border-b border-border/60 bg-background shadow-xs supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur-xl">
+    <div data-lifeswitch-root className="min-h-dvh bg-background">
+      <AppTopBar>
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />
           <div className="flex items-center gap-1">
@@ -20,7 +21,7 @@ export default function LifeSwitchLayout({
             <AccountMenu />
           </div>
         </div>
-      </header>
+      </AppTopBar>
 
       <LifeSwitchModeNav />
 

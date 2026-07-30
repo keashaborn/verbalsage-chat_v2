@@ -47,6 +47,16 @@ function normalizePlanSectionFromBrowser(): string {
   return ACTIVE_DOMAINS.has(section) ? section : "";
 }
 
+function rememberedDomainFromBrowser(): string {
+  if (typeof window === "undefined") return "";
+
+  const domain = String(
+    window.localStorage.getItem("lifeswitch:lastDomain") || "",
+  ).toLowerCase();
+
+  return ACTIVE_DOMAINS.has(domain) ? domain : "";
+}
+
 function Tab({
   href,
   label,
@@ -104,30 +114,28 @@ function designHrefForDomain(domain: string) {
 export function LifeSwitchModeNav() {
   const pathname = usePathname() || "";
   const rawDomain = normalizeDomainFromPath(pathname);
-  const [planSection, setPlanSection] = React.useState("");
+  const [activeDomain, setActiveDomain] = React.useState(
+    rawDomain === "plan" ? "nutrition" : rawDomain,
+  );
 
   React.useEffect(() => {
-    if (rawDomain === "plan") {
-      setPlanSection(normalizePlanSectionFromBrowser());
-    } else {
-      setPlanSection("");
-    }
+    const nextDomain =
+      rawDomain === "plan"
+        ? normalizePlanSectionFromBrowser() ||
+          rememberedDomainFromBrowser() ||
+          "nutrition"
+        : rawDomain;
+
+    if (!ACTIVE_DOMAINS.has(nextDomain)) return;
+
+    setActiveDomain(nextDomain);
+    window.localStorage.setItem("lifeswitch:lastDomain", nextDomain);
   }, [rawDomain, pathname]);
 
-  const domain = rawDomain === "plan" ? planSection : rawDomain;
+  const domain = rawDomain === "plan" ? activeDomain : rawDomain;
   const mode = rawDomain === "plan" ? "plan" : normalizeModeFromPath(pathname);
 
-  React.useEffect(() => {
-    if (
-      domain &&
-      rawDomain !== "measurements" &&
-      typeof window !== "undefined"
-    ) {
-      window.localStorage.setItem("lifeswitch:lastDomain", domain);
-    }
-  }, [domain, rawDomain]);
-
-  if (!domain || rawDomain === "measurements") return null;
+  if (!domain) return null;
 
   const logHref =
     domain === "training"
@@ -179,6 +187,7 @@ export function LifeSwitchModeNav() {
   return (
     <>
       <nav
+        data-lifeswitch-mode-nav="desktop"
         aria-label={`${domain} workflow`}
         className="sticky top-14 z-40 hidden border-b border-border/40 bg-background supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur-xl md:block"
       >
@@ -192,8 +201,9 @@ export function LifeSwitchModeNav() {
       </nav>
 
       <nav
+        data-lifeswitch-mode-nav="mobile"
         aria-label={`${domain} workflow`}
-        className="fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-50 rounded-2xl border border-border/60 bg-card p-1.5 shadow-xl ring-1 ring-foreground/5 supports-[backdrop-filter]:bg-card/80 supports-[backdrop-filter]:backdrop-blur-2xl md:hidden"
+        className="fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-50 transform-gpu rounded-2xl border border-border/60 bg-card p-1.5 shadow-xl ring-1 ring-foreground/5 supports-[backdrop-filter]:bg-card/80 supports-[backdrop-filter]:backdrop-blur-2xl md:hidden"
       >
         <div className="grid grid-cols-5 gap-1">
           {tabs.map((tab) => (
