@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import * as React from "react";
 
+import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
 import { authFetch } from "@/lib/authFetch";
 import {
   reasonLabel,
@@ -54,6 +55,7 @@ function errorMessage(payload: unknown, fallback: string): string {
 }
 
 export function RecoveryAdjustmentCard() {
+  const confirmAction = useConfirmAction();
   const searchParams = useSearchParams();
   const targetUserId = String(searchParams.get("target_user_id") || "").trim();
   const delegated = Boolean(targetUserId);
@@ -173,9 +175,11 @@ export function RecoveryAdjustmentCard() {
   }
 
   async function stop(adjustmentId: string) {
-    const confirmed = window.confirm(
-      "End this recovery adjustment today? Past adjusted days remain in history.",
-    );
+    const confirmed = await confirmAction({
+      title: "End this recovery adjustment today?",
+      description: "Past adjusted days remain in history.",
+      confirmLabel: "End adjustment",
+    });
     if (!confirmed) return;
     setPending(adjustmentId);
     setError("");

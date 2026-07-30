@@ -4,6 +4,7 @@ import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import Link from "next/link";
 import { NumericInput } from "@/components/lifeswitch/NumericInput";
+import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
 import {
   FoodQuantityControl,
   GRAMS_UNIT,
@@ -148,8 +149,7 @@ async function fetchJson(url: string, init?: RequestInit) {
 }
 
 export default function MealPlansPage() {
-
-
+  const confirmAction = useConfirmAction();
   const [plans, setPlans] = React.useState<MealPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = React.useState<string>("");
   const [planItems, setPlanItems] = React.useState<MealPlanItem[]>([]);
@@ -579,13 +579,18 @@ export default function MealPlansPage() {
                         </button>
                       </div>
 
-                      <div className="rounded-md border border-red-500/20 bg-red-500/5 p-2">
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">Danger zone</div>
+                      <div className="border-t border-border/50 pt-2">
                         <button
-                          className="mt-2 min-h-11 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 disabled:opacity-50 sm:min-h-0"
+                          className="min-h-11 rounded-lg px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-50 sm:min-h-0"
                           onClick={() => {
-                            if (!window.confirm(`Remove ${it.display_name} from this meal plan?`)) return;
-                            void removePlanItem(it);
+                            void (async () => {
+                              const confirmed = await confirmAction({
+                                title: `Remove ${it.display_name}?`,
+                                description: "This removes the item from this meal plan.",
+                                confirmLabel: "Remove item",
+                              });
+                              if (confirmed) void removePlanItem(it);
+                            })();
                           }}
                           disabled={savingItemId === it.meal_plan_item_id}
                         >

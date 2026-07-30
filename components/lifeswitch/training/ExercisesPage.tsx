@@ -3,6 +3,7 @@
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { MoreHorizontal, Trash2 } from "lucide-react";
+import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
 
 type ExerciseSearchHit = {
   exercise_id: string;
@@ -79,6 +80,7 @@ function descriptiveExerciseKind(value?: string | null) {
 }
 
 export default function TrainingExercisesPage() {
+  const confirmAction = useConfirmAction();
   // My Training Library (personal exercise library)
   const [myExercises, setMyExercises] = React.useState<MyExerciseRow[]>([]);
   const [myLoading, setMyLoading] = React.useState(false);
@@ -225,10 +227,12 @@ export default function TrainingExercisesPage() {
   }
 
   async function removeExercise(row: MyExerciseRow) {
-    const ok = window.confirm(
-      `Remove exercise "${row.display_name}" from your exercise library?`,
-    );
-    if (!ok) return;
+    const confirmed = await confirmAction({
+      title: `Remove ${row.display_name}?`,
+      description: "This removes the exercise from your exercise library.",
+      confirmLabel: "Remove exercise",
+    });
+    if (!confirmed) return;
 
     await fetchJson(
       `/api/lifeswitch/training/my_exercises/${encodeURIComponent(row.my_exercise_id)}/deactivate`,
@@ -438,13 +442,10 @@ export default function TrainingExercisesPage() {
                     </button>
 
                     {openExerciseActionsId === x.my_exercise_id ? (
-                      <div className="absolute right-0 z-20 mt-2 w-48 rounded-lg border border-red-500/20 bg-background p-2 shadow-lg">
-                        <div className="text-[11px] font-semibold tracking-wide text-red-500 uppercase">
-                          Danger zone
-                        </div>
+                      <div className="absolute right-0 z-20 mt-2 w-48 rounded-lg border bg-background p-1 shadow-lg">
                         <button
                           type="button"
-                          className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-500/10"
                           onClick={() => void removeExercise(x)}
                         >
                           <Trash2 className="h-3 w-3" />

@@ -10,6 +10,7 @@ import {
   Dumbbell,
   LockKeyhole,
   MessageSquare,
+  MoreHorizontal,
   Plus,
   Share2,
   ShieldCheck,
@@ -17,6 +18,7 @@ import {
   Utensils,
   Users,
 } from "lucide-react";
+import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
 import { authFetch } from "@/lib/authFetch";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -213,6 +215,7 @@ function kindLabel(kind?: string): string {
 }
 
 export default function LifeSwitchPeoplePage() {
+  const confirmAction = useConfirmAction();
   const [currentUserId, setCurrentUserId] = React.useState("");
   const currentUserIdRef = React.useRef("");
   const [authResolved, setAuthResolved] = React.useState(false);
@@ -593,10 +596,12 @@ export default function LifeSwitchPeoplePage() {
     );
     const label =
       invite?.label || kindLabel(invite?.relationship_kind || "friend");
-    const ok = window.confirm(
-      `Revoke invite "${label}"? The link will stop working immediately.`,
-    );
-    if (!ok) return;
+    const confirmed = await confirmAction({
+      title: `Revoke invite “${label}”?`,
+      description: "The invitation link will stop working immediately.",
+      confirmLabel: "Revoke invite",
+    });
+    if (!confirmed) return;
     const mutationRequestId = ++mutationRequestRef.current;
 
     setSaving(true);
@@ -690,10 +695,13 @@ export default function LifeSwitchPeoplePage() {
     const relationshipId = selectedRelationship.relationship_id;
     const authContextAtStart = authContextVersionRef.current;
     const name = displayName(selectedPerson, selectedUserId);
-    const ok = window.confirm(
-      `Disconnect from "${name}"? New messages and shared access will stop. Existing messages remain available as read-only history.`,
-    );
-    if (!ok) return;
+    const confirmed = await confirmAction({
+      title: `Disconnect from ${name}?`,
+      description:
+        "New messages and shared access will stop. Existing messages remain available as read-only history.",
+      confirmLabel: "Disconnect",
+    });
+    if (!confirmed) return;
     const mutationRequestId = ++mutationRequestRef.current;
 
     setRemovingRelationshipId(selectedRelationship.relationship_id);
@@ -1002,17 +1010,14 @@ export default function LifeSwitchPeoplePage() {
                                 : inv.invitation_id,
                             )
                           }
-                          className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                           aria-expanded={
                             openInviteActionsId === inv.invitation_id
                           }
+                          aria-label={`Actions for ${inv.label || "invite"}`}
+                          title={`Actions for ${inv.label || "invite"}`}
                         >
-                          Actions
-                          {openInviteActionsId === inv.invitation_id ? (
-                            <ChevronUp className="h-3 w-3" />
-                          ) : (
-                            <ChevronDown className="h-3 w-3" />
-                          )}
+                          <MoreHorizontal className="h-4 w-4" />
                         </button>
                       </div>
 
@@ -1024,15 +1029,12 @@ export default function LifeSwitchPeoplePage() {
                       </div>
 
                       {openInviteActionsId === inv.invitation_id ? (
-                        <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                          <div className="text-[11px] font-semibold tracking-wide text-red-500 uppercase">
-                            Danger zone
-                          </div>
+                        <div className="rounded-lg border bg-background p-1 shadow-sm">
                           <button
                             type="button"
                             onClick={() => void revokeInvite(inv.invitation_id)}
                             disabled={saving || !canMutate}
-                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-50"
                           >
                             <Trash2 className="h-3 w-3" />
                             Revoke invite

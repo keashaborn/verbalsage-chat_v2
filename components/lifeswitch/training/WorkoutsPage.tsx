@@ -9,6 +9,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
 import { NumericInput } from "@/components/lifeswitch/NumericInput";
 
 type MyExerciseRow = {
@@ -151,6 +152,7 @@ function displayMovementGroup(value: string) {
 }
 
 export default function TrainingWorkoutsPage() {
+  const confirmAction = useConfirmAction();
   const [myExercises, setMyExercises] = React.useState<MyExerciseRow[]>([]);
   const [templates, setTemplates] = React.useState<WorkoutTemplateRow[]>([]);
   const [selectedId, setSelectedId] = React.useState<string>("");
@@ -531,10 +533,13 @@ export default function TrainingWorkoutsPage() {
     if (!template.workout_role || count === 0) return;
 
     const label = template.workout_role === "rehab" ? "rehab" : "strength";
-    const ok = window.confirm(
-      `Classify ${count} older unclassified session${count === 1 ? "" : "s"} for “${template.name}” as ${label}? This adds an audited classification and does not alter or delete the logged sets.`,
-    );
-    if (!ok) return;
+    const confirmed = await confirmAction({
+      title: `Classify ${count} older session${count === 1 ? "" : "s"} as ${label}?`,
+      description: `This adds an audited classification for ${template.name}. It does not alter or delete logged sets.`,
+      confirmLabel: "Apply classification",
+      tone: "primary",
+    });
+    if (!confirmed) return;
 
     setWorkoutRoleStatus(`Classifying older ${template.name} sessions…`);
     try {
@@ -608,10 +613,12 @@ export default function TrainingWorkoutsPage() {
       (t) => t.workout_template_id === workout_template_id,
     );
     const name = template?.name || "this workout";
-    const ok = window.confirm(
-      `Delete workout "${name}"? This removes the template from your library.`,
-    );
-    if (!ok) return;
+    const confirmed = await confirmAction({
+      title: `Delete ${name}?`,
+      description: "This removes the workout template from your library.",
+      confirmLabel: "Delete workout",
+    });
+    if (!confirmed) return;
 
     await fetchJson(
       `/api/lifeswitch/training/workout_templates/${encodeURIComponent(workout_template_id)}/deactivate`,
@@ -771,8 +778,12 @@ export default function TrainingWorkoutsPage() {
       (x) => x.workout_template_exercise_id === workout_template_exercise_id,
     );
     const name = exercise?.display_name_snapshot || "this exercise";
-    const ok = window.confirm(`Remove exercise "${name}" from this workout?`);
-    if (!ok) return;
+    const confirmed = await confirmAction({
+      title: `Remove ${name}?`,
+      description: "This removes the exercise from this workout.",
+      confirmLabel: "Remove exercise",
+    });
+    if (!confirmed) return;
 
     await fetchJson(
       `/api/lifeswitch/training/workout_templates/${encodeURIComponent(
@@ -1218,13 +1229,10 @@ export default function TrainingWorkoutsPage() {
 
                               {openSelectedExerciseActionsId ===
                               e.workout_template_exercise_id ? (
-                                <div className="absolute right-0 z-20 mt-2 w-44 rounded-lg border border-red-500/20 bg-background p-2 shadow-lg">
-                                  <div className="text-[11px] font-semibold tracking-wide text-red-500 uppercase">
-                                    Danger zone
-                                  </div>
+                                <div className="absolute right-0 z-20 mt-2 w-44 rounded-lg border bg-background p-1 shadow-lg">
                                   <button
                                     type="button"
-                                    className="mt-2 inline-flex w-full items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                                    className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-500/10"
                                     onClick={() =>
                                       void removeExerciseFromSelected(
                                         e.workout_template_exercise_id,
@@ -2084,13 +2092,10 @@ export default function TrainingWorkoutsPage() {
                     ) : null}
 
                     {openTemplateActionsId === t.workout_template_id ? (
-                      <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                        <div className="text-[11px] font-semibold tracking-wide text-red-500 uppercase">
-                          Danger zone
-                        </div>
+                      <div className="mt-2 w-44 rounded-lg border bg-background p-1 shadow-sm">
                         <button
                           type="button"
-                          className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-500/10"
                           onClick={() =>
                             void deactivateTemplate(t.workout_template_id)
                           }

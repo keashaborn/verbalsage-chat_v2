@@ -2,7 +2,13 @@
 
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
-import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  MoreHorizontal,
+  Trash2,
+} from "lucide-react";
+import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
 import {
   FoodQuantityControl,
   GRAMS_UNIT,
@@ -107,6 +113,7 @@ async function fetchJson(url: string, init?: RequestInit) {
 
 
 export default function MealsPage() {
+  const confirmAction = useConfirmAction();
   const [meals, setMeals] = React.useState<Meal[]>([]);
   const [selectedMealId, setSelectedMealId] = React.useState<string>("");
   const [items, setItems] = React.useState<MealItem[]>([]);
@@ -304,8 +311,12 @@ export default function MealsPage() {
 
     const item = items.find((it) => it.meal_item_id === meal_item_id);
     const label = item?.display_name || "this item";
-    const ok = window.confirm(`Remove "${label}" from this meal?`);
-    if (!ok) return;
+    const confirmed = await confirmAction({
+      title: `Remove ${label}?`,
+      description: "This removes the item from this saved meal.",
+      confirmLabel: "Remove item",
+    });
+    if (!confirmed) return;
 
     setErr(null);
     try {
@@ -330,9 +341,13 @@ export default function MealsPage() {
     const selected = meals.find((m) => m.meal_id === selectedMealId);
     const label = selected ? `${selected.meal_type} · ${selected.name}` : "this meal";
 
-    if (!window.confirm(`Delete ${label}? This removes the meal from your Library but does not delete logged food entries.`)) {
-      return;
-    }
+    const confirmed = await confirmAction({
+      title: `Delete ${label}?`,
+      description:
+        "This removes the meal from your Library. Previously logged food entries are not deleted.",
+      confirmLabel: "Delete meal",
+    });
+    if (!confirmed) return;
 
     setErr(null);
 
@@ -516,26 +531,20 @@ export default function MealsPage() {
                                   <div className="relative shrink-0">
                                     <button
                                       type="button"
-                                      className="inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/30"
+                                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                                       onClick={() => setOpenMealActions((value) => !value)}
                                       aria-expanded={openMealActions}
+                                      aria-label={`Actions for ${selectedMeal.name}`}
+                                      title={`Actions for ${selectedMeal.name}`}
                                     >
-                                      Actions
-                                      {openMealActions ? (
-                                        <ChevronUp className="h-3 w-3" />
-                                      ) : (
-                                        <ChevronDown className="h-3 w-3" />
-                                      )}
+                                      <MoreHorizontal className="h-4 w-4" />
                                     </button>
 
                                     {openMealActions ? (
-                                      <div className="absolute right-0 z-20 mt-2 w-44 rounded-md border border-red-500/20 bg-background p-2 shadow-lg">
-                                        <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
-                                          Danger zone
-                                        </div>
+                                      <div className="absolute right-0 z-20 mt-2 w-44 rounded-lg border bg-background p-1 shadow-lg">
                                         <button
                                           type="button"
-                                          className="mt-2 inline-flex w-full items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                                          className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-50"
                                           onClick={() => void deactivateMeal()}
                                           disabled={deletingMealId === selectedMealId}
                                         >
@@ -675,7 +684,7 @@ export default function MealsPage() {
                                           <div className="grid w-full shrink-0 justify-items-start gap-2 sm:w-auto sm:justify-items-end">
                                             <button
                                               type="button"
-                                              className="inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/30"
+                                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                                               onClick={() =>
                                                 setOpenItemActionsId((prev) =>
                                                   prev === it.meal_item_id
@@ -684,28 +693,24 @@ export default function MealsPage() {
                                                 )
                                               }
                                               aria-expanded={openItemActionsId === it.meal_item_id}
+                                              aria-label={`Actions for ${it.display_name}`}
+                                              title={`Actions for ${it.display_name}`}
                                             >
-                                              Actions
-                                              {openItemActionsId ===
-                                              it.meal_item_id ? (
-                                                <ChevronUp className="h-3 w-3" />
-                                              ) : (
-                                                <ChevronDown className="h-3 w-3" />
-                                              )}
+                                              <MoreHorizontal className="h-4 w-4" />
                                             </button>
 
                                             {openItemActionsId === it.meal_item_id ? (
-                                              <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:grid-cols-1 sm:justify-items-end">
+                                              <div className="grid w-full gap-1 rounded-lg border bg-background p-1 shadow-sm sm:w-44">
                                                 <button
                                                   type="button"
-                                                  className="rounded-md border px-2 py-1 text-xs"
+                                                  className="rounded-md px-2 py-2 text-left text-xs hover:bg-muted/60"
                                                   onClick={() => void beginEditItem(it)}
                                                 >
                                                   Edit quantity
                                                 </button>
                                                 <button
                                                   type="button"
-                                                  className="inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                                                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-50"
                                                   onClick={() => void deleteItem(it.meal_item_id)}
                                                   disabled={deletingId === it.meal_item_id}
                                                 >

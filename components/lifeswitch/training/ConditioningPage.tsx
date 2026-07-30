@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { MoreHorizontal, Trash2 } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
+import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
 import { NumericInput } from "@/components/lifeswitch/NumericInput";
 
 type ConditioningLibraryRow = {
@@ -74,7 +75,7 @@ function riskLabel(value: string) {
 }
 
 export default function ConditioningPage() {
-
+  const confirmAction = useConfirmAction();
   const [library, setLibrary] = React.useState<ConditioningLibraryRow[]>([]);
   const [prescriptions, setPrescriptions] = React.useState<MyConditioningPrescriptionRow[]>([]);
   const [selectedLibraryId, setSelectedLibraryId] = React.useState("");
@@ -286,8 +287,12 @@ export default function ConditioningPage() {
   async function deactivatePrescription(id: string) {
     const prescription = prescriptions.find((p) => p.my_conditioning_prescription_id === id);
     const name = prescription?.name || "this plan";
-    const ok = window.confirm(`Remove conditioning plan "${name}"?`);
-    if (!ok) return;
+    const confirmed = await confirmAction({
+      title: `Remove ${name}?`,
+      description: "This removes the conditioning plan from your library.",
+      confirmLabel: "Remove plan",
+    });
+    if (!confirmed) return;
 
     setLoading(true);
     setStatus("");
@@ -702,30 +707,23 @@ export default function ConditioningPage() {
                           <div className="grid justify-items-start gap-2">
                             <button
                               type="button"
-                              className="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/30 disabled:opacity-50"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground disabled:opacity-50"
                               onClick={() =>
                                 setOpenPrescriptionActions((v) => !v)
                               }
                               disabled={loading}
                               aria-expanded={openPrescriptionActions}
+                              aria-label={`Actions for ${selectedPrescription.name}`}
+                              title={`Actions for ${selectedPrescription.name}`}
                             >
-                              Actions
-                              {openPrescriptionActions ? (
-                                <ChevronUp className="h-3 w-3" />
-                              ) : (
-                                <ChevronDown className="h-3 w-3" />
-                              )}
+                              <MoreHorizontal className="h-4 w-4" />
                             </button>
 
                             {openPrescriptionActions ? (
-                              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                                <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
-                                  Danger zone
-                                </div>
-
+                              <div className="w-44 rounded-lg border bg-background p-1 shadow-sm">
                                 <button
                                   type="button"
-                                  className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-50"
                                   onClick={() =>
                                     void deactivatePrescription(
                                       selectedPrescription.my_conditioning_prescription_id

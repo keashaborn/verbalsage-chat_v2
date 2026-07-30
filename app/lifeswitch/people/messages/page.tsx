@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Trash2 } from "lucide-react";
 import BackButton from "@/components/nav/BackButton";
+import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
 import { authFetch } from "@/lib/authFetch";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -123,6 +124,7 @@ function renderMessageBody(body: string) {
 }
 
 export default function LifeSwitchPeopleMessagesPage() {
+  const confirmAction = useConfirmAction();
   const [selectedPersonId, setSelectedPersonId] = React.useState("");
   const [showNewMessage, setShowNewMessage] = React.useState(false);
   const [people, setPeople] = React.useState<PersonProfile[]>([]);
@@ -449,14 +451,13 @@ export default function LifeSwitchPeopleMessagesPage() {
       selectedConversation.other_display_name,
       selectedConversation.other_user_id,
     );
-    if (
-      typeof window !== "undefined" &&
-      !window.confirm(
-        `Remove the history-only conversation with ${name} from your list? The other account's copy and the underlying messages will not be deleted.`,
-      )
-    ) {
-      return;
-    }
+    const confirmed = await confirmAction({
+      title: `Remove conversation with ${name}?`,
+      description:
+        "This removes the history-only conversation from your list. The other account’s copy and the underlying messages are not deleted.",
+      confirmLabel: "Remove conversation",
+    });
+    if (!confirmed) return;
 
     setRemovingConversationId(conversationId);
     setError("");

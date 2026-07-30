@@ -14,6 +14,8 @@ import {
   type FoodQuantitySelection,
   type FoodServingOption,
 } from "@/components/lifeswitch/nutrition/FoodQuantityControl";
+import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
+import { MoreHorizontal, Trash2 } from "lucide-react";
 
 const DOW = ["S", "M", "T", "W", "T", "F", "S"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -334,6 +336,7 @@ function MonthCalendar(props: {
 }
 
 export default function NutritionLogPage() {
+  const confirmAction = useConfirmAction();
   const [nutritionTargets, setNutritionTargets] = React.useState(() =>
     readPlanNutritionTargets(null),
   );
@@ -1003,12 +1006,12 @@ export default function NutritionLogPage() {
                                       ) : (
                                           <details className="group w-full sm:w-auto">
                                             <summary
-                                              className="ml-auto inline-flex list-none cursor-pointer select-none items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 [&::-webkit-details-marker]:hidden"
+                                              className="ml-auto inline-flex h-8 w-8 list-none cursor-pointer select-none items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground [&::-webkit-details-marker]:hidden"
                                               onClick={() => void loadEntryServings(e)}
+                                              aria-label={`Actions for ${label}`}
+                                              title={`Actions for ${label}`}
                                             >
-                                              Actions
-                                              <span className="opacity-60 group-open:hidden">▾</span>
-                                              <span className="hidden opacity-60 group-open:inline">▴</span>
+                                              <MoreHorizontal className="h-4 w-4" />
                                             </summary>
 
                                             <div className="mt-2 grid w-full gap-2 sm:justify-items-end">
@@ -1050,20 +1053,25 @@ export default function NutritionLogPage() {
                                                 ) : null}
                                               </div>
 
-                                              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-2">
-                                                <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500">
-                                                  Danger zone
-                                                </div>
+                                              <div className="flex justify-end border-t border-border/50 pt-2">
                                                 <button
-                                                  className="mt-2 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                                                  className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-500/10"
                                                   onClick={() => {
-                                                    if (!confirm("Delete this nutrition entry?")) return;
+                                                    void (async () => {
+                                                      const confirmed = await confirmAction({
+                                                        title: `Delete ${label}?`,
+                                                        description: "This removes the entry from this logged day.",
+                                                        confirmLabel: "Delete entry",
+                                                      });
+                                                      if (!confirmed) return;
                                                     void deleteLogEntry(String(e.nutrition_entry_id))
                                                       .then(() => refreshOneDay(String(d.day), ""))
                                                       .catch(() => { });
+                                                    })();
                                                   }}
                                                   title="Delete entry"
                                                 >
+                                                  <Trash2 className="h-3.5 w-3.5" />
                                                   Delete entry
                                                 </button>
                                               </div>

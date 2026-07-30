@@ -1,6 +1,7 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
+import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
 import { RecoveryAdjustmentApplied } from "@/components/lifeswitch/RecoveryAdjustmentApplied";
 import Link from "next/link";
 import * as React from "react";
@@ -409,6 +410,7 @@ function MonthCalendar(props: {
 }
 
 export default function TrainingCalendarPage() {
+  const confirmAction = useConfirmAction();
   const [status, setStatus] = React.useState("loading sessions...");
   const [openSessionActionsId, setOpenSessionActionsId] = React.useState("");
   const [sessions, setSessions] = React.useState<TrainingSessionRow[]>([]);
@@ -477,10 +479,12 @@ export default function TrainingCalendarPage() {
       return;
     }
 
-    const ok = window.confirm(
-      `Remove logged session "${name}" from the current log? Its audit history will be preserved.`,
-    );
-    if (!ok) return;
+    const confirmed = await confirmAction({
+      title: `Remove ${name} from the log?`,
+      description: "Its audit history will be preserved.",
+      confirmLabel: "Remove session",
+    });
+    if (!confirmed) return;
 
     try {
       await fetchJson(`/api/lifeswitch/training/sessions/${encodeURIComponent(trainingSessionId)}/deactivate`, {
@@ -504,10 +508,12 @@ export default function TrainingCalendarPage() {
       return;
     }
 
-    const ok = window.confirm(
-      `Remove logged conditioning session "${name}" from the current log? Its audit history will be preserved.`,
-    );
-    if (!ok) return;
+    const confirmed = await confirmAction({
+      title: `Remove ${name} from the log?`,
+      description: "Its audit history will be preserved.",
+      confirmLabel: "Remove session",
+    });
+    if (!confirmed) return;
 
     try {
       await fetchJson(

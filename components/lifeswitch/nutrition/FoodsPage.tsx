@@ -3,6 +3,7 @@
 import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { Camera, ChevronDown, ChevronUp, Search, Trash2 } from "lucide-react";
+import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
 import { NumericInput } from "@/components/lifeswitch/NumericInput";
 import { LifeSwitchToolPanel } from "@/components/lifeswitch/LifeSwitchToolPanel";
 import BarcodeScanner from "./BarcodeScanner";
@@ -143,7 +144,7 @@ function fmtQty(n: number) {
 }
 
 export default function NutritionFoodsPage() {
-
+  const confirmAction = useConfirmAction();
   // USDA search
   const [usdaQ, setUsdaQ] = React.useState("");
   const [barcodeQ, setBarcodeQ] = React.useState("");
@@ -160,8 +161,6 @@ export default function NutritionFoodsPage() {
   const [myFoods, setMyFoods] = React.useState<MyFood[]>([]);
   const [myLoading, setMyLoading] = React.useState(false);
   const [myErr, setMyErr] = React.useState<string | null>(null);
-  const [openFoodActionsId, setOpenFoodActionsId] = React.useState("");
-
   const [servMap, setServMap] = React.useState<Record<string, MyFoodServing[]>>({});
   const [servLoading, setServLoading] = React.useState<Record<string, boolean>>({});
   const [servCreating, setServCreating] = React.useState<Record<string, boolean>>({});
@@ -187,16 +186,6 @@ export default function NutritionFoodsPage() {
   const [editStatus, setEditStatus] = React.useState<string | null>(null);
   const editScrollRef = React.useRef<HTMLDivElement>(null);
 
-  React.useEffect(() => {
-    if (!openFoodActionsId) return;
-    const editor = editScrollRef.current;
-    if (!editor) return;
-    const frame = window.requestAnimationFrame(() => {
-      editor.scrollTop = editor.scrollHeight;
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [openFoodActionsId]);
-
   function nutritionDraftFor(f: MyFood, basisGrams: number): NutritionDraft {
     const factor = basisGrams / 100;
     const value = (n: number | null) => n == null ? "" : String(Number((n * factor).toFixed(3)));
@@ -215,7 +204,6 @@ export default function NutritionFoodsPage() {
     setEditFoodId(null);
     setEditStatus(null);
     setEditingServingId(null);
-    setOpenFoodActionsId("");
   }
 
   async function openFoodEditor(f: MyFood) {
@@ -537,15 +525,18 @@ export default function NutritionFoodsPage() {
   async function deactivateMyFood(my_food_id: string) {
     const food = myFoods.find((f) => f.my_food_id === my_food_id);
     const name = food?.display_name || "this food";
-    const ok = window.confirm(`Delete food "${name}"? This removes it from your food library.`);
-    if (!ok) return;
+    const confirmed = await confirmAction({
+      title: `Delete ${name}?`,
+      description: "This removes the food from your library.",
+      confirmLabel: "Delete food",
+    });
+    if (!confirmed) return;
 
     try {
       await authFetch(`/api/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/deactivate`, {
         method: "POST",
         cache: "no-store",
       });
-      setOpenFoodActionsId("");
       closeFoodEditor();
       await loadMyFoods();
     } catch (e: any) {
@@ -1059,11 +1050,18 @@ export default function NutritionFoodsPage() {
                                 }}
                               >Edit</button>
                               <button
-                                className="rounded-lg border border-red-500/30 px-2 py-1 text-red-500"
+                                className="rounded-lg px-2 py-1 text-red-500 hover:bg-red-500/10"
                                 onClick={() => {
-                                  if (window.confirm(`Remove serving unit "${sv.name}"?`)) {
-                                    void updateServing(f.my_food_id, sv, { is_active: false });
-                                  }
+                                  void (async () => {
+                                    const confirmed = await confirmAction({
+                                      title: `Remove ${sv.name}?`,
+                                      description: "This serving unit will no longer be available for logging.",
+                                      confirmLabel: "Remove unit",
+                                    });
+                                    if (confirmed) {
+                                      void updateServing(f.my_food_id, sv, { is_active: false });
+                                    }
+                                  })();
                                 }}
                                 aria-label={`Remove ${sv.name} serving unit`}
                               >Remove unit</button>
@@ -1132,30 +1130,15 @@ export default function NutritionFoodsPage() {
                       {editStatus ? <div role={editStatus === "Saved." ? "status" : "alert"} className={`text-xs ${editStatus === "Saved." ? "text-muted-foreground" : "text-red-500"}`}>{editStatus}</div> : null}
                     </div>
 
-                    <div className="rounded-xl border border-red-500/20 bg-red-500/[0.03]">
+                    <div className="border-t border-border/50 pt-3">
                       <button
                         type="button"
-                        onClick={() => setOpenFoodActionsId((prev) => prev === f.my_food_id ? "" : f.my_food_id)}
-                        className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left hover:bg-red-500/5"
-                        aria-expanded={openFoodActionsId === f.my_food_id}
+                        className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-red-500 hover:bg-red-500/10"
+                        onClick={() => void deactivateMyFood(f.my_food_id)}
                       >
-                        <span>
-                          <span className="block text-sm font-semibold text-red-500">Danger zone</span>
-                          <span className="block text-xs text-muted-foreground">Delete this food from your library</span>
-                        </span>
-                        {openFoodActionsId === f.my_food_id ? <ChevronUp className="h-4 w-4 text-red-500" /> : <ChevronDown className="h-4 w-4 text-red-500" />}
+                        <Trash2 className="h-4 w-4" />
+                        Delete food
                       </button>
-                      {openFoodActionsId === f.my_food_id ? (
-                        <div className="border-t border-red-500/20 p-3">
-                          <button
-                            type="button"
-                            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-500/40 px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-500/10 sm:w-auto"
-                            onClick={() => void deactivateMyFood(f.my_food_id)}
-                          >
-                            <Trash2 className="h-4 w-4" /> Delete food
-                          </button>
-                        </div>
-                      ) : null}
                     </div>
                   </div>
                 </div>

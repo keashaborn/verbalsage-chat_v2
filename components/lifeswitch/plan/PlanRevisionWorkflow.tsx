@@ -10,6 +10,7 @@ import {
   type SagePlanReview,
   type SageReviewFocus,
 } from "@/components/lifeswitch/plan/PlanDraftWorkspace";
+import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
 import { authFetch } from "@/lib/authFetch";
 
 type ValidationIssue = {
@@ -648,6 +649,7 @@ function ChangeSummary({ changes }: { changes: RevisionChange[] }) {
 }
 
 export function PlanRevisionWorkflow() {
+  const confirmAction = useConfirmAction();
   const searchParams = useSearchParams();
   const targetUserId = String(searchParams.get("target_user_id") || "").trim();
   const delegated = Boolean(targetUserId);
@@ -1051,15 +1053,21 @@ export function PlanRevisionWorkflow() {
                   type="button"
                   disabled={Boolean(pendingAction) || !revision.base_is_current}
                   onClick={() => {
-                    const confirmed = window.confirm(
-                      "Activate this exact plan revision? The current plan will remain in version history.",
-                    );
-                    if (!confirmed) return;
-                    void runAction(
-                      `revisions/${revision.revision_id}/approve-and-activate`,
-                      `activate:${revision.revision_id}`,
-                      "Revision approved and activated.",
-                    );
+                    void (async () => {
+                      const confirmed = await confirmAction({
+                        title: "Activate this plan revision?",
+                        description:
+                          "This exact revision becomes the current Plan. The previous version remains in history.",
+                        confirmLabel: "Activate revision",
+                        tone: "primary",
+                      });
+                      if (!confirmed) return;
+                      void runAction(
+                        `revisions/${revision.revision_id}/approve-and-activate`,
+                        `activate:${revision.revision_id}`,
+                        "Revision approved and activated.",
+                      );
+                    })();
                   }}
                 >
                   {pendingAction === `activate:${revision.revision_id}`
