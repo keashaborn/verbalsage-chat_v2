@@ -3,6 +3,13 @@
 import * as React from "react";
 import { MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { authFetchJson } from "@/lib/authFetch";
 import { buildThreadSections } from "@/lib/threadSections";
 
@@ -105,6 +112,11 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
     setActionError("");
     setEditingId(t.thread_id);
     setEditingTitle(t.title || "New chat");
+  }
+
+  function cancelRename() {
+    setEditingId(null);
+    setEditingTitle("");
   }
 
   async function commitRename(thread_id: string) {
@@ -316,7 +328,6 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
                 const tid = String(t.thread_id || t.id || "").trim();
                 if (!tid) return null;
 
-                const isEditing = editingId === tid;
                 const isMenuOpen = actionMenu?.thread.thread_id === tid;
                 const isBusy = busyThreadId === tid;
 
@@ -381,64 +392,6 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
                     >
                       <MoreHorizontal className="size-4" />
                     </button>
-
-                    {isEditing && (
-                      <div
-                        className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4"
-                        onPointerDown={(event) => {
-                          if (event.target === event.currentTarget) {
-                            setEditingId(null);
-                            setEditingTitle("");
-                          }
-                        }}
-                      >
-                        <div
-                          role="dialog"
-                          aria-modal="true"
-                          aria-labelledby={`rename-chat-${tid}`}
-                          className="w-full max-w-sm rounded-2xl border bg-background p-4 shadow-xl"
-                        >
-                          <div
-                            id={`rename-chat-${tid}`}
-                            className="text-sm font-semibold"
-                          >
-                            Rename chat
-                          </div>
-                          <input
-                            className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none"
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") commitRename(tid);
-                              if (e.key === "Escape") {
-                                setEditingId(null);
-                                setEditingTitle("");
-                              }
-                            }}
-                            autoFocus
-                          />
-                          <div className="mt-3 flex justify-end gap-2">
-                            <button
-                              className="rounded-xl bg-muted px-3 py-2 text-sm"
-                              onClick={() => {
-                                setEditingId(null);
-                                setEditingTitle("");
-                              }}
-                              disabled={isBusy}
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              className="rounded-xl bg-foreground px-3 py-2 text-sm text-background"
-                              onClick={() => commitRename(tid)}
-                              disabled={isBusy || !editingTitle.trim()}
-                            >
-                              Save
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -492,6 +445,55 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
           </div>
         </div>
       )}
+
+      <Dialog
+        open={editingId !== null}
+        onOpenChange={(open) => {
+          if (!open && busyThreadId !== editingId) cancelRename();
+        }}
+      >
+        <DialogContent
+          className="max-w-sm rounded-2xl p-4"
+          aria-describedby={undefined}
+          showCloseButton={busyThreadId !== editingId}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-sm">Rename chat</DialogTitle>
+          </DialogHeader>
+          <input
+            className="w-full rounded-xl border bg-background px-3 py-2 text-base outline-none sm:text-sm"
+            value={editingTitle}
+            onChange={(event) => setEditingTitle(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && editingId) {
+                void commitRename(editingId);
+              }
+            }}
+            aria-label="Chat name"
+            autoFocus
+          />
+          <DialogFooter className="mt-1 flex-row justify-end">
+            <button
+              className="rounded-xl bg-muted px-3 py-2 text-sm"
+              onClick={cancelRename}
+              disabled={busyThreadId === editingId}
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded-xl bg-foreground px-3 py-2 text-sm text-background"
+              onClick={() => {
+                if (editingId) void commitRename(editingId);
+              }}
+              disabled={
+                busyThreadId === editingId || !editingId || !editingTitle.trim()
+              }
+            >
+              Save
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

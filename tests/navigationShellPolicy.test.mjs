@@ -27,8 +27,7 @@ test("the document has one ordinary scrolling root", () => {
 
   assert.match(css, /html\s*\{[\s\S]*?min-height:\s*100%/);
   assert.match(css, /body\s*\{[\s\S]*?min-height:\s*100dvh/);
-  assert.equal((css.match(/overflow-x:\s*clip/g) || []).length, 2);
-  assert.doesNotMatch(css, /overflow-x:\s*hidden/);
+  assert.doesNotMatch(css, /overflow-x:\s*(?:hidden|clip)/);
   assert.doesNotMatch(css, /html,\s*body\s*\{[\s\S]*?overflow-y:\s*auto/);
   assert.match(
     css,

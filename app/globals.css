@@ -222,7 +222,6 @@
   html {
     min-height: 100%;
     width: 100%;
-    overflow-x: clip;
   }
 
   /* Lock page scroll only where we explicitly opt-in (iOS chat stability) */
@@ -237,7 +236,6 @@
   body {
     width: 100%;
     min-height: 100dvh;
-    overflow-x: clip;
     @apply bg-background text-foreground;
   }
 }
@@ -246,14 +244,16 @@
   /*
    * iOS Safari zooms the visual viewport when a focused form control renders
    * below 16px. Keep mobile fields at the no-zoom threshold so fixed
-   * navigation remains anchored after an editor closes.
+   * navigation remains anchored after an editor closes. This is a platform
+   * rule for every application surface, not only LifeSwitch.
    */
-  [data-lifeswitch-root]
-    :where(
-      input:not([type="checkbox"]):not([type="radio"]),
-      select,
-      textarea
-    ) {
+  :where(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+        [type="color"]
+      ):not([type="hidden"]),
+    select,
+    textarea
+  ) {
     font-size: 16px;
   }
 

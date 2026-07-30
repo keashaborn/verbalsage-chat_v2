@@ -8,14 +8,19 @@ function read(path) {
 
 test("the document shell does not conceal horizontal overflow", () => {
   const globals = read("app/globals.css");
-  const documentRule = globals.match(/html,\s*body\s*\{[^}]*\}/s);
+  const htmlRule = globals.match(/(?:^|\n)\s*html\s*\{[^}]*\}/s);
+  const bodyRule = globals.match(/(?:^|\n)\s*body\s*\{[^}]*\}/s);
 
-  assert.ok(documentRule, "expected the shared html/body sizing rule");
-  assert.doesNotMatch(
-    documentRule[0],
-    /overflow-x:\s*(?:hidden|clip)/,
-    "global overflow suppression hides responsive layout defects",
-  );
+  assert.ok(htmlRule, "expected the shared html sizing rule");
+  assert.ok(bodyRule, "expected the shared body sizing rule");
+
+  for (const rule of [htmlRule[0], bodyRule[0]]) {
+    assert.doesNotMatch(
+      rule,
+      /overflow-x:\s*(?:hidden|clip)/,
+      "global overflow suppression hides responsive layout defects",
+    );
+  }
 });
 
 test("the LifeSwitch shell leaves horizontal geometry visible", () => {

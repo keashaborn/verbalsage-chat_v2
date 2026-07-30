@@ -196,7 +196,7 @@ Compact navigation dropdowns use denser glass than navigation bars or docks. The
 
 Larger navigation surfaces, including the phone bottom bar, may use greater translucency because their controls have more space and do not place dense text over page content.
 
-Sage Helper is a focused workspace rather than a glass surface. On phones it replaces the application viewport, hides workflow navigation, owns its internal scroll, and keeps only a compact title, Close action, conversation, and one-line composer. On larger screens it becomes an opaque right-side drawer with a subdued page backdrop. Closing it returns to the same page, and route changes close it automatically.
+The universal page-level Sage Helper is not mounted. Assistance remains available in the main Chat and in focused planning workflows; do not reintroduce a page-covering helper without a specific workflow need and a phone-first interaction review.
 
 The global top bar remains visible while content scrolls. Use one shared surface treatment across Chat, LifeSwitch, Settings, Admin, and Capture: approximately 70 percent theme background with strong blur when backdrop filtering is available, plus an opaque fallback. Secondary workflow navigation may use approximately 80 percent background. Dropdown menus remain denser at approximately 95 percent background.
 
@@ -335,6 +335,7 @@ Do not intentionally remove a core workflow from phone merely because it is more
 - Keep technical recovery actions under a clearly labeled help disclosure rather than presenting them as routine actions.
 - Authentication overlays may use restrained glass because they sit above the application. Public invitation and password-setup pages should use an opaque surface.
 - Permit browser zoom and 200-percent reflow. Authentication controls must not require horizontal scrolling at 320 CSS pixels.
+- Keep textual inputs, selects, and textareas at a computed 16 CSS pixels on phone breakpoints so iOS does not auto-zoom and displace fixed navigation.
 
 ## Chat-Specific Decisions
 
@@ -409,6 +410,7 @@ Use subtle transparency and blur only when the surface is genuinely layered over
 - Meet WCAG 2.2 AA contrast for text and meaningful controls.
 - Preserve visible keyboard focus.
 - Support keyboard operation for menus, dialogs, segmented controls, and resizable panes.
+- Render modal dialogs through the shared portaled dialog component so focus trapping, focus restoration, layering, and dismissal remain consistent.
 - Use semantic headings and landmarks.
 - Provide accessible names for icon-only controls.
 - Do not rely on color alone to communicate an actionable or safety-relevant state.

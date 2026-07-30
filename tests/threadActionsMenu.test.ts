@@ -30,6 +30,13 @@ test("thread delete no longer uses the browser-native confirmation dialog", () =
   assert.match(listSource, /text-destructive/);
 });
 
+test("thread rename uses the shared portaled dialog and mobile-safe input", () => {
+  assert.match(listSource, /from "@\/components\/ui\/dialog"/);
+  assert.match(listSource, /<DialogContent/);
+  assert.match(listSource, /text-base outline-none sm:text-sm/);
+  assert.doesNotMatch(listSource, /z-\[10000\]/);
+});
+
 test("pin proxy validates identity, ownership, UUID, and boolean input", () => {
   assert.match(pinRouteSource, /getThreadUserId/);
   assert.match(pinRouteSource, /threadBelongsToUser/);
