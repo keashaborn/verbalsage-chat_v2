@@ -180,7 +180,7 @@ export function LifeSwitchModeNav() {
     <>
       <nav
         aria-label={`${domain} workflow`}
-        className="sticky top-14 z-40 hidden bg-background/95 backdrop-blur-xl md:block"
+        className="sticky top-14 z-40 hidden border-b border-border/40 bg-background supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur-xl md:block"
       >
         <div className="mx-auto flex max-w-5xl px-4 py-2">
           <div className="inline-grid grid-cols-5 gap-1 rounded-2xl bg-muted/50 p-1">
@@ -193,16 +193,11 @@ export function LifeSwitchModeNav() {
 
       <nav
         aria-label={`${domain} workflow`}
-        className="fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-50 rounded-2xl bg-card/95 p-1.5 shadow-xl ring-1 ring-foreground/5 backdrop-blur-xl md:hidden"
+        className="fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-50 rounded-2xl border border-border/60 bg-card p-1.5 shadow-xl ring-1 ring-foreground/5 supports-[backdrop-filter]:bg-card/80 supports-[backdrop-filter]:backdrop-blur-2xl md:hidden"
       >
         <div className="grid grid-cols-5 gap-1">
           {tabs.map((tab) => (
-            <Tab
-              key={tab.href}
-              {...tab}
-              compact
-              onClick={rememberDomain}
-            />
+            <Tab key={tab.href} {...tab} compact onClick={rememberDomain} />
           ))}
         </div>
       </nav>

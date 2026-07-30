@@ -122,7 +122,7 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
 
       {open ? (
         <div
-          className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border bg-background shadow-lg"
+          className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-border/70 bg-popover text-popover-foreground shadow-xl ring-1 ring-foreground/5 supports-[backdrop-filter]:bg-popover/85 supports-[backdrop-filter]:backdrop-blur-xl"
           role="menu"
         >
           <div className="border-b px-3 py-3">

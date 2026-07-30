@@ -9,9 +9,7 @@ type WorkspaceMenuProps = {
   variant?: "button" | "plain";
 };
 
-const WORKSPACE_LINKS = [
-  { href: "/", label: "Chat" },
-];
+const WORKSPACE_LINKS = [{ href: "/", label: "Chat" }];
 
 const LIFESWITCH_LINKS = [
   { href: "/lifeswitch/plan", label: "Plan" },
@@ -60,7 +58,7 @@ export function WorkspaceMenu({
       : "rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30";
 
   const panelClass = [
-    "absolute z-50 mt-2 w-48 overflow-hidden rounded-xl border bg-background shadow-lg",
+    "absolute z-50 mt-2 w-48 overflow-hidden rounded-xl border border-border/70 bg-popover text-popover-foreground shadow-xl ring-1 ring-foreground/5 supports-[backdrop-filter]:bg-popover/85 supports-[backdrop-filter]:backdrop-blur-xl",
     align === "left" ? "left-0" : "right-0",
   ].join(" ");
 
@@ -78,21 +76,29 @@ export function WorkspaceMenu({
 
       {open ? (
         <div className={panelClass} role="menu">
-          <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="px-3 py-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
             Workspace
           </div>
           {WORKSPACE_LINKS.map((item) => (
-            <MenuLink key={item.href} href={item.href} onNavigate={() => setOpen(false)}>
+            <MenuLink
+              key={item.href}
+              href={item.href}
+              onNavigate={() => setOpen(false)}
+            >
               {item.label}
             </MenuLink>
           ))}
 
           <div className="mt-1 border-t" />
-          <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="px-3 py-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
             LifeSwitch
           </div>
           {LIFESWITCH_LINKS.map((item) => (
-            <MenuLink key={item.href} href={item.href} onNavigate={() => setOpen(false)}>
+            <MenuLink
+              key={item.href}
+              href={item.href}
+              onNavigate={() => setOpen(false)}
+            >
               {item.label}
             </MenuLink>
           ))}

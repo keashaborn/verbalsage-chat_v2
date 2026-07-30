@@ -12,7 +12,7 @@ export default function LifeSwitchLayout({
 }) {
   return (
     <div data-lifeswitch-root className="min-h-svh bg-background">
-      <header className="sticky top-0 z-50 bg-background/95 shadow-xs backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-border/60 bg-background shadow-xs supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />
           <div className="flex items-center gap-1">

@@ -165,19 +165,33 @@ Do not use color only for decoration. Do not create a new color meaning on a sin
 
 ### Training activity
 
-| Activity | Calendar treatment | Notes |
-| --- | --- | --- |
-| Strength | Green date number | Primary training activity |
-| Conditioning | Dark-gold date number | Warm but not bright yellow |
-| Strength + Conditioning | Green date number with a short gold underline | One date, two recorded activity types |
-| No log | Neutral date number | No filled or outlined activity block |
-| Rehab | Not encoded on the calendar | Preserve Rehab in session details and analysis where relevant |
+| Activity                | Calendar treatment                            | Notes                                                         |
+| ----------------------- | --------------------------------------------- | ------------------------------------------------------------- |
+| Strength                | Green date number                             | Primary training activity                                     |
+| Conditioning            | Dark-gold date number                         | Warm but not bright yellow                                    |
+| Strength + Conditioning | Green date number with a short gold underline | One date, two recorded activity types                         |
+| No log                  | Neutral date number                           | No filled or outlined activity block                          |
+| Rehab                   | Not encoded on the calendar                   | Preserve Rehab in session details and analysis where relevant |
 
 Calendar dates should not use large outlined or filled rectangles for routine activity. Legends and accessible labels must explain the color meaning.
 
 ### Nutrition activity
 
 Use the same restrained semantic approach as Training. Nutrition-specific colors may distinguish target status, but the state must also be understandable from text, value, or icon.
+
+## Translucency and Glass
+
+Use restrained translucency only when it communicates elevation:
+
+- sticky application and workflow navigation;
+- phone bottom navigation;
+- dropdown menus and popovers;
+- the Sage Helper panel;
+- the Chat composer or other controls floating above scrolling content.
+
+Every translucent surface must keep an opaque theme-token fallback when backdrop filtering is unavailable. Maintain readable contrast in every theme and avoid blur across large scrolling content areas.
+
+Do not apply glass styling to lists, forms, capture rows, calendars, analytics content, ordinary cards, or nested page sections. Glass is an elevation cue, not a general decoration.
 
 ## Borders, Rounding, and Elevation
 

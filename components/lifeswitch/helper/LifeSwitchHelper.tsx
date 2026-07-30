@@ -555,7 +555,7 @@ export function LifeSwitchHelper() {
   return (
     <div className="relative z-[60]">
       {open ? (
-        <section className="fixed top-16 right-4 w-[min(calc(100vw-2rem),24rem)] overflow-hidden rounded-2xl border bg-background shadow-xl md:top-28">
+        <section className="fixed top-16 right-4 w-[min(calc(100vw-2rem),24rem)] overflow-hidden rounded-2xl border border-border/70 bg-background shadow-2xl ring-1 ring-foreground/5 supports-[backdrop-filter]:bg-background/85 supports-[backdrop-filter]:backdrop-blur-2xl md:top-28">
           <header className="flex items-center justify-between border-b px-3 py-2">
             <div>
               <div className="text-sm font-semibold">Sage Helper</div>
