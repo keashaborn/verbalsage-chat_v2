@@ -81,6 +81,8 @@ type MemoryHealth = {
     backlog: {
       waiting_for_binding: number;
       waiting_for_entailment: number;
+      eligible_for_entailment?: number;
+      eligible_for_entailment_capped?: boolean;
       waiting_for_claim_review: number;
       ready_for_materialization: number;
     };
@@ -354,8 +356,14 @@ export function MemorySystemHealthPanel() {
                     health.pipeline.backlog.waiting_for_binding,
                   ],
                   [
-                    "Awaiting GPU evaluation",
+                    "Bound, not evaluated",
                     health.pipeline.backlog.waiting_for_entailment,
+                  ],
+                  [
+                    "GPU eligible now",
+                    health.pipeline.backlog.eligible_for_entailment_capped
+                      ? `${health.pipeline.backlog.eligible_for_entailment ?? 0}+`
+                      : health.pipeline.backlog.eligible_for_entailment ?? 0,
                   ],
                   [
                     "Awaiting claim review",
@@ -370,7 +378,10 @@ export function MemorySystemHealthPanel() {
                     key={String(label)}
                     className="rounded-full border px-2 py-1 text-[11px] text-muted-foreground"
                   >
-                    {String(label)} · {Number(value).toLocaleString()}
+                    {String(label)} ·{" "}
+                    {typeof value === "number"
+                      ? value.toLocaleString()
+                      : String(value)}
                   </span>
                 ))}
               </div>
