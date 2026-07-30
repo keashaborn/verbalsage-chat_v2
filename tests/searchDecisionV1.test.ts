@@ -160,6 +160,7 @@ test("accepts rolling policy revisions under the stable search-plan contract", (
     "search_decision_v1_2",
     "search_decision_v1_3",
     "search_decision_v1_4",
+    "search_decision_v1_5",
   ]) {
     const parsed = parseServerSearchPlanV1({
       ...current,
@@ -173,6 +174,22 @@ test("accepts rolling policy revisions under the stable search-plan contract", (
     assert.equal(parsed.contract_version, SEARCH_PLAN_CONTRACT_VERSION);
     assert.equal(parsed.policy_version, policyVersion);
   }
+});
+
+test("accepts the server-owned behavior-change policy pack", () => {
+  const current = decideSearchV1("What is the capital of France?");
+  const parsed = parseServerSearchPlanV1({
+    ...current,
+    policy_version: "search_decision_v1_5",
+    decision: "indexed",
+    reason_codes: ["evidence_requested"],
+    policy_pack: "behavior_change",
+    budget: { max_searches: 2, max_sources: 5 },
+  });
+
+  assert.ok(parsed);
+  assert.equal(parsed.policy_pack, "behavior_change");
+  assert.equal(selectAutomaticSearchRouteV1(parsed), "trusted_health");
 });
 
 test("rejects incompatible or malformed server search plans", () => {

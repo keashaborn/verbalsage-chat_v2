@@ -17,6 +17,7 @@ export type SearchPolicyPackV1 =
   | "health"
   | "nutrition"
   | "exercise"
+  | "behavior_change"
   | "software_security"
   | "legal_financial";
 
@@ -64,6 +65,7 @@ const SEARCH_POLICY_PACKS = new Set<SearchPolicyPackV1>([
   "health",
   "nutrition",
   "exercise",
+  "behavior_change",
   "software_security",
   "legal_financial",
 ]);
@@ -613,7 +615,8 @@ export function selectAutomaticSearchRouteV1(
   if (
     decision.policy_pack === "health" ||
     decision.policy_pack === "nutrition" ||
-    decision.policy_pack === "exercise"
+    decision.policy_pack === "exercise" ||
+    decision.policy_pack === "behavior_change"
   ) {
     return "trusted_health";
   }

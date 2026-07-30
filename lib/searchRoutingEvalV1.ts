@@ -92,6 +92,7 @@ const POLICY_PACKS = new Set<SearchPolicyPackV1>([
   "health",
   "nutrition",
   "exercise",
+  "behavior_change",
   "software_security",
   "legal_financial",
 ]);
