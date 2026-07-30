@@ -20,7 +20,6 @@ test("glass surfaces keep opaque fallbacks", async () => {
   const expected = {
     topBar: ["bg-background/95", "supports-[backdrop-filter]:bg-background/70"],
     workflow: ["bg-card", "supports-[backdrop-filter]:bg-card/80"],
-    helper: ["bg-background", "supports-[backdrop-filter]:bg-background/85"],
     account: ["bg-popover", "supports-[backdrop-filter]:bg-popover/95"],
     workspace: ["bg-popover", "supports-[backdrop-filter]:bg-popover/95"],
   };
@@ -37,6 +36,8 @@ test("glass surfaces keep opaque fallbacks", async () => {
   }
 
   assert.match(await source("shell"), /AppTopBar/);
+  assert.match(await source("helper"), /bg-background/);
+  assert.doesNotMatch(await source("helper"), /backdrop-blur/);
 });
 
 test("global navigation menus use the same dense glass treatment", async () => {

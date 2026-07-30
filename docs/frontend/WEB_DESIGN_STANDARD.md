@@ -186,7 +186,6 @@ Use restrained translucency only when it communicates elevation:
 - sticky application and workflow navigation;
 - phone bottom navigation;
 - dropdown menus and popovers;
-- the Sage Helper panel;
 - the Chat composer or other controls floating above scrolling content.
 
 Every translucent surface must keep an opaque theme-token fallback when backdrop filtering is unavailable. Maintain readable contrast in every theme and avoid blur across large scrolling content areas.
@@ -196,6 +195,8 @@ Do not apply glass styling to lists, forms, capture rows, calendars, analytics c
 Compact navigation dropdowns use denser glass than navigation bars or docks. Their background should be opaque enough that underlying page text cannot compete with menu labels. Workspace, Account, and Admin navigation must use the same dropdown treatment in Chat and LifeSwitch.
 
 Larger navigation surfaces, including the phone bottom bar, may use greater translucency because their controls have more space and do not place dense text over page content.
+
+Sage Helper is a focused workspace rather than a glass surface. On phones it replaces the application viewport, hides workflow navigation, owns its internal scroll, and keeps only a compact title, Close action, conversation, and one-line composer. On larger screens it becomes an opaque right-side drawer with a subdued page backdrop. Closing it returns to the same page, and route changes close it automatically.
 
 The global top bar remains visible while content scrolls. Use one shared surface treatment across Chat, LifeSwitch, Settings, Admin, and Capture: approximately 70 percent theme background with strong blur when backdrop filtering is available, plus an opaque fallback. Secondary workflow navigation may use approximately 80 percent background. Dropdown menus remain denser at approximately 95 percent background.
 

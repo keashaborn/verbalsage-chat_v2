@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
+import { createPortal } from "react-dom";
 import { Send, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authFetch } from "@/lib/authFetch";
@@ -325,12 +326,7 @@ export function LifeSwitchHelper() {
   const pathname = usePathname() || "/lifeswitch";
   const [open, setOpen] = React.useState(false);
   const [input, setInput] = React.useState("");
-  const [messages, setMessages] = React.useState<HelperMessage[]>([
-    {
-      role: "assistant",
-      text: "Ask me how to fill this page out, what a field means, or what to do next.",
-    },
-  ]);
+  const [messages, setMessages] = React.useState<HelperMessage[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [ttsBusy, setTtsBusy] = React.useState(false);
   const [ttsPreparing, setTtsPreparing] = React.useState(false);
@@ -341,9 +337,8 @@ export function LifeSwitchHelper() {
   const preparedSpeechTextRef = React.useRef<string>("");
   const ttsAbortRef = React.useRef<AbortController | null>(null);
   const audioUnlockedRef = React.useRef(false);
-
-  const domain = classifyDomain(pathname);
-  const mode = classifyMode(pathname);
+  const triggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const previousPathnameRef = React.useRef(pathname);
 
   React.useEffect(() => {
     scrollRef.current?.scrollIntoView({ block: "end" });
@@ -380,6 +375,45 @@ export function LifeSwitchHelper() {
     setTtsBusy(false);
     setTtsPreparing(false);
   }
+
+  function closeHelper() {
+    stopHelperTTS();
+    setOpen(false);
+  }
+
+  React.useEffect(() => {
+    if (previousPathnameRef.current !== pathname) {
+      closeHelper();
+    }
+    previousPathnameRef.current = pathname;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  React.useEffect(() => {
+    if (!open) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    html.classList.add("vs-lock-body-scroll");
+    body.classList.add("vs-lock-body-scroll");
+    html.dataset.lifeswitchHelperOpen = "true";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeHelper();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      html.classList.remove("vs-lock-body-scroll");
+      body.classList.remove("vs-lock-body-scroll");
+      delete html.dataset.lifeswitchHelperOpen;
+      triggerRef.current?.focus();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   React.useEffect(() => {
     return () => {
@@ -570,145 +604,172 @@ export function LifeSwitchHelper() {
     }
   }
 
+  const latestAnswer = latestAssistantText();
+  const helperDialog =
+    open && typeof document !== "undefined"
+      ? createPortal(
+          <>
+            <div
+              aria-hidden="true"
+              className="fixed inset-0 z-[90] bg-foreground/10"
+              onClick={closeHelper}
+            />
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="lifeswitch-helper-title"
+              className="fixed inset-0 z-[100] flex h-dvh w-screen flex-col overflow-hidden bg-background text-foreground md:top-[4.5rem] md:right-4 md:bottom-4 md:left-auto md:h-auto md:w-[min(26rem,calc(100vw-2rem))] md:rounded-xl md:border md:border-border md:shadow-2xl"
+            >
+              <header className="flex min-h-14 shrink-0 items-center justify-between border-b px-4 py-2">
+                <h2
+                  id="lifeswitch-helper-title"
+                  className="text-base font-semibold"
+                >
+                  Sage Helper
+                </h2>
+                <div className="flex items-center gap-1">
+                  {latestAnswer ? (
+                    <Button
+                      type="button"
+                      variant={ttsBusy ? "default" : "ghost"}
+                      size="sm"
+                      aria-label={
+                        ttsBusy
+                          ? "Stop AI-generated helper speech"
+                          : "Speak latest helper answer with AI-generated voice"
+                      }
+                      title={
+                        ttsBusy
+                          ? "Stop"
+                          : ttsPreparing
+                            ? "Preparing voice"
+                            : "Speak latest answer with AI-generated voice"
+                      }
+                      onClick={speakLatestAssistant}
+                      disabled={ttsPreparing}
+                      className="size-9 p-0"
+                    >
+                      {ttsBusy ? (
+                        <VolumeX className="h-4 w-4" />
+                      ) : (
+                        <Volume2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  ) : null}
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Close LifeSwitch helper"
+                    onClick={closeHelper}
+                    className="size-9 p-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </header>
+
+              {ttsError ? (
+                <p className="shrink-0 px-4 py-2 text-xs text-red-600 dark:text-red-400">
+                  Voice error: {ttsError}
+                </p>
+              ) : null}
+
+              <div className="flex-1 space-y-6 overflow-y-auto px-5 py-6">
+                {messages.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Ask about this page.
+                  </p>
+                ) : null}
+
+                {messages.map((m, i) => (
+                  <div
+                    key={`${m.role}-${i}`}
+                    aria-label={
+                      m.role === "assistant"
+                        ? "Sage Helper response"
+                        : "Your message"
+                    }
+                    className={[
+                      "text-sm leading-6",
+                      m.role === "user"
+                        ? "ml-auto max-w-[85%] border-r-2 border-primary/55 pr-3 text-right font-medium"
+                        : "max-w-none",
+                    ].join(" ")}
+                  >
+                    {m.role === "assistant" ? (
+                      <MarkdownMessage>{m.text}</MarkdownMessage>
+                    ) : (
+                      m.text
+                    )}
+                  </div>
+                ))}
+
+                {busy ? (
+                  <p className="text-sm text-muted-foreground">Thinking…</p>
+                ) : null}
+                <div ref={scrollRef} />
+              </div>
+
+              <div className="shrink-0 border-t bg-background px-4 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:pb-3">
+                <div className="flex items-end gap-2">
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        void sendMessage();
+                      }
+                    }}
+                    placeholder="Ask about this page…"
+                    rows={1}
+                    className="max-h-32 min-h-11 flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-base outline-none placeholder:text-muted-foreground focus:ring-0"
+                  />
+                  <Button
+                    type="button"
+                    disabled={busy || !input.trim()}
+                    onClick={() => void sendMessage()}
+                    aria-label="Send LifeSwitch helper message"
+                    className="size-10 shrink-0 rounded-full p-0"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </section>
+          </>,
+          document.body,
+        )
+      : null;
+
   return (
     <div className="relative z-[60]">
-      {open ? (
-        <section className="fixed top-16 right-4 w-[min(calc(100vw-2rem),24rem)] overflow-hidden rounded-2xl border border-border/70 bg-background shadow-2xl ring-1 ring-foreground/5 supports-[backdrop-filter]:bg-background/85 supports-[backdrop-filter]:backdrop-blur-2xl md:top-28">
-          <header className="flex items-center justify-between border-b px-3 py-2">
-            <div>
-              <div className="text-sm font-semibold">Sage Helper</div>
-              <div className="text-[11px] text-muted-foreground">
-                {domain} / {mode}
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                Speech uses an AI-generated voice.
-              </div>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant={ttsBusy ? "default" : "ghost"}
-                size="sm"
-                aria-label={
-                  ttsBusy
-                    ? "Stop AI-generated helper speech"
-                    : "Speak latest helper answer with AI-generated voice"
-                }
-                title={
-                  ttsBusy
-                    ? "Stop"
-                    : ttsPreparing
-                      ? "Preparing voice"
-                      : "Speak latest answer with AI-generated voice"
-                }
-                onClick={speakLatestAssistant}
-                disabled={ttsPreparing}
-                className="gap-1 px-2"
-              >
-                {ttsBusy ? (
-                  <VolumeX className="h-4 w-4" />
-                ) : (
-                  <Volume2 className="h-4 w-4" />
-                )}
-                <span className="hidden text-xs sm:inline">
-                  {ttsBusy ? "Stop" : ttsPreparing ? "Prep" : "Speak"}
-                </span>
-              </Button>
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label="Close LifeSwitch helper"
-                onClick={() => setOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </header>
-
-          {ttsError ? (
-            <div className="border-b px-3 py-2 text-xs text-red-600 dark:text-red-400">
-              Voice error: {ttsError}
-            </div>
-          ) : null}
-
-          <div className="max-h-[min(55vh,28rem)] space-y-2 overflow-y-auto px-3 py-3">
-            {messages.map((m, i) => (
-              <div
-                key={`${m.role}-${i}`}
-                className={[
-                  "rounded-xl px-3 py-2 text-sm leading-snug",
-                  m.role === "user"
-                    ? "ml-8 bg-primary text-primary-foreground"
-                    : "mr-8 bg-muted",
-                ].join(" ")}
-              >
-                {m.role === "assistant" ? (
-                  <MarkdownMessage>{m.text}</MarkdownMessage>
-                ) : (
-                  m.text
-                )}
-              </div>
-            ))}
-            {busy ? (
-              <div className="mr-8 rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">
-                Thinking…
-              </div>
-            ) : null}
-            <div ref={scrollRef} />
-          </div>
-
-          <div className="border-t p-2">
-            <div className="flex items-end gap-2">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void sendMessage();
-                  }
-                }}
-                placeholder="Ask what to do here…"
-                rows={2}
-                className="min-h-10 flex-1 resize-none rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              />
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy || !input.trim()}
-                onClick={() => void sendMessage()}
-                aria-label="Send LifeSwitch helper message"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </section>
-      ) : (
-        <Button
-          type="button"
-          className="size-10 overflow-hidden rounded-full border bg-background p-1.5 shadow-sm hover:bg-muted/60"
-          aria-label="Open LifeSwitch helper"
-          onClick={() => setOpen(true)}
-        >
-          <>
-            <img
-              src="/brand/lifeswitch/symbol-dark-64.png"
-              alt=""
-              aria-hidden="true"
-              className="h-full w-full object-contain dark:hidden"
-            />
-            <img
-              src="/brand/lifeswitch/symbol-light-128.png"
-              alt=""
-              aria-hidden="true"
-              className="hidden h-full w-full object-contain dark:block"
-            />
-          </>
-        </Button>
-      )}
+      <Button
+        ref={triggerRef}
+        type="button"
+        className="size-10 overflow-hidden rounded-full border bg-background p-1.5 shadow-sm hover:bg-muted/60"
+        aria-label="Open LifeSwitch helper"
+        aria-expanded={open}
+        onClick={() => setOpen(true)}
+      >
+        <>
+          <img
+            src="/brand/lifeswitch/symbol-dark-64.png"
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-contain dark:hidden"
+          />
+          <img
+            src="/brand/lifeswitch/symbol-light-128.png"
+            alt=""
+            aria-hidden="true"
+            className="hidden h-full w-full object-contain dark:block"
+          />
+        </>
+      </Button>
+      {helperDialog}
     </div>
   );
 }
