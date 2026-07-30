@@ -243,6 +243,20 @@
 }
 
 @media (max-width: 767px) {
+  /*
+   * iOS Safari zooms the visual viewport when a focused form control renders
+   * below 16px. Keep mobile fields at the no-zoom threshold so fixed
+   * navigation remains anchored after an editor closes.
+   */
+  [data-lifeswitch-root]
+    :where(
+      input:not([type="checkbox"]):not([type="radio"]),
+      select,
+      textarea
+    ) {
+    font-size: 16px;
+  }
+
   html[data-lifeswitch-helper-open="true"] [data-lifeswitch-mode-nav] {
     display: none !important;
   }
