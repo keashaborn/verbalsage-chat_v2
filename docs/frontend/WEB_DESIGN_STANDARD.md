@@ -2,7 +2,7 @@
 
 Status: approved working baseline
 
-Last updated: 2026-07-29
+Last updated: 2026-07-30
 
 Reference implementation: the current LifeSwitch Training, Nutrition, Measurements, People, Settings, Admin, and Chat surfaces
 
@@ -318,6 +318,17 @@ An editable value can look like text when its placement and label make editabili
 ### Responsive parity
 
 Do not intentionally remove a core workflow from phone merely because it is more comfortable on desktop. Adapt its layout unless there is a documented product reason to limit it.
+
+## Authentication and Invitations
+
+- Use one centered, independent surface with a moderate radius. Divide related steps with spacing and thin separators instead of nesting cards.
+- Give every field a persistent visible label. Placeholders may provide examples, but they must not be the only label.
+- Keep tabs and primary controls at least 44 CSS pixels tall on touch devices.
+- Use semantic theme tokens for errors, success, borders, and controls so feedback remains readable in Mist, Graphite, Slate, and Paper.
+- Convert API failures into short user-safe messages. Never render raw response objects, provider errors, or implementation details.
+- Keep technical recovery actions under a clearly labeled help disclosure rather than presenting them as routine actions.
+- Authentication overlays may use restrained glass because they sit above the application. Public invitation and password-setup pages should use an opaque surface.
+- Permit browser zoom and 200-percent reflow. Authentication controls must not require horizontal scrolling at 320 CSS pixels.
 
 ## Chat-Specific Decisions
 

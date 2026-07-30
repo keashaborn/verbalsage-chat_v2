@@ -18,17 +18,22 @@ const geistMono = Geist_Mono({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
 };
 
 export const metadata: Metadata = {
   title: "LifeSwitch",
-  description: "LifeSwitch health, training, nutrition, and measurement tracking.",
+  description:
+    "LifeSwitch health, training, nutrition, and measurement tracking.",
   icons: {
     icon: [{ url: "/brand/lifeswitch/favicon-favorite-v4.ico", sizes: "any" }],
-    apple: [{ url: "/brand/lifeswitch/app-icon-favorite-180-v4.png", sizes: "180x180", type: "image/png" }],
+    apple: [
+      {
+        url: "/brand/lifeswitch/app-icon-favorite-180-v4.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
   },
 };
 
@@ -87,7 +92,9 @@ export default function RootLayout({
 `,
         }}
       />
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         <BodyScrollManager />
         {children}
       </body>

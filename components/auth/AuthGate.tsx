@@ -5,6 +5,10 @@ import {
   TurnstileWidget,
   type TurnstileWidgetHandle,
 } from "@/components/auth/TurnstileWidget";
+import {
+  PublicAuthNotice,
+  PUBLIC_AUTH_PRIMARY_ACTION_CLASS,
+} from "@/components/auth/PublicAuthShell";
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch } from "@/lib/authFetch";
 import { applyTheme, DEFAULT_THEME, normalizeThemeValue } from "@/lib/theme";
@@ -448,8 +452,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
       {showApp ? children : null}
 
       {session && mfaGate !== "clear" ? (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl border bg-background p-6 text-foreground shadow-xl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/95 p-4 supports-[backdrop-filter]:bg-background/85 supports-[backdrop-filter]:backdrop-blur-xl">
+          <div className="w-full max-w-md rounded-xl border bg-card/95 p-6 text-foreground shadow-lg">
             <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               LifeSwitch protected account
             </div>
@@ -468,7 +472,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                   <label className="mt-4 grid gap-1 text-sm">
                     <span>Authenticator</span>
                     <select
-                      className="w-full rounded-xl border bg-background px-3 py-2"
+                      className="min-h-11 w-full rounded-lg border bg-background px-3 py-2"
                       value={mfaFactorId}
                       onChange={(event) => setMfaFactorId(event.target.value)}
                       disabled={mfaBusy}
@@ -485,7 +489,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 <label className="mt-4 grid gap-1 text-sm">
                   <span>Authenticator code</span>
                   <input
-                    className="w-full rounded-xl border bg-background px-3 py-2 font-mono tracking-[0.2em]"
+                    className="min-h-11 w-full rounded-lg border bg-background px-3 py-2 font-mono tracking-[0.2em]"
                     type="text"
                     inputMode="numeric"
                     autoComplete="one-time-code"
@@ -507,7 +511,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
                 <button
                   type="button"
-                  className="mt-4 w-full rounded-xl bg-muted px-3 py-2 hover:bg-muted/60 disabled:opacity-50"
+                  className={`${PUBLIC_AUTH_PRIMARY_ACTION_CLASS} mt-4 w-full`}
                   onClick={() => void verifyMfaCode()}
                   disabled={mfaBusy || mfaCode.length !== 6}
                 >
@@ -522,7 +526,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 </p>
                 <button
                   type="button"
-                  className="mt-4 w-full rounded-xl bg-muted px-3 py-2 hover:bg-muted/60 disabled:opacity-50"
+                  className={`${PUBLIC_AUTH_PRIMARY_ACTION_CLASS} mt-4 w-full`}
                   onClick={() => void retryMfaCheck()}
                   disabled={mfaBusy}
                 >
@@ -548,15 +552,15 @@ export function AuthGate({ children }: { children: ReactNode }) {
           </div>
         </div>
       ) : !session && accessRequestSubmitted ? (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl border bg-background p-6 text-foreground shadow-xl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/95 p-4 supports-[backdrop-filter]:bg-background/85 supports-[backdrop-filter]:backdrop-blur-xl">
+          <div className="w-full max-w-md rounded-xl border bg-card/95 p-6 text-foreground shadow-lg">
             <div className="mb-4 text-lg font-semibold">LifeSwitch</div>
             <div
-              className="rounded-2xl border bg-muted/30 px-5 py-6 text-center"
+              className="border-t border-border/70 pt-5 text-center"
               role="status"
             >
               <div
-                className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-2xl text-emerald-700"
+                className="mb-3 text-lg font-semibold text-emerald-600"
                 aria-hidden="true"
               >
                 ✓
@@ -572,7 +576,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
               </p>
               <button
                 type="button"
-                className="mt-5 w-full rounded-xl bg-muted px-3 py-2 hover:bg-muted/60"
+                className={`${PUBLIC_AUTH_PRIMARY_ACTION_CLASS} mt-5 w-full`}
                 onClick={() => {
                   setMode("login");
                   setAccessRequestSubmitted(false);
@@ -584,13 +588,24 @@ export function AuthGate({ children }: { children: ReactNode }) {
           </div>
         </div>
       ) : !session ? (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl border bg-background p-6 text-foreground shadow-xl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/95 p-4 supports-[backdrop-filter]:bg-background/85 supports-[backdrop-filter]:backdrop-blur-xl">
+          <div className="w-full max-w-md rounded-xl border bg-card/95 p-6 text-foreground shadow-lg">
             <div className="mb-4 text-lg font-semibold">LifeSwitch</div>
 
-            <div className="mb-4 flex gap-2 text-sm">
+            <div
+              className="mb-4 flex border-b border-border/70"
+              role="tablist"
+              aria-label="LifeSwitch access"
+            >
               <button
-                className={`rounded-lg px-3 py-1 ${mode === "login" ? "bg-muted" : "bg-transparent hover:bg-muted/60"}`}
+                type="button"
+                role="tab"
+                aria-selected={mode === "login"}
+                className={`min-h-11 border-b-2 px-2 text-sm font-medium ${
+                  mode === "login"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
                 onClick={() => {
                   setMode("login");
                   setLoginToken("");
@@ -602,7 +617,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
                 Log in
               </button>
               <button
-                className={`rounded-lg px-3 py-1 ${mode === "request" ? "bg-muted" : "bg-transparent hover:bg-muted/60"}`}
+                type="button"
+                role="tab"
+                aria-selected={mode === "request"}
+                className={`min-h-11 border-b-2 px-2 text-sm font-medium ${
+                  mode === "request"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
                 onClick={() => {
                   setMode("request");
                   setLoginToken("");
@@ -616,33 +638,50 @@ export function AuthGate({ children }: { children: ReactNode }) {
             </div>
 
             {mode === "request" && (
-              <input
-                className="mb-2 w-full rounded-xl border bg-background px-3 py-2"
-                placeholder="Full name (optional)"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                disabled={busy}
-              />
+              <label className="mb-3 grid gap-1.5 text-sm">
+                <span>
+                  Full name{" "}
+                  <span className="text-muted-foreground">(optional)</span>
+                </span>
+                <input
+                  className="min-h-11 w-full rounded-lg border bg-background px-3 py-2"
+                  autoComplete="name"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  disabled={busy}
+                />
+              </label>
             )}
 
-            <input
-              className="mb-2 w-full rounded-xl border bg-background px-3 py-2"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={busy}
-            />
+            <label className="mb-3 grid gap-1.5 text-sm">
+              <span>Email</span>
+              <input
+                className="min-h-11 w-full rounded-lg border bg-background px-3 py-2"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                disabled={busy}
+              />
+            </label>
 
             {mode === "login" ? (
               <>
-                <input
-                  className="mb-3 w-full rounded-xl border bg-background px-3 py-2"
-                  placeholder="Password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={busy}
-                />
+                <label className="mb-3 grid gap-1.5 text-sm">
+                  <span>Password</span>
+                  <input
+                    className="min-h-11 w-full rounded-lg border bg-background px-3 py-2"
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    disabled={busy}
+                  />
+                </label>
                 <TurnstileWidget
                   ref={loginTurnstileRef}
                   action="auth_login"
@@ -651,14 +690,19 @@ export function AuthGate({ children }: { children: ReactNode }) {
               </>
             ) : (
               <>
-                <textarea
-                  className="mb-3 min-h-24 w-full resize-y rounded-xl border bg-background px-3 py-2"
-                  placeholder="How would you like to use LifeSwitch? (optional)"
-                  value={requestMessage}
-                  onChange={(e) => setRequestMessage(e.target.value)}
-                  maxLength={1000}
-                  disabled={busy}
-                />
+                <label className="mb-3 grid gap-1.5 text-sm">
+                  <span>
+                    How would you like to use LifeSwitch?{" "}
+                    <span className="text-muted-foreground">(optional)</span>
+                  </span>
+                  <textarea
+                    className="min-h-24 w-full resize-y rounded-lg border bg-background px-3 py-2"
+                    value={requestMessage}
+                    onChange={(event) => setRequestMessage(event.target.value)}
+                    maxLength={1000}
+                    disabled={busy}
+                  />
+                </label>
                 <TurnstileWidget
                   ref={accessRequestTurnstileRef}
                   action="request_access"
@@ -668,7 +712,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
             )}
 
             <button
-              className="w-full rounded-xl bg-muted px-3 py-2 hover:bg-muted/60 disabled:opacity-50"
+              type="button"
+              className={`${PUBLIC_AUTH_PRIMARY_ACTION_CLASS} w-full`}
               onClick={mode === "login" ? handleLogin : handleAccessRequest}
               disabled={
                 busy ||
@@ -683,19 +728,29 @@ export function AuthGate({ children }: { children: ReactNode }) {
                   : "Request access"}
             </button>
 
-            {msg && (
-              <div className="mt-3 text-sm text-muted-foreground">{msg}</div>
-            )}
+            {msg ? (
+              <div className="mt-3">
+                <PublicAuthNotice>{msg}</PublicAuthNotice>
+              </div>
+            ) : null}
 
-            <div className="mt-4 flex justify-end">
+            <details className="mt-4 text-xs text-muted-foreground">
+              <summary className="w-fit cursor-pointer hover:text-foreground">
+                Sign-in help
+              </summary>
+              <p className="mt-2 leading-5">
+                If sign-in is stuck after an account change, reset the saved
+                sign-in session and try again.
+              </p>
               <button
-                className="text-xs text-muted-foreground hover:text-foreground"
+                type="button"
+                className="mt-2 min-h-11 text-left font-medium text-foreground hover:underline"
                 onClick={forceSignedOut}
                 disabled={busy}
               >
-                Clear session
+                Reset saved sign-in session
               </button>
-            </div>
+            </details>
           </div>
         </div>
       ) : null}

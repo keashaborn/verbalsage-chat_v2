@@ -8,6 +8,12 @@ import {
   normalizeSetupCode,
   parseSetupCodeFragment,
 } from "@/lib/setupCodeFragment";
+import {
+  PublicAuthNotice,
+  PublicAuthShell,
+  PUBLIC_AUTH_PRIMARY_ACTION_CLASS,
+  PUBLIC_AUTH_SECTION_CLASS,
+} from "@/components/auth/PublicAuthShell";
 
 const MIN_PASSWORD_LENGTH = 8;
 type SetupCodeType = "invite" | "recovery";
@@ -151,11 +157,9 @@ export default function AcceptAccessInvitePage() {
       setPassword("");
       setConfirmPassword("");
       setComplete(true);
-    } catch (error: unknown) {
+    } catch {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "The password could not be created. Try again.",
+        "The password could not be created. Check the requirements and try again.",
       );
     } finally {
       setBusy(false);
@@ -165,21 +169,16 @@ export default function AcceptAccessInvitePage() {
   const recoveryMode = !checkingInvite && codeType === "recovery";
 
   return (
-    <main className="mx-auto min-h-screen max-w-2xl p-4 py-10 sm:py-16">
-      <section className="rounded-2xl border bg-background p-5 shadow-sm sm:p-7">
-        <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          LifeSwitch
-        </div>
-
-        <h1 className="mt-2 text-2xl font-semibold">
-          {checkingInvite
-            ? "LifeSwitch account security"
-            : recoveryMode
-              ? "Change your LifeSwitch password"
-              : "Your LifeSwitch access was approved"}
-        </h1>
-
-        <div className="mt-4 grid gap-3 text-sm leading-6 text-muted-foreground">
+    <PublicAuthShell
+      title={
+        checkingInvite
+          ? "LifeSwitch account security"
+          : recoveryMode
+            ? "Change your LifeSwitch password"
+            : "Your LifeSwitch access was approved"
+      }
+      intro={
+        <>
           <p>
             LifeSwitch is a private app for planning, nutrition, training,
             measurements, reflection, and personal progress.
@@ -189,130 +188,133 @@ export default function AcceptAccessInvitePage() {
               ? "Use the one-time code from your email, then choose a new password. Your information remains private unless you explicitly share it through LifeSwitch People."
               : "Use the one-time code from your setup email, then create a password to finish setting up your account. Your information remains private unless you explicitly share it through LifeSwitch People."}
           </p>
+        </>
+      }
+    >
+      {checkingInvite ? (
+        <div
+          className={`${PUBLIC_AUTH_SECTION_CLASS} text-sm text-muted-foreground`}
+          role="status"
+        >
+          Verifying invitation…
         </div>
-
-        {checkingInvite ? (
-          <div className="mt-5 rounded-xl border p-4 text-sm text-muted-foreground">
-            Verifying invitation…
+      ) : complete ? (
+        <div className={`${PUBLIC_AUTH_SECTION_CLASS} grid gap-4`}>
+          <PublicAuthNotice tone="success">
+            {recoveryMode
+              ? "Your password has been changed."
+              : "Your password has been created. Your LifeSwitch account is ready."}
+          </PublicAuthNotice>
+          <Link
+            href="/"
+            className={`${PUBLIC_AUTH_PRIMARY_ACTION_CLASS} w-fit`}
+          >
+            Continue to LifeSwitch
+          </Link>
+        </div>
+      ) : requiresCode || !session ? (
+        <div className={PUBLIC_AUTH_SECTION_CLASS}>
+          <div className="text-sm font-semibold">Verify your setup code</div>
+          <div className="mt-1 text-sm text-muted-foreground">
+            Automated email security checks cannot use this code.
           </div>
-        ) : complete ? (
-          <div className="mt-5 grid gap-4">
-            <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-sm">
-              {recoveryMode
-                ? "Your password has been changed."
-                : "Your password has been created. Your LifeSwitch account is ready."}
-            </div>
-            <Link
-              href="/"
-              className="inline-flex w-fit rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/40"
+
+          <div className="mt-4 grid gap-3">
+            <label className="grid gap-1.5 text-sm">
+              <span>Email</span>
+              <input
+                className="min-h-11 w-full rounded-lg border bg-background px-3 py-2"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                disabled={busy}
+              />
+            </label>
+            <label className="grid gap-1.5 text-sm">
+              <span>One-time code</span>
+              <input
+                className="min-h-11 w-full rounded-lg border bg-background px-3 py-2 font-mono tracking-[0.2em]"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={oneTimeCode}
+                onChange={(event) => setOneTimeCode(event.target.value)}
+                disabled={busy}
+              />
+            </label>
+            <button
+              type="button"
+              className={`${PUBLIC_AUTH_PRIMARY_ACTION_CLASS} w-fit`}
+              onClick={() => void verifySetupCode()}
+              disabled={busy || !email.trim() || !oneTimeCode.trim()}
             >
-              Continue to LifeSwitch
-            </Link>
+              {busy ? "Verifying…" : "Verify code"}
+            </button>
           </div>
-        ) : requiresCode || !session ? (
-          <div className="mt-5 rounded-2xl border p-4 sm:p-5">
-            <div className="text-sm font-semibold">Verify your setup code</div>
-            <div className="mt-1 text-sm text-muted-foreground">
-              Automated email security checks cannot use this code.
-            </div>
+        </div>
+      ) : session ? (
+        <div className={PUBLIC_AUTH_SECTION_CLASS}>
+          <div className="text-sm font-semibold">
+            {recoveryMode ? "Create a new password" : "Create your password"}
+          </div>
+          <div className="mt-1 text-sm text-muted-foreground">
+            Account: {session.user.email}
+          </div>
 
-            <div className="mt-4 grid gap-3">
-              <label className="grid gap-1 text-sm">
-                <span>Email</span>
-                <input
-                  className="w-full rounded-xl border bg-background px-3 py-2"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  disabled={busy}
-                />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span>One-time code</span>
-                <input
-                  className="w-full rounded-xl border bg-background px-3 py-2 font-mono tracking-[0.2em]"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={oneTimeCode}
-                  onChange={(event) => setOneTimeCode(event.target.value)}
-                  disabled={busy}
-                />
-              </label>
-              <button
-                type="button"
-                className="w-fit rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
-                onClick={() => void verifySetupCode()}
-                disabled={busy || !email.trim() || !oneTimeCode.trim()}
-              >
-                {busy ? "Verifying…" : "Verify code"}
-              </button>
+          <div className="mt-4 grid gap-3">
+            <label className="grid gap-1.5 text-sm">
+              <span>Password</span>
+              <input
+                className="min-h-11 w-full rounded-lg border bg-background px-3 py-2"
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                disabled={busy}
+              />
+            </label>
+            <label className="grid gap-1.5 text-sm">
+              <span>Confirm password</span>
+              <input
+                className="min-h-11 w-full rounded-lg border bg-background px-3 py-2"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                disabled={busy}
+              />
+            </label>
+            <div className="text-xs text-muted-foreground">
+              Use at least {MIN_PASSWORD_LENGTH} characters.
             </div>
+            <button
+              type="button"
+              className={`${PUBLIC_AUTH_PRIMARY_ACTION_CLASS} w-fit`}
+              onClick={() => void createPassword()}
+              disabled={busy || !password || !confirmPassword}
+            >
+              {busy
+                ? recoveryMode
+                  ? "Saving password…"
+                  : "Creating password…"
+                : recoveryMode
+                  ? "Save new password"
+                  : "Create password"}
+            </button>
           </div>
-        ) : session ? (
-          <div className="mt-5 rounded-2xl border p-4 sm:p-5">
-            <div className="text-sm font-semibold">
-              {recoveryMode ? "Create a new password" : "Create your password"}
-            </div>
-            <div className="mt-1 text-sm text-muted-foreground">
-              Account: {session.user.email}
-            </div>
+        </div>
+      ) : null}
 
-            <div className="mt-4 grid gap-3">
-              <label className="grid gap-1 text-sm">
-                <span>Password</span>
-                <input
-                  className="w-full rounded-xl border bg-background px-3 py-2"
-                  type="password"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  disabled={busy}
-                />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span>Confirm password</span>
-                <input
-                  className="w-full rounded-xl border bg-background px-3 py-2"
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  disabled={busy}
-                />
-              </label>
-              <div className="text-xs text-muted-foreground">
-                Use at least {MIN_PASSWORD_LENGTH} characters.
-              </div>
-              <button
-                type="button"
-                className="w-fit rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
-                onClick={() => void createPassword()}
-                disabled={busy || !password || !confirmPassword}
-              >
-                {busy
-                  ? recoveryMode
-                    ? "Saving password…"
-                    : "Creating password…"
-                  : recoveryMode
-                    ? "Save new password"
-                    : "Create password"}
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {message ? (
-          <div className="mt-4 rounded-xl border bg-muted/20 p-3 text-sm">
-            {message}
-          </div>
-        ) : null}
-      </section>
-    </main>
+      {message ? (
+        <div className="mt-4">
+          <PublicAuthNotice>{message}</PublicAuthNotice>
+        </div>
+      ) : null}
+    </PublicAuthShell>
   );
 }

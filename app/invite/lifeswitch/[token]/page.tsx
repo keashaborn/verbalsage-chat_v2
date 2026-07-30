@@ -6,6 +6,13 @@ import {
   TurnstileWidget,
   type TurnstileWidgetHandle,
 } from "@/components/auth/TurnstileWidget";
+import {
+  PublicAuthNotice,
+  PublicAuthShell,
+  PUBLIC_AUTH_PRIMARY_ACTION_CLASS,
+  PUBLIC_AUTH_SECONDARY_ACTION_CLASS,
+  PUBLIC_AUTH_SECTION_CLASS,
+} from "@/components/auth/PublicAuthShell";
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch } from "@/lib/authFetch";
 
@@ -35,9 +42,7 @@ async function fetchJson(url: string, init?: RequestInit) {
     data = text;
   }
   if (!r.ok) {
-    const detail =
-      typeof data === "object" && data ? data.detail || data.error : text;
-    throw new Error(String(detail || `HTTP ${r.status}`));
+    throw new Error("The invitation could not be loaded.");
   }
   return data;
 }
@@ -96,9 +101,9 @@ export default function LifeSwitchInvitePage({
 
       const { data } = await supabase.auth.getUser();
       setSessionUserId(data?.user?.id || "");
-    } catch (e: any) {
+    } catch {
       setPreview(null);
-      setMessage(String(e?.message || e));
+      setMessage("");
     } finally {
       setLoading(false);
     }
@@ -131,8 +136,8 @@ export default function LifeSwitchInvitePage({
       if (error) throw error;
       await syncIdentityBestEffort();
       await load();
-    } catch (e: any) {
-      setMessage(String(e?.message || e));
+    } catch {
+      setMessage("The email or password was not accepted.");
     } finally {
       loginTurnstileRef.current?.reset();
       setLoginToken("");
@@ -175,8 +180,12 @@ export default function LifeSwitchInvitePage({
       setMessage(
         "Request received. If the LifeSwitch Owner approves it, you will receive an email to create your password. Reopen this invitation link after signing in.",
       );
-    } catch (e: any) {
-      setMessage(String(e?.message || e));
+    } catch (error: unknown) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The request could not be submitted. Try again.",
+      );
     } finally {
       accessRequestTurnstileRef.current?.reset();
       setAccessRequestToken("");
@@ -196,24 +205,15 @@ export default function LifeSwitchInvitePage({
         body: JSON.stringify({ token }),
       });
 
-      const text = await r.text().catch(() => "");
-      let data: any = null;
-      try {
-        data = text ? JSON.parse(text) : null;
-      } catch {
-        data = text;
-      }
-
       if (!r.ok) {
-        const detail =
-          typeof data === "object" && data ? data.detail || data.error : text;
-        throw new Error(String(detail || `HTTP ${r.status}`));
+        throw new Error("The invitation could not be accepted.");
       }
 
       setAccepted(true);
-      setMessage("Invitation accepted.");
-    } catch (e: any) {
-      setMessage(String(e?.message || e));
+    } catch {
+      setMessage(
+        "The invitation could not be accepted. It may have expired or already been used.",
+      );
     } finally {
       setBusy(false);
     }
@@ -223,19 +223,14 @@ export default function LifeSwitchInvitePage({
   const isExpiredOrClosed = preview && preview.status !== "pending";
 
   return (
-    <div className="mx-auto max-w-2xl p-4 pb-24">
-      <div className="rounded-2xl border bg-background p-5 shadow-sm">
-        <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          LifeSwitch
-        </div>
-
-        <h1 className="mt-2 text-2xl font-semibold">
-          {preview
-            ? `${inviter} invited you to LifeSwitch`
-            : "LifeSwitch invitation"}
-        </h1>
-
-        <div className="mt-4 grid gap-3 text-sm text-muted-foreground">
+    <PublicAuthShell
+      title={
+        preview
+          ? `${inviter} invited you to LifeSwitch`
+          : "LifeSwitch invitation"
+      }
+      intro={
+        <>
           <p>
             LifeSwitch is a private app for planning, tracking, reflection, and
             personal change work.
@@ -250,178 +245,246 @@ export default function LifeSwitchInvitePage({
               LifeSwitch.
             </p>
           ) : null}
+        </>
+      }
+    >
+      {loading ? (
+        <div
+          className={`${PUBLIC_AUTH_SECTION_CLASS} text-sm text-muted-foreground`}
+          role="status"
+        >
+          Loading invitation…
         </div>
-
-        {loading ? (
-          <div className="mt-5 rounded-xl border p-4 text-sm text-muted-foreground">
-            Loading invitation…
-          </div>
-        ) : preview ? (
-          <div className="mt-5 rounded-xl border p-4">
-            <div className="text-sm font-semibold">Invitation details</div>
-            <div className="mt-2 grid gap-1 text-sm text-muted-foreground">
-              <div>From: {inviter}</div>
-              <div>Connection type: {kindLabel(preview.relationship_kind)}</div>
-              <div>Status: {preview.status}</div>
-              {preview.expires_at ? (
-                <div>
-                  Expires: {new Date(preview.expires_at).toLocaleDateString()}
-                </div>
-              ) : null}
+      ) : preview ? (
+        <div className={PUBLIC_AUTH_SECTION_CLASS}>
+          <div className="text-sm font-semibold">Invitation details</div>
+          <dl className="mt-2 grid gap-1 text-sm text-muted-foreground">
+            <div>
+              <dt className="inline font-medium text-foreground">From:</dt>{" "}
+              <dd className="inline">{inviter}</dd>
             </div>
-          </div>
-        ) : (
-          <div className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-            This invitation could not be loaded.
-          </div>
-        )}
-
-        {message ? (
-          <div className="mt-4 rounded-xl border bg-muted/20 p-3 text-sm">
-            {message}
-          </div>
-        ) : null}
-
-        {accepted ? (
-          <div className="mt-5 grid gap-3">
-            <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-sm">
-              You are now connected with {inviter}.
+            <div>
+              <dt className="inline font-medium text-foreground">
+                Connection type:
+              </dt>{" "}
+              <dd className="inline">{kindLabel(preview.relationship_kind)}</dd>
             </div>
-            <Link
-              href="/lifeswitch/people"
-              className="inline-flex w-fit rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/40"
-            >
-              Go to LifeSwitch People
-            </Link>
-          </div>
-        ) : null}
+            <div>
+              <dt className="inline font-medium text-foreground">Status:</dt>{" "}
+              <dd className="inline">{preview.status}</dd>
+            </div>
+            {preview.expires_at ? (
+              <div>
+                <dt className="inline font-medium text-foreground">Expires:</dt>{" "}
+                <dd className="inline">
+                  {new Date(preview.expires_at).toLocaleDateString()}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        </div>
+      ) : (
+        <div className={`${PUBLIC_AUTH_SECTION_CLASS} grid gap-4`}>
+          <PublicAuthNotice tone="error">
+            This invitation could not be loaded. Ask the sender to create a new
+            invitation.
+          </PublicAuthNotice>
+          <Link
+            href="/"
+            className={`${PUBLIC_AUTH_SECONDARY_ACTION_CLASS} w-fit`}
+          >
+            Return to LifeSwitch
+          </Link>
+        </div>
+      )}
 
-        {!accepted && preview && !isExpiredOrClosed ? (
-          <div className="mt-5">
-            {sessionUserId ? (
-              <div className="grid gap-3">
-                <div className="text-sm text-muted-foreground">
-                  You are signed in and can accept this invitation.
-                </div>
+      {message ? (
+        <div className="mt-4">
+          <PublicAuthNotice>{message}</PublicAuthNotice>
+        </div>
+      ) : null}
+
+      {accepted ? (
+        <div className={`${PUBLIC_AUTH_SECTION_CLASS} grid gap-4`}>
+          <PublicAuthNotice tone="success">
+            You are now connected with {inviter}.
+          </PublicAuthNotice>
+          <Link
+            href="/lifeswitch/people"
+            className={`${PUBLIC_AUTH_PRIMARY_ACTION_CLASS} w-fit`}
+          >
+            Go to LifeSwitch People
+          </Link>
+        </div>
+      ) : null}
+
+      {!accepted && preview && isExpiredOrClosed ? (
+        <div className={PUBLIC_AUTH_SECTION_CLASS}>
+          <PublicAuthNotice>
+            This invitation is no longer available.
+          </PublicAuthNotice>
+        </div>
+      ) : null}
+
+      {!accepted && preview && !isExpiredOrClosed ? (
+        <div className={PUBLIC_AUTH_SECTION_CLASS}>
+          {sessionUserId ? (
+            <div className="grid gap-4">
+              <div className="text-sm text-muted-foreground">
+                You are signed in and can accept this invitation.
+              </div>
+              <button
+                type="button"
+                onClick={() => void acceptInvite()}
+                disabled={busy}
+                className={`${PUBLIC_AUTH_PRIMARY_ACTION_CLASS} w-fit`}
+              >
+                {busy ? "Accepting…" : "Accept invitation"}
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm font-semibold">
+                Log in or request access to accept
+              </div>
+
+              <div
+                className="mt-3 flex border-b border-border/70"
+                role="tablist"
+                aria-label="Invitation access"
+              >
                 <button
                   type="button"
-                  onClick={() => void acceptInvite()}
+                  role="tab"
+                  aria-selected={mode === "login"}
+                  className={`min-h-11 border-b-2 px-2 text-sm font-medium ${
+                    mode === "login"
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                  onClick={() => {
+                    setMode("login");
+                    setLoginToken("");
+                    setAccessRequestToken("");
+                    setMessage("");
+                  }}
                   disabled={busy}
-                  className="w-fit rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
                 >
-                  {busy ? "Accepting…" : "Accept invitation"}
+                  Log in
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === "request"}
+                  className={`min-h-11 border-b-2 px-2 text-sm font-medium ${
+                    mode === "request"
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                  onClick={() => {
+                    setMode("request");
+                    setLoginToken("");
+                    setAccessRequestToken("");
+                    setMessage("");
+                  }}
+                  disabled={busy}
+                >
+                  Request access
                 </button>
               </div>
-            ) : (
-              <div className="mt-5 rounded-2xl border p-4">
-                <div className="text-sm font-semibold">
-                  Log in or request access to accept
-                </div>
 
-                <div className="mt-3 flex gap-2 text-sm">
-                  <button
-                    className={`rounded-lg px-3 py-1 ${mode === "login" ? "bg-muted" : "hover:bg-muted/60"}`}
-                    onClick={() => {
-                      setMode("login");
-                      setLoginToken("");
-                      setAccessRequestToken("");
-                      setMessage("");
-                    }}
-                    disabled={busy}
-                  >
-                    Log in
-                  </button>
-                  <button
-                    className={`rounded-lg px-3 py-1 ${mode === "request" ? "bg-muted" : "hover:bg-muted/60"}`}
-                    onClick={() => {
-                      setMode("request");
-                      setLoginToken("");
-                      setAccessRequestToken("");
-                      setMessage("");
-                    }}
-                    disabled={busy}
-                  >
-                    Request access
-                  </button>
-                </div>
-
-                <div className="mt-3 grid gap-2">
-                  {mode === "request" ? (
-                    <>
+              <div className="mt-4 grid gap-3">
+                {mode === "request" ? (
+                  <>
+                    <label className="grid gap-1.5 text-sm">
+                      <span>
+                        Full name{" "}
+                        <span className="text-muted-foreground">
+                          (optional)
+                        </span>
+                      </span>
                       <input
-                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                        placeholder="Full name"
+                        className="min-h-11 w-full rounded-lg border bg-background px-3 py-2"
+                        autoComplete="name"
                         value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
+                        onChange={(event) => setFullName(event.target.value)}
                         disabled={busy}
                       />
-                      <p className="text-sm text-muted-foreground">
-                        New accounts require approval from the LifeSwitch Owner.
-                        After creating your password, reopen this invitation
-                        link.
-                      </p>
-                    </>
-                  ) : null}
+                    </label>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      New accounts require approval from the LifeSwitch owner.
+                      After creating your password, reopen this invitation link.
+                    </p>
+                  </>
+                ) : null}
 
+                <label className="grid gap-1.5 text-sm">
+                  <span>Email</span>
                   <input
-                    className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                    placeholder="Email"
+                    className="min-h-11 w-full rounded-lg border bg-background px-3 py-2"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(event) => setEmail(event.target.value)}
                     disabled={busy}
                   />
+                </label>
 
-                  {mode === "login" ? (
-                    <>
+                {mode === "login" ? (
+                  <>
+                    <label className="grid gap-1.5 text-sm">
+                      <span>Password</span>
                       <input
-                        className="w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                        placeholder="Password"
+                        className="min-h-11 w-full rounded-lg border bg-background px-3 py-2"
                         type="password"
+                        autoComplete="current-password"
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(event) => setPassword(event.target.value)}
                         disabled={busy}
                       />
-                      <TurnstileWidget
-                        ref={loginTurnstileRef}
-                        action="auth_login"
-                        onToken={setLoginToken}
-                      />
-                    </>
-                  ) : null}
-
-                  {mode === "request" ? (
+                    </label>
                     <TurnstileWidget
-                      ref={accessRequestTurnstileRef}
-                      action="request_access"
-                      onToken={setAccessRequestToken}
+                      ref={loginTurnstileRef}
+                      action="auth_login"
+                      onToken={setLoginToken}
                     />
-                  ) : null}
+                  </>
+                ) : (
+                  <TurnstileWidget
+                    ref={accessRequestTurnstileRef}
+                    action="request_access"
+                    onToken={setAccessRequestToken}
+                  />
+                )}
 
-                  <button
-                    type="button"
-                    className="w-fit rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-60"
-                    onClick={() =>
-                      mode === "login" ? void login() : void requestAccess()
-                    }
-                    disabled={
-                      busy ||
-                      !email ||
-                      (mode === "login" && (!password || !loginToken)) ||
-                      (mode === "request" && !accessRequestToken)
-                    }
-                  >
-                    {busy
-                      ? "Working…"
-                      : mode === "login"
-                        ? "Log in"
-                        : "Send access request"}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className={`${PUBLIC_AUTH_PRIMARY_ACTION_CLASS} w-fit`}
+                  onClick={() =>
+                    mode === "login" ? void login() : void requestAccess()
+                  }
+                  disabled={
+                    busy ||
+                    !email ||
+                    (mode === "login" && (!password || !loginToken)) ||
+                    (mode === "request" && !accessRequestToken)
+                  }
+                >
+                  {busy
+                    ? "Working…"
+                    : mode === "login"
+                      ? "Log in"
+                      : "Send access request"}
+                </button>
               </div>
-            )}
-          </div>
-        ) : null}
-      </div>
-    </div>
+            </>
+          )}
+        </div>
+      ) : null}
+    </PublicAuthShell>
   );
 }
