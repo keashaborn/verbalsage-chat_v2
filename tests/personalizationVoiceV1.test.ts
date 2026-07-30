@@ -57,12 +57,17 @@ test("assistant name is optional, account-scoped, and narrowly validated", () =>
 test("personalization no longer uses legacy instruction cards", () => {
   const preferences = source("components/settings/AssistantPreferences.tsx");
   const api = source("app/api/user/assistant-preferences/route.ts");
+  const authGate = source("components/auth/AuthGate.tsx");
 
   assert.match(preferences, /\/api\/user\/assistant-preferences/);
   assert.doesNotMatch(preferences, /\/api\/user\/instructions/);
   assert.match(api, /method: "GET" \| "PUT"/);
   assert.doesNotMatch(api, /RESSE_USER_PREFERENCES/);
   assert.doesNotMatch(api, /vantage_id/);
+  assert.doesNotMatch(preferences, /supabase\.auth\.updateUser/);
+  assert.doesNotMatch(preferences, /vs_conversation_style/);
+  assert.match(authGate, /\/api\/user\/assistant-preferences/);
+  assert.doesNotMatch(authGate, /md\.vs_conversation_style/);
 });
 
 test("preview and message speech wrap raw PCM before browser playback", () => {

@@ -12,10 +12,7 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 import { authFetch } from "@/lib/authFetch";
 import { applyTheme, DEFAULT_THEME, normalizeThemeValue } from "@/lib/theme";
-import {
-  normalizeConversationStyle,
-  storeConversationStyle,
-} from "@/lib/conversationStyle";
+import { storeConversationStyle } from "@/lib/conversationStyle";
 import { normalizeSpeechVoice, storeSpeechVoice } from "@/lib/speechSettings";
 import {
   VOICE_PRIVACY_NOTICE_STORAGE_KEY,
@@ -102,9 +99,6 @@ function applySettingsFromSession(session: any): boolean {
     applyThemeFromMetadata(md);
 
     storeSpeechVoice(normalizeSpeechVoice(md.vs_voice));
-    storeConversationStyle(
-      normalizeConversationStyle(md.vs_conversation_style),
-    );
     lsSet("vs_voice_engine", "openai_tts");
 
     if (md.vs_voice_privacy_notice_version === VOICE_PRIVACY_NOTICE_VERSION) {
@@ -165,6 +159,24 @@ export function AuthGate({ children }: { children: ReactNode }) {
       2500,
       "identity.sync",
     );
+  }
+
+  async function syncConversationStyleBestEffort() {
+    try {
+      const response = await withTimeout(
+        authFetch("/api/user/assistant-preferences", {
+          cache: "no-store",
+        }),
+        2500,
+        "assistant-preferences.sync",
+      );
+      if (!response.ok) return;
+      const value = await response.json();
+      storeConversationStyle(value?.conversation_style);
+    } catch {
+      // The browser cache is delivery-only. A temporary sync failure must not
+      // block authentication or create a second account-level authority.
+    }
   }
 
   async function bootstrapFromSession(s: any | null) {
@@ -246,6 +258,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     // Best-effort, non-blocking extras.
     applySettingsFromSession(s);
     void syncIdentityBestEffort(s);
+    void syncConversationStyleBestEffort();
   }
 
   async function forceSignedOut() {

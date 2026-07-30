@@ -8,7 +8,6 @@ import {
   storeConversationStyle,
   type ConversationStyle,
 } from "@/lib/conversationStyle";
-import { supabase } from "@/lib/supabaseClient";
 
 type FormState = {
   revision: number;
@@ -201,14 +200,7 @@ export function AssistantPreferences() {
           typeof value?.revision === "number" ? value.revision : state.revision,
       }));
       storeConversationStyle(conversationStyle);
-      const { error: metadataError } = await supabase.auth.updateUser({
-        data: { vs_conversation_style: conversationStyle },
-      });
-      setStatus(
-        metadataError
-          ? "Preferences saved, but this browser could not sync the speaking style."
-          : "Saved.",
-      );
+      setStatus("Saved.");
     } catch (error: any) {
       setStatus(error?.message || "Could not save preferences.");
     } finally {
