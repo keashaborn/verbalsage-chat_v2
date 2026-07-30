@@ -11,6 +11,7 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 
 type FormState = {
+  assistant_name: string;
   nickname: string;
   occupation: string;
   more_about_you: string;
@@ -22,6 +23,7 @@ type FormState = {
 };
 
 const EMPTY: FormState = {
+  assistant_name: "",
   nickname: "",
   occupation: "",
   more_about_you: "",
@@ -34,18 +36,31 @@ const EMPTY: FormState = {
 
 function TextField({
   label,
+  description,
+  placeholder,
+  maxLength,
   value,
   onChange,
 }: {
   label: string;
+  description?: string;
+  placeholder?: string;
+  maxLength?: number;
   value: string;
   onChange: (value: string) => void;
 }) {
   return (
     <label className="block space-y-1.5">
       <span className="text-sm font-semibold">{label}</span>
+      {description ? (
+        <span className="block text-xs leading-relaxed text-muted-foreground">
+          {description}
+        </span>
+      ) : null}
       <input
         className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+        placeholder={placeholder}
+        maxLength={maxLength}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -172,6 +187,27 @@ export function AssistantPreferences() {
 
   return (
     <div className="space-y-8">
+      <section className="space-y-5" aria-labelledby="assistant-name-title">
+        <div>
+          <h2 id="assistant-name-title" className="text-base font-semibold">
+            Assistant name
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Choose what you would like to call the assistant.
+          </p>
+        </div>
+        <TextField
+          label="Name"
+          description="Optional. This name applies to typed and voice conversations on your signed-in devices."
+          placeholder="Enter a name"
+          maxLength={40}
+          value={form.assistant_name}
+          onChange={(assistant_name) =>
+            setForm((state) => ({ ...state, assistant_name }))
+          }
+        />
+      </section>
+
       <section className="space-y-5" aria-labelledby="about-you-title">
         <div>
           <h2 id="about-you-title" className="text-base font-semibold">
@@ -220,7 +256,10 @@ export function AssistantPreferences() {
         aria-labelledby="response-preferences-title"
       >
         <div>
-          <h2 id="response-preferences-title" className="text-base font-semibold">
+          <h2
+            id="response-preferences-title"
+            className="text-base font-semibold"
+          >
             Response preferences
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">

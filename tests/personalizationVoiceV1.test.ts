@@ -39,6 +39,20 @@ test("conversation styles change presentation without enabling agreement", () =>
   assert.doesNotMatch(api, /\["minimal",\s*"neutral"\]/);
 });
 
+test("assistant name is optional, account-scoped, and narrowly validated", () => {
+  const preferences = source("components/settings/AssistantPreferences.tsx");
+  const api = source("app/api/user/instructions/route.ts");
+
+  assert.match(preferences, />\s*Assistant name\s*</);
+  assert.match(preferences, /typed and voice conversations/);
+  assert.match(preferences, /maxLength=\{40\}/);
+  assert.match(api, /assistant_name:\s*string/);
+  assert.match(api, /invalid_assistant_name/);
+  assert.match(api, /Array\.from\(normalized\)\.length > 40/);
+  assert.match(api, /normalized\.split\(" "\)\.length > 4/);
+  assert.doesNotMatch(api, /vs_assistant_name/);
+});
+
 test("preview and message speech wrap raw PCM before browser playback", () => {
   const panel = source("components/admin/VoicePanel.tsx");
   const messageThread = source("components/assistant-ui/thread.tsx");

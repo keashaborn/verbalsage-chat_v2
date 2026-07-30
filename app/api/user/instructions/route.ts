@@ -9,6 +9,7 @@ const SCOPE = "user_global";
 const MARKER = "RESSE_USER_PREFERENCES_V1\n";
 
 type Preferences = {
+  assistant_name: string;
   nickname: string;
   occupation: string;
   more_about_you: string;
@@ -21,6 +22,7 @@ type Preferences = {
 };
 
 const DEFAULTS: Preferences = {
+  assistant_name: "",
   nickname: "",
   occupation: "",
   more_about_you: "",
@@ -40,6 +42,22 @@ function clean(value: unknown, max: number): string {
     .slice(0, max);
 }
 
+function assistantName(value: unknown): string | null {
+  const normalized = String(value || "")
+    .normalize("NFKC")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return "";
+  if (
+    Array.from(normalized).length > 40 ||
+    normalized.split(" ").length > 4 ||
+    !/^[\p{L}\p{M}\p{N} .'\u2019-]+$/u.test(normalized)
+  ) {
+    return null;
+  }
+  return normalized;
+}
+
 function enumValue<T extends string>(
   value: unknown,
   allowed: readonly T[],
@@ -51,6 +69,7 @@ function enumValue<T extends string>(
 
 function normalize(raw: any): Preferences {
   return {
+    assistant_name: assistantName(raw?.assistant_name) || "",
     nickname: clean(raw?.nickname, 64),
     occupation: clean(raw?.occupation, 160),
     more_about_you: clean(raw?.more_about_you, 2000),
@@ -152,7 +171,17 @@ export async function POST(req: Request) {
       { error: "unauthorized" },
       { status: 401, headers: { "x-request-id": requestId } },
     );
-  const preferences = normalize(await req.json().catch(() => ({})));
+  const body = await req.json().catch(() => ({}));
+  const normalizedAssistantName = assistantName(body?.assistant_name);
+  if (normalizedAssistantName === null)
+    return NextResponse.json(
+      { error: "invalid_assistant_name" },
+      { status: 400, headers: { "x-request-id": requestId } },
+    );
+  const preferences = {
+    ...normalize(body),
+    assistant_name: normalizedAssistantName,
+  };
   const text = MARKER + JSON.stringify(preferences);
   const brains = process.env.BRAINS_URL || "http://172.31.32.171:8088";
   const upstream = await fetch(
