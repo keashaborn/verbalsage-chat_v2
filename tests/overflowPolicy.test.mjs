@@ -88,6 +88,10 @@ test("full-page LifeSwitch surfaces do not reinstate overflow masks", () => {
       "components/lifeswitch/plan/PlanDraftWorkspace.tsx",
       "grid w-full min-w-0 flex-1 content-start gap-4 overflow-x-hidden px-4 py-6",
     ],
+    [
+      "app/collect/layout.tsx",
+      "mx-auto max-w-5xl overflow-x-hidden px-4 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))]",
+    ],
   ];
 
   for (const [path, obsoleteClass] of obsoleteRootClasses) {

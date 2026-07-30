@@ -33,6 +33,11 @@ test("the document has one ordinary scrolling root", () => {
     css,
     /html\.vs-lock-body-scroll,\s*body\.vs-lock-body-scroll\s*\{[\s\S]*?height:\s*100%/,
   );
+  assert.doesNotMatch(
+    css,
+    /data-lifeswitch-helper-open/,
+    "retired page helper must not retain global navigation overrides",
+  );
 });
 
 test("mobile workflow navigation remains stable across plan and measurements", () => {

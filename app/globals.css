@@ -256,10 +256,6 @@
   ) {
     font-size: 16px;
   }
-
-  html[data-lifeswitch-helper-open="true"] [data-lifeswitch-mode-nav] {
-    display: none !important;
-  }
 }
 
 @keyframes vs-voice-breathe {

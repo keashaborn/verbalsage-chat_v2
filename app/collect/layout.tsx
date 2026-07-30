@@ -27,7 +27,7 @@ export default function CollectLayout({ children }: { children: ReactNode }) {
         </div>
       </AppTopBar>
 
-      <main className="mx-auto max-w-5xl overflow-x-hidden px-4 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))]">
+      <main className="mx-auto max-w-5xl px-4 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))]">
         {children}
       </main>
 
