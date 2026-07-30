@@ -29,28 +29,40 @@ test("personalization and voice are separate account settings", () => {
 
 test("conversation styles change presentation without enabling agreement", () => {
   const styles = source("lib/conversationStyle.ts");
-  const api = source("app/api/user/instructions/route.ts");
+  const preferences = source("components/settings/AssistantPreferences.tsx");
 
   assert.match(styles, /"direct"/);
   assert.match(styles, /"natural"/);
   assert.match(styles, /"warm"/);
   assert.match(styles, /without becoming agreeable/);
-  assert.match(api, /encouragement:\s*"neutral"/);
-  assert.doesNotMatch(api, /\["minimal",\s*"neutral"\]/);
+  assert.match(preferences, /CONVERSATION_STYLE_OPTIONS\.find/);
+  assert.match(preferences, /\?\.description/);
+  assert.doesNotMatch(preferences, /label="Friendliness"/);
 });
 
 test("assistant name is optional, account-scoped, and narrowly validated", () => {
   const preferences = source("components/settings/AssistantPreferences.tsx");
-  const api = source("app/api/user/instructions/route.ts");
+  const api = source("app/api/user/assistant-preferences/route.ts");
 
   assert.match(preferences, />\s*Assistant name\s*</);
   assert.match(preferences, /typed and voice conversations/);
   assert.match(preferences, /maxLength=\{40\}/);
-  assert.match(api, /assistant_name:\s*string/);
-  assert.match(api, /invalid_assistant_name/);
-  assert.match(api, /Array\.from\(normalized\)\.length > 40/);
-  assert.match(api, /normalized\.split\(" "\)\.length > 4/);
+  assert.match(api, /assistant-preferences/);
+  assert.match(api, /expected_revision/);
+  assert.doesNotMatch(api, /memory_raw/);
+  assert.doesNotMatch(api, /\/cards\//);
   assert.doesNotMatch(api, /vs_assistant_name/);
+});
+
+test("personalization no longer uses legacy instruction cards", () => {
+  const preferences = source("components/settings/AssistantPreferences.tsx");
+  const api = source("app/api/user/assistant-preferences/route.ts");
+
+  assert.match(preferences, /\/api\/user\/assistant-preferences/);
+  assert.doesNotMatch(preferences, /\/api\/user\/instructions/);
+  assert.match(api, /method: "GET" \| "PUT"/);
+  assert.doesNotMatch(api, /RESSE_USER_PREFERENCES/);
+  assert.doesNotMatch(api, /vantage_id/);
 });
 
 test("preview and message speech wrap raw PCM before browser playback", () => {

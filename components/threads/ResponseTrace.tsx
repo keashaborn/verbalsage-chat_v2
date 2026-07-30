@@ -300,6 +300,24 @@ export function ResponseTrace({
                       ? `${backend.before_openai.memory_record_count} records · ${backend.before_openai.memory_estimated_tokens} estimated tokens`
                       : "not included"}
                   </span>
+                  {backendV2?.before_openai.personalization && (
+                    <>
+                      <span className="text-muted-foreground">
+                        Personalization
+                      </span>
+                      <span>
+                        {titleCase(
+                          backendV2.before_openai.personalization.status,
+                        )}{" "}
+                        ·{" "}
+                        {
+                          backendV2.before_openai.personalization
+                            .estimated_tokens
+                        }{" "}
+                        estimated tokens
+                      </span>
+                    </>
+                  )}
                   <span className="text-muted-foreground">Input</span>
                   <span>
                     {backend.before_openai.total_message_count} messages ·{" "}

@@ -73,6 +73,19 @@ const inspectionV2: ResponseInspectionV2 = {
     interaction: "CONVERSATIONAL",
     question_policy: "NOT_APPLICABLE",
     interaction_reason_codes: ["conversational_update_default"],
+    personalization: {
+      contract_version: "assistant_response_preference_inspection_v1",
+      source: "postgres",
+      status: "applied",
+      assistant_name_included: true,
+      presentation_fields_applied: 1,
+      profile_fields_included: 2,
+      custom_instructions_included: false,
+      suppressed_field_count: 0,
+      truncated_field_count: 0,
+      high_stakes_override: false,
+      estimated_tokens: 42,
+    },
   },
 };
 
@@ -144,6 +157,10 @@ test("trace v2 preserves server authority and the current backend inspection", (
     trace.response_inspection?.before_openai.interaction,
     "CONVERSATIONAL",
   );
+  assert.equal(
+    trace.response_inspection?.before_openai.personalization?.status,
+    "applied",
+  );
 });
 
 test("safe copy removes operational identifiers without losing decisions", () => {
@@ -154,6 +171,7 @@ test("safe copy removes operational identifiers without losing decisions", () =>
   assert.match(serialized, /search_prohibited_by_user/);
   assert.match(serialized, /CONVERSATIONAL/);
   assert.match(serialized, /conversational_update_default/);
+  assert.match(serialized, /assistant_response_preference_inspection_v1/);
   assert.match(serialized, /request-correlation-id/);
   for (const forbidden of [
     "provider-sensitive-response-id",
@@ -253,6 +271,8 @@ test("read-only panel exposes decisions and copies only the safe trace", () => {
   assert.match(panel, /Interaction/);
   assert.match(panel, /Question policy/);
   assert.match(panel, /interaction_reason_codes/);
+  assert.match(panel, /Personalization/);
+  assert.match(panel, /estimated_tokens/);
   assert.match(pane, /safeResponseTraceForCopy\(inspect\)/);
   assert.doesNotMatch(pane, /JSON\.stringify\(inspect, null, 2\)/);
   assert.doesNotMatch(panel, /<select|<input|<textarea/);

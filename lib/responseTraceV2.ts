@@ -7,6 +7,20 @@ import type {
 export const RESPONSE_TRACE_VERSION = "response_trace_v2";
 export const RESPONSE_TRACE_SAFE_COPY_VERSION = "response_trace_safe_copy_v1";
 
+export type AssistantResponsePreferenceInspectionV1 = {
+  contract_version: "assistant_response_preference_inspection_v1";
+  source: "defaults" | "postgres";
+  status: "defaults" | "applied" | "partial" | "suppressed";
+  assistant_name_included: boolean;
+  presentation_fields_applied: number;
+  profile_fields_included: number;
+  custom_instructions_included: boolean;
+  suppressed_field_count: number;
+  truncated_field_count: number;
+  high_stakes_override: boolean;
+  estimated_tokens: number;
+};
+
 export type ResponseInspectionV1 = {
   contract_version: "response_inspection_v1";
   delivery?: {
@@ -63,6 +77,7 @@ export type ResponseInspectionV2 = Omit<
     interaction: string;
     question_policy: string;
     interaction_reason_codes: string[];
+    personalization?: AssistantResponsePreferenceInspectionV1 | null;
   };
 };
 
@@ -161,6 +176,27 @@ function isNonnegativeNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
+function isPersonalizationInspection(
+  value: unknown,
+): value is AssistantResponsePreferenceInspectionV1 {
+  if (!isRecord(value)) return false;
+  return (
+    value.contract_version === "assistant_response_preference_inspection_v1" &&
+    ["defaults", "postgres"].includes(String(value.source)) &&
+    ["defaults", "applied", "partial", "suppressed"].includes(
+      String(value.status),
+    ) &&
+    typeof value.assistant_name_included === "boolean" &&
+    isNonnegativeNumber(value.presentation_fields_applied) &&
+    isNonnegativeNumber(value.profile_fields_included) &&
+    typeof value.custom_instructions_included === "boolean" &&
+    isNonnegativeNumber(value.suppressed_field_count) &&
+    isNonnegativeNumber(value.truncated_field_count) &&
+    typeof value.high_stakes_override === "boolean" &&
+    isNonnegativeNumber(value.estimated_tokens)
+  );
+}
+
 export function responseInspectionFromValue(
   value: unknown,
 ): ResponseInspection | null {
@@ -241,7 +277,10 @@ export function responseInspectionFromValue(
     (typeof before.interaction_version !== "string" ||
       typeof before.interaction !== "string" ||
       typeof before.question_policy !== "string" ||
-      !isStringArray(before.interaction_reason_codes))
+      !isStringArray(before.interaction_reason_codes) ||
+      (before.personalization !== undefined &&
+        before.personalization !== null &&
+        !isPersonalizationInspection(before.personalization)))
   ) {
     return null;
   }

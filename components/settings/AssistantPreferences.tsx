@@ -11,6 +11,7 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 
 type FormState = {
+  revision: number;
   assistant_name: string;
   nickname: string;
   occupation: string;
@@ -23,6 +24,7 @@ type FormState = {
 };
 
 const EMPTY: FormState = {
+  revision: 0,
   assistant_name: "",
   nickname: "",
   occupation: "",
@@ -70,11 +72,15 @@ function TextField({
 
 function TextArea({
   label,
+  description,
+  maxLength,
   value,
   onChange,
   rows,
 }: {
   label: string;
+  description?: string;
+  maxLength?: number;
   value: string;
   onChange: (value: string) => void;
   rows: number;
@@ -82,9 +88,15 @@ function TextArea({
   return (
     <label className="block space-y-1.5">
       <span className="text-sm font-semibold">{label}</span>
+      {description ? (
+        <span className="block text-xs leading-relaxed text-muted-foreground">
+          {description}
+        </span>
+      ) : null}
       <textarea
         className="w-full rounded-lg border bg-background px-3 py-2 text-sm leading-relaxed"
         rows={rows}
+        maxLength={maxLength}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -94,11 +106,13 @@ function TextArea({
 
 function SelectField({
   label,
+  description,
   value,
   options,
   onChange,
 }: {
   label: string;
+  description?: string;
   value: string;
   options: string[];
   onChange: (value: string) => void;
@@ -106,6 +120,11 @@ function SelectField({
   return (
     <label className="block space-y-1.5">
       <span className="text-sm font-semibold">{label}</span>
+      {description ? (
+        <span className="block text-xs leading-relaxed text-muted-foreground">
+          {description}
+        </span>
+      ) : null}
       <select
         className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
         value={value}
@@ -132,7 +151,7 @@ export function AssistantPreferences() {
   React.useEffect(() => {
     void (async () => {
       try {
-        const response = await authFetch("/api/user/instructions", {
+        const response = await authFetch("/api/user/assistant-preferences", {
           cache: "no-store",
         });
         if (!response.ok) throw new Error("Could not load preferences.");
@@ -160,15 +179,27 @@ export function AssistantPreferences() {
       const conversationStyle = normalizeConversationStyle(
         form.conversation_style,
       );
-      const response = await authFetch("/api/user/instructions", {
-        method: "POST",
+      const response = await authFetch("/api/user/assistant-preferences", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          expected_revision: form.revision,
           conversation_style: conversationStyle,
         }),
       });
+      if (response.status === 409) {
+        throw new Error(
+          "These preferences changed on another device. Reload before saving.",
+        );
+      }
       if (!response.ok) throw new Error("Could not save preferences.");
+      const value = await response.json();
+      setForm((state) => ({
+        ...state,
+        revision:
+          typeof value?.revision === "number" ? value.revision : state.revision,
+      }));
       storeConversationStyle(conversationStyle);
       const { error: metadataError } = await supabase.auth.updateUser({
         data: { vs_conversation_style: conversationStyle },
@@ -235,7 +266,9 @@ export function AssistantPreferences() {
         </div>
         <TextArea
           label="More about you"
+          description="Optional background. It is used only when relevant and is not treated as memory evidence."
           rows={4}
+          maxLength={2000}
           value={form.more_about_you}
           onChange={(more_about_you) =>
             setForm((state) => ({ ...state, more_about_you }))
@@ -243,7 +276,9 @@ export function AssistantPreferences() {
         />
         <TextArea
           label="Custom instructions"
+          description="Optional response preferences. They cannot override safety, factual accuracy, memory governance, or system policy."
           rows={4}
+          maxLength={1200}
           value={form.custom_instructions}
           onChange={(custom_instructions) =>
             setForm((state) => ({ ...state, custom_instructions }))
@@ -304,6 +339,11 @@ export function AssistantPreferences() {
           />
           <SelectField
             label="Conversation style"
+            description={
+              CONVERSATION_STYLE_OPTIONS.find(
+                (option) => option.value === form.conversation_style,
+              )?.description
+            }
             value={form.conversation_style}
             options={CONVERSATION_STYLE_OPTIONS.map((option) => option.value)}
             onChange={(conversation_style) =>
@@ -316,7 +356,8 @@ export function AssistantPreferences() {
           />
         </div>
         <div className="text-xs leading-relaxed text-muted-foreground">
-          These preferences affect presentation, not judgment or safety.
+          These preferences affect presentation, not judgment, factual
+          standards, memory selection, or safety.
         </div>
         <div className="flex items-center justify-end gap-3">
           <span className="text-xs text-muted-foreground">{status}</span>
