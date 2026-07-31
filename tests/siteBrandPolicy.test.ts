@@ -96,4 +96,17 @@ test("brand metadata and visual identity are distinct", () => {
   assert.notEqual(verbalSage.favicon, lifeSwitch.favicon);
   assert.notEqual(verbalSage.accentColor, lifeSwitch.accentColor);
   assert.notEqual(verbalSage.canonicalHostname, lifeSwitch.canonicalHostname);
+  assert.equal(
+    verbalSage.appleTouchIcon,
+    "/brand/verbal-sage/app-icon-180.png",
+  );
+  assert.deepEqual(
+    verbalSage.manifestIcons.map((icon) => [icon.sizes, icon.purpose]),
+    [
+      ["192x192", "maskable"],
+      ["512x512", "maskable"],
+      ["192x192", "any"],
+      ["512x512", "any"],
+    ],
+  );
 });

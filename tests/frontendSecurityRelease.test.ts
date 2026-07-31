@@ -9,16 +9,29 @@ function source(relativePath: string) {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
 }
 
-test("production dependency floors cover the audited high and moderate findings", () => {
+test("production dependency floors cover audited findings and unused AI SDK code is retired", () => {
   const manifest = JSON.parse(source("package.json"));
 
   assert.equal(manifest.dependencies.next, "16.2.12");
   assert.equal(manifest.dependencies["@rjsf/core"], "6.7.1");
   assert.equal(manifest.dependencies["@rjsf/validator-ajv8"], "6.7.1");
   assert.equal(manifest.dependencies["@supabase/supabase-js"], "2.110.9");
-  assert.equal(manifest.devDependencies["eslint-config-next"], "16.2.12");
+  assert.equal(manifest.devDependencies["@next/eslint-plugin-next"], "16.2.12");
+  assert.equal(manifest.devDependencies["eslint-config-next"], undefined);
+  assert.equal(manifest.devDependencies["typescript-eslint"], "8.65.0");
+  assert.equal(manifest.devDependencies.eslint, "10.8.0");
+  assert.equal(manifest.devDependencies["@eslint/eslintrc"], undefined);
   assert.equal(manifest.overrides.postcss, "8.5.23");
   assert.equal(manifest.overrides.sharp, "0.35.3");
+  assert.equal(manifest.dependencies.ai, undefined);
+  assert.equal(manifest.dependencies["@ai-sdk/openai"], undefined);
+  assert.equal(manifest.dependencies["@assistant-ui/react-ai-sdk"], undefined);
+  assert.doesNotMatch(source("app/assistant.tsx"), /TextStreamChatTransport/);
+  assert.doesNotMatch(source("app/assistant.tsx"), /AssistantRuntimeProvider/);
+  assert.match(manifest.scripts.lint, /^eslint /);
+  assert.doesNotMatch(source("eslint.config.mjs"), /FlatCompat/);
+  assert.match(source("eslint.config.mjs"), /@next\/eslint-plugin-next/);
+  assert.match(source("eslint.config.mjs"), /typescript-eslint/);
 });
 
 test("proxy applies browser hardening headers to normal and rejected requests", () => {

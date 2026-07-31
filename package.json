@@ -8,7 +8,7 @@
     "build": "next build",
     "postbuild": "node scripts/verifyTurnstileArtifact.mjs",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test:voice": "node --experimental-strip-types --test tests/voiceSpeech.test.ts",
     "test:search-decision": "node --experimental-strip-types --test tests/searchDecisionV1.test.ts",
     "eval:search-routing": "node --experimental-strip-types scripts/runSearchRoutingEvalV1.ts",
@@ -26,9 +26,7 @@
     "tailwindStylesheet": "app/globals.css"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^2.0.75",
     "@assistant-ui/react": "^0.11.47",
-    "@assistant-ui/react-ai-sdk": "^1.1.16",
     "@assistant-ui/react-markdown": "^0.11.6",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
@@ -43,7 +41,6 @@
     "@rjsf/validator-ajv8": "6.7.1",
     "@supabase/supabase-js": "2.110.9",
     "@zxing/browser": "^0.2.1",
-    "ai": "^5.0.105",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.25",
@@ -59,16 +56,16 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
+    "@next/eslint-plugin-next": "16.2.12",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.12",
+    "eslint": "10.8.0",
     "prettier": "^3.7.3",
     "prettier-plugin-tailwindcss": "^0.7.1",
     "tailwindcss": "^4",
+    "typescript-eslint": "8.65.0",
     "typescript": "^5"
   },
   "overrides": {
