@@ -70,9 +70,28 @@ test("saved account names update the open navigation without a reload", () => {
   assert.match(menu, /roleLabel\(role\)/);
 });
 
-test("account page does not expose inert units or time-zone controls", () => {
+test("account page does not expose inert units and provides explicit account timezone control", () => {
   const page = source("app/settings/account/page.tsx");
 
   assert.doesNotMatch(page, /Preferred units/);
-  assert.doesNotMatch(page, /Time zone/);
+  assert.match(page, /Time zone/);
+  assert.match(page, /Registered time zone/);
+  assert.match(page, /does not change automatically when you travel/);
+  assert.match(page, /Use this device time zone/);
+  assert.match(page, /Save time zone/);
+  assert.match(page, /expected_revision: timezoneRevision/);
+  assert.match(page, /authFetch\("\/api\/user\/account-timezone"/);
+});
+
+test("account timezone BFF uses fresh authenticated ownership and never accepts an owner id", () => {
+  const route = source("app/api/user/account-timezone/route.ts");
+
+  assert.match(route, /getFreshSupabaseAuthContextFromRequest/);
+  assert.match(route, /getSupabaseBearerAuthorizationFromRequest/);
+  assert.match(route, /brainsUpstreamHeaders\(resolved\.rid, resolved\.actor/);
+  assert.match(route, /\/lifeswitch\/account\/timezone/);
+  assert.match(route, /timezone_name: raw\.timezone_name/);
+  assert.match(route, /expected_revision: raw\.expected_revision/);
+  assert.doesNotMatch(route, /raw\.owner_user_id/);
+  assert.doesNotMatch(route, /searchParams\.get\(["']owner_user_id/);
 });

@@ -15,6 +15,34 @@ type AccountAccess = {
   productTier: unknown;
 };
 
+type AccountTimezone = {
+  timezone_name: string | null;
+  source: "account_setting" | "reviewed_migration" | null;
+  revision: number;
+  updated_at: string | null;
+};
+
+function deviceTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+function timezoneChoices(...included: string[]) {
+  let values: string[] = [];
+  try {
+    const supported = (
+      Intl as typeof Intl & {
+        supportedValuesOf?: (key: "timeZone") => string[];
+      }
+    ).supportedValuesOf;
+    values = supported ? supported("timeZone") : [];
+  } catch {}
+  return Array.from(new Set(["UTC", ...included, ...values].filter(Boolean))).sort();
+}
+
 function displayNameFromUser(user: any) {
   return (
     normalizeAccountFullName(user?.user_metadata?.full_name) ||
@@ -47,6 +75,19 @@ export default function AccountSettingsPage() {
   const [loadError, setLoadError] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [status, setStatus] = React.useState("");
+  const [timezoneLoading, setTimezoneLoading] = React.useState(true);
+  const [timezoneLoadError, setTimezoneLoadError] = React.useState(false);
+  const [timezoneName, setTimezoneName] = React.useState("");
+  const [savedTimezoneName, setSavedTimezoneName] = React.useState("");
+  const [timezoneRevision, setTimezoneRevision] = React.useState(0);
+  const [timezoneSource, setTimezoneSource] = React.useState<AccountTimezone["source"]>(null);
+  const [timezoneSaving, setTimezoneSaving] = React.useState(false);
+  const [timezoneStatus, setTimezoneStatus] = React.useState("");
+  const detectedTimezone = React.useMemo(deviceTimezone, []);
+  const timezoneOptions = React.useMemo(
+    () => timezoneChoices(timezoneName, detectedTimezone),
+    [timezoneName, detectedTimezone],
+  );
 
   const loadAccountDetails = React.useCallback(async () => {
     setLoading(true);
@@ -102,9 +143,39 @@ export default function AccountSettingsPage() {
     }
   }, []);
 
+  const loadTimezoneDetails = React.useCallback(async () => {
+    setTimezoneLoading(true);
+    setTimezoneLoadError(false);
+    setTimezoneStatus("");
+    try {
+      const response = await authFetch("/api/user/account-timezone", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as AccountTimezone | null;
+      if (!response.ok || !payload || !Number.isInteger(payload.revision)) {
+        throw new Error("Timezone unavailable");
+      }
+      const loaded = payload.timezone_name || detectedTimezone;
+      setTimezoneName(loaded);
+      setSavedTimezoneName(payload.timezone_name || "");
+      setTimezoneRevision(payload.revision);
+      setTimezoneSource(payload.source);
+    } catch {
+      setTimezoneLoadError(true);
+      setTimezoneName(detectedTimezone);
+      setSavedTimezoneName("");
+      setTimezoneRevision(0);
+      setTimezoneSource(null);
+    } finally {
+      setTimezoneLoading(false);
+    }
+  }, [detectedTimezone]);
+
   React.useEffect(() => {
     void loadAccountDetails();
-  }, [loadAccountDetails]);
+    void loadTimezoneDetails();
+  }, [loadAccountDetails, loadTimezoneDetails]);
 
   async function saveIdentity() {
     const nextFullName = normalizeAccountFullName(fullName);
@@ -150,6 +221,42 @@ export default function AccountSettingsPage() {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch {}
     window.location.href = "/";
+  }
+
+  async function saveTimezone() {
+    if (!timezoneName || timezoneName.length > 80) {
+      setTimezoneStatus("Choose a valid time zone.");
+      return;
+    }
+    setTimezoneSaving(true);
+    setTimezoneStatus("");
+    try {
+      const response = await authFetch("/api/user/account-timezone", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          timezone_name: timezoneName,
+          expected_revision: timezoneRevision,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as AccountTimezone | null;
+      if (response.status === 409) {
+        setTimezoneStatus("The time zone changed in another session. Reload and try again.");
+        return;
+      }
+      if (!response.ok || !payload?.timezone_name) {
+        throw new Error("Timezone save failed");
+      }
+      setTimezoneName(payload.timezone_name);
+      setSavedTimezoneName(payload.timezone_name);
+      setTimezoneRevision(payload.revision);
+      setTimezoneSource("account_setting");
+      setTimezoneStatus("Time zone saved.");
+    } catch {
+      setTimezoneStatus("Time zone could not be saved. Try again.");
+    } finally {
+      setTimezoneSaving(false);
+    }
   }
 
   const normalizedFullName = normalizeAccountFullName(fullName);
@@ -322,6 +429,82 @@ export default function AccountSettingsPage() {
                 </button>
               </div>
             </>
+          )}
+        </section>
+
+        <section className="space-y-5 border-t border-muted/20 pt-6">
+          <div>
+            <h2 className="text-base font-semibold">Time zone</h2>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Dates, daily totals, and weekly summaries use this registered time zone.
+              It does not change automatically when you travel.
+            </p>
+          </div>
+
+          {timezoneLoading ? (
+            <div className="py-3 text-sm text-muted-foreground" role="status">
+              Loading time zone…
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium">Registered time zone</span>
+                <select
+                  value={timezoneName}
+                  onChange={(event) => setTimezoneName(event.target.value)}
+                  disabled={timezoneSaving}
+                  className="w-full rounded-lg border bg-background px-3 py-2 text-sm disabled:opacity-60"
+                >
+                  {timezoneOptions.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs text-muted-foreground">
+                  This device reports <span className="font-medium">{detectedTimezone}</span>.
+                  {timezoneSource === "reviewed_migration"
+                    ? " The current value was registered during migration."
+                    : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTimezoneName(detectedTimezone)}
+                  disabled={timezoneSaving || timezoneName === detectedTimezone}
+                  className="rounded-md border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-40"
+                >
+                  Use this device time zone
+                </button>
+              </div>
+
+              {timezoneLoadError ? (
+                <p className="text-xs text-amber-700 dark:text-amber-400" role="alert">
+                  The saved value could not be loaded. Nothing has been changed.
+                </p>
+              ) : null}
+
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <p className="text-xs text-muted-foreground" aria-live="polite">
+                  {timezoneStatus}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void saveTimezone()}
+                  disabled={
+                    timezoneSaving ||
+                    timezoneLoading ||
+                    !timezoneName ||
+                    timezoneName === savedTimezoneName
+                  }
+                  className="product-brand-primary rounded-lg px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {timezoneSaving ? "Saving…" : "Save time zone"}
+                </button>
+              </div>
+            </div>
           )}
         </section>
 
