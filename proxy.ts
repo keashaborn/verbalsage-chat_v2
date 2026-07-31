@@ -15,7 +15,7 @@ const CONTENT_SECURITY_POLICY = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self' https://shvuircoviuuijthoqji.supabase.co wss://shvuircoviuuijthoqji.supabase.co",
+  "connect-src 'self' https://challenges.cloudflare.com https://shvuircoviuuijthoqji.supabase.co wss://shvuircoviuuijthoqji.supabase.co",
   "media-src 'self' data: blob:",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
