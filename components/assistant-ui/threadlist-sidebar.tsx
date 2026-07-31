@@ -69,6 +69,7 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
               width={28}
               height={28}
               priority
+              unoptimized
               className="dark:hidden"
             />
             <Image
@@ -77,6 +78,7 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
               width={28}
               height={28}
               priority
+              unoptimized
               className="hidden dark:block"
             />
           </div>

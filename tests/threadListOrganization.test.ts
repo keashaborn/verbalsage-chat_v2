@@ -103,3 +103,14 @@ test("places the accessible new-chat icon in the fixed sidebar header", () => {
   assert.match(sidebarSource, /<BrainsThreadList query=\{query\}/);
   assert.doesNotMatch(listSource, /<PlusIcon/);
 });
+
+test("sidebar brand marks bypass the failing image optimizer", () => {
+  const sidebarSource = readFileSync(
+    "components/assistant-ui/threadlist-sidebar.tsx",
+    "utf8",
+  );
+
+  assert.match(sidebarSource, /src=\{brand\.iconLight\}/);
+  assert.match(sidebarSource, /src=\{brand\.iconDark\}/);
+  assert.equal(sidebarSource.match(/\bunoptimized\b/g)?.length, 2);
+});
