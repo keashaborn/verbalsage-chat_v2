@@ -5,6 +5,8 @@ import { WorkspaceMenu } from "@/components/nav/WorkspaceMenu";
 import { AccountMenu } from "@/components/nav/AccountMenu";
 import { LifeSwitchModeNav } from "@/components/lifeswitch/LifeSwitchModeNav";
 import { ConfirmActionProvider } from "@/components/lifeswitch/ConfirmActionProvider";
+import { AuthGate } from "@/components/auth/AuthGate";
+import { ProductAccessGate } from "@/components/auth/ProductAccessGate";
 
 export default function LifeSwitchLayout({
   children,
@@ -12,21 +14,25 @@ export default function LifeSwitchLayout({
   children: ReactNode;
 }) {
   return (
-    <div data-lifeswitch-root className="min-h-dvh bg-background">
-      <ConfirmActionProvider>
-        <AppTopBar>
-          <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-            <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />
-            <AccountMenu />
-          </div>
-        </AppTopBar>
+    <AuthGate>
+      <ProductAccessGate product="lifeswitch">
+        <div data-lifeswitch-root className="min-h-dvh bg-background">
+          <ConfirmActionProvider>
+            <AppTopBar>
+              <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
+                <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />
+                <AccountMenu />
+              </div>
+            </AppTopBar>
 
-        <LifeSwitchModeNav />
+            <LifeSwitchModeNav />
 
-        <main className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-10">
-          {children}
-        </main>
-      </ConfirmActionProvider>
-    </div>
+            <main className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-10">
+              {children}
+            </main>
+          </ConfirmActionProvider>
+        </div>
+      </ProductAccessGate>
+    </AuthGate>
   );
 }

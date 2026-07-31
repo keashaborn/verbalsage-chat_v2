@@ -40,6 +40,7 @@ export function AccessRequestsPanel({ access }: { access: AdminAccess }) {
   const [confirmation, setConfirmation] = React.useState<{
     requestId: string;
     decision: "approve" | "decline";
+    productTier: "verbal_sage" | "lifeswitch" | null;
   } | null>(null);
   const [changingRequestId, setChangingRequestId] = React.useState("");
 
@@ -73,7 +74,11 @@ export function AccessRequestsPanel({ access }: { access: AdminAccess }) {
     void loadRequests();
   }, [loadRequests]);
 
-  async function decide(requestId: string, decision: "approve" | "decline") {
+  async function decide(
+    requestId: string,
+    decision: "approve" | "decline",
+    productTier: "verbal_sage" | "lifeswitch" | null,
+  ) {
     setChangingRequestId(requestId);
     setActionError("");
     try {
@@ -82,7 +87,11 @@ export function AccessRequestsPanel({ access }: { access: AdminAccess }) {
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ decision }),
+          body: JSON.stringify(
+            decision === "approve"
+              ? { decision, product_tier: productTier }
+              : { decision },
+          ),
           cache: "no-store",
         },
       );
@@ -200,6 +209,7 @@ export function AccessRequestsPanel({ access }: { access: AdminAccess }) {
                           setConfirmation({
                             requestId: request.id,
                             decision: "decline",
+                            productTier: null,
                           })
                         }
                         disabled={isChanging}
@@ -213,6 +223,7 @@ export function AccessRequestsPanel({ access }: { access: AdminAccess }) {
                           setConfirmation({
                             requestId: request.id,
                             decision: "approve",
+                            productTier: "lifeswitch",
                           })
                         }
                         disabled={isChanging}
@@ -225,12 +236,37 @@ export function AccessRequestsPanel({ access }: { access: AdminAccess }) {
                 </div>
 
                 {isConfirming ? (
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/20 p-2.5">
-                    <div className="text-xs">
-                      {confirmation.decision === "approve"
-                        ? `Send an account invitation to ${request.email}?`
-                        : `Decline the request from ${request.email}?`}
-                    </div>
+                  <div className="mt-3 flex flex-wrap items-end justify-between gap-3 rounded-lg border bg-muted/20 p-2.5">
+                    {confirmation.decision === "approve" ? (
+                      <label className="grid min-w-56 gap-1 text-xs">
+                        <span>Product access for {request.email}</span>
+                        <select
+                          value={confirmation.productTier || "lifeswitch"}
+                          onChange={(event) =>
+                            setConfirmation({
+                              ...confirmation,
+                              productTier:
+                                event.target.value === "verbal_sage"
+                                  ? "verbal_sage"
+                                  : "lifeswitch",
+                            })
+                          }
+                          disabled={isChanging}
+                          className="min-h-10 rounded-lg border bg-background px-3 py-2 text-sm"
+                        >
+                          <option value="lifeswitch">
+                            LifeSwitch — full product + chat
+                          </option>
+                          <option value="verbal_sage">
+                            Verbal Sage — chat only
+                          </option>
+                        </select>
+                      </label>
+                    ) : (
+                      <div className="text-xs">
+                        Decline the request from {request.email}?
+                      </div>
+                    )}
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -243,15 +279,23 @@ export function AccessRequestsPanel({ access }: { access: AdminAccess }) {
                       <button
                         type="button"
                         onClick={() =>
-                          void decide(request.id, confirmation.decision)
+                          void decide(
+                            request.id,
+                            confirmation.decision,
+                            confirmation.productTier,
+                          )
                         }
-                        disabled={isChanging}
+                        disabled={
+                          isChanging ||
+                          (confirmation.decision === "approve" &&
+                            !confirmation.productTier)
+                        }
                         className="rounded-lg bg-foreground px-2.5 py-1 text-xs text-background disabled:opacity-50"
                       >
                         {isChanging
                           ? "Working…"
                           : confirmation.decision === "approve"
-                            ? "Send Invitation"
+                            ? `Send ${confirmation.productTier === "verbal_sage" ? "Verbal Sage" : "LifeSwitch"} Invitation`
                             : "Decline Request"}
                       </button>
                     </div>

@@ -70,6 +70,22 @@ test("Verbal Sage permits shared chat but blocks LifeSwitch namespaces", () => {
     "not-found",
   );
   assert.equal(
+    classifySiteRequest("verbal-sage", "/collect", "GET"),
+    "redirect-to-lifeswitch",
+  );
+  assert.equal(
+    classifySiteRequest("verbal-sage", "/developer/forms", "GET"),
+    "redirect-to-lifeswitch",
+  );
+  assert.equal(
+    classifySiteRequest("verbal-sage", "/api/forms/entries", "POST"),
+    "not-found",
+  );
+  assert.equal(
+    classifySiteRequest("verbal-sage", "/api/catalog/foods/search", "GET"),
+    "not-found",
+  );
+  assert.equal(
     classifySiteRequest("verbal-sage", "/lifeswitching", "GET"),
     "allow",
   );

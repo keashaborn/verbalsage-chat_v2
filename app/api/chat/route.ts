@@ -15,6 +15,7 @@ import {
   capabilityAllowsRole,
   normalizePermissionRole,
 } from "@/app/api/_auth/requireCapability";
+import { productTierAllows } from "@/lib/productEntitlements";
 import {
   responseTraceAccessAllowedV2,
   responseTraceHeadersV2,
@@ -543,6 +544,15 @@ export async function POST(req: Request) {
     if (auth && !authorization) {
       return new Response("unauthorized", {
         status: 401,
+        headers: { "x-request-id": rid },
+      });
+    }
+    if (
+      auth &&
+      !productTierAllows(auth.app_metadata.product_tier, "verbal_sage")
+    ) {
+      return new Response("product access required", {
+        status: 403,
         headers: { "x-request-id": rid },
       });
     }

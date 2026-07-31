@@ -91,8 +91,8 @@ test("successful public access requests replace the form with confirmation", () 
   assert.match(gate, /setAccessRequestSubmitted\(true\)/);
   assert.match(gate, /accessRequestSubmitted \?/);
   assert.match(gate, /Request received/);
-  assert.match(gate, /sent to the LifeSwitch owner for review/);
-  assert.match(gate, /Delivery may\s+take a few minutes/);
+  assert.match(gate, /sent to the \{brand\.name\} owner for review/);
+  assert.match(gate, /Delivery\s+may\s+take a few minutes/);
   assert.match(gate, /You may close this page/);
   assert.match(gate, /Return to log in/);
 });
@@ -113,15 +113,18 @@ test("approval is Owner-only and records approval after invitation succeeds", ()
 
   assert.match(route, /getFreshSupabaseAuthContextFromRequest/);
   assert.match(route, /auth\.role !== "owner"/);
-  assert.match(route, /Object\.keys\(body\)\.length !== 1/);
+  assert.match(route, /Object\.keys\(body\)\.length !== 2/);
   assert.match(route, /body\.decision !== "approve"/);
-  assert.match(route, /body\.decision !== "decline"/);
+  assert.match(route, /body\.decision === "decline"/);
+  assert.match(route, /normalizeProductTier\(body\.product_tier\)/);
   assert.match(route, /admin\.auth\.admin\.inviteUserByEmail/);
   assert.match(route, /inviteError\.code === "email_exists"/);
   assert.match(route, /inviteError\.code === "user_already_exists"/);
   assert.match(route, /admin\.auth\.resetPasswordForEmail/);
   assert.match(route, /password_setup_sent/);
-  assert.match(route, /https:\/\/verbalsage\.com\/auth\/accept-invite/);
+  assert.match(route, /accessInviteRedirectUrl\(productTier\)/);
+  assert.match(route, /assignProductTier/);
+  assert.match(route, /product_tier: productTier/);
   assert.match(route, /access_invite: "approved"/);
   assert.match(route, /access_invitation_failed/);
   assert.match(route, /\.eq\("status", "pending"\)/);
@@ -135,7 +138,8 @@ test("approval is Owner-only and records approval after invitation succeeds", ()
 test("approved access invitations have a dedicated password setup page", () => {
   const page = source("app/auth/accept-invite/page.tsx");
 
-  assert.match(page, /Your LifeSwitch access was approved/);
+  assert.match(page, /`Your \$\{brand\.name\} access was approved`/);
+  assert.match(page, /useSiteBrand/);
   assert.match(page, /Create your password/);
   assert.match(page, /Confirm password/);
   assert.match(page, /\.getSession\(\)/);
@@ -165,6 +169,7 @@ test("invite and recovery emails use scanner-safe one-time codes", () => {
     assert.match(template, /-webkit-user-select: all/);
     assert.match(template, /user-select: all/);
     assert.match(template, /The code is filled automatically/);
+    assert.match(template, /\{\{ \.RedirectTo \}\}/);
     assert.match(template, /#setup_code=\{\{ \.Token \}\}/);
     assert.doesNotMatch(template, /[?&]setup_code=/);
     assert.doesNotMatch(template, /Press and hold the code/);
@@ -172,8 +177,8 @@ test("invite and recovery emails use scanner-safe one-time codes", () => {
     assert.doesNotMatch(template, /href="tel:/);
   }
 
-  assert.match(invite, /\/auth\/accept-invite\?type=invite/);
-  assert.match(recovery, /\/auth\/accept-invite\?type=recovery/);
+  assert.match(invite, /\?type=invite/);
+  assert.match(recovery, /\?type=recovery/);
 });
 
 test("invite confirmation URL validation is fail-closed", async () => {
@@ -230,7 +235,9 @@ test("Owner UI exposes a review queue with explicit confirmations", () => {
 
   assert.match(panel, /authFetch\("\/api\/admin\/access-requests"/);
   assert.match(panel, /Only the Owner can approve new accounts/);
-  assert.match(panel, /Send Invitation/);
+  assert.match(panel, /LifeSwitch — full product \+ chat/);
+  assert.match(panel, /Verbal Sage — chat only/);
+  assert.match(panel, /product_tier: productTier/);
   assert.match(panel, /Decline Request/);
   assert.match(panel, /Recent decisions/);
   assert.doesNotMatch(panel, /window\.confirm/);

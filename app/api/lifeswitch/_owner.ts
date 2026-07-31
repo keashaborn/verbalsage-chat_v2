@@ -1,7 +1,7 @@
-import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
+import { getFreshLifeSwitchUserIdFromRequest } from "@/app/api/_auth/productAccess";
 
 export async function getLifeSwitchOwnerUserId(req: Request): Promise<string | null> {
-  return await getSupabaseUserIdFromRequest(req);
+  return await getFreshLifeSwitchUserIdFromRequest(req);
 }
 
 export function unauthorizedLifeSwitch(requestId: string): Response {

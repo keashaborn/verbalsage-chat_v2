@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
+import { getFreshLifeSwitchUserIdFromRequest } from "@/app/api/_auth/productAccess";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +9,13 @@ const BRAINS_URL = process.env.BRAINS_URL || "http://172.31.32.171:8088";
 
 export async function GET(req: NextRequest) {
   const rid = req.headers.get("x-request-id") || randomUUID();
+  const userId = await getFreshLifeSwitchUserIdFromRequest(req);
+  if (!userId) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401,
+      headers: { "content-type": "application/json", "x-request-id": rid },
+    });
+  }
 
   const inUrl = new URL(req.url);
   const upstreamUrl = new URL(`${BRAINS_URL}/catalog/exercises/browse`);

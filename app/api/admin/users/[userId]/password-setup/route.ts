@@ -7,6 +7,8 @@ import {
   PRIVILEGED_MFA_REQUIRED_STATUS,
 } from "@/app/api/_auth/privilegedMfa";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { accessInviteRedirectUrl } from "@/lib/accessInviteRedirect";
+import { normalizeProductTier } from "@/lib/productEntitlements";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,24 +29,6 @@ function requestId(req: Request): string {
       "",
   ).trim();
   return raw && raw.length <= 128 ? raw : randomUUID();
-}
-
-function passwordSetupRedirectUrl(): string {
-  const configured = String(
-    process.env.ACCESS_INVITE_REDIRECT_URL ||
-      "https://verbalsage.com/auth/accept-invite",
-  ).trim();
-  try {
-    const parsed = new URL(configured);
-    if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
-      throw new Error("invalid redirect");
-    }
-    parsed.search = "";
-    parsed.hash = "";
-    return parsed.toString();
-  } catch {
-    return "https://verbalsage.com/auth/accept-invite";
-  }
 }
 
 export async function POST(
@@ -108,10 +92,19 @@ export async function POST(
         { status: 409, headers: { ...NO_STORE_HEADERS, "x-request-id": id } },
       );
     }
+    const productTier = normalizeProductTier(
+      data.user.app_metadata?.product_tier,
+    );
+    if (!productTier) {
+      return NextResponse.json(
+        { ok: false, error: "product_tier_unassigned" },
+        { status: 409, headers: { ...NO_STORE_HEADERS, "x-request-id": id } },
+      );
+    }
 
     const { error: resetError } = await admin.auth.resetPasswordForEmail(
       targetEmail,
-      { redirectTo: passwordSetupRedirectUrl() },
+      { redirectTo: accessInviteRedirectUrl(productTier) },
     );
     if (resetError) throw resetError;
 
@@ -121,6 +114,7 @@ export async function POST(
         request_id: id,
         actor_user_id: auth.user_id,
         target_user_id: userId,
+        product_tier: productTier,
         at: new Date().toISOString(),
       }),
     );

@@ -6,6 +6,7 @@ import {
   getFreshSupabaseAuthContextFromRequest,
   getSupabaseBearerAuthorizationFromRequest,
 } from "@/app/api/_auth/supabaseUser";
+import { productTierAllows } from "@/lib/productEntitlements";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
   BRAINS_RESPONSE_TIMEOUT_MS,
@@ -79,7 +80,12 @@ export async function POST(req: Request): Promise<Response> {
 
   const auth = await getFreshSupabaseAuthContextFromRequest(req);
   const authorization = getSupabaseBearerAuthorizationFromRequest(req);
-  if (!auth || !authorization || !UUID_RE.test(auth.user_id)) {
+  if (
+    !auth ||
+    !authorization ||
+    !UUID_RE.test(auth.user_id) ||
+    !productTierAllows(auth.app_metadata.product_tier, "lifeswitch")
+  ) {
     return errorResponse(401, rid, "unauthorized");
   }
 

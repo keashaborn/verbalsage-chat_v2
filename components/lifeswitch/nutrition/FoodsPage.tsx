@@ -392,7 +392,7 @@ export default function NutritionFoodsPage() {
     try {
       const limit = 6;
       const url = `/api/catalog/foods/usda/guide?q=${encodeURIComponent(qq)}&limit=${limit}`;
-      const r = await fetch(url, { cache: "no-store" });
+      const r = await authFetch(url, { cache: "no-store" });
       if (!r.ok) {
         const t = await r.text();
         throw new Error(`guided USDA search HTTP ${r.status}: ${t.slice(0, 200)}`);
@@ -424,7 +424,7 @@ export default function NutritionFoodsPage() {
 
     try {
       const url = `/api/catalog/foods/usda/barcode?upc=${encodeURIComponent(upc)}&limit=5`;
-      const r = await fetch(url, { cache: "no-store" });
+      const r = await authFetch(url, { cache: "no-store" });
       if (!r.ok) {
         const t = await r.text();
         throw new Error(`barcode lookup HTTP ${r.status}: ${t.slice(0, 200)}`);

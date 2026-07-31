@@ -4,17 +4,21 @@ import {
   capabilitiesForRole,
 } from "@/components/admin/settings/permissions/permissionRegistry";
 import {
-  getSupabaseAuthContextFromRequest,
+  getFreshSupabaseAuthContextFromRequest,
 } from "@/app/api/_auth/supabaseUser";
 import {
   normalizePermissionRole,
 } from "@/app/api/_auth/requireCapability";
+import {
+  normalizeProductTier,
+  productsForTier,
+} from "@/lib/productEntitlements";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const auth = await getSupabaseAuthContextFromRequest(req);
+  const auth = await getFreshSupabaseAuthContextFromRequest(req);
 
   if (!auth) {
     return NextResponse.json(
@@ -23,6 +27,8 @@ export async function GET(req: Request) {
         authenticated: false,
         error: "unauthorized",
         role: "user",
+        product_tier: null,
+        products: [],
         capabilities: [],
         capability_count: 0,
         critical_count: 0,
@@ -34,13 +40,40 @@ export async function GET(req: Request) {
   }
 
   const role = normalizePermissionRole(auth.role);
-  const capabilities = capabilitiesForRole(role);
+  const productTier = normalizeProductTier(auth.app_metadata.product_tier);
+  const products = productsForTier(productTier);
+  if (!productTier) {
+    return NextResponse.json(
+      {
+        ok: false,
+        authenticated: true,
+        error: "product_access_unassigned",
+        user_id: auth.user_id,
+        role,
+        product_tier: null,
+        products,
+        capabilities: [],
+        capability_count: 0,
+        critical_count: 0,
+        backend_enforced_count: 0,
+        total_capabilities: CAPABILITY_REGISTRY.length,
+      },
+      { status: 403 },
+    );
+  }
+
+  const capabilities = capabilitiesForRole(role).filter(
+    (capability) =>
+      productTier === "lifeswitch" || capability.category !== "lifeswitch",
+  );
 
   return NextResponse.json({
     ok: true,
     authenticated: true,
     user_id: auth.user_id,
     role,
+    product_tier: productTier,
+    products,
     capabilities: capabilities.map((cap) => ({
       key: cap.key,
       label: cap.label,

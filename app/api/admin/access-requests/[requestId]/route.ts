@@ -7,6 +7,11 @@ import {
   PRIVILEGED_MFA_REQUIRED_STATUS,
 } from "@/app/api/_auth/privilegedMfa";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { accessInviteRedirectUrl } from "@/lib/accessInviteRedirect";
+import {
+  normalizeProductTier,
+  type ProductTier,
+} from "@/lib/productEntitlements";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +26,10 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type Decision = "approve" | "decline";
+type DecisionRequest = {
+  decision: Decision;
+  productTier: ProductTier | null;
+};
 type AccessRequestRow = {
   id: string;
   email: string;
@@ -37,7 +46,7 @@ function requestId(req: Request): string {
   return raw && raw.length <= 128 ? raw : randomUUID();
 }
 
-async function requestedDecision(req: Request): Promise<Decision | null> {
+async function requestedDecision(req: Request): Promise<DecisionRequest | null> {
   const declaredLength = Number(req.headers.get("content-length") || "0");
   if (Number.isFinite(declaredLength) && declaredLength > 1_024) return null;
 
@@ -45,35 +54,77 @@ async function requestedDecision(req: Request): Promise<Decision | null> {
   if (!raw || raw.length > 1_024) return null;
   try {
     const body = JSON.parse(raw);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return null;
+    }
+    if (body.decision === "decline") {
+      return Object.keys(body).length === 1
+        ? { decision: "decline", productTier: null }
+        : null;
+    }
+    const productTier = normalizeProductTier(body.product_tier);
     if (
-      !body ||
-      typeof body !== "object" ||
-      Array.isArray(body) ||
-      Object.keys(body).length !== 1 ||
-      (body.decision !== "approve" && body.decision !== "decline")
+      body.decision !== "approve" ||
+      Object.keys(body).length !== 2 ||
+      !productTier
     ) {
       return null;
     }
-    return body.decision;
+    return { decision: "approve", productTier };
   } catch {
     return null;
   }
 }
 
-function invitationRedirectUrl(): string {
-  const configured = String(
-    process.env.ACCESS_INVITE_REDIRECT_URL ||
-      "https://verbalsage.com/auth/accept-invite",
-  ).trim();
-  try {
-    const parsed = new URL(configured);
-    if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
-      throw new Error("invalid redirect");
-    }
-    return parsed.toString();
-  } catch {
-    return "https://verbalsage.com/auth/accept-invite";
+async function findUserByEmail(
+  admin: ReturnType<typeof getSupabaseAdminClient>,
+  email: string,
+) {
+  const normalized = email.trim().toLowerCase();
+  const { data, error } = await admin.auth.admin.listUsers({
+    page: 1,
+    perPage: 100,
+  });
+  if (error) throw error;
+  return (
+    data.users.find(
+      (user) => String(user.email || "").trim().toLowerCase() === normalized,
+    ) || null
+  );
+}
+
+async function assignProductTier(
+  admin: ReturnType<typeof getSupabaseAdminClient>,
+  user: { id: string; app_metadata?: Record<string, unknown> },
+  productTier: ProductTier,
+) {
+  const existingMetadata =
+    user.app_metadata &&
+    typeof user.app_metadata === "object" &&
+    !Array.isArray(user.app_metadata)
+      ? user.app_metadata
+      : {};
+  if (
+    String(existingMetadata.role || "").trim() === "owner" &&
+    productTier !== "lifeswitch"
+  ) {
+    throw new Error("owner product tier is protected");
   }
+  const role = String(existingMetadata.role || "").trim() || "user";
+  const { data, error } = await admin.auth.admin.updateUserById(user.id, {
+    app_metadata: {
+      ...existingMetadata,
+      role,
+      product_tier: productTier,
+    },
+  });
+  if (error || !data.user) throw error || new Error("user update failed");
+  if (
+    normalizeProductTier(data.user.app_metadata?.product_tier) !== productTier
+  ) {
+    throw new Error("product tier verification failed");
+  }
+  return data.user;
 }
 
 export async function PATCH(
@@ -121,8 +172,8 @@ export async function PATCH(
     );
   }
 
-  const decision = await requestedDecision(req);
-  if (!decision) {
+  const requested = await requestedDecision(req);
+  if (!requested) {
     return NextResponse.json(
       { ok: false, error: "invalid_access_decision" },
       {
@@ -131,6 +182,7 @@ export async function PATCH(
       },
     );
   }
+  const { decision, productTier } = requested;
 
   try {
     const admin = getSupabaseAdminClient();
@@ -169,26 +221,27 @@ export async function PATCH(
 
     let approvalDelivery: "invitation" | "password_setup" | null = null;
     if (decision === "approve") {
-      const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
-        data.email,
-        {
-          redirectTo: invitationRedirectUrl(),
+      if (!productTier) throw new Error("product tier is required");
+      const redirectTo = accessInviteRedirectUrl(productTier);
+      const { data: invitedData, error: inviteError } =
+        await admin.auth.admin.inviteUserByEmail(data.email, {
+          redirectTo,
           data: {
             access_invite: "approved",
             ...(data.requested_name ? { full_name: data.requested_name } : {}),
           },
-        },
-      );
+        });
       if (inviteError) {
         if (
           inviteError.code === "email_exists" ||
           inviteError.code === "user_already_exists"
         ) {
+          const existingUser = await findUserByEmail(admin, data.email);
+          if (!existingUser) throw new Error("existing user not found");
+          await assignProductTier(admin, existingUser, productTier);
           const { error: resetError } = await admin.auth.resetPasswordForEmail(
             data.email,
-            {
-              redirectTo: invitationRedirectUrl(),
-            },
+            { redirectTo },
           );
           if (!resetError) approvalDelivery = "password_setup";
         }
@@ -211,6 +264,8 @@ export async function PATCH(
           );
         }
       } else {
+        if (!invitedData.user) throw new Error("invited user unavailable");
+        await assignProductTier(admin, invitedData.user, productTier);
         approvalDelivery = "invitation";
       }
     }
@@ -226,8 +281,8 @@ export async function PATCH(
         decision_note:
           decision === "approve"
             ? approvalDelivery === "password_setup"
-              ? "password_setup_sent"
-              : "invitation_sent"
+              ? `${productTier}_password_setup_sent`
+              : `${productTier}_invitation_sent`
             : "owner_declined",
       })
       .eq("id", accessRequestId)
@@ -252,6 +307,7 @@ export async function PATCH(
         actor_user_id: auth.user_id,
         access_request_id: accessRequestId,
         decision,
+        product_tier: productTier,
         at: now,
       }),
     );
@@ -267,6 +323,7 @@ export async function PATCH(
         actor_user_id: auth.user_id,
         access_request_id: accessRequestId,
         decision,
+        product_tier: productTier,
         at: new Date().toISOString(),
       }),
     );

@@ -101,6 +101,7 @@ export type SupabaseRequestAuth = {
   user_id: string;
   role: string | null;
   is_admin: boolean;
+  app_metadata: Record<string, unknown>;
   payload: SupabaseJwtPayload;
 };
 
@@ -119,11 +120,18 @@ export async function getSupabaseAuthContextFromRequest(
 
   const appRole = payload.app_metadata?.role;
   const role = typeof appRole === "string" ? appRole : null;
+  const app_metadata =
+    payload.app_metadata &&
+    typeof payload.app_metadata === "object" &&
+    !Array.isArray(payload.app_metadata)
+      ? payload.app_metadata
+      : {};
 
   return {
     user_id,
     role,
     is_admin: role === "admin",
+    app_metadata,
     payload,
   };
 }
@@ -158,12 +166,19 @@ export async function getFreshSupabaseAuthContextFromRequest(
     ) {
       return null;
     }
-    const appRole = user.app_metadata?.role;
+    const app_metadata =
+      user.app_metadata &&
+      typeof user.app_metadata === "object" &&
+      !Array.isArray(user.app_metadata)
+        ? (user.app_metadata as Record<string, unknown>)
+        : {};
+    const appRole = app_metadata.role;
     const role = typeof appRole === "string" ? appRole : null;
     return {
       user_id: payload.sub,
       role,
       is_admin: role === "admin",
+      app_metadata,
       payload,
     };
   } catch {

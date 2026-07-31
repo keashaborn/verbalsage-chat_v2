@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getFreshLifeSwitchUserIdFromRequest } from "@/app/api/_auth/productAccess";
 
 export const runtime = "nodejs";
 
@@ -9,6 +10,10 @@ function brainsUrl(): string {
 }
 
 export async function GET(req: Request) {
+  const userId = await getFreshLifeSwitchUserIdFromRequest(req);
+  if (!userId) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   const inUrl = new URL(req.url);
   const upstream = new URL(`${brainsUrl()}/catalog/foods/usda/search`);
   upstream.search = inUrl.search; // pass through q/limit/etc

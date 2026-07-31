@@ -139,11 +139,18 @@ const LOCAL_HOSTS: Readonly<Record<string, SiteId>> = {
 const LIFESWITCH_PAGE_PREFIXES = [
   "/lifeswitch",
   "/lifeswitch-v2",
+  "/collect",
+  "/developer/forms",
+  "/personalization/forms",
   "/invite/lifeswitch",
   "/share/workout",
 ] as const;
 
-const LIFESWITCH_API_PREFIXES = ["/api/lifeswitch"] as const;
+const LIFESWITCH_API_PREFIXES = [
+  "/api/lifeswitch",
+  "/api/catalog",
+  "/api/forms",
+] as const;
 
 export type SiteHostResolution = Readonly<{
   hostname: string;

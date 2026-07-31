@@ -4,8 +4,17 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { getFreshLifeSwitchUserIdFromRequest } from "@/app/api/_auth/productAccess";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const userId = await getFreshLifeSwitchUserIdFromRequest(req);
+  if (!userId) {
+    return NextResponse.json(
+      { error: "unauthorized" },
+      { status: 401, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   try {
     const p = path.join(process.cwd(), "public", "lifeswitch", "workout_library.json");
     const raw = await readFile(p, "utf-8");

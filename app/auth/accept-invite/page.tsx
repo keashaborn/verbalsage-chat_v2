@@ -14,11 +14,13 @@ import {
   PUBLIC_AUTH_PRIMARY_ACTION_CLASS,
   PUBLIC_AUTH_SECTION_CLASS,
 } from "@/components/auth/PublicAuthShell";
+import { useSiteBrand } from "@/components/site/SiteBrandProvider";
 
 const MIN_PASSWORD_LENGTH = 8;
 type SetupCodeType = "invite" | "recovery";
 
 export default function AcceptAccessInvitePage() {
+  const { brand, siteId } = useSiteBrand();
   const [session, setSession] = useState<Session | null>(null);
   const [checkingInvite, setCheckingInvite] = useState(true);
   const [requiresCode, setRequiresCode] = useState(true);
@@ -78,7 +80,7 @@ export default function AcceptAccessInvitePage() {
       .catch(() => {
         if (!alive) return;
         setMessage(
-          "This invitation could not be verified. Ask the LifeSwitch owner to send a new invitation.",
+          `This invitation could not be verified. Ask the ${brand.name} owner to send a new invitation.`,
         );
         setCheckingInvite(false);
       });
@@ -87,7 +89,7 @@ export default function AcceptAccessInvitePage() {
       alive = false;
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [brand.name]);
 
   async function verifySetupCode() {
     setMessage("");
@@ -123,7 +125,7 @@ export default function AcceptAccessInvitePage() {
       window.history.replaceState(null, "", "/auth/accept-invite");
     } catch {
       setMessage(
-        "That setup code is invalid or expired. Ask the LifeSwitch owner to send a new password setup email.",
+        `That setup code is invalid or expired. Ask the ${brand.name} owner to send a new password setup email.`,
       );
     } finally {
       setBusy(false);
@@ -172,21 +174,22 @@ export default function AcceptAccessInvitePage() {
     <PublicAuthShell
       title={
         checkingInvite
-          ? "LifeSwitch account security"
+          ? `${brand.name} account security`
           : recoveryMode
-            ? "Change your LifeSwitch password"
-            : "Your LifeSwitch access was approved"
+            ? `Change your ${brand.name} password`
+            : `Your ${brand.name} access was approved`
       }
       intro={
         <>
           <p>
-            LifeSwitch is a private app for planning, nutrition, training,
-            measurements, reflection, and personal progress.
+            {siteId === "lifeswitch"
+              ? "LifeSwitch is a private app for planning, nutrition, training, measurements, reflection, and personal progress."
+              : "Verbal Sage is a private AI conversation space with voice, memory, and personalized guidance."}
           </p>
           <p>
             {recoveryMode
-              ? "Use the one-time code from your email, then choose a new password. Your information remains private unless you explicitly share it through LifeSwitch People."
-              : "Use the one-time code from your setup email, then create a password to finish setting up your account. Your information remains private unless you explicitly share it through LifeSwitch People."}
+              ? `Use the one-time code from your email, then choose a new password. Your ${brand.name} information remains private.`
+              : `Use the one-time code from your setup email, then create a password to finish setting up your ${brand.name} account.`}
           </p>
         </>
       }
@@ -203,13 +206,13 @@ export default function AcceptAccessInvitePage() {
           <PublicAuthNotice tone="success">
             {recoveryMode
               ? "Your password has been changed."
-              : "Your password has been created. Your LifeSwitch account is ready."}
+              : `Your password has been created. Your ${brand.name} account is ready.`}
           </PublicAuthNotice>
           <Link
             href="/"
             className={`${PUBLIC_AUTH_PRIMARY_ACTION_CLASS} w-fit`}
           >
-            Continue to LifeSwitch
+            Continue to {brand.name}
           </Link>
         </div>
       ) : requiresCode || !session ? (

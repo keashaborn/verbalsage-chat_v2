@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { authFetch } from "@/lib/authFetch";
 import {
   DndContext,
   closestCenter,
@@ -174,7 +175,7 @@ export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
     setStatus("");
     try {
       if (!ownerUserId.trim()) throw new Error("owner not ready");
-      const r = await fetch(`/api/forms/templates/${encodeURIComponent(ownerUserId.trim())}`, { cache: "no-store" });
+      const r = await authFetch(`/api/forms/templates/${encodeURIComponent(ownerUserId.trim())}`, { cache: "no-store" });
       const t = await r.text().catch(() => "");
       if (!r.ok) throw new Error(`programs failed: HTTP ${r.status} ${t}`);
       const j = JSON.parse(t);
@@ -190,7 +191,7 @@ export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
 
         for (const vid of vids) {
           try {
-            const vr = await fetch(`/api/forms/versions/${encodeURIComponent(vid)}`, { cache: "no-store" });
+            const vr = await authFetch(`/api/forms/versions/${encodeURIComponent(vid)}`, { cache: "no-store" });
             const vt = await vr.text().catch(() => "");
             if (!vr.ok) continue;
             const vj = vt ? JSON.parse(vt) : null;
@@ -215,7 +216,7 @@ export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
     if (!tv) return;
 
     try {
-      const r = await fetch(`/api/forms/versions/${encodeURIComponent(tv)}`, { cache: "no-store" });
+      const r = await authFetch(`/api/forms/versions/${encodeURIComponent(tv)}`, { cache: "no-store" });
       const t = await r.text().catch(() => "");
       if (!r.ok) throw new Error(`program version failed: HTTP ${r.status} ${t}`);
       const v = JSON.parse(t) as FormVersion;
@@ -262,7 +263,7 @@ export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
       qs.set("template_version_id", tv);
       qs.set("limit", "200");
 
-      const r = await fetch(`/api/forms/entries/list?${qs.toString()}`, { cache: "no-store" });
+      const r = await authFetch(`/api/forms/entries/list?${qs.toString()}`, { cache: "no-store" });
       const t = await r.text().catch(() => "");
       if (!r.ok) throw new Error(`entries failed: HTTP ${r.status} ${t}`);
 
@@ -363,7 +364,7 @@ export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
       data,
     };
 
-    const r = await fetch("/api/forms/entries", {
+    const r = await authFetch("/api/forms/entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -531,7 +532,7 @@ export default function CapturePage({ domain }: { domain?: CaptureDomain }) {
 
     (async () => {
       try {
-        const r = await fetch("/api/lifeswitch/workout_library", { cache: "no-store" });
+        const r = await authFetch("/api/lifeswitch/workout_library", { cache: "no-store" });
         const t = await r.text().catch(() => "");
         if (!r.ok) throw new Error(`workout_library HTTP ${r.status} ${t}`);
         const j = JSON.parse(t) as WorkoutLibraryResp;

@@ -4,6 +4,7 @@ import { DEFAULT_SCHEMA, type TemplateListItem, type FormVersion } from "@/compo
 import { safeJsonParse, isObjectSchema } from "@/components/forms/builder/helpers";
 import * as React from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { authFetch } from "@/lib/authFetch";
 import Form from "@rjsf/core";
 import validator from "@rjsf/validator-ajv8";
 import HistoryPanel from "@/components/forms/builder/HistoryPanel";
@@ -631,7 +632,7 @@ export default function FormsPage(
       qs.set("template_version_id", PHASE_TEMPLATE_VERSION_ID);
       qs.set("limit", "200");
 
-      const r = await fetch(`/api/forms/entries/list?${qs.toString()}`, { cache: "no-store" });
+      const r = await authFetch(`/api/forms/entries/list?${qs.toString()}`, { cache: "no-store" });
       const t = await r.text().catch(() => "");
       if (!r.ok) throw new Error(`phases failed: HTTP ${r.status} ${t}`);
 
@@ -668,7 +669,7 @@ export default function FormsPage(
       qs.set("template_version_id", CORRECTION_TEMPLATE_VERSION_ID);
       qs.set("limit", "500");
 
-      const r = await fetch(`/api/forms/entries/list?${qs.toString()}`, { cache: "no-store" });
+      const r = await authFetch(`/api/forms/entries/list?${qs.toString()}`, { cache: "no-store" });
       const t = await r.text().catch(() => "");
       if (!r.ok) throw new Error(`corrections failed: HTTP ${r.status} ${t}`);
 
@@ -768,7 +769,7 @@ export default function FormsPage(
         };
         if (cleanupNotes.trim()) payloadData.notes = cleanupNotes.trim();
 
-        const r = await fetch("/api/forms/entries", {
+        const r = await authFetch("/api/forms/entries", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -811,7 +812,7 @@ export default function FormsPage(
       if (tv) qs.set("template_version_id", tv);
       qs.set("limit", String(historyLimit));
 
-      const r = await fetch(`/api/forms/entries/list?${qs.toString()}`, { cache: "no-store" });
+      const r = await authFetch(`/api/forms/entries/list?${qs.toString()}`, { cache: "no-store" });
       const t = await r.text().catch(() => "");
       if (!r.ok) throw new Error(`history failed: HTTP ${r.status} ${t}`);
 
@@ -821,7 +822,7 @@ export default function FormsPage(
       let hv: FormVersion | null = null;
       if (tv) {
         try {
-          const vr = await fetch(`/api/forms/versions/${encodeURIComponent(tv)}`, { cache: "no-store" });
+          const vr = await authFetch(`/api/forms/versions/${encodeURIComponent(tv)}`, { cache: "no-store" });
           const vt = await vr.text().catch(() => "");
           if (vr.ok) hv = JSON.parse(vt);
         } catch { }
@@ -858,7 +859,7 @@ export default function FormsPage(
       };
       if (phaseNotes.trim()) payloadData.notes = phaseNotes.trim();
 
-      const r = await fetch("/api/forms/entries", {
+      const r = await authFetch("/api/forms/entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -964,7 +965,7 @@ export default function FormsPage(
       if (quickContext.trim() && props.context) payloadData.context = quickContext.trim();
       if (quickNotes.trim() && props.notes) payloadData.notes = quickNotes.trim();
 
-      const r = await fetch("/api/forms/entries", {
+      const r = await authFetch("/api/forms/entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1047,7 +1048,7 @@ export default function FormsPage(
 
       if (templateId.trim()) payload.template_id = templateId.trim();
 
-      const r = await fetch("/api/forms/publish", {
+      const r = await authFetch("/api/forms/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -1076,7 +1077,7 @@ export default function FormsPage(
       if (error || !data?.user) throw new Error("not signed in");
       const owner_user_id = data.user.id;
 
-      const r = await fetch(`/api/forms/templates/${encodeURIComponent(owner_user_id)}`, { cache: "no-store" });
+      const r = await authFetch(`/api/forms/templates/${encodeURIComponent(owner_user_id)}`, { cache: "no-store" });
       const t = await r.text().catch(() => "");
       if (!r.ok) throw new Error(`templates failed: HTTP ${r.status} ${t}`);
 
@@ -1099,7 +1100,7 @@ export default function FormsPage(
     if (!versionId) return;
 
     try {
-      const r = await fetch(`/api/forms/versions/${encodeURIComponent(versionId)}`, { cache: "no-store" });
+      const r = await authFetch(`/api/forms/versions/${encodeURIComponent(versionId)}`, { cache: "no-store" });
       const t = await r.text().catch(() => "");
       if (!r.ok) throw new Error(`version failed: HTTP ${r.status} ${t}`);
 
@@ -1157,7 +1158,7 @@ export default function FormsPage(
         data: formData,
       };
 
-      const r = await fetch("/api/forms/entries", {
+      const r = await authFetch("/api/forms/entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

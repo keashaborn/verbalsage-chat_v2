@@ -8,6 +8,7 @@ import { MemorySystemHealthPanel } from "@/components/admin/settings/MemorySyste
 import { MemoryWorkbenchPanel } from "@/components/admin/settings/MemoryWorkbenchPanel";
 import { UsageAnalyticsPanel } from "@/components/admin/settings/UsageAnalyticsPanel";
 import { VoiceSystemHealthPanel } from "@/components/admin/settings/VoiceSystemHealthPanel";
+import { productTierLabel } from "@/lib/productEntitlements";
 
 type AdminAccess = {
   user_id: string;
@@ -19,6 +20,7 @@ type AdminUser = {
   id: string;
   email: string;
   role: "owner" | "admin" | "member";
+  product_tier: "verbal_sage" | "lifeswitch" | "unassigned";
   status: "active" | "invited" | "unconfirmed" | "suspended";
   created_at: string | null;
   last_sign_in_at: string | null;
@@ -39,6 +41,11 @@ type AdminConfirmation =
       kind: "password-setup";
       userId: string;
       email: string;
+    }
+  | {
+      kind: "product-tier";
+      userId: string;
+      productTier: "verbal_sage" | "lifeswitch";
     };
 
 function formatAccountDate(value: string | null): string {
@@ -132,6 +139,43 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
     }
   }
 
+  async function changeProductTier(
+    userId: string,
+    productTier: "verbal_sage" | "lifeswitch",
+  ) {
+    setChangingUserId(userId);
+    setActionError("");
+    setActionNotice("");
+    try {
+      const response = await authFetch(
+        `/api/admin/users/${encodeURIComponent(userId)}/product-tier`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ product_tier: productTier }),
+          cache: "no-store",
+        },
+      );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(
+          payload?.error === "owner_product_tier_is_protected"
+            ? "The Owner must retain LifeSwitch access."
+            : "The product access could not be changed.",
+        );
+      }
+      setConfirmation(null);
+      setOpenActionsUserId("");
+      await loadUsers();
+    } catch (error: any) {
+      setActionError(
+        error?.message || "The product access could not be changed.",
+      );
+    } finally {
+      setChangingUserId("");
+    }
+  }
+
   async function deleteAccount(userId: string, confirmationEmail: string) {
     setChangingUserId(userId);
     setActionError("");
@@ -216,6 +260,7 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
         (user) =>
           user.email.toLowerCase().includes(query) ||
           user.role.includes(query) ||
+          user.product_tier.includes(query) ||
           user.status.includes(query),
       )
     : users;
@@ -267,6 +312,10 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
         <div className="divide-y divide-muted/20 border-y border-muted/20">
           {filteredUsers.map((user) => {
             const nextRole = user.role === "admin" ? "member" : "admin";
+            const nextProductTier =
+              user.product_tier === "lifeswitch"
+                ? "verbal_sage"
+                : "lifeswitch";
             const isOwner = user.role === "owner";
             const isCurrentUser = user.id === access.user_id;
             const isRoleConfirming =
@@ -278,6 +327,9 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
               confirmation.userId === user.id;
             const isPasswordSetupConfirming =
               confirmation?.kind === "password-setup" &&
+              confirmation.userId === user.id;
+            const isProductTierConfirming =
+              confirmation?.kind === "product-tier" &&
               confirmation.userId === user.id;
             const isChanging = changingUserId === user.id;
             const isActionsOpen = openActionsUserId === user.id;
@@ -301,11 +353,17 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
                       <span>
                         Last sign-in: {formatAccountDate(user.last_sign_in_at)}
                       </span>
+                      <span>
+                        Product: {productTierLabel(user.product_tier)}
+                      </span>
                       {isCurrentUser ? <span>Current account</span> : null}
                     </div>
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">
+                    <span className="text-[11px] font-semibold text-muted-foreground">
+                      {productTierLabel(user.product_tier)}
+                    </span>
                     <span className="text-[11px] font-semibold text-muted-foreground capitalize">
                       {user.role}
                     </span>
@@ -334,6 +392,22 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
 
                 {isActionsOpen && !confirmation ? (
                   <div className="mt-3 flex flex-wrap justify-end gap-2 rounded-lg border bg-muted/20 p-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfirmation({
+                          kind: "product-tier",
+                          userId: user.id,
+                          productTier: nextProductTier,
+                        });
+                        setOpenActionsUserId("");
+                      }}
+                      className="rounded-lg border px-2.5 py-1 text-xs"
+                    >
+                      {nextProductTier === "lifeswitch"
+                        ? "Give LifeSwitch Access"
+                        : "Set Verbal Sage Only"}
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -411,6 +485,39 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
                           : nextRole === "admin"
                             ? "Make Admin"
                             : "Remove Admin"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {isProductTierConfirming ? (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/20 p-2.5">
+                    <div className="text-xs">
+                      {confirmation.productTier === "lifeswitch"
+                        ? "Give this account LifeSwitch plus Verbal Sage chat?"
+                        : "Restrict this account to Verbal Sage chat only?"}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmation(null)}
+                        disabled={isChanging}
+                        className="rounded-lg border px-2.5 py-1 text-xs disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void changeProductTier(
+                            user.id,
+                            confirmation.productTier,
+                          )
+                        }
+                        disabled={isChanging}
+                        className="rounded-lg bg-foreground px-2.5 py-1 text-xs text-background disabled:opacity-50"
+                      >
+                        {isChanging ? "Saving…" : "Change Product Access"}
                       </button>
                     </div>
                   </div>
