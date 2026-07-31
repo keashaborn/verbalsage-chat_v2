@@ -20,6 +20,7 @@ test("production dependency floors cover audited findings and unused AI SDK code
   assert.equal(manifest.devDependencies["eslint-config-next"], undefined);
   assert.equal(manifest.devDependencies["typescript-eslint"], "8.65.0");
   assert.equal(manifest.devDependencies.eslint, "10.8.0");
+  assert.equal(manifest.devDependencies["eslint-plugin-react-hooks"], "7.1.1");
   assert.equal(manifest.devDependencies["@eslint/eslintrc"], undefined);
   assert.equal(manifest.overrides.postcss, "8.5.23");
   assert.equal(manifest.overrides.sharp, "0.35.3");
@@ -32,6 +33,8 @@ test("production dependency floors cover audited findings and unused AI SDK code
   assert.doesNotMatch(source("eslint.config.mjs"), /FlatCompat/);
   assert.match(source("eslint.config.mjs"), /@next\/eslint-plugin-next/);
   assert.match(source("eslint.config.mjs"), /typescript-eslint/);
+  assert.match(source("eslint.config.mjs"), /react-hooks\/rules-of-hooks/);
+  assert.match(source("eslint.config.mjs"), /react-hooks\/exhaustive-deps/);
 });
 
 test("proxy applies browser hardening headers to normal and rejected requests", () => {
