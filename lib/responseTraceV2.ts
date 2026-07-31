@@ -81,7 +81,38 @@ export type ResponseInspectionV2 = Omit<
   };
 };
 
-export type ResponseInspection = ResponseInspectionV1 | ResponseInspectionV2;
+export type ResponseInspectionV3 = Omit<
+  ResponseInspectionV2,
+  "contract_version" | "before_openai" | "after_openai"
+> & {
+  contract_version: "response_inspection_v3";
+  before_openai: ResponseInspectionV2["before_openai"] & {
+    lifeswitch_status:
+      | "OFF"
+      | "TIMEZONE_UNAVAILABLE"
+      | "EMPTY"
+      | "SELECTED"
+      | "PARTIAL";
+    lifeswitch_intent: string;
+    lifeswitch_reason_codes: string[];
+    lifeswitch_database_accessed: boolean;
+    lifeswitch_timezone_source: string;
+    lifeswitch_included: boolean;
+    lifeswitch_record_count: number;
+    lifeswitch_estimated_tokens: number;
+    lifeswitch_projections: string[];
+    lifeswitch_source_contract_version?: string | null;
+  };
+  after_openai: ResponseInspectionV2["after_openai"] & {
+    lifeswitch_binding: "bound" | "none";
+    lifeswitch_binding_contract_version?: string | null;
+  };
+};
+
+export type ResponseInspection =
+  | ResponseInspectionV1
+  | ResponseInspectionV2
+  | ResponseInspectionV3;
 
 export type ResponseTraceTimingV2 = {
   command_validation_ms?: number;
@@ -114,6 +145,7 @@ export type ResponseTraceV2 = {
       | "seebx_search_plan_v1";
     response_runtime:
       | "resse_response_v0_2"
+      | "resse_response_v0_3"
       | "trusted_web_v1"
       | "current_news_v1";
   };
@@ -202,9 +234,11 @@ export function responseInspectionFromValue(
 ): ResponseInspection | null {
   if (
     !isRecord(value) ||
-    !["response_inspection_v1", "response_inspection_v2"].includes(
-      String(value.contract_version),
-    )
+    ![
+      "response_inspection_v1",
+      "response_inspection_v2",
+      "response_inspection_v3",
+    ].includes(String(value.contract_version))
   ) {
     return null;
   }
@@ -273,7 +307,9 @@ export function responseInspectionFromValue(
     return null;
   }
   if (
-    value.contract_version === "response_inspection_v2" &&
+    ["response_inspection_v2", "response_inspection_v3"].includes(
+      String(value.contract_version),
+    ) &&
     (typeof before.interaction_version !== "string" ||
       typeof before.interaction !== "string" ||
       typeof before.question_policy !== "string" ||
@@ -281,6 +317,21 @@ export function responseInspectionFromValue(
       (before.personalization !== undefined &&
         before.personalization !== null &&
         !isPersonalizationInspection(before.personalization)))
+  ) {
+    return null;
+  }
+  if (
+    value.contract_version === "response_inspection_v3" &&
+    (typeof before.lifeswitch_status !== "string" ||
+      typeof before.lifeswitch_intent !== "string" ||
+      !isStringArray(before.lifeswitch_reason_codes) ||
+      typeof before.lifeswitch_database_accessed !== "boolean" ||
+      typeof before.lifeswitch_timezone_source !== "string" ||
+      typeof before.lifeswitch_included !== "boolean" ||
+      !isNonnegativeNumber(before.lifeswitch_record_count) ||
+      !isNonnegativeNumber(before.lifeswitch_estimated_tokens) ||
+      !isStringArray(before.lifeswitch_projections) ||
+      !["bound", "none"].includes(String(after.lifeswitch_binding)))
   ) {
     return null;
   }
@@ -309,7 +360,8 @@ export function responseTraceV2FromValue(value: unknown): ResponseTrace | null {
   if (!isRecord(value)) return null;
   if (
     value.contract_version === "response_inspection_v1" ||
-    value.contract_version === "response_inspection_v2"
+    value.contract_version === "response_inspection_v2" ||
+    value.contract_version === "response_inspection_v3"
   ) {
     return responseInspectionFromValue(value);
   }
@@ -359,6 +411,13 @@ function safeInspectionCopy(
       answer_binding: inspection.after_openai.answer_binding,
       transcript_persistence: inspection.after_openai.transcript_persistence,
       memory_binding: inspection.after_openai.memory_binding,
+      ...(inspection.contract_version === "response_inspection_v3"
+        ? {
+            lifeswitch_binding: inspection.after_openai.lifeswitch_binding,
+            lifeswitch_binding_contract_version:
+              inspection.after_openai.lifeswitch_binding_contract_version,
+          }
+        : {}),
     },
   };
 }
@@ -368,7 +427,8 @@ export function safeResponseTraceForCopy(
 ): Record<string, unknown> {
   if (
     trace.contract_version === "response_inspection_v1" ||
-    trace.contract_version === "response_inspection_v2"
+    trace.contract_version === "response_inspection_v2" ||
+    trace.contract_version === "response_inspection_v3"
   ) {
     return {
       copy_contract: RESPONSE_TRACE_SAFE_COPY_VERSION,
