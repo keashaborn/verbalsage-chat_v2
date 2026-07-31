@@ -2445,7 +2445,7 @@ export function BrainsChatPane() {
         <div className="mx-auto w-full max-w-[44rem] min-w-0 px-4 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {playbackState && (
             <div
-              className="mb-2 flex min-h-12 items-center gap-3 rounded-full border bg-background px-3 py-2 shadow-lg"
+              className="mx-auto mb-2 flex min-h-8 w-[70%] max-w-full min-w-64 items-center gap-2 rounded-full border bg-background px-2 py-1 shadow-md"
               role="region"
               aria-label="AI-generated voice playback"
             >
@@ -2457,7 +2457,7 @@ export function BrainsChatPane() {
                 <>
                   <button
                     type="button"
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full border"
+                    className="relative grid h-6 w-6 shrink-0 place-items-center rounded-full border after:absolute after:-inset-2.5 after:content-['']"
                     onClick={togglePlaybackPause}
                     disabled={playbackState.status === "loading"}
                     aria-label={
@@ -2471,17 +2471,17 @@ export function BrainsChatPane() {
                   >
                     {playbackState.status === "loading" ? (
                       <Loader2
-                        className="h-4 w-4 animate-spin"
+                        className="h-3 w-3 animate-spin"
                         aria-hidden="true"
                       />
                     ) : playbackState.status === "paused" ? (
-                      <Play className="h-4 w-4" aria-hidden="true" />
+                      <Play className="h-3 w-3" aria-hidden="true" />
                     ) : (
-                      <Pause className="h-4 w-4" aria-hidden="true" />
+                      <Pause className="h-3 w-3" aria-hidden="true" />
                     )}
                   </button>
                   <input
-                    className="h-1.5 min-w-0 flex-1 accent-foreground"
+                    className="h-1 min-w-0 flex-1 accent-foreground"
                     type="range"
                     min={0}
                     max={Math.max(playbackState.duration, 0.1)}
@@ -2495,7 +2495,7 @@ export function BrainsChatPane() {
                     }
                     aria-label="Voice playback position"
                   />
-                  <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                  <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
                     {formatPlaybackTime(playbackState.currentTime)} /{" "}
                     {formatPlaybackTime(playbackState.duration)}
                   </span>
@@ -2503,12 +2503,12 @@ export function BrainsChatPane() {
               )}
               <button
                 type="button"
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-full border"
+                className="relative grid h-6 w-6 shrink-0 place-items-center rounded-full border after:absolute after:-inset-2.5 after:content-['']"
                 onClick={stopTTS}
                 aria-label="Stop and close voice playback"
                 title="Stop and close"
               >
-                <X className="h-4 w-4" aria-hidden="true" />
+                <X className="h-3 w-3" aria-hidden="true" />
               </button>
             </div>
           )}

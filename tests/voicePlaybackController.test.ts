@@ -17,6 +17,21 @@ test("playback controller exposes compact essential controls", () => {
   assert.doesNotMatch(pane, /Go back 10 seconds|Go forward 10 seconds/);
 });
 
+test("playback controller stays centered, compact, and touchable", () => {
+  const start = pane.indexOf("{playbackState && (");
+  const end = pane.indexOf('<div className="relative rounded-xl', start);
+  const player = pane.slice(start, end);
+
+  assert.match(player, /mx-auto/);
+  assert.match(player, /min-h-8/);
+  assert.match(player, /w-\[70%\]/);
+  assert.match(player, /min-w-64/);
+  assert.match(player, /max-w-full/);
+  assert.match(player, /gap-2/);
+  assert.equal(player.match(/after:-inset-2\.5/g)?.length, 2);
+  assert.equal(player.match(/h-6 w-6/g)?.length, 2);
+});
+
 test("player uses bounded, private browser-memory audio", () => {
   assert.match(pane, /withRequestDeadline\(/);
   assert.match(pane, /TTS_SEGMENT_TIMEOUT_MS/);
