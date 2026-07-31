@@ -95,12 +95,16 @@ test("all admin routes inherit fresh privileged MFA enforcement", () => {
     "app/api/admin/usage/users/route.ts",
     "app/api/admin/usage/users/[userId]/route.ts",
   ]);
-  const aiOperationsRoutes = new Set([
+  const aiOperationsReadRoutes = new Set([
     "app/api/admin/ai-operations/incidents/route.ts",
+  ]);
+  const aiOperationsManageRoutes = new Set([
+    "app/api/admin/ai-operations/incidents/[incidentId]/acknowledge/route.ts",
+    "app/api/admin/ai-operations/incidents/[incidentId]/resolve/route.ts",
   ]);
   const routes = adminRouteFiles();
 
-  assert.equal(routes.length, 22, "classify every new admin route");
+  assert.equal(routes.length, 24, "classify every new admin route");
   for (const routePath of routes) {
     const route = source(routePath);
     if (directRoutes.has(routePath)) {
@@ -115,11 +119,17 @@ test("all admin routes inherit fresh privileged MFA enforcement", () => {
         /authorizeUsage\(/,
         `${routePath}: missing usage authorizer`,
       );
-    } else if (aiOperationsRoutes.has(routePath)) {
+    } else if (aiOperationsReadRoutes.has(routePath)) {
       assert.match(
         route,
         /authorizeAiOperations\(/,
-        `${routePath}: missing AI Operations authorizer`,
+        `${routePath}: missing AI Operations read authorizer`,
+      );
+    } else if (aiOperationsManageRoutes.has(routePath)) {
+      assert.match(
+        route,
+        /mutateAiOperationsIncident\(/,
+        `${routePath}: missing AI Operations management authorizer`,
       );
     } else {
       assert.match(

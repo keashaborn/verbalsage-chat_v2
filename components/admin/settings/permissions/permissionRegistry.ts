@@ -112,6 +112,18 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     notes: "Restricted to Owner and Admin accounts.",
   },
   {
+    key: "incident.manage",
+    label: "Manage AI Operations Incidents",
+    description: "Acknowledge and resolve private AI reliability incidents.",
+    category: "diagnostics",
+    scope: "system",
+    access: "manage",
+    risk: "critical",
+    defaultRoles: ["owner", "admin"],
+    backendEnforced: true,
+    notes: "Requires fresh Supabase identity and privileged MFA.",
+  },
+  {
     key: "diagnostics.view",
     label: "View Diagnostics",
     description: "Open model/system diagnostic panels.",

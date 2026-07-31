@@ -9,11 +9,12 @@ function source(relativePath: string): string {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
 }
 
-test("AI Operations BFF derives fresh authority and forwards inspector context", () => {
+test("AI Operations read BFF derives fresh authority and forwards inspector context", () => {
   const shared = source("app/api/admin/ai-operations/_shared.ts");
   const route = source("app/api/admin/ai-operations/incidents/route.ts");
 
-  assert.match(shared, /requireFreshCapability\(req, "inspector\.view"\)/);
+  assert.match(shared, /requireFreshCapability\(req, capability\)/);
+  assert.match(shared, /capability: "inspector\.view" \| "incident\.manage"/);
   assert.match(shared, /auth\.auth\?\.user_id/);
   assert.match(shared, /"x-vs-authorized-capability": "inspector\.view"/);
   assert.match(shared, /brainsUpstreamHeaders\(correlationId, actorUserId/);
@@ -24,7 +25,43 @@ test("AI Operations BFF derives fresh authority and forwards inspector context",
   assert.doesNotMatch(route, /actor_user_id/);
 });
 
-test("AI Operations BFF bounds and validates the metadata-only contract", () => {
+test("AI Operations management is capability-bound and body-free", () => {
+  const shared = source("app/api/admin/ai-operations/_shared.ts");
+  const acknowledge = source(
+    "app/api/admin/ai-operations/incidents/[incidentId]/acknowledge/route.ts",
+  );
+  const resolve = source(
+    "app/api/admin/ai-operations/incidents/[incidentId]/resolve/route.ts",
+  );
+  const registry = source(
+    "components/admin/settings/permissions/permissionRegistry.ts",
+  );
+
+  assert.match(shared, /"incident\.manage"/);
+  assert.ok(
+    shared.indexOf('"incident.manage"') < shared.indexOf("req.body !== null"),
+    "authorization must precede request validation",
+  );
+  assert.match(shared, /req\.body !== null/);
+  assert.match(shared, /unexpected_request_body/);
+  assert.match(shared, /method: "POST"/);
+  assert.match(shared, /admin_ai_operations_mutation_v1/);
+  assert.match(shared, /ai_operations_monitor_mutation_v1/);
+  assert.match(
+    acknowledge,
+    /mutateAiOperationsIncident\(req, incidentId, "acknowledge"\)/,
+  );
+  assert.match(
+    resolve,
+    /mutateAiOperationsIncident\(req, incidentId, "resolve"\)/,
+  );
+  assert.doesNotMatch(acknowledge, /req\.json|actor_user_id/);
+  assert.doesNotMatch(resolve, /req\.json|actor_user_id/);
+  assert.match(registry, /key: "incident\.manage"/);
+  assert.match(registry, /defaultRoles: \["owner", "admin"\]/);
+});
+
+test("AI Operations BFF bounds and validates metadata-only contracts", () => {
   const shared = source("app/api/admin/ai-operations/_shared.ts");
   const route = source("app/api/admin/ai-operations/incidents/route.ts");
 
@@ -41,7 +78,7 @@ test("AI Operations BFF bounds and validates the metadata-only contract", () => 
   );
 });
 
-test("AI Operations is separate from product Usage and remains read-only", () => {
+test("AI Operations stays separate and uses deliberate authoritative actions", () => {
   const page = source("components/admin/settings/AdminConsolePage.tsx");
   const panel = source("components/admin/settings/AiOperationsPanel.tsx");
   const aiOperationsIndex = page.indexOf('title="AI Operations"');
@@ -55,6 +92,8 @@ test("AI Operations is separate from product Usage and remains read-only", () =>
   assert.match(panel, /Private operational metadata only/);
   assert.match(panel, /Prompts, queries, URLs/);
   assert.match(panel, /Safe drill/);
-  assert.match(panel, /authFetch\(/);
-  assert.doesNotMatch(panel, /\/acknowledge|\/resolve/);
+  assert.match(panel, /Confirm resolve/);
+  assert.match(panel, /await load\(\)/);
+  assert.match(panel, /method: "POST"/);
+  assert.doesNotMatch(panel, /actor_user_id/);
 });

@@ -77,6 +77,14 @@ export function AiOperationsPanel() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [lastLoadedAt, setLastLoadedAt] = React.useState<Date | null>(null);
+  const [pendingAction, setPendingAction] = React.useState<{
+    incidentId: string;
+    action: "acknowledge" | "resolve";
+  } | null>(null);
+  const [resolveConfirmation, setResolveConfirmation] = React.useState<
+    string | null
+  >(null);
+  const [actionError, setActionError] = React.useState("");
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -109,6 +117,45 @@ export function AiOperationsPanel() {
       setLoading(false);
     }
   }, [filter]);
+
+  const mutate = React.useCallback(
+    async (
+      incident: AiOperationsIncident,
+      action: "acknowledge" | "resolve",
+    ) => {
+      setPendingAction({ incidentId: incident.incident_id, action });
+      setActionError("");
+      try {
+        const response = await authFetch(
+          `/api/admin/ai-operations/incidents/${encodeURIComponent(
+            incident.incident_id,
+          )}/${action}`,
+          { method: "POST", cache: "no-store" },
+        );
+        const payload = await response.json().catch(() => null);
+        const expectedState =
+          action === "acknowledge" ? "acknowledged" : "resolved";
+        if (
+          !response.ok ||
+          payload?.ok !== true ||
+          payload?.schema !== "admin_ai_operations_mutation_v1" ||
+          payload?.incident_id !== incident.incident_id ||
+          payload?.state !== expectedState
+        ) {
+          throw new Error("AI Operations action failed.");
+        }
+        setResolveConfirmation(null);
+        await load();
+      } catch {
+        setActionError(
+          "The incident could not be updated. Refresh and try again.",
+        );
+      } finally {
+        setPendingAction(null);
+      }
+    },
+    [load],
+  );
 
   React.useEffect(() => {
     void load();
@@ -181,6 +228,12 @@ export function AiOperationsPanel() {
         </div>
       ) : null}
 
+      {actionError ? (
+        <div className="border-y border-red-500/40 py-3 text-sm text-red-600 dark:text-red-400">
+          {actionError}
+        </div>
+      ) : null}
+
       {!loading && !error && items.length === 0 ? (
         <div className="border-y border-muted/20 py-6 text-sm text-muted-foreground">
           No monitor incidents match this filter.
@@ -217,6 +270,59 @@ export function AiOperationsPanel() {
                   observation{incident.observation_count === 1 ? "" : "s"}
                 </div>
               </div>
+
+              {incident.state !== "resolved" ? (
+                <div
+                  className="flex flex-wrap items-center justify-end gap-2"
+                  aria-label={`Actions for ${label(incident.monitor_name)}`}
+                >
+                  {pendingAction?.incidentId === incident.incident_id ? (
+                    <span className="text-xs text-muted-foreground">
+                      Updating…
+                    </span>
+                  ) : resolveConfirmation === incident.incident_id ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setResolveConfirmation(null)}
+                        className="rounded-md border border-muted/40 px-3 py-1.5 text-xs font-semibold"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void mutate(incident, "resolve")}
+                        className="rounded-md border border-red-500/50 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400"
+                      >
+                        Confirm resolve
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {incident.state === "open" ? (
+                        <button
+                          type="button"
+                          onClick={() => void mutate(incident, "acknowledge")}
+                          disabled={pendingAction !== null}
+                          className="rounded-md border border-muted/40 px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                        >
+                          Acknowledge
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setResolveConfirmation(incident.incident_id)
+                        }
+                        disabled={pendingAction !== null}
+                        className="rounded-md border border-muted/40 px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                      >
+                        Resolve
+                      </button>
+                    </>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             <dl className="mt-4 grid gap-3 text-xs sm:grid-cols-4">

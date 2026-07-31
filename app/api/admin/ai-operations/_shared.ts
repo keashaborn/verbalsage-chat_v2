@@ -61,10 +61,11 @@ export function fail(status: number, error: string, correlationId: string) {
 export async function authorizeAiOperations(
   req: Request,
   correlationId: string,
+  capability: "inspector.view" | "incident.manage" = "inspector.view",
 ): Promise<
   { ok: true; actorUserId: string } | { ok: false; response: NextResponse }
 > {
-  const auth = await requireFreshCapability(req, "inspector.view");
+  const auth = await requireFreshCapability(req, capability);
   if (!auth.ok) {
     return {
       ok: false,
@@ -81,6 +82,13 @@ export async function authorizeAiOperations(
   return { ok: true, actorUserId };
 }
 
+function aiOperationsBrainsUrl(): string {
+  return (process.env.BRAINS_URL || "http://172.31.32.171:8088").replace(
+    /\/+$/,
+    "",
+  );
+}
+
 export async function brainsAiOperationsJson(
   path: string,
   {
@@ -91,9 +99,7 @@ export async function brainsAiOperationsJson(
     correlationId: string;
   },
 ): Promise<{ ok: true; value: unknown } | { ok: false }> {
-  const brainsUrl = (
-    process.env.BRAINS_URL || "http://172.31.32.171:8088"
-  ).replace(/\/+$/, "");
+  const brainsUrl = aiOperationsBrainsUrl();
   try {
     const upstream = await fetch(`${brainsUrl}${path}`, {
       method: "GET",
@@ -110,6 +116,93 @@ export async function brainsAiOperationsJson(
     return { ok: true, value: JSON.parse(raw) };
   } catch {
     return { ok: false };
+  }
+}
+
+type IncidentMutationAction = "acknowledge" | "resolve";
+type IncidentMutationState = "acknowledged" | "resolved";
+
+function validMutation(
+  value: any,
+  incidentId: string,
+  expectedState: IncidentMutationState,
+): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const expectedKeys = new Set([
+    "ok",
+    "schema",
+    "source_contract_version",
+    "action",
+    "incident_id",
+    "state",
+  ]);
+  const keys = Object.keys(value);
+  return (
+    keys.length === expectedKeys.size &&
+    keys.every((key) => expectedKeys.has(key)) &&
+    value.ok === true &&
+    value.schema === "admin_ai_operations_mutation_v1" &&
+    value.source_contract_version === "ai_operations_monitor_mutation_v1" &&
+    value.action === expectedState &&
+    value.incident_id === incidentId &&
+    value.state === expectedState
+  );
+}
+
+export async function mutateAiOperationsIncident(
+  req: Request,
+  incidentId: string,
+  action: IncidentMutationAction,
+) {
+  const correlationId = requestId(req);
+  const auth = await authorizeAiOperations(
+    req,
+    correlationId,
+    "incident.manage",
+  );
+  if (!auth.ok) return auth.response;
+  if (req.body !== null) {
+    return fail(400, "unexpected_request_body", correlationId);
+  }
+  if (!UUID_PATTERN.test(incidentId)) {
+    return fail(400, "invalid_incident_id", correlationId);
+  }
+
+  const expectedState: IncidentMutationState =
+    action === "acknowledge" ? "acknowledged" : "resolved";
+  const path = `/admin/ai-operations/incidents/${encodeURIComponent(
+    incidentId,
+  )}/${action}`;
+  try {
+    const upstream = await fetch(`${aiOperationsBrainsUrl()}${path}`, {
+      method: "POST",
+      cache: "no-store",
+      headers: brainsUpstreamHeaders(correlationId, auth.actorUserId, {
+        Accept: "application/json",
+        "x-vs-authorized-capability": "incident.manage",
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!upstream.ok) {
+      if (upstream.status === 404) {
+        return fail(404, "monitor_incident_not_found", correlationId);
+      }
+      if (upstream.status === 409) {
+        return fail(409, "invalid_incident_transition", correlationId);
+      }
+      return fail(502, "ai_operations_unavailable", correlationId);
+    }
+    const raw = await upstream.text();
+    if (!raw || raw.length > MAX_UPSTREAM_BYTES) {
+      return fail(502, "ai_operations_unavailable", correlationId);
+    }
+    const value = JSON.parse(raw);
+    if (!validMutation(value, incidentId, expectedState)) {
+      return fail(502, "ai_operations_unavailable", correlationId);
+    }
+    return noStoreJson(value, correlationId);
+  } catch {
+    return fail(502, "ai_operations_unavailable", correlationId);
   }
 }
 
