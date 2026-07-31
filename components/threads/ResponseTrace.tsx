@@ -90,12 +90,7 @@ export function ResponseTrace({
     inspection?.contract_version === RESPONSE_TRACE_VERSION ? inspection : null;
   const backend = responseInspectionFromTrace(inspection);
   const backendV2 =
-    backend?.contract_version === "response_inspection_v2" ||
-    backend?.contract_version === "response_inspection_v3"
-      ? backend
-      : null;
-  const backendV3 =
-    backend?.contract_version === "response_inspection_v3" ? backend : null;
+    backend?.contract_version === "response_inspection_v2" ? backend : null;
   const before = backend?.before_openai;
   const timings = traceV2 ? timingRows(traceV2) : [];
 
@@ -305,31 +300,6 @@ export function ResponseTrace({
                       ? `${backend.before_openai.memory_record_count} records · ${backend.before_openai.memory_estimated_tokens} estimated tokens`
                       : "not included"}
                   </span>
-                  {backendV3 && (
-                    <>
-                      <span className="text-muted-foreground">LifeSwitch</span>
-                      <span>
-                        {backendV3.before_openai.lifeswitch_included
-                          ? `${backendV3.before_openai.lifeswitch_record_count} records · ${backendV3.before_openai.lifeswitch_estimated_tokens} estimated tokens`
-                          : titleCase(
-                              backendV3.before_openai.lifeswitch_status,
-                            )}
-                      </span>
-                      {backendV3.before_openai.lifeswitch_projections.length >
-                        0 && (
-                        <>
-                          <span className="text-muted-foreground">
-                            LifeSwitch data
-                          </span>
-                          <span>
-                            {backendV3.before_openai.lifeswitch_projections
-                              .map(titleCase)
-                              .join(", ")}
-                          </span>
-                        </>
-                      )}
-                    </>
-                  )}
                   {backendV2?.before_openai.personalization && (
                     <>
                       <span className="text-muted-foreground">
@@ -396,14 +366,6 @@ export function ResponseTrace({
                   <span>{backend.after_openai.transcript_persistence}</span>
                   <span className="text-muted-foreground">Memory binding</span>
                   <span>{backend.after_openai.memory_binding}</span>
-                  {backendV3 && (
-                    <>
-                      <span className="text-muted-foreground">
-                        LifeSwitch binding
-                      </span>
-                      <span>{backendV3.after_openai.lifeswitch_binding}</span>
-                    </>
-                  )}
                 </div>
               </div>
             </>

@@ -11,7 +11,6 @@ import {
   safeResponseTraceForCopy,
   type ResponseInspectionV1,
   type ResponseInspectionV2,
-  type ResponseInspectionV3,
   type ResponseTraceV2,
   // @ts-expect-error Node's strip-types runner requires the TypeScript extension.
 } from "../lib/responseTraceV2.ts";
@@ -90,29 +89,6 @@ const inspectionV2: ResponseInspectionV2 = {
   },
 };
 
-const inspectionV3: ResponseInspectionV3 = {
-  ...inspectionV2,
-  contract_version: "response_inspection_v3",
-  before_openai: {
-    ...inspectionV2.before_openai,
-    lifeswitch_status: "SELECTED",
-    lifeswitch_intent: "plan_adherence_summary",
-    lifeswitch_reason_codes: ["current_plan_requested"],
-    lifeswitch_database_accessed: true,
-    lifeswitch_timezone_source: "account_profile",
-    lifeswitch_included: true,
-    lifeswitch_record_count: 4,
-    lifeswitch_estimated_tokens: 210,
-    lifeswitch_projections: ["plan_summary", "nutrition_adherence"],
-    lifeswitch_source_contract_version: "lifeswitch_domain_context_v1",
-  },
-  after_openai: {
-    ...inspectionV2.after_openai,
-    lifeswitch_binding: "bound",
-    lifeswitch_binding_contract_version: "lifeswitch_answer_binding_v1",
-  },
-};
-
 const trace: ResponseTraceV2 = {
   contract_version: RESPONSE_TRACE_VERSION,
   authorities: {
@@ -187,31 +163,6 @@ test("trace v2 preserves server authority and the current backend inspection", (
   );
 });
 
-test("inspection v3 preserves bounded LifeSwitch selection and binding", () => {
-  assert.equal(responseInspectionFromValue(inspectionV3), inspectionV3);
-  assert.equal(responseTraceV2FromValue(inspectionV3), inspectionV3);
-  assert.equal(inspectionV3.before_openai.lifeswitch_record_count, 4);
-  assert.deepEqual(inspectionV3.before_openai.lifeswitch_projections, [
-    "plan_summary",
-    "nutrition_adherence",
-  ]);
-  assert.equal(inspectionV3.after_openai.lifeswitch_binding, "bound");
-
-  const traceV3: ResponseTraceV2 = {
-    ...trace,
-    authorities: {
-      ...trace.authorities,
-      response_runtime: "resse_response_v0_3",
-    },
-    response_inspection: inspectionV3,
-  };
-  assert.equal(responseTraceV2FromValue(traceV3), traceV3);
-  const safe = JSON.stringify(safeResponseTraceForCopy(traceV3));
-  assert.match(safe, /plan_adherence_summary/);
-  assert.match(safe, /lifeswitch_answer_binding_v1/);
-  assert.doesNotMatch(safe, /answer-sensitive-id/);
-});
-
 test("safe copy removes operational identifiers without losing decisions", () => {
   const safe = safeResponseTraceForCopy(trace);
   const serialized = JSON.stringify(safe);
@@ -257,31 +208,6 @@ test("inspection v2 requires all content-free interaction fields", () => {
       `missing ${key}`,
     );
   }
-});
-
-test("inspection v3 requires content-free LifeSwitch fields", () => {
-  for (const key of [
-    "lifeswitch_status",
-    "lifeswitch_intent",
-    "lifeswitch_reason_codes",
-    "lifeswitch_database_accessed",
-    "lifeswitch_timezone_source",
-    "lifeswitch_included",
-    "lifeswitch_record_count",
-    "lifeswitch_estimated_tokens",
-    "lifeswitch_projections",
-  ]) {
-    const malformed = structuredClone(inspectionV3) as any;
-    delete malformed.before_openai[key];
-    assert.equal(
-      responseInspectionFromValue(malformed),
-      null,
-      `missing ${key}`,
-    );
-  }
-  const missingBinding = structuredClone(inspectionV3) as any;
-  delete missingBinding.after_openai.lifeswitch_binding;
-  assert.equal(responseInspectionFromValue(missingBinding), null);
 });
 
 test("trace v2 rejects a malformed nested inspection", () => {

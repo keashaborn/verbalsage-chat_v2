@@ -464,10 +464,7 @@ function ordinaryResponseTraceV2({
       routing: automaticDecision
         ? "seebx_search_plan_v1"
         : "verbalsage_server_authority_v1",
-      response_runtime:
-        responseInspection?.contract_version === "response_inspection_v3"
-          ? "resse_response_v0_3"
-          : "resse_response_v0_2",
+      response_runtime: "resse_response_v0_2",
     },
     request: {
       request_id: rid,
