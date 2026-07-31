@@ -30,6 +30,8 @@ test("selection mode replaces the composer with a compact toolbar", () => {
   assert.match(chatSource, />\s*All\s*<\/button>/);
   assert.match(chatSource, />\s*Copy\s*<\/button>/);
   assert.match(chatSource, />\s*Cancel\s*<\/button>/);
+  assert.match(chatSource, /grid size-5 place-items-center/);
+  assert.match(chatSource, /after:-inset-3/);
 });
 
 test("native transcript selection excludes controls and is not message-clipped", () => {

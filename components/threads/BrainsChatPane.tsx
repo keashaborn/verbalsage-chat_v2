@@ -2420,14 +2420,14 @@ export function BrainsChatPane() {
                 data-chat-message
                 className={[
                   "relative text-left",
-                  messageSelectionMode ? "pl-10" : "",
+                  messageSelectionMode ? "pl-8" : "",
                 ].join(" ")}
               >
                 {messageSelectionMode && (
                   <button
                     type="button"
                     className={[
-                      "absolute top-1 left-0 grid size-8 place-items-center rounded-full border transition-colors select-none",
+                      "absolute top-1 left-0 grid size-5 place-items-center rounded-full border transition-colors select-none after:absolute after:-inset-3 after:content-['']",
                       isSelected
                         ? "border-foreground bg-foreground text-background"
                         : "bg-background text-transparent hover:border-foreground/70",
@@ -2438,7 +2438,7 @@ export function BrainsChatPane() {
                     aria-label={`${isSelected ? "Deselect" : "Select"} ${m.role} message ${idx + 1}`}
                     aria-pressed={isSelected}
                   >
-                    <Check className="size-4" aria-hidden="true" />
+                    <Check className="size-3" aria-hidden="true" />
                   </button>
                 )}
                 <div
