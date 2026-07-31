@@ -149,6 +149,15 @@ function validMutation(
   );
 }
 
+export function hasUnexpectedRequestBody(req: Request): boolean {
+  if (req.body === null) return false;
+
+  // Browser fetch represents an explicitly empty POST as a zero-length
+  // stream. Accept that wire-compatible shape while rejecting any payload.
+  const contentLength = req.headers.get("content-length");
+  return contentLength !== "0";
+}
+
 export async function mutateAiOperationsIncident(
   req: Request,
   incidentId: string,
@@ -161,7 +170,7 @@ export async function mutateAiOperationsIncident(
     "incident.manage",
   );
   if (!auth.ok) return auth.response;
-  if (req.body !== null) {
+  if (hasUnexpectedRequestBody(req)) {
     return fail(400, "unexpected_request_body", correlationId);
   }
   if (!UUID_PATTERN.test(incidentId)) {

@@ -39,10 +39,14 @@ test("AI Operations management is capability-bound and body-free", () => {
 
   assert.match(shared, /"incident\.manage"/);
   assert.ok(
-    shared.indexOf('"incident.manage"') < shared.indexOf("req.body !== null"),
+    shared.indexOf('"incident.manage"') <
+      shared.indexOf("hasUnexpectedRequestBody(req)"),
     "authorization must precede request validation",
   );
-  assert.match(shared, /req\.body !== null/);
+  assert.match(shared, /req\.body === null/);
+  assert.match(shared, /req\.headers\.get\("content-length"\)/);
+  assert.match(shared, /contentLength !== "0"/);
+  assert.match(shared, /hasUnexpectedRequestBody\(req\)/);
   assert.match(shared, /unexpected_request_body/);
   assert.match(shared, /method: "POST"/);
   assert.match(shared, /admin_ai_operations_mutation_v1/);
