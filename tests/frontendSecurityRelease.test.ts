@@ -36,11 +36,29 @@ test("proxy applies browser hardening headers to normal and rejected requests", 
     assert.match(proxy, new RegExp(header));
   }
 
-  assert.match(proxy, /withSecurityHeaders\(\s*NextResponse\.next\(\)\s*\)/);
+  assert.match(
+    proxy,
+    /NextResponse\.next\(\{[\s\S]*request:\s*\{\s*headers:\s*requestHeaders\s*\}/,
+  );
+  assert.match(proxy, /withSecurityHeaders\(nextResponse\)/);
   assert.match(
     proxy,
     /withSecurityHeaders\(\s*new NextResponse\(null,[\s\S]*status: 204/,
   );
+});
+
+test("proxy derives site identity from an allowlisted host and overwrites assertions", () => {
+  const proxy = source("proxy.ts");
+  const policy = source("lib/siteBrand.ts");
+
+  assert.match(proxy, /resolveSiteHost\(req\.headers\.get\("host"\)\)/);
+  assert.match(proxy, /status:\s*421/);
+  assert.match(proxy, /requestHeaders\.set\(SITE_HEADER, host\.siteId\)/);
+  assert.match(proxy, /classifySiteRequest/);
+  assert.match(proxy, /status:\s*404/);
+  assert.match(proxy, /NextResponse\.redirect\(lifeSwitchUrl, 308\)/);
+  assert.match(policy, /"verbalsage\.com":\s*"verbal-sage"/);
+  assert.match(policy, /"lifeswitch\.com":\s*"lifeswitch"/);
 });
 
 test("CSP is restrictive while preserving required LifeSwitch capabilities", () => {

@@ -377,6 +377,39 @@
   }
 }
 
+/* Product identity is independent from the user's saved appearance theme. */
+:root {
+  --product-brand-accent: #30343b;
+  --product-brand-accent-strong: #111113;
+}
+
+html[data-product="lifeswitch"] {
+  --product-brand-accent: #30343b;
+  --product-brand-accent-strong: #111113;
+}
+
+html[data-product="verbal-sage"] {
+  --product-brand-accent: #9e3dff;
+  --product-brand-accent-strong: #832cea;
+}
+
+.product-brand-text {
+  color: var(--product-brand-accent);
+}
+
+html[data-product="verbal-sage"] .product-brand-trigger {
+  color: var(--product-brand-accent);
+}
+
+html[data-product="verbal-sage"] .product-brand-primary {
+  background-color: var(--product-brand-accent-strong);
+  color: white;
+}
+
+html[data-product="verbal-sage"] .product-brand-primary:hover {
+  background-color: var(--product-brand-accent);
+}
+
 /* LifeSwitch interaction baseline: visible keyboard focus and explicit states. */
 [data-lifeswitch-root]
   :where(

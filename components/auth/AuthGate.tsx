@@ -18,6 +18,7 @@ import {
   VOICE_PRIVACY_NOTICE_STORAGE_KEY,
   VOICE_PRIVACY_NOTICE_VERSION,
 } from "@/lib/voicePrivacy";
+import { useSiteBrand } from "@/components/site/SiteBrandProvider";
 
 const MAX_AGE_S = 60 * 60 * 24 * 30; // 30d
 
@@ -121,6 +122,7 @@ function applySettingsFromSession(session: any): boolean {
 }
 
 export function AuthGate({ children }: { children: ReactNode }) {
+  const { brand } = useSiteBrand();
   const [booting, setBooting] = useState(true);
   const [session, setSession] = useState<any>(null);
   const [mfaGate, setMfaGate] = useState<MfaGateState>("clear");
@@ -468,7 +470,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/95 p-4 supports-[backdrop-filter]:bg-background/85 supports-[backdrop-filter]:backdrop-blur-xl">
           <div className="w-full max-w-md rounded-xl border bg-card/95 p-6 text-foreground shadow-lg">
             <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              LifeSwitch protected account
+              {brand.name} protected account
             </div>
             <h1 className="mt-2 text-xl font-semibold">
               Multi-factor verification
@@ -478,7 +480,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
               <>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   Enter the current 6-digit code from your authenticator app
-                  before opening LifeSwitch.
+                  before opening {brand.name}.
                 </p>
 
                 {mfaFactors.length > 1 && (
@@ -534,7 +536,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
             ) : (
               <>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  LifeSwitch could not confirm the multi-factor status of this
+                  {brand.name} could not confirm the multi-factor status of this
                   protected account. The application remains locked.
                 </p>
                 <button
@@ -567,7 +569,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
       ) : !session && accessRequestSubmitted ? (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/95 p-4 supports-[backdrop-filter]:bg-background/85 supports-[backdrop-filter]:backdrop-blur-xl">
           <div className="w-full max-w-md rounded-xl border bg-card/95 p-6 text-foreground shadow-lg">
-            <div className="mb-4 text-lg font-semibold">LifeSwitch</div>
+            <div className="product-brand-text mb-4 text-lg font-semibold">
+              {brand.name}
+            </div>
             <div
               className="border-t border-border/70 pt-5 text-center"
               role="status"
@@ -580,9 +584,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
               </div>
               <h2 className="text-lg font-semibold">Request received</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Your request was sent to the LifeSwitch owner for review. If it
-                is approved, an invitation will be sent by email. Delivery may
-                take a few minutes.
+                Your request was sent to the {brand.name} owner for review. If
+                it is approved, an invitation will be sent by email. Delivery
+                may take a few minutes.
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
                 You may close this page.
@@ -603,12 +607,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
       ) : !session ? (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/95 p-4 supports-[backdrop-filter]:bg-background/85 supports-[backdrop-filter]:backdrop-blur-xl">
           <div className="w-full max-w-md rounded-xl border bg-card/95 p-6 text-foreground shadow-lg">
-            <div className="mb-4 text-lg font-semibold">LifeSwitch</div>
+            <div className="product-brand-text mb-4 text-lg font-semibold">
+              {brand.name}
+            </div>
 
             <div
               className="mb-4 flex border-b border-border/70"
               role="tablist"
-              aria-label="LifeSwitch access"
+              aria-label={`${brand.name} access`}
             >
               <button
                 type="button"
@@ -705,7 +711,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
               <>
                 <label className="mb-3 grid gap-1.5 text-sm">
                   <span>
-                    How would you like to use LifeSwitch?{" "}
+                    How would you like to use {brand.name}?{" "}
                     <span className="text-muted-foreground">(optional)</span>
                   </span>
                   <textarea

@@ -9,6 +9,7 @@ import { BrainsChatPane } from "@/components/threads/BrainsChatPane";
 import { AppTopBar } from "@/components/nav/AppTopBar";
 import { WorkspaceMenu } from "@/components/nav/WorkspaceMenu";
 import { AccountMenu } from "@/components/nav/AccountMenu";
+import { useSiteBrand } from "@/components/site/SiteBrandProvider";
 
 import { Thread } from "@/components/assistant-ui/thread";
 import {
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/breadcrumb";
 
 export const Assistant = () => {
+  const { brand } = useSiteBrand();
   const transport = useMemo(
     () => new TextStreamChatTransport({ api: "/api/chat" }),
     [],
@@ -44,7 +46,7 @@ export const Assistant = () => {
               <div className="flex items-center gap-3">
                 <SidebarTrigger />
                 <WorkspaceMenu
-                  label="LifeSwitch"
+                  label={brand.name}
                   align="left"
                   variant="plain"
                 />

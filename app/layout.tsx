@@ -3,6 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import type { Viewport } from "next";
 import { BodyScrollManager } from "@/components/BodyScrollManager";
+import { SiteBrandProvider } from "@/components/site/SiteBrandProvider";
+import { brandForSite } from "@/lib/siteBrand";
+import { requestSiteId } from "@/lib/siteBrandServer";
 import { DEFAULT_THEME } from "@/lib/theme";
 
 const geistSans = Geist({
@@ -21,32 +24,51 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export const metadata: Metadata = {
-  title: "LifeSwitch",
-  description:
-    "LifeSwitch health, training, nutrition, and measurement tracking.",
-  icons: {
-    icon: [{ url: "/brand/lifeswitch/favicon-favorite-v4.ico", sizes: "any" }],
-    apple: [
-      {
-        url: "/brand/lifeswitch/app-icon-favorite-180-v4.png",
-        sizes: "180x180",
-        type: "image/png",
-      },
-    ],
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = brandForSite(await requestSiteId());
+  return {
+    title: brand.name,
+    description: brand.description,
+    manifest: "/manifest.webmanifest",
+    icons: {
+      icon: [
+        {
+          url: brand.favicon,
+          sizes: "any",
+          type: brand.favicon.endsWith(".svg")
+            ? "image/svg+xml"
+            : "image/x-icon",
+        },
+      ],
+      ...(brand.appleTouchIcon
+        ? {
+            apple: [
+              {
+                url: brand.appleTouchIcon,
+                sizes: "180x180",
+                type: "image/png",
+              },
+            ],
+          }
+        : {}),
+    },
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const siteId = await requestSiteId();
+  const brand = brandForSite(siteId);
   return (
     <html
       lang="en"
       className={DEFAULT_THEME}
       data-theme={DEFAULT_THEME}
+      data-product={siteId}
+      data-product-accent={brand.accentColor}
       style={{ colorScheme: "light", backgroundColor: "#f1f4f7" }}
       suppressHydrationWarning
     >
@@ -96,7 +118,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <BodyScrollManager />
-        {children}
+        <SiteBrandProvider siteId={siteId}>{children}</SiteBrandProvider>
       </body>
     </html>
   );

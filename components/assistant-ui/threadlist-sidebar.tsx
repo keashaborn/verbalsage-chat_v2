@@ -13,8 +13,10 @@ import { BrainsThreadList } from "@/components/threads/BrainsThreadList";
 import { authFetchJson } from "@/lib/authFetch";
 import Image from "next/image";
 import { Loader2, MessageSquarePlus } from "lucide-react";
+import { useSiteBrand } from "@/components/site/SiteBrandProvider";
 
 export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
+  const { brand } = useSiteBrand();
   const [query, setQuery] = React.useState("");
   const [creatingChat, setCreatingChat] = React.useState(false);
   const { isMobile, setOpenMobile } = useSidebar();
@@ -62,16 +64,16 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
         <div className="flex items-center justify-between gap-3 px-2 py-2">
           <div className="flex aspect-square size-10 items-center justify-center overflow-hidden rounded-lg">
             <Image
-              src="/brand/lifeswitch/symbol-dark-64.png"
-              alt="LifeSwitch"
+              src={brand.iconLight}
+              alt={brand.name}
               width={28}
               height={28}
               priority
               className="dark:hidden"
             />
             <Image
-              src="/brand/lifeswitch/symbol-light-64.png"
-              alt="LifeSwitch"
+              src={brand.iconDark}
+              alt={brand.name}
               width={28}
               height={28}
               priority
@@ -115,11 +117,13 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter className="aui-sidebar-footer border-t px-3 pb-3">
         <div className="py-2 pl-2 leading-tight">
           <div className="text-xs font-medium text-muted-foreground">
-            LifeSwitch
+            {brand.name}
           </div>
-          <div className="text-[10px] text-muted-foreground/70">
-            powered by Verbal Sage
-          </div>
+          {brand.attribution ? (
+            <div className="text-[10px] text-muted-foreground/70">
+              {brand.attribution}
+            </div>
+          ) : null}
         </div>
       </SidebarFooter>
     </Sidebar>

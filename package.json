@@ -14,6 +14,7 @@
     "eval:search-routing": "node --experimental-strip-types scripts/runSearchRoutingEvalV1.ts",
     "test:trusted-web": "node --experimental-strip-types --test tests/trustedWebSecurity.test.ts",
     "test:production-env": "node --test tests/productionEnvironmentPreflight.test.mjs tests/turnstileArtifactPreflight.test.mjs",
+    "test:site-brand": "node --experimental-strip-types --test tests/siteBrandPolicy.test.ts tests/frontendSecurityRelease.test.ts",
     "test:ui-policy": "node --experimental-strip-types --test tests/authFirstImpressionPolicy.test.mjs tests/lifeswitchActionPolicy.test.mjs tests/mobileFormViewportPolicy.test.mjs tests/navigationShellPolicy.test.mjs tests/overflowPolicy.test.mjs tests/subtleGlassPolicy.test.mjs tests/themeFallback.test.mjs tests/threadActionsMenu.test.ts tests/threadListOrganization.test.ts",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write ."

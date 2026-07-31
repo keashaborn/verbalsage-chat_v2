@@ -1,18 +1,18 @@
 import type { MetadataRoute } from "next";
+import { brandForSite } from "@/lib/siteBrand";
+import { requestSiteId } from "@/lib/siteBrandServer";
 
-export default function manifest(): MetadataRoute.Manifest {
+export const dynamic = "force-dynamic";
+
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const brand = brandForSite(await requestSiteId());
   return {
-    name: "LifeSwitch",
-    short_name: "LifeSwitch",
+    name: brand.name,
+    short_name: brand.shortName,
     start_url: "/",
     display: "standalone",
-    background_color: "#111113",
-    theme_color: "#111113",
-    icons: [
-      { src: "/brand/lifeswitch/app-icon-favorite-192-v4.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
-      { src: "/brand/lifeswitch/app-icon-favorite-512-v4.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-      { src: "/brand/lifeswitch/app-icon-favorite-192-v4.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/brand/lifeswitch/app-icon-favorite-512-v4.png", sizes: "512x512", type: "image/png", purpose: "any" },
-    ],
+    background_color: brand.backgroundColor,
+    theme_color: brand.themeColor,
+    icons: brand.manifestIcons.map((icon) => ({ ...icon })),
   };
 }

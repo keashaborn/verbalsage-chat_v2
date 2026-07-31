@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSiteBrand } from "@/components/site/SiteBrandProvider";
 
 type WorkspaceMenuProps = {
   label?: string;
@@ -20,10 +21,11 @@ const LIFESWITCH_LINKS = [
 ];
 
 export function WorkspaceMenu({
-  label = "Menu",
+  label,
   align = "right",
   variant = "button",
 }: WorkspaceMenuProps) {
+  const { siteId, brand } = useSiteBrand();
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement | null>(null);
 
@@ -54,8 +56,8 @@ export function WorkspaceMenu({
 
   const triggerClass =
     variant === "plain"
-      ? "rounded-md px-1 py-1.5 text-sm font-semibold tracking-wide hover:opacity-80"
-      : "rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30";
+      ? "product-brand-trigger rounded-md px-1 py-1.5 text-sm font-semibold tracking-wide hover:opacity-80"
+      : "product-brand-trigger rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30";
 
   const panelClass = [
     "absolute z-50 mt-2 w-48 overflow-hidden rounded-xl border border-border/70 bg-popover text-popover-foreground shadow-xl ring-1 ring-foreground/5 supports-[backdrop-filter]:bg-popover/95 supports-[backdrop-filter]:backdrop-blur-xl",
@@ -71,7 +73,7 @@ export function WorkspaceMenu({
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        {label} ▾
+        {label || brand.name} ▾
       </button>
 
       {open ? (
@@ -89,19 +91,23 @@ export function WorkspaceMenu({
             </MenuLink>
           ))}
 
-          <div className="mt-1 border-t" />
-          <div className="px-3 py-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-            LifeSwitch
-          </div>
-          {LIFESWITCH_LINKS.map((item) => (
-            <MenuLink
-              key={item.href}
-              href={item.href}
-              onNavigate={() => setOpen(false)}
-            >
-              {item.label}
-            </MenuLink>
-          ))}
+          {siteId === "lifeswitch" ? (
+            <>
+              <div className="mt-1 border-t" />
+              <div className="px-3 py-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                LifeSwitch
+              </div>
+              {LIFESWITCH_LINKS.map((item) => (
+                <MenuLink
+                  key={item.href}
+                  href={item.href}
+                  onNavigate={() => setOpen(false)}
+                >
+                  {item.label}
+                </MenuLink>
+              ))}
+            </>
+          ) : null}
         </div>
       ) : null}
     </div>

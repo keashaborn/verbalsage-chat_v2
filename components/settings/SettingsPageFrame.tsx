@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AppTopBar } from "@/components/nav/AppTopBar";
 import { AccountMenu } from "@/components/nav/AccountMenu";
 import { WorkspaceMenu } from "@/components/nav/WorkspaceMenu";
+import { useSiteBrand } from "@/components/site/SiteBrandProvider";
 
 type SettingsPageFrameProps = {
   title: string;
@@ -17,6 +18,7 @@ export function SettingsPageFrame({
   description,
   children,
 }: SettingsPageFrameProps) {
+  const { brand } = useSiteBrand();
   const router = useRouter();
 
   function goBack() {
@@ -30,14 +32,14 @@ export function SettingsPageFrame({
       // ignore
     }
 
-    router.push("/lifeswitch");
+    router.push(brand.settingsReturnHref);
   }
 
   return (
     <div className="min-h-dvh bg-background">
       <AppTopBar>
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-4">
-          <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />
+          <WorkspaceMenu label={brand.name} align="left" variant="plain" />
           <AccountMenu />
         </div>
       </AppTopBar>

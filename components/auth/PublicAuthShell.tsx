@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useSiteBrand } from "@/components/site/SiteBrandProvider";
 
 type PublicAuthShellProps = {
   title: ReactNode;
@@ -14,7 +17,7 @@ type PublicAuthNoticeProps = {
 export const PUBLIC_AUTH_SECTION_CLASS = "mt-5 border-t border-border/70 pt-5";
 
 export const PUBLIC_AUTH_PRIMARY_ACTION_CLASS =
-  "inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50";
+  "product-brand-primary inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50";
 
 export const PUBLIC_AUTH_SECONDARY_ACTION_CLASS =
   "inline-flex min-h-11 items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50";
@@ -24,11 +27,12 @@ export function PublicAuthShell({
   intro,
   children,
 }: PublicAuthShellProps) {
+  const { brand } = useSiteBrand();
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-2xl items-start px-4 py-10 sm:py-16">
       <section className="w-full rounded-xl border bg-background p-5 shadow-sm sm:p-7">
-        <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          LifeSwitch
+        <div className="product-brand-text text-xs font-semibold tracking-wide uppercase">
+          {brand.name}
         </div>
         <h1 className="mt-2 text-2xl font-semibold">{title}</h1>
         {intro ? (
