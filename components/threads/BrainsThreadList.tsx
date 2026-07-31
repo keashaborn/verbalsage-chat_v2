@@ -1,7 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
+import {
+  Copy,
+  ListChecks,
+  MoreHorizontal,
+  Pencil,
+  Pin,
+  PinOff,
+  Trash2,
+} from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import {
   Dialog,
@@ -27,6 +35,8 @@ type ActionMenu = {
   x: number;
   y: number;
 };
+
+type ConversationAction = "select_messages" | "copy_conversation";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return authFetchJson<T>(url, init);
@@ -100,6 +110,38 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
 
   function closeActionMenu() {
     setActionMenu(null);
+  }
+
+  async function runConversationAction(
+    thread: ThreadItem,
+    conversationAction: ConversationAction,
+  ) {
+    const tid = String(thread.thread_id || "").trim();
+    closeActionMenu();
+    if (!tid) return;
+
+    setBusyThreadId(tid);
+    setActionError("");
+    try {
+      await fetchJson("/api/threads/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ thread_id: tid }),
+      });
+      window.dispatchEvent(
+        new CustomEvent("vs_active_thread", {
+          detail: {
+            thread_id: tid,
+            conversation_action: conversationAction,
+          },
+        }),
+      );
+      if (isMobile) setOpenMobile(false);
+    } catch (error: any) {
+      setActionError(error?.message || String(error));
+    } finally {
+      setBusyThreadId(null);
+    }
   }
 
   function openActionMenu(thread: ThreadItem, x: number, y: number) {
@@ -476,6 +518,26 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
                 <Pin className="size-5" aria-hidden="true" />
               )}
               {actionMenu.thread.pinned ? "Unpin chat" : "Pin chat"}
+            </button>
+            <button
+              role="menuitem"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-muted focus:bg-muted focus:outline-none"
+              onClick={() =>
+                runConversationAction(actionMenu.thread, "select_messages")
+              }
+            >
+              <ListChecks className="size-5" aria-hidden="true" />
+              Select messages
+            </button>
+            <button
+              role="menuitem"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-muted focus:bg-muted focus:outline-none"
+              onClick={() =>
+                runConversationAction(actionMenu.thread, "copy_conversation")
+              }
+            >
+              <Copy className="size-5" aria-hidden="true" />
+              Copy conversation
             </button>
             <button
               role="menuitem"

@@ -21,6 +21,8 @@ test("touch long press and desktop context menu share the anchored actions menu"
   assert.match(listSource, /onContextMenu=/);
   assert.match(listSource, /role="menu"/);
   assert.match(listSource, /Pin chat/);
+  assert.match(listSource, /Select messages/);
+  assert.match(listSource, /Copy conversation/);
   assert.match(listSource, /Rename/);
   assert.match(listSource, /Delete chat/);
 });

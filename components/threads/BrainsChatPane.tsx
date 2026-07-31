@@ -76,6 +76,11 @@ import {
   decideForegroundThreadSync,
   type ForegroundThreadSyncState,
 } from "@/lib/foregroundThreadSync";
+import {
+  formatConversationTranscript,
+  nextMessageSelection,
+  selectAllMessageIndexes,
+} from "@/lib/conversationSelection";
 
 type TrustedWebSource = {
   url: string;
@@ -593,6 +598,15 @@ export function BrainsChatPane() {
   const copiedTimerRef = React.useRef<number | null>(null);
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
   const copiedKeyTimerRef = React.useRef<number | null>(null);
+  const [messageSelectionMode, setMessageSelectionMode] =
+    React.useState(false);
+  const [selectedMessageIndexes, setSelectedMessageIndexes] = React.useState<
+    number[]
+  >([]);
+  const selectionAnchorRef = React.useRef<number | null>(null);
+  const [conversationCopyStatus, setConversationCopyStatus] =
+    React.useState("");
+  const conversationCopyStatusTimerRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -624,6 +638,12 @@ export function BrainsChatPane() {
       if (copiedTimerRef.current != null)
         window.clearTimeout(copiedTimerRef.current);
       copiedTimerRef.current = null;
+      if (copiedKeyTimerRef.current != null)
+        window.clearTimeout(copiedKeyTimerRef.current);
+      copiedKeyTimerRef.current = null;
+      if (conversationCopyStatusTimerRef.current != null)
+        window.clearTimeout(conversationCopyStatusTimerRef.current);
+      conversationCopyStatusTimerRef.current = null;
     };
   }, []);
 
@@ -653,6 +673,82 @@ export function BrainsChatPane() {
     } catch {
       // ignore
     }
+  }
+
+  function clearNativeSelection() {
+    window.getSelection()?.removeAllRanges();
+  }
+
+  function cancelMessageSelection() {
+    setMessageSelectionMode(false);
+    setSelectedMessageIndexes([]);
+    selectionAnchorRef.current = null;
+    clearNativeSelection();
+  }
+
+  function beginMessageSelection(initialIndexes: readonly number[] = []) {
+    clearNativeSelection();
+    setSelectedMessageIndexes([...initialIndexes]);
+    selectionAnchorRef.current = initialIndexes.length > 0 ? 0 : null;
+    setMessageSelectionMode(true);
+  }
+
+  function toggleMessageSelection(index: number, extend: boolean) {
+    setSelectedMessageIndexes((current) =>
+      nextMessageSelection(
+        current,
+        index,
+        selectionAnchorRef.current,
+        extend,
+        msgs.length,
+      ),
+    );
+    if (!extend || selectionAnchorRef.current == null) {
+      selectionAnchorRef.current = index;
+    }
+  }
+
+  function selectAllMessages() {
+    setSelectedMessageIndexes(selectAllMessageIndexes(msgs.length));
+    selectionAnchorRef.current = msgs.length > 0 ? 0 : null;
+  }
+
+  function announceConversationCopy(status: string) {
+    if (conversationCopyStatusTimerRef.current != null) {
+      window.clearTimeout(conversationCopyStatusTimerRef.current);
+    }
+    setConversationCopyStatus(status);
+    conversationCopyStatusTimerRef.current = window.setTimeout(() => {
+      setConversationCopyStatus("");
+      conversationCopyStatusTimerRef.current = null;
+    }, 1400);
+  }
+
+  async function copyConversation(
+    messages: readonly Msg[],
+    selectedIndexes?: readonly number[],
+  ) {
+    const transcript = formatConversationTranscript(messages, selectedIndexes);
+    if (!transcript) return false;
+
+    try {
+      await navigator.clipboard.writeText(transcript);
+      announceConversationCopy(
+        selectedIndexes
+          ? `${selectedIndexes.length} message${selectedIndexes.length === 1 ? "" : "s"} copied`
+          : "Conversation copied",
+      );
+      return true;
+    } catch {
+      announceConversationCopy("Copy failed");
+      return false;
+    }
+  }
+
+  async function copySelectedMessages() {
+    if (selectedMessageIndexes.length === 0) return;
+    const copied = await copyConversation(msgs, selectedMessageIndexes);
+    if (copied) cancelMessageSelection();
   }
 
   // -----------------------------
@@ -1281,7 +1377,7 @@ export function BrainsChatPane() {
       trusted_web_fallback?: boolean;
     },
     shouldCommit?: () => boolean,
-  ) {
+  ): Promise<Msg[] | null> {
     setLoading(true);
     try {
       const data = await fetchJson<Msg[]>(
@@ -1314,11 +1410,13 @@ export function BrainsChatPane() {
         }
       }
 
-      if (shouldCommit && !shouldCommit()) return;
+      if (shouldCommit && !shouldCommit()) return null;
       setMsgs(normalized);
       requestAnimationFrame(() => scrollToBottom("auto"));
+      return normalized;
     } catch {
       // keep UI
+      return null;
     } finally {
       setLoading(false);
     }
@@ -1452,11 +1550,30 @@ export function BrainsChatPane() {
       governedVoice.stop();
       realtimeVoice.setAssistantSpeaking(false);
       realtimeVoice.stop();
+      cancelMessageSelection();
       const tid = e?.detail?.thread_id || null;
+      const conversationAction = String(
+        e?.detail?.conversation_action || "",
+      );
       setPendingActiveThreadSync(null);
       setThreadId(tid);
       setMsgs([]);
-      if (tid) loadMessages(tid);
+      if (tid) {
+        void loadMessages(tid).then((loadedMessages) => {
+          if (!loadedMessages) return;
+          if (conversationAction === "select_messages") {
+            beginMessageSelection();
+          } else if (conversationAction === "copy_conversation") {
+            void copyConversation(loadedMessages).then((copied) => {
+              if (!copied) {
+                beginMessageSelection(
+                  selectAllMessageIndexes(loadedMessages.length),
+                );
+              }
+            });
+          }
+        });
+      }
     };
 
     const onForeground = () => {
@@ -1479,6 +1596,22 @@ export function BrainsChatPane() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  React.useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (messageSelectionMode) {
+        setMessageSelectionMode(false);
+        setSelectedMessageIndexes([]);
+        selectionAnchorRef.current = null;
+        window.getSelection()?.removeAllRanges();
+      } else {
+        window.getSelection()?.removeAllRanges();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [messageSelectionMode]);
 
   async function callChat(
     input: string,
@@ -2250,6 +2383,15 @@ export function BrainsChatPane() {
       <div
         ref={scrollRef}
         className="mx-auto w-full max-w-[44rem] min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-5 pt-6 pb-[calc(10.5rem+env(safe-area-inset-bottom))]"
+        onPointerDown={(event) => {
+          const target = event.target;
+          if (!(target instanceof Element)) return;
+          if (
+            target.closest("[data-chat-message], button, input, textarea, a")
+          )
+            return;
+          clearNativeSelection();
+        }}
       >
         {!threadId && (
           <div className="mb-6 text-sm text-muted-foreground">
@@ -2270,14 +2412,40 @@ export function BrainsChatPane() {
             const disableSpeak = ttsBusy && !isTtsLoading && !isTtsPlaying;
 
             const isCopied = copiedIdx === idx;
+            const isSelected = selectedMessageIndexes.includes(idx);
 
             return (
-              <div key={idx} className="text-left">
+              <div
+                key={m.id || idx}
+                data-chat-message
+                className={[
+                  "relative text-left",
+                  messageSelectionMode ? "pl-10" : "",
+                ].join(" ")}
+              >
+                {messageSelectionMode && (
+                  <button
+                    type="button"
+                    className={[
+                      "absolute top-1 left-0 grid size-8 place-items-center rounded-full border transition-colors select-none",
+                      isSelected
+                        ? "border-foreground bg-foreground text-background"
+                        : "bg-background text-transparent hover:border-foreground/70",
+                    ].join(" ")}
+                    onClick={(event) =>
+                      toggleMessageSelection(idx, event.shiftKey)
+                    }
+                    aria-label={`${isSelected ? "Deselect" : "Select"} ${m.role} message ${idx + 1}`}
+                    aria-pressed={isSelected}
+                  >
+                    <Check className="size-4" aria-hidden="true" />
+                  </button>
+                )}
                 <div
                   className={
                     m.role === "user"
-                      ? "ml-auto block w-fit max-w-[84%] rounded-xl bg-muted px-4 py-2 text-sm sm:max-w-[72%]"
-                      : "block max-w-full min-w-0 overflow-hidden text-sm leading-7"
+                      ? "ml-auto block w-fit max-w-[84%] rounded-xl bg-muted px-4 py-2 text-sm select-text sm:max-w-[72%]"
+                      : "block max-w-full min-w-0 text-sm leading-7 select-text"
                   }
                 >
                   {m.role === "assistant" ? (
@@ -2290,17 +2458,20 @@ export function BrainsChatPane() {
                               )
                             : undefined
                         }
+                        className="overflow-visible! select-text"
                       >
                         {m.content}
                       </MarkdownMessage>
                       {m.web_search && (
-                        <TrustedWebSourceCards
-                          citedSources={m.trusted_web_sources}
-                          admittedSources={m.trusted_web_admitted_sources}
-                        />
+                        <div className="select-none">
+                          <TrustedWebSourceCards
+                            citedSources={m.trusted_web_sources}
+                            admittedSources={m.trusted_web_admitted_sources}
+                          />
+                        </div>
                       )}
                       {m.trusted_web_fallback && (
-                        <div className="mt-4 text-xs text-muted-foreground">
+                        <div className="mt-4 text-xs text-muted-foreground select-none">
                           Web search was not used because this question was
                           outside trusted-source scope.
                         </div>
@@ -2311,8 +2482,8 @@ export function BrainsChatPane() {
                   )}
                 </div>
 
-                {m.role === "user" && (
-                  <div className="mt-2 flex items-center justify-end gap-2 text-xs text-muted-foreground">
+                {!messageSelectionMode && m.role === "user" && (
+                  <div className="mt-2 flex items-center justify-end gap-2 text-xs text-muted-foreground select-none">
                     <button
                       className="inline-flex items-center justify-center rounded-md p-2 hover:bg-muted"
                       onClick={() => startEditingMessage(m)}
@@ -2333,9 +2504,9 @@ export function BrainsChatPane() {
                   </div>
                 )}
 
-                {m.role === "assistant" && (
+                {!messageSelectionMode && m.role === "assistant" && (
                   <>
-                    <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground select-none">
                       <button
                         className={[
                           "inline-flex items-center justify-center rounded-md p-3 hover:bg-muted disabled:opacity-50 sm:p-2",
@@ -2404,24 +2575,26 @@ export function BrainsChatPane() {
                     </div>
 
                     {isAdmin && (m.inspect || m.inspect_error) && (
-                      <ResponseTrace
-                        inspection={inspect}
-                        error={m.inspect_error || null}
-                        copied={copiedKey === `inspect:trace:${idx}`}
-                        onCopy={() =>
-                          copyText(
-                            JSON.stringify(
-                              inspect
-                                ? safeResponseTraceForCopy(inspect)
-                                : null,
-                              null,
-                              2,
-                            ),
-                            undefined,
-                            `inspect:trace:${idx}`,
-                          )
-                        }
-                      />
+                      <div className="select-none">
+                        <ResponseTrace
+                          inspection={inspect}
+                          error={m.inspect_error || null}
+                          copied={copiedKey === `inspect:trace:${idx}`}
+                          onCopy={() =>
+                            copyText(
+                              JSON.stringify(
+                                inspect
+                                  ? safeResponseTraceForCopy(inspect)
+                                  : null,
+                                null,
+                                2,
+                              ),
+                              undefined,
+                              `inspect:trace:${idx}`,
+                            )
+                          }
+                        />
+                      </div>
                     )}
                   </>
                 )}
@@ -2431,7 +2604,7 @@ export function BrainsChatPane() {
         </div>
       </div>
 
-      {!atBottom && (
+      {!atBottom && !messageSelectionMode && (
         <button
           className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 rounded-full border bg-background/80 p-2.5 shadow-lg backdrop-blur"
           onClick={() => scrollToBottom("smooth")}
@@ -2443,12 +2616,59 @@ export function BrainsChatPane() {
 
       <div className="sticky bottom-0 z-10 max-w-full min-w-0 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto w-full max-w-[44rem] min-w-0 px-4 pt-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          {playbackState && (
+          {messageSelectionMode ? (
             <div
-              className="mx-auto mb-2 flex min-h-8 w-[70%] max-w-full min-w-64 items-center gap-2 rounded-full border bg-background px-2 py-1 shadow-md"
-              role="region"
-              aria-label="AI-generated voice playback"
+              className="flex min-h-12 items-center gap-2 rounded-xl border bg-background px-3 py-2 shadow-lg"
+              role="toolbar"
+              aria-label="Selected message actions"
             >
+              <span className="mr-auto min-w-0 truncate text-sm tabular-nums">
+                {selectedMessageIndexes.length} selected
+              </span>
+              <button
+                type="button"
+                className="min-h-9 rounded-lg px-2.5 text-sm hover:bg-muted disabled:opacity-40"
+                onClick={selectAllMessages}
+                disabled={
+                  msgs.length === 0 ||
+                  selectedMessageIndexes.length === msgs.length
+                }
+              >
+                All
+              </button>
+              <button
+                type="button"
+                className="min-h-9 rounded-lg bg-foreground px-3 text-sm text-background disabled:opacity-40"
+                onClick={() => void copySelectedMessages()}
+                disabled={selectedMessageIndexes.length === 0}
+              >
+                Copy
+              </button>
+              <button
+                type="button"
+                className="min-h-9 rounded-lg px-2.5 text-sm hover:bg-muted"
+                onClick={cancelMessageSelection}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <>
+              {conversationCopyStatus && (
+                <div
+                  className="mb-2 text-center text-xs text-muted-foreground"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {conversationCopyStatus}
+                </div>
+              )}
+              {playbackState && (
+                <div
+                  className="mx-auto mb-2 flex min-h-8 w-[70%] max-w-full min-w-64 items-center gap-2 rounded-full border bg-background px-2 py-1 shadow-md"
+                  role="region"
+                  aria-label="AI-generated voice playback"
+                >
               {playbackState.status === "error" ? (
                 <span className="min-w-0 flex-1 truncate text-xs text-destructive">
                   {playbackState.error || "Voice playback is unavailable."}
@@ -2510,9 +2730,9 @@ export function BrainsChatPane() {
               >
                 <X className="h-3 w-3" aria-hidden="true" />
               </button>
-            </div>
-          )}
-          <div className="relative rounded-xl border bg-background px-3 py-2 pr-12">
+                </div>
+              )}
+              <div className="relative rounded-xl border bg-background px-3 py-2 pr-12">
             {pendingActiveThreadSync && (
               <div
                 className="mb-2 flex items-center justify-between gap-3 rounded-xl border bg-muted/40 px-3 py-2 text-xs"
@@ -2614,7 +2834,9 @@ export function BrainsChatPane() {
               )}
               <span className="sr-only">{composerActionLabel}</span>
             </button>
-          </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
