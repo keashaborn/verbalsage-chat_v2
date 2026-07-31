@@ -53,8 +53,10 @@ test("Data controls retain existing protected routes with accurate labels", () =
 test("Recovery setup page distinguishes password changes from new access", () => {
   const page = source("app/auth/accept-invite/page.tsx");
 
-  assert.match(page, /Change your LifeSwitch password/);
-  assert.match(page, /Your LifeSwitch access was approved/);
+  assert.match(page, /useSiteBrand\(\)/);
+  assert.match(page, /Change your \$\{brand\.name\} password/);
+  assert.match(page, /Your \$\{brand\.name\} access was approved/);
+  assert.match(page, /siteId === "lifeswitch"/);
   assert.match(page, /Create a new password/);
   assert.match(page, /Save new password/);
   assert.match(page, /Your password has been changed/);
