@@ -3,6 +3,7 @@
 import * as React from "react";
 import { authFetch } from "@/lib/authFetch";
 import { AccessRequestsPanel } from "@/components/admin/settings/AccessRequestsPanel";
+import { AiOperationsPanel } from "@/components/admin/settings/AiOperationsPanel";
 import { MemorySystemHealthPanel } from "@/components/admin/settings/MemorySystemHealthPanel";
 import { MemoryWorkbenchPanel } from "@/components/admin/settings/MemoryWorkbenchPanel";
 import { UsageAnalyticsPanel } from "@/components/admin/settings/UsageAnalyticsPanel";
@@ -305,7 +306,7 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-[11px] font-semibold capitalize text-muted-foreground">
+                    <span className="text-[11px] font-semibold text-muted-foreground capitalize">
                       {user.role}
                     </span>
                     {!isOwner ? (
@@ -673,6 +674,14 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
             <div className="mt-2 text-xs text-muted-foreground">{status}</div>
           ) : null}
         </div>
+      </AdminSection>
+
+      <AdminSection
+        title="AI Operations"
+        description="Private reliability incidents from server-owned AI monitors."
+        mountWhenOpen
+      >
+        <AiOperationsPanel />
       </AdminSection>
 
       <AdminSection

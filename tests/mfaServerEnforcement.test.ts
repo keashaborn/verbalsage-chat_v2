@@ -95,9 +95,12 @@ test("all admin routes inherit fresh privileged MFA enforcement", () => {
     "app/api/admin/usage/users/route.ts",
     "app/api/admin/usage/users/[userId]/route.ts",
   ]);
+  const aiOperationsRoutes = new Set([
+    "app/api/admin/ai-operations/incidents/route.ts",
+  ]);
   const routes = adminRouteFiles();
 
-  assert.equal(routes.length, 21, "classify every new admin route");
+  assert.equal(routes.length, 22, "classify every new admin route");
   for (const routePath of routes) {
     const route = source(routePath);
     if (directRoutes.has(routePath)) {
@@ -112,6 +115,12 @@ test("all admin routes inherit fresh privileged MFA enforcement", () => {
         /authorizeUsage\(/,
         `${routePath}: missing usage authorizer`,
       );
+    } else if (aiOperationsRoutes.has(routePath)) {
+      assert.match(
+        route,
+        /authorizeAiOperations\(/,
+        `${routePath}: missing AI Operations authorizer`,
+      );
     } else {
       assert.match(
         route,
@@ -123,4 +132,8 @@ test("all admin routes inherit fresh privileged MFA enforcement", () => {
 
   const usageAuthorizer = source("app/api/admin/usage/_shared.ts");
   assert.match(usageAuthorizer, /requireFreshCapability/);
+  const aiOperationsAuthorizer = source(
+    "app/api/admin/ai-operations/_shared.ts",
+  );
+  assert.match(aiOperationsAuthorizer, /requireFreshCapability/);
 });
