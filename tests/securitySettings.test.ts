@@ -50,6 +50,20 @@ test("Data controls retain existing protected routes with accurate labels", () =
   assert.doesNotMatch(panel, /Removes everything for your user/);
 });
 
+test("destructive data deletion stays collapsed until explicitly opened", () => {
+  const panel = source("components/admin/SecurityPanel.tsx");
+
+  assert.match(panel, /<details/);
+  assert.match(panel, /<summary/);
+  assert.match(panel, /Delete chat data/);
+  assert.match(panel, /group-open:rotate-90/);
+  assert.match(
+    panel,
+    /if \(!event\.currentTarget\.open\) setDeleteConfirm\(""\)/,
+  );
+  assert.doesNotMatch(panel, /<details[^>]*\sopen(?:=|\s|>)/);
+});
+
 test("Recovery setup page distinguishes password changes from new access", () => {
   const page = source("app/auth/accept-invite/page.tsx");
 

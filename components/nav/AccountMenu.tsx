@@ -7,6 +7,7 @@ import {
   ACCOUNT_IDENTITY_CHANGED_EVENT,
   normalizeAccountFullName,
 } from "@/lib/accountIdentity";
+import { productTierLabel } from "@/lib/productEntitlements";
 import { supabase } from "@/lib/supabaseClient";
 
 type AccountMenuProps = {
@@ -21,9 +22,18 @@ function displayNameFromUser(user: any, fallback: string) {
   );
 }
 
+function roleLabel(role: unknown) {
+  if (role === "owner") return "Owner";
+  if (role === "admin") return "Administrator";
+  return "Member";
+}
+
 export function AccountMenu({ label = "Account" }: AccountMenuProps) {
   const [open, setOpen] = React.useState(false);
   const [displayName, setDisplayName] = React.useState("Signed in");
+  const [email, setEmail] = React.useState("");
+  const [productTier, setProductTier] = React.useState<unknown>(null);
+  const [role, setRole] = React.useState("");
   const [hasAdminAccess, setHasAdminAccess] = React.useState(false);
   const ref = React.useRef<HTMLDivElement | null>(null);
 
@@ -32,20 +42,45 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
 
     void (async () => {
       try {
-        const { data } = await supabase.auth.getUser();
+        const { data, error } = await supabase.auth.getUser();
+        if (error || !data.user) throw error || new Error("User unavailable");
         if (!alive) return;
 
         setDisplayName(displayNameFromUser(data.user, "Signed in"));
+        setEmail((data.user.email as string | undefined)?.trim() || "");
 
-        const accessResponse = await authFetch("/api/admin/access", {
-          method: "GET",
-          cache: "no-store",
-        });
+        const [capabilitiesResult, adminResult] = await Promise.allSettled([
+          authFetch("/api/auth/capabilities", {
+            method: "GET",
+            cache: "no-store",
+          }),
+          authFetch("/api/admin/access", {
+            method: "GET",
+            cache: "no-store",
+          }),
+        ]);
         if (!alive) return;
-        setHasAdminAccess(accessResponse.ok);
+
+        if (capabilitiesResult.status === "fulfilled") {
+          const capabilities = await capabilitiesResult.value
+            .json()
+            .catch(() => null);
+          if (capabilities?.authenticated) {
+            setProductTier(capabilities.product_tier);
+            setRole(
+              typeof capabilities.role === "string" ? capabilities.role : "",
+            );
+          }
+        }
+        setHasAdminAccess(
+          adminResult.status === "fulfilled" && adminResult.value.ok,
+        );
       } catch {
         if (!alive) return;
         setDisplayName("Signed in");
+        setEmail("");
+        setProductTier(null);
+        setRole("");
         setHasAdminAccess(false);
       }
     })();
@@ -57,10 +92,14 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
 
   React.useEffect(() => {
     function onIdentityChanged(event: Event) {
-      const nextName = normalizeAccountFullName(
-        (event as CustomEvent<{ fullName?: unknown }>).detail?.fullName,
-      );
-      if (nextName) setDisplayName(nextName);
+      const detail = (
+        event as CustomEvent<{ fullName?: unknown; email?: unknown }>
+      ).detail;
+      const nextName = normalizeAccountFullName(detail?.fullName);
+      const nextEmail =
+        typeof detail?.email === "string" ? detail.email.trim() : "";
+      setDisplayName(nextName || nextEmail || "Signed in");
+      if (nextEmail) setEmail(nextEmail);
     }
 
     window.addEventListener(ACCOUNT_IDENTITY_CHANGED_EVENT, onIdentityChanged);
@@ -132,6 +171,25 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
             <div className="mt-1 truncate text-sm font-semibold text-foreground">
               {displayName}
             </div>
+            {email && email !== displayName ? (
+              <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                {email}
+              </div>
+            ) : null}
+            {productTier || role ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {productTier ? (
+                  <span className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
+                    {productTierLabel(productTier)}
+                  </span>
+                ) : null}
+                {role ? (
+                  <span className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
+                    {roleLabel(role)}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <nav className="py-1 text-sm">

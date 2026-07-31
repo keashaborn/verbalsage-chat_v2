@@ -12,29 +12,17 @@ function Group({
   title,
   children,
   footer,
-  danger = false,
 }: {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  danger?: boolean;
 }) {
   return (
     <div className="space-y-2">
-      <div
-        className={`px-1 text-[11px] font-semibold tracking-wide uppercase ${
-          danger ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
-        }`}
-      >
+      <div className="px-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
         {title}
       </div>
-      <div
-        className={`border-y ${
-          danger
-            ? "border-red-500/30 bg-red-500/[0.03]"
-            : "border-muted/20"
-        }`}
-      >
+      <div className="border-y border-muted/20">
         <div className="divide-y divide-muted/20">{children}</div>
       </div>
       {footer != null && (
@@ -937,44 +925,67 @@ export function SecurityPanel() {
         />
       </Group>
 
-      <Group
-        title="Delete conversation and memory data"
-        danger
-        footer={
-          <>
-            Permanently deletes all chat threads, transcripts, and stored
-            conversational memory. Your sign-in account and structured
-            LifeSwitch tracking data remain active.
-          </>
-        }
+      <details
+        className="group overflow-hidden rounded-xl border border-muted/30"
+        onToggle={(event) => {
+          if (!event.currentTarget.open) setDeleteConfirm("");
+        }}
       >
-        <Row
-          left={
-            <>
-              Type <span className="font-semibold">DELETE CHAT DATA</span> to
-              confirm
-            </>
-          }
-        >
-          <input
-            className="mt-2 w-full rounded-lg border bg-background px-2 py-2 text-sm outline-none"
-            value={deleteConfirm}
-            onChange={(event) => setDeleteConfirm(event.target.value)}
-            placeholder="DELETE CHAT DATA"
-          />
-        </Row>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-3 py-3 text-sm hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+          <div>
+            <div className="font-medium">Delete chat data</div>
+            <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+              Permanently remove all conversations and conversational memory.
+            </div>
+          </div>
+          <span
+            className="shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
+            aria-hidden="true"
+          >
+            ›
+          </span>
+        </summary>
 
-        <ActionRow
-          label={
-            deletingAll
-              ? "Deleting conversation data…"
-              : "Delete conversation and memory data"
-          }
-          danger
-          disabled={deleteConfirm !== "DELETE CHAT DATA" || deletingAll}
-          onClick={() => void deleteConversationData()}
-        />
-      </Group>
+        <div className="border-t border-red-500/30 bg-red-500/[0.03]">
+          <Row
+            left={
+              <div>
+                <div className="font-medium text-red-600 dark:text-red-400">
+                  Delete conversation and memory data
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Permanently deletes all chat threads, transcripts, and stored
+                  conversational memory. Your sign-in account and structured
+                  LifeSwitch tracking data remain active.
+                </p>
+                <p className="mt-3">
+                  Type <span className="font-semibold">DELETE CHAT DATA</span>{" "}
+                  to confirm.
+                </p>
+              </div>
+            }
+          >
+            <input
+              className="mt-2 w-full rounded-lg border bg-background px-2 py-2 text-sm outline-none"
+              value={deleteConfirm}
+              onChange={(event) => setDeleteConfirm(event.target.value)}
+              placeholder="DELETE CHAT DATA"
+              autoComplete="off"
+            />
+          </Row>
+
+          <ActionRow
+            label={
+              deletingAll
+                ? "Deleting conversation data…"
+                : "Delete conversation and memory data"
+            }
+            danger
+            disabled={deleteConfirm !== "DELETE CHAT DATA" || deletingAll}
+            onClick={() => void deleteConversationData()}
+          />
+        </div>
+      </details>
 
       <p
         className="min-h-5 px-1 text-xs text-muted-foreground"
