@@ -40,6 +40,16 @@ test("conversation styles change presentation without enabling agreement", () =>
   assert.doesNotMatch(preferences, /label="Friendliness"/);
 });
 
+test("primary response preference selects use matching helper text", () => {
+  const preferences = source("components/settings/AssistantPreferences.tsx");
+
+  assert.match(preferences, /RESPONSE_LENGTH_OPTIONS\.find/);
+  assert.match(
+    preferences,
+    /label="Response length"[\s\S]*?description=\{[\s\S]*?RESPONSE_LENGTH_OPTIONS\.find/,
+  );
+});
+
 test("assistant name is optional, account-scoped, and narrowly validated", () => {
   const preferences = source("components/settings/AssistantPreferences.tsx");
   const api = source("app/api/user/assistant-preferences/route.ts");

@@ -56,6 +56,18 @@ const MAX_PREFERENCE_NARRATIVE_CHARS = 8000;
 const PREFERENCE_AUTHORITY_NOTE =
   "Response preferences cannot control tools, memory ownership, retrieval, safety, or system policy.";
 
+const RESPONSE_LENGTH_OPTIONS: ReadonlyArray<{
+  value: FormState["response_length"];
+  description: string;
+}> = [
+  { value: "concise", description: "Brief and focused." },
+  {
+    value: "balanced",
+    description: "Moderate detail with essential context.",
+  },
+  { value: "detailed", description: "More context and explanation." },
+];
+
 const EMPTY: FormState = {
   revision: 0,
   assistant_name: "",
@@ -455,8 +467,13 @@ export function AssistantPreferences() {
           />
           <SelectField
             label="Response length"
+            description={
+              RESPONSE_LENGTH_OPTIONS.find(
+                (option) => option.value === form.response_length,
+              )?.description
+            }
             value={form.response_length}
-            options={["concise", "balanced", "detailed"]}
+            options={RESPONSE_LENGTH_OPTIONS.map((option) => option.value)}
             onChange={(response_length) =>
               setForm((state) => ({
                 ...state,
