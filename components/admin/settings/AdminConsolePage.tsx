@@ -313,9 +313,7 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
           {filteredUsers.map((user) => {
             const nextRole = user.role === "admin" ? "member" : "admin";
             const nextProductTier =
-              user.product_tier === "lifeswitch"
-                ? "verbal_sage"
-                : "lifeswitch";
+              user.product_tier === "lifeswitch" ? "verbal_sage" : "lifeswitch";
             const isOwner = user.role === "owner";
             const isCurrentUser = user.id === access.user_id;
             const isRoleConfirming =

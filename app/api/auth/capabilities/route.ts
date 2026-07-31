@@ -3,12 +3,8 @@ import {
   CAPABILITY_REGISTRY,
   capabilitiesForRole,
 } from "@/components/admin/settings/permissions/permissionRegistry";
-import {
-  getFreshSupabaseAuthContextFromRequest,
-} from "@/app/api/_auth/supabaseUser";
-import {
-  normalizePermissionRole,
-} from "@/app/api/_auth/requireCapability";
+import { getFreshSupabaseAuthContextFromRequest } from "@/app/api/_auth/supabaseUser";
+import { normalizePermissionRole } from "@/app/api/_auth/requireCapability";
 import {
   normalizeProductTier,
   productsForTier,
@@ -35,7 +31,7 @@ export async function GET(req: Request) {
         backend_enforced_count: 0,
         total_capabilities: CAPABILITY_REGISTRY.length,
       },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -84,8 +80,10 @@ export async function GET(req: Request) {
       backendEnforced: cap.backendEnforced,
     })),
     capability_count: capabilities.length,
-    critical_count: capabilities.filter((cap) => cap.risk === "critical").length,
-    backend_enforced_count: capabilities.filter((cap) => cap.backendEnforced).length,
+    critical_count: capabilities.filter((cap) => cap.risk === "critical")
+      .length,
+    backend_enforced_count: capabilities.filter((cap) => cap.backendEnforced)
+      .length,
     total_capabilities: CAPABILITY_REGISTRY.length,
   });
 }

@@ -46,7 +46,9 @@ function requestId(req: Request): string {
   return raw && raw.length <= 128 ? raw : randomUUID();
 }
 
-async function requestedDecision(req: Request): Promise<DecisionRequest | null> {
+async function requestedDecision(
+  req: Request,
+): Promise<DecisionRequest | null> {
   const declaredLength = Number(req.headers.get("content-length") || "0");
   if (Number.isFinite(declaredLength) && declaredLength > 1_024) return null;
 
@@ -88,7 +90,10 @@ async function findUserByEmail(
   if (error) throw error;
   return (
     data.users.find(
-      (user) => String(user.email || "").trim().toLowerCase() === normalized,
+      (user) =>
+        String(user.email || "")
+          .trim()
+          .toLowerCase() === normalized,
     ) || null
   );
 }

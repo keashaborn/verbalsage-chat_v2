@@ -1,6 +1,8 @@
 import { getFreshLifeSwitchUserIdFromRequest } from "@/app/api/_auth/productAccess";
 
-export async function getLifeSwitchOwnerUserId(req: Request): Promise<string | null> {
+export async function getLifeSwitchOwnerUserId(
+  req: Request,
+): Promise<string | null> {
   return await getFreshLifeSwitchUserIdFromRequest(req);
 }
 

@@ -24,7 +24,11 @@ export default function CollectLayout({ children }: { children: ReactNode }) {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Link>
-                <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />
+                <WorkspaceMenu
+                  label="LifeSwitch"
+                  align="left"
+                  variant="plain"
+                />
               </div>
 
               <AccountMenu />

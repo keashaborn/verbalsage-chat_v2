@@ -1,10 +1,7 @@
 import "server-only";
 
 import { getFreshSupabaseAuthContextFromRequest } from "@/app/api/_auth/supabaseUser";
-import {
-  productTierAllows,
-  type ProductId,
-} from "@/lib/productEntitlements";
+import { productTierAllows, type ProductId } from "@/lib/productEntitlements";
 
 export async function getFreshProductAuthContextFromRequest(
   req: Request,

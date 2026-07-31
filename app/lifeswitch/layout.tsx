@@ -20,7 +20,11 @@ export default function LifeSwitchLayout({
           <ConfirmActionProvider>
             <AppTopBar>
               <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-                <WorkspaceMenu label="LifeSwitch" align="left" variant="plain" />
+                <WorkspaceMenu
+                  label="LifeSwitch"
+                  align="left"
+                  variant="plain"
+                />
                 <AccountMenu />
               </div>
             </AppTopBar>

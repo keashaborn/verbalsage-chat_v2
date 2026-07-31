@@ -76,8 +76,7 @@ export async function GET(req: Request) {
         email: String(user.email || "").slice(0, 320),
         role: displayRole(user.app_metadata?.role),
         product_tier:
-          normalizeProductTier(user.app_metadata?.product_tier) ||
-          "unassigned",
+          normalizeProductTier(user.app_metadata?.product_tier) || "unassigned",
         status: accountStatus(user),
         created_at: user.created_at || null,
         last_sign_in_at: user.last_sign_in_at || null,

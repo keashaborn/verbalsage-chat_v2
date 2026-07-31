@@ -7,10 +7,7 @@ export function normalizeProductTier(value: unknown): ProductTier | null {
   return value === "verbal_sage" || value === "lifeswitch" ? value : null;
 }
 
-export function productTierAllows(
-  tier: unknown,
-  product: ProductId,
-): boolean {
+export function productTierAllows(tier: unknown, product: ProductId): boolean {
   const normalized = normalizeProductTier(tier);
   if (!normalized) return false;
   if (normalized === "lifeswitch") return true;

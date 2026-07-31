@@ -126,9 +126,7 @@ test("page admission and chat execution both enforce assigned products", () => {
 });
 
 test("Owner product assignment is fresh, MFA-protected, and metadata-preserving", () => {
-  const route = source(
-    "app/api/admin/users/[userId]/product-tier/route.ts",
-  );
+  const route = source("app/api/admin/users/[userId]/product-tier/route.ts");
   const directory = source("app/api/admin/users/route.ts");
   const ui = source("components/admin/settings/AdminConsolePage.tsx");
 
@@ -146,12 +144,8 @@ test("Owner product assignment is fresh, MFA-protected, and metadata-preserving"
 
 test("invite redirects are tier-specific and allowlisted", () => {
   const redirect = source("lib/accessInviteRedirect.ts");
-  const approval = source(
-    "app/api/admin/access-requests/[requestId]/route.ts",
-  );
-  const setup = source(
-    "app/api/admin/users/[userId]/password-setup/route.ts",
-  );
+  const approval = source("app/api/admin/access-requests/[requestId]/route.ts");
+  const setup = source("app/api/admin/users/[userId]/password-setup/route.ts");
 
   assert.match(redirect, /verbalsage\.com\/auth\/accept-invite/);
   assert.match(redirect, /lifeswitch\.com\/auth\/accept-invite/);

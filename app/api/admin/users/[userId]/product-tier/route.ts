@@ -122,7 +122,12 @@ export async function PATCH(
     }
     if (currentTier === productTier) {
       return NextResponse.json(
-        { ok: true, changed: false, user_id: userId, product_tier: productTier },
+        {
+          ok: true,
+          changed: false,
+          user_id: userId,
+          product_tier: productTier,
+        },
         { headers },
       );
     }

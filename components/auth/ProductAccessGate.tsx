@@ -101,7 +101,10 @@ export function ProductAccessGate({
           >
             Retry access check
           </button>
-          <Link href="/settings/account" className="px-2 py-2 text-sm underline">
+          <Link
+            href="/settings/account"
+            className="px-2 py-2 text-sm underline"
+          >
             Account settings
           </Link>
         </div>

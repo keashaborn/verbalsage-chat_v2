@@ -16,7 +16,12 @@ export async function GET(req: Request) {
   }
 
   try {
-    const p = path.join(process.cwd(), "public", "lifeswitch", "workout_library.json");
+    const p = path.join(
+      process.cwd(),
+      "public",
+      "lifeswitch",
+      "workout_library.json",
+    );
     const raw = await readFile(p, "utf-8");
     // Validate JSON so we don't serve broken content silently
     const j = JSON.parse(raw);
@@ -31,7 +36,7 @@ export async function GET(req: Request) {
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message || String(e) },
-      { status: 404, headers: { "Cache-Control": "no-store" } }
+      { status: 404, headers: { "Cache-Control": "no-store" } },
     );
   }
 }
