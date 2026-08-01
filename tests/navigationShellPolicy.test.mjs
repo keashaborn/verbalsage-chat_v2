@@ -87,3 +87,32 @@ test("chat flex boundaries cannot grow wider than the viewport", () => {
   );
   assert.match(chat, /sticky bottom-0 z-10 max-w-full min-w-0/);
 });
+
+test("chat exposes its active title and keyboard landmarks", () => {
+  const assistant = read("app/assistant.tsx");
+  const title = read("components/threads/ActiveConversationTitle.tsx");
+  const chat = read("components/threads/BrainsChatPane.tsx");
+
+  assert.match(assistant, /href="#chat-conversation"/);
+  assert.match(assistant, /href="#chat-composer"/);
+  assert.match(assistant, /ActiveConversationTitle/);
+  assert.match(title, /vs_active_thread_metadata/);
+  assert.match(title, /aria-live="polite"/);
+  assert.match(chat, /id="chat-conversation"/);
+  assert.match(chat, /id="chat-composer"/);
+});
+
+test("chat tables scroll locally and message/source styling stays restrained", () => {
+  const markdown = read("components/shared/MarkdownMessage.tsx");
+  const chat = read("components/threads/BrainsChatPane.tsx");
+
+  assert.match(markdown, /overflow-x-auto/);
+  assert.match(markdown, /min-w-\[34rem\]/);
+  assert.match(markdown, /border-r border-b/);
+  assert.match(chat, /data-message-role=\{m\.role\}/);
+  assert.match(chat, /border-r-2 border-foreground\/35/);
+  assert.doesNotMatch(chat, /rounded-xl bg-muted px-4 py-2 text-sm/);
+  assert.match(chat, /Sources · \{trustedWebSourceSummary/);
+  assert.match(chat, /group-open:rotate-180/);
+  assert.match(chat, /size-11[\s\S]*sm:size-8/);
+});

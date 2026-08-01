@@ -2,24 +2,31 @@
 
 import * as React from "react";
 import {
+  ChevronDown,
+  ChevronUp,
   Copy,
   ListChecks,
   MoreHorizontal,
   Pencil,
   Pin,
   PinOff,
+  Loader2,
   Trash2,
 } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { authFetchJson } from "@/lib/authFetch";
-import { buildThreadSections } from "@/lib/threadSections";
+import {
+  buildInitialThreadSections,
+  buildThreadSections,
+} from "@/lib/threadSections";
 
 type ThreadItem = {
   thread_id: string;
@@ -42,6 +49,23 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return authFetchJson<T>(url, init);
 }
 
+function publishActiveThreadMetadata(
+  threadId: string | null,
+  availableThreads: ThreadItem[],
+) {
+  const activeThread = availableThreads.find(
+    (thread) => thread.thread_id === threadId,
+  );
+  window.dispatchEvent(
+    new CustomEvent("vs_active_thread_metadata", {
+      detail: {
+        thread_id: threadId,
+        title: activeThread?.title || "New chat",
+      },
+    }),
+  );
+}
+
 export function BrainsThreadList({ query = "" }: { query?: string }) {
   const [threads, setThreads] = React.useState<ThreadItem[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -52,6 +76,12 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
   const [actionMenu, setActionMenu] = React.useState<ActionMenu | null>(null);
   const [busyThreadId, setBusyThreadId] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState("");
+  const [activeThreadId, setActiveThreadId] = React.useState<string | null>(
+    null,
+  );
+  const [historyExpanded, setHistoryExpanded] = React.useState(false);
+  const [deleteCandidate, setDeleteCandidate] =
+    React.useState<ThreadItem | null>(null);
 
   const actionMenuRef = React.useRef<HTMLDivElement | null>(null);
   const longPressTimerRef = React.useRef<number | null>(null);
@@ -65,7 +95,12 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
   async function refresh() {
     setLoading(true);
     try {
-      const data = await fetchJson<any[]>("/api/threads");
+      const [data, active] = await Promise.all([
+        fetchJson<any[]>("/api/threads"),
+        fetchJson<{ thread_id: string | null }>("/api/threads/active").catch(
+          () => ({ thread_id: null }),
+        ),
+      ]);
       const normalized = (Array.isArray(data) ? data : [])
         .map((t: any) => ({
           ...t,
@@ -73,21 +108,25 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
           pinned: Boolean(t?.pinned || t?.pinned_at),
         }))
         .filter((t: ThreadItem) => !!t.thread_id);
+      const nextActiveThreadId = String(active.thread_id || "").trim() || null;
       setThreads(normalized);
+      setActiveThreadId(nextActiveThreadId);
+      publishActiveThreadMetadata(nextActiveThreadId, normalized);
     } catch {
       setThreads([]);
+      setActionError("Chats could not be loaded. Try refreshing the page.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function select(thread_id: string) {
+  async function select(thread: ThreadItem) {
     if (Date.now() < suppressSelectUntilRef.current) return;
 
-    const tid = String(thread_id || "").trim();
+    const tid = String(thread.thread_id || "").trim();
 
     if (!tid) {
-      alert("Thread id missing. Refreshing thread list.");
+      setActionError("This chat could not be opened. The list was refreshed.");
       await refresh();
       return;
     }
@@ -98,12 +137,16 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ thread_id: tid }),
       });
+      setActiveThreadId(tid);
+      publishActiveThreadMetadata(tid, threads);
       window.dispatchEvent(
-        new CustomEvent("vs_active_thread", { detail: { thread_id: tid } }),
+        new CustomEvent("vs_active_thread", {
+          detail: { thread_id: tid, title: thread.title || "New chat" },
+        }),
       );
       if (isMobile) setOpenMobile(false);
     } catch (e: any) {
-      alert(e?.message || String(e));
+      setActionError(e?.message || String(e));
       await refresh();
     }
   }
@@ -128,10 +171,13 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ thread_id: tid }),
       });
+      setActiveThreadId(tid);
+      publishActiveThreadMetadata(tid, threads);
       window.dispatchEvent(
         new CustomEvent("vs_active_thread", {
           detail: {
             thread_id: tid,
+            title: thread.title || "New chat",
             conversation_action: conversationAction,
           },
         }),
@@ -232,6 +278,7 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
       setActionError(e?.message || String(e));
     } finally {
       setBusyThreadId(null);
+      setDeleteCandidate(null);
     }
   }
 
@@ -278,6 +325,26 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
     window.addEventListener("vs_threads_refresh", onRefresh);
     return () => window.removeEventListener("vs_threads_refresh", onRefresh);
   }, []);
+
+  React.useEffect(() => {
+    const onActiveThread = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ thread_id?: string | null; title?: string }>
+      ).detail;
+      const nextActiveThreadId = String(detail?.thread_id || "").trim() || null;
+      setActiveThreadId(nextActiveThreadId);
+      if (detail?.title) {
+        window.dispatchEvent(
+          new CustomEvent("vs_active_thread_metadata", { detail }),
+        );
+      } else {
+        publishActiveThreadMetadata(nextActiveThreadId, threads);
+      }
+    };
+
+    window.addEventListener("vs_active_thread", onActiveThread);
+    return () => window.removeEventListener("vs_active_thread", onActiveThread);
+  }, [threads]);
 
   React.useEffect(() => {
     return () => cancelLongPress();
@@ -328,14 +395,28 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
   const filtered = threads.filter((t) =>
     (t.title || "").toLowerCase().includes(normalizedQuery),
   );
-  const sections = buildThreadSections(filtered);
+  const collapsedSections = buildInitialThreadSections(
+    filtered,
+    activeThreadId,
+    5,
+  );
+  const collapsedThreadCount = new Set(
+    collapsedSections.flatMap((section) =>
+      section.threads.map((thread) => thread.thread_id),
+    ),
+  ).size;
+  const hiddenThreadCount = Math.max(0, filtered.length - collapsedThreadCount);
+  const sections =
+    normalizedQuery || historyExpanded
+      ? buildThreadSections(filtered)
+      : collapsedSections;
 
   return (
     <div className="flex flex-col">
       {actionError && (
         <div
           role="alert"
-          className="rounded-lg bg-destructive/10 px-2.5 py-2 text-xs text-destructive"
+          className="rounded-lg border border-destructive-border bg-destructive-surface px-2.5 py-2 text-xs text-destructive-foreground"
         >
           {actionError}
         </div>
@@ -360,7 +441,7 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
           >
             <h2
               id={`thread-section-${section.key}`}
-              className="px-2 pt-1 pb-1 text-[11px] font-medium text-muted-foreground/75"
+              className="px-2 pt-1 pb-1 text-[11px] font-medium text-muted-foreground"
             >
               {section.label}
             </h2>
@@ -373,6 +454,7 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
                 const isMenuOpen = actionMenu?.thread.thread_id === tid;
                 const isBusy = busyThreadId === tid;
                 const isEditing = editingId === tid;
+                const isActive = activeThreadId === tid;
 
                 if (isMobile && isEditing) {
                   return (
@@ -406,7 +488,7 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"
-                          className="px-2 py-2 text-sm text-muted-foreground"
+                          className="min-h-11 min-w-11 px-2 py-2 text-sm text-muted-foreground"
                           onClick={cancelRename}
                           disabled={isBusy}
                         >
@@ -414,7 +496,7 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
                         </button>
                         <button
                           type="submit"
-                          className="px-2 py-2 text-sm font-medium"
+                          className="min-h-11 min-w-11 px-2 py-2 text-sm font-medium"
                           disabled={isBusy || !editingTitle.trim()}
                         >
                           Save
@@ -427,8 +509,8 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
                 return (
                   <div
                     key={tid}
-                    className={`group flex touch-manipulation items-center gap-1 rounded-lg px-2 py-1 select-none ${
-                      isMenuOpen ? "bg-muted" : "hover:bg-muted"
+                    className={`group relative flex touch-manipulation items-center gap-1 rounded-lg px-2 py-1 select-none ${
+                      isMenuOpen || isActive ? "bg-muted/70" : "hover:bg-muted"
                     }`}
                     style={
                       { WebkitTouchCallout: "none" } as React.CSSProperties
@@ -451,10 +533,17 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
                       );
                     }}
                   >
+                    {isActive && (
+                      <span
+                        className="absolute top-2 bottom-2 left-0 w-0.5 rounded-full bg-foreground/70"
+                        aria-hidden="true"
+                      />
+                    )}
                     <button
-                      className="flex min-w-0 flex-1 items-center gap-2 px-1 py-2 text-left text-sm"
-                      onClick={() => select(tid)}
+                      className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-1 py-2 text-left text-sm sm:min-h-9"
+                      onClick={() => select({ ...t, thread_id: tid })}
                       aria-label={`Open chat ${t.title || "New chat"}`}
+                      aria-current={isActive ? "page" : undefined}
                     >
                       {t.pinned && (
                         <Pin
@@ -466,7 +555,7 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
                     </button>
 
                     <button
-                      className="rounded-md p-2.5 text-muted-foreground opacity-100 hover:bg-background/60 hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
+                      className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-100 hover:bg-background/60 hover:text-foreground sm:size-8 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
                       onClick={(event) => {
                         event.stopPropagation();
                         cancelLongPress();
@@ -492,6 +581,26 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
           </section>
         ))}
       </div>
+
+      {!loading && !normalizedQuery && hiddenThreadCount > 0 && (
+        <button
+          type="button"
+          className="mx-2 mt-2 flex min-h-11 items-center justify-between border-t px-1 pt-3 text-xs text-muted-foreground hover:text-foreground sm:min-h-9"
+          onClick={() => setHistoryExpanded((current) => !current)}
+          aria-expanded={historyExpanded}
+        >
+          <span>
+            {historyExpanded
+              ? "Show fewer chats"
+              : `Older chats (${hiddenThreadCount})`}
+          </span>
+          {historyExpanded ? (
+            <ChevronUp className="size-4" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="size-4" aria-hidden="true" />
+          )}
+        </button>
+      )}
 
       {actionMenu && (
         <div
@@ -549,8 +658,11 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
             </button>
             <button
               role="menuitem"
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:outline-none"
-              onClick={() => deleteThread(actionMenu.thread.thread_id)}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-destructive-foreground hover:bg-destructive-surface focus:bg-destructive-surface focus:outline-none"
+              onClick={() => {
+                setDeleteCandidate(actionMenu.thread);
+                closeActionMenu();
+              }}
             >
               <Trash2 className="size-5" aria-hidden="true" />
               Delete chat
@@ -611,6 +723,58 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
           </DialogContent>
         </Dialog>
       )}
+
+      <Dialog
+        open={deleteCandidate !== null}
+        onOpenChange={(open) => {
+          if (!open && busyThreadId !== deleteCandidate?.thread_id) {
+            setDeleteCandidate(null);
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-sm rounded-2xl p-4"
+          showCloseButton={false}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-sm">Delete chat?</DialogTitle>
+            <DialogDescription>
+              “{deleteCandidate?.title || "New chat"}” will be permanently
+              deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-2 flex-row justify-end">
+            <button
+              type="button"
+              className="min-h-11 rounded-xl bg-muted px-3 py-2 text-sm sm:min-h-9"
+              onClick={() => setDeleteCandidate(null)}
+              disabled={busyThreadId === deleteCandidate?.thread_id}
+              autoFocus
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="min-h-11 rounded-xl border border-destructive-border bg-destructive-surface px-3 py-2 text-sm font-medium text-destructive-foreground sm:min-h-9"
+              onClick={() => {
+                if (deleteCandidate) {
+                  void deleteThread(deleteCandidate.thread_id);
+                }
+              }}
+              disabled={busyThreadId === deleteCandidate?.thread_id}
+            >
+              {busyThreadId === deleteCandidate?.thread_id ? (
+                <span className="inline-flex items-center gap-2" role="status">
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                  Deleting…
+                </span>
+              ) : (
+                "Delete"
+              )}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

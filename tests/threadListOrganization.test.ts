@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { buildThreadSections } from "../lib/threadSections.ts";
+import {
+  buildInitialThreadSections,
+  buildThreadSections,
+} from "../lib/threadSections.ts";
 
 type TestThread = {
   thread_id: string;
@@ -88,6 +91,54 @@ test("groups pinned chats once and organizes the remainder by activity", () => {
   );
 });
 
+test("initial history keeps pinned and open chats visible, then limits recent chats", () => {
+  const threads: TestThread[] = [
+    {
+      thread_id: "pinned",
+      title: "Pinned",
+      updated_at: localIso(2026, 6, 25, 11),
+      pinned: true,
+    },
+    {
+      thread_id: "recent-1",
+      title: "Recent 1",
+      updated_at: localIso(2026, 6, 25, 10),
+      pinned: false,
+    },
+    {
+      thread_id: "recent-2",
+      title: "Recent 2",
+      updated_at: localIso(2026, 6, 25, 9),
+      pinned: false,
+    },
+    {
+      thread_id: "recent-3",
+      title: "Recent 3",
+      updated_at: localIso(2026, 6, 25, 8),
+      pinned: false,
+    },
+    {
+      thread_id: "open-old",
+      title: "Open old",
+      updated_at: localIso(2026, 5, 1),
+      pinned: false,
+    },
+  ];
+
+  const sections = buildInitialThreadSections(threads, "open-old", 2);
+
+  assert.deepEqual(
+    sections.map((section) => section.label),
+    ["Pinned", "Open", "Recent"],
+  );
+  assert.deepEqual(
+    sections.flatMap((section) =>
+      section.threads.map((thread) => thread.thread_id),
+    ),
+    ["pinned", "open-old", "recent-1", "recent-2"],
+  );
+});
+
 test("places the accessible new-chat icon in the fixed sidebar header", () => {
   const sidebarSource = readFileSync(
     "components/assistant-ui/threadlist-sidebar.tsx",
@@ -102,6 +153,10 @@ test("places the accessible new-chat icon in the fixed sidebar header", () => {
   assert.match(sidebarSource, /aria-label="New chat"/);
   assert.match(sidebarSource, /<BrainsThreadList query=\{query\}/);
   assert.doesNotMatch(listSource, /<PlusIcon/);
+  assert.match(listSource, /Older chats \(\$\{hiddenThreadCount\}\)/);
+  assert.match(listSource, /aria-expanded=\{historyExpanded\}/);
+  assert.match(listSource, /aria-current=\{isActive \? "page" : undefined\}/);
+  assert.match(listSource, /vs_active_thread_metadata/);
 });
 
 test("sidebar brand marks bypass the failing image optimizer", () => {

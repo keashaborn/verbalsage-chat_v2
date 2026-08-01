@@ -56,8 +56,8 @@ export function WorkspaceMenu({
 
   const triggerClass =
     variant === "plain"
-      ? "product-brand-trigger rounded-md px-1 py-1.5 text-sm font-semibold tracking-wide hover:opacity-80"
-      : "product-brand-trigger rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30";
+      ? "product-brand-trigger min-h-11 rounded-md px-1 py-1.5 text-sm font-semibold tracking-wide hover:opacity-80 sm:min-h-0"
+      : "product-brand-trigger min-h-11 rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 sm:min-h-0";
 
   const panelClass = [
     "absolute z-50 mt-2 w-48 overflow-hidden rounded-xl border border-border/70 bg-popover text-popover-foreground shadow-xl ring-1 ring-foreground/5 supports-[backdrop-filter]:bg-popover/95 supports-[backdrop-filter]:backdrop-blur-xl",

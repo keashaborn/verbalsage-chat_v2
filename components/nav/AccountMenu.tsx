@@ -149,7 +149,7 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
     <div ref={ref} className="relative">
       <button
         type="button"
-        className="rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/30 active:bg-muted/40"
+        className="min-h-11 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/30 active:bg-muted/40 sm:min-h-0"
         aria-label="Open account menu"
         aria-haspopup="menu"
         aria-expanded={open}

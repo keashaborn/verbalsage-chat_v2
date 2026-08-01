@@ -30,6 +30,14 @@ test("touch long press and desktop context menu share the anchored actions menu"
 test("thread delete no longer uses the browser-native confirmation dialog", () => {
   assert.doesNotMatch(listSource, /window\.confirm/);
   assert.match(listSource, /text-destructive/);
+  assert.match(listSource, /setDeleteCandidate\(actionMenu\.thread\)/);
+  assert.match(listSource, /<DialogTitle className="text-sm">Delete chat\?/);
+  assert.match(listSource, /<DialogDescription>/);
+  assert.match(listSource, /autoFocus/);
+  assert.doesNotMatch(
+    listSource,
+    /onClick=\{\(\) => deleteThread\(actionMenu\.thread\.thread_id\)\}/,
+  );
 });
 
 test("thread rename avoids nested mobile dialogs and keeps desktop portaled", () => {

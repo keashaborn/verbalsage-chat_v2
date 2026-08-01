@@ -26,7 +26,12 @@ export function MarkdownMessage({
   };
 
   return (
-    <div className={cn("min-w-0 max-w-full overflow-hidden break-words [overflow-wrap:anywhere]", className)}>
+    <div
+      className={cn(
+        "min-w-0 max-w-full overflow-hidden break-words [overflow-wrap:anywhere]",
+        className,
+      )}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -70,6 +75,40 @@ export function MarkdownMessage({
             <pre
               className={cn(
                 "my-3 overflow-x-auto rounded-lg border bg-muted p-3 text-xs leading-6",
+                className,
+              )}
+              {...props}
+            />
+          ),
+          table: ({ className, ...props }) => (
+            <div
+              className="my-3 max-w-full overflow-x-auto rounded-lg border border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              role="region"
+              aria-label="Scrollable table. Scroll horizontally to view more columns."
+              tabIndex={0}
+            >
+              <table
+                className={cn(
+                  "w-full min-w-[34rem] border-collapse text-left text-sm [&_tbody_tr:last-child_td]:border-b-0",
+                  className,
+                )}
+                {...props}
+              />
+            </div>
+          ),
+          th: ({ className, ...props }) => (
+            <th
+              className={cn(
+                "border-r border-b border-border/60 bg-muted/45 px-3 py-2 align-bottom text-xs font-semibold last:border-r-0",
+                className,
+              )}
+              {...props}
+            />
+          ),
+          td: ({ className, ...props }) => (
+            <td
+              className={cn(
+                "border-r border-b border-border/60 px-3 py-2 align-top leading-6 last:border-r-0",
                 className,
               )}
               {...props}

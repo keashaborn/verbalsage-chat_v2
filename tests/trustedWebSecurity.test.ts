@@ -254,9 +254,14 @@ test("trusted web source cards replace plain trailing source list", () => {
   const pane = source("components/threads/BrainsChatPane.tsx");
   assert.match(pane, /stripTrustedWebSourceList/);
   assert.match(pane, /Sources:/);
-  assert.match(pane, /Sources: \{trustedWebSourceSummary\(cited, admitted\)\}/);
+  assert.match(
+    pane,
+    /Sources · \{trustedWebSourceSummary\(cited, additionalSupporting\)\}/,
+  );
+  assert.match(pane, /const deduplicateByUrl/);
+  assert.match(pane, /\{cited\.length > 0 && \(/);
   assert.match(pane, /Cited in this answer/);
-  assert.match(pane, /Additional supporting sources/);
+  assert.match(pane, /"Additional supporting" : "Supporting"/);
   assert.match(pane, /trustedWebSourceDisplayTitle/);
   assert.match(pane, /<details/);
   assert.match(pane, /<summary/);

@@ -279,9 +279,9 @@ function trustedWebSourceDisplayTitle(source: TrustedWebSource): string {
 
 function trustedWebSourceSummary(
   citedSources: TrustedWebSource[],
-  admittedSources: TrustedWebSource[],
+  supportingSources: TrustedWebSource[],
 ): string {
-  const summarySources = citedSources.length ? citedSources : admittedSources;
+  const summarySources = citedSources.length ? citedSources : supportingSources;
   const labels = Array.from(
     new Set(
       summarySources
@@ -293,10 +293,7 @@ function trustedWebSourceSummary(
         .filter(Boolean),
     ),
   ).slice(0, 3);
-  const supportingCount = Math.max(
-    0,
-    admittedSources.length - citedSources.length,
-  );
+  const supportingCount = supportingSources.length;
   const suffix = `${citedSources.length} cited · ${supportingCount} supporting`;
   return labels.length ? `${labels.join(", ")} · ${suffix}` : suffix;
 }
@@ -309,32 +306,18 @@ function TrustedWebSourceCard({
   provenance: "Cited" | "Supporting";
 }) {
   return (
-    <div className="rounded-xl border bg-background/40 p-3 text-left">
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="mb-1 flex flex-wrap items-center gap-2">
-            <span className="rounded-full border bg-background px-2 py-0.5 text-[11px] leading-4 font-medium">
-              {trustedWebAuthorityLabel(source)}
-            </span>
-            <span className="rounded-full border px-2 py-0.5 text-[11px] leading-4 text-muted-foreground">
-              {provenance}
-            </span>
-            <span className="text-[11px] leading-4 text-muted-foreground">
-              {trustedWebSourceMeta(source)}
-            </span>
-          </div>
-          <a
-            href={source.url}
-            target="_blank"
-            rel="noreferrer"
-            className="line-clamp-2 text-xs leading-5 font-medium text-foreground underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none"
-          >
-            {trustedWebSourceDisplayTitle(source)}
-          </a>
-        </div>
-        <span className="shrink-0 pt-0.5 text-[11px] text-muted-foreground">
-          {trustedWebHostLabel(source.url)}
-        </span>
+    <div className="py-2.5 text-left">
+      <a
+        href={source.url}
+        target="_blank"
+        rel="noreferrer"
+        className="line-clamp-2 text-xs leading-5 font-medium text-foreground underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none"
+      >
+        {trustedWebSourceDisplayTitle(source)}
+      </a>
+      <div className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+        {trustedWebAuthorityLabel(source)} · {provenance} ·{" "}
+        {trustedWebSourceMeta(source)} · {trustedWebHostLabel(source.url)}
       </div>
     </div>
   );
@@ -347,45 +330,57 @@ function TrustedWebSourceCards({
   citedSources?: TrustedWebSource[];
   admittedSources?: TrustedWebSource[];
 }) {
-  const cited = (citedSources || []).filter(
-    (source) => source.url && source.title,
-  );
-  const admitted = (admittedSources || []).filter(
-    (source) => source.url && source.title,
-  );
+  const deduplicateByUrl = (sources: TrustedWebSource[]) => {
+    const seenUrls = new Set<string>();
+    return sources.filter((source) => {
+      if (!source.url || !source.title || seenUrls.has(source.url)) return false;
+      seenUrls.add(source.url);
+      return true;
+    });
+  };
+  const cited = deduplicateByUrl(citedSources || []);
+  const admitted = deduplicateByUrl(admittedSources || []);
   const citedUrls = new Set(cited.map((source) => source.url));
   const additionalSupporting = admitted.filter(
     (source) => !citedUrls.has(source.url),
   );
-  if (!cited.length && !admitted.length) return null;
+  if (!cited.length && !additionalSupporting.length) return null;
   return (
     <details
-      className="mt-4 rounded-2xl border bg-muted/10 text-xs"
+      className="group mt-4 border-y border-border/60 text-xs"
       aria-label="Web source provenance"
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-muted-foreground marker:hidden">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 py-2 text-muted-foreground marker:hidden sm:min-h-9">
         <span className="min-w-0 truncate">
-          Sources: {trustedWebSourceSummary(cited, admitted)}
+          Sources · {trustedWebSourceSummary(cited, additionalSupporting)}
         </span>
-        <span className="shrink-0 text-[11px]">Details</span>
+        <ChevronDown
+          className="size-4 shrink-0 transition-transform group-open:rotate-180"
+          aria-hidden="true"
+        />
       </summary>
-      <div className="space-y-2 border-t px-3 py-3">
-        <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-          Cited in this answer
-        </div>
-        {cited.map((source) => (
-          <TrustedWebSourceCard
-            key={`cited:${source.url}`}
-            source={source}
-            provenance="Cited"
-          />
-        ))}
+      <div className="divide-y border-t border-border/60">
+        {cited.length > 0 && (
+          <>
+            <div className="py-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              Cited in this answer
+            </div>
+            {cited.map((source) => (
+              <TrustedWebSourceCard
+                key={`cited:${source.url}`}
+                source={source}
+                provenance="Cited"
+              />
+            ))}
+          </>
+        )}
         {additionalSupporting.length > 0 && (
-          <details className="rounded-xl border bg-background/20">
-            <summary className="cursor-pointer px-3 py-2 text-[11px] text-muted-foreground">
-              Additional supporting sources ({additionalSupporting.length})
+          <details>
+            <summary className="flex min-h-11 cursor-pointer items-center py-2 text-[11px] text-muted-foreground sm:min-h-9">
+              {cited.length > 0 ? "Additional supporting" : "Supporting"}{" "}
+              sources ({additionalSupporting.length})
             </summary>
-            <div className="space-y-2 border-t p-2">
+            <div className="divide-y border-t border-border/60 pl-3">
               {additionalSupporting.map((source) => (
                 <TrustedWebSourceCard
                   key={`supporting:${source.url}`}
@@ -452,7 +447,7 @@ export function BrainsChatPane() {
     null,
   );
   const [editingText, setEditingText] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
   const [sending, setSending] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [voicePrivacyOpen, setVoicePrivacyOpen] = React.useState(false);
@@ -1543,6 +1538,7 @@ export function BrainsChatPane() {
     (async () => {
       const tid = await loadActiveThread();
       if (tid && mounted) await loadMessages(tid);
+      else if (mounted) setLoading(false);
     })();
 
     const onSelect = (e: any) => {
@@ -2381,7 +2377,9 @@ export function BrainsChatPane() {
       )}
 
       <div
+        id="chat-conversation"
         ref={scrollRef}
+        tabIndex={-1}
         className="mx-auto w-full max-w-[44rem] min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-5 pt-6 pb-[calc(10.5rem+env(safe-area-inset-bottom))]"
         onPointerDown={(event) => {
           const target = event.target;
@@ -2393,9 +2391,11 @@ export function BrainsChatPane() {
           clearNativeSelection();
         }}
       >
-        {!threadId && (
-          <div className="mb-6 text-sm text-muted-foreground">
-            Start typing to create a new chat.
+        {!loading && msgs.length === 0 && (
+          <div className="mb-8 pt-[12vh] text-center text-sm text-muted-foreground">
+            {threadId
+              ? "This chat is ready. Ask a question or start with an idea."
+              : "What would you like to work on?"}
           </div>
         )}
         {loading && (
@@ -2418,6 +2418,7 @@ export function BrainsChatPane() {
               <div
                 key={m.id || idx}
                 data-chat-message
+                data-message-role={m.role}
                 className={[
                   "relative text-left",
                   messageSelectionMode ? "pl-8 sm:pl-7" : "",
@@ -2444,7 +2445,7 @@ export function BrainsChatPane() {
                 <div
                   className={
                     m.role === "user"
-                      ? "ml-auto block w-fit max-w-[84%] rounded-xl bg-muted px-4 py-2 text-sm select-text sm:max-w-[72%]"
+                      ? "ml-auto block w-fit max-w-[84%] border-r-2 border-foreground/35 pr-3 text-left text-sm leading-7 select-text sm:max-w-[72%]"
                       : "block max-w-full min-w-0 text-sm leading-7 select-text"
                   }
                 >
@@ -2478,14 +2479,19 @@ export function BrainsChatPane() {
                       )}
                     </>
                   ) : (
-                    m.content
+                    <>
+                      <div className="mb-0.5 text-right text-[11px] font-medium tracking-wide text-muted-foreground">
+                        You
+                      </div>
+                      <div>{m.content}</div>
+                    </>
                   )}
                 </div>
 
                 {!messageSelectionMode && m.role === "user" && (
                   <div className="mt-2 flex items-center justify-end gap-2 text-xs text-muted-foreground select-none">
                     <button
-                      className="inline-flex items-center justify-center rounded-md p-2 hover:bg-muted"
+                      className="inline-flex size-11 items-center justify-center rounded-md hover:bg-muted sm:size-8"
                       onClick={() => startEditingMessage(m)}
                       aria-label="Edit message"
                       title="Edit message"
@@ -2494,7 +2500,7 @@ export function BrainsChatPane() {
                     </button>
 
                     <button
-                      className="inline-flex items-center justify-center rounded-md p-2 hover:bg-muted"
+                      className="inline-flex size-11 items-center justify-center rounded-md hover:bg-muted sm:size-8"
                       onClick={() => copyText(m.content, idx)}
                       aria-label="Copy message"
                       title="Copy message"
@@ -2509,7 +2515,7 @@ export function BrainsChatPane() {
                     <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground select-none">
                       <button
                         className={[
-                          "inline-flex items-center justify-center rounded-md p-3 hover:bg-muted disabled:opacity-50 sm:p-2",
+                          "inline-flex size-11 items-center justify-center rounded-md hover:bg-muted disabled:opacity-50 sm:size-8",
                           isCopied ? "bg-muted" : "",
                         ].join(" ")}
                         onClick={() => copyText(m.content, idx)}
@@ -2527,7 +2533,7 @@ export function BrainsChatPane() {
 
                       <button
                         className={[
-                          "inline-flex items-center justify-center rounded-md p-3 hover:bg-muted disabled:opacity-50 sm:p-2",
+                          "inline-flex size-11 items-center justify-center rounded-md hover:bg-muted disabled:opacity-50 sm:size-8",
                           isTtsLoading ? "bg-muted" : "",
                         ].join(" ")}
                         onClick={() => speak(m.content, idx)}
@@ -2557,7 +2563,7 @@ export function BrainsChatPane() {
 
                       {idx === lastAIdx && (
                         <button
-                          className="inline-flex items-center justify-center rounded-md p-3 hover:bg-muted disabled:opacity-50 sm:p-2"
+                          className="inline-flex size-11 items-center justify-center rounded-md hover:bg-muted disabled:opacity-50 sm:size-8"
                           onClick={regenerateLast}
                           disabled={sending}
                           aria-label="Regenerate"
@@ -2606,7 +2612,7 @@ export function BrainsChatPane() {
 
       {!atBottom && !messageSelectionMode && (
         <button
-          className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 rounded-full border bg-background/80 p-2.5 shadow-lg backdrop-blur"
+          className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 grid size-11 place-items-center rounded-full border bg-background/80 shadow-lg backdrop-blur"
           onClick={() => scrollToBottom("smooth")}
           aria-label="Scroll to bottom"
         >
@@ -2670,7 +2676,7 @@ export function BrainsChatPane() {
                   aria-label="AI-generated voice playback"
                 >
               {playbackState.status === "error" ? (
-                <span className="min-w-0 flex-1 truncate text-xs text-destructive">
+                <span className="min-w-0 flex-1 truncate text-xs text-destructive-foreground">
                   {playbackState.error || "Voice playback is unavailable."}
                 </span>
               ) : (
@@ -2732,7 +2738,7 @@ export function BrainsChatPane() {
               </button>
                 </div>
               )}
-              <div className="relative rounded-xl border bg-background px-3 py-2 pr-12">
+              <div className="relative rounded-xl border bg-background px-3 py-2 pr-14 sm:pr-12">
             {pendingActiveThreadSync && (
               <div
                 className="mb-2 flex items-center justify-between gap-3 rounded-xl border bg-muted/40 px-3 py-2 text-xs"
@@ -2752,34 +2758,42 @@ export function BrainsChatPane() {
             )}
             {visibleRequestError && (
               <div
-                className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs"
+                className="mb-2 flex flex-wrap items-start gap-2 rounded-xl border border-destructive-border bg-destructive-surface px-3 py-2 text-xs text-destructive-foreground"
                 role="alert"
               >
-                <span>{visibleRequestError}</span>
-                {requestRecoveryAction === "refresh" && (
+                <span className="min-w-0 flex-1 basis-48 break-words">
+                  {visibleRequestError}
+                </span>
+                <div className="ml-auto flex shrink-0 flex-wrap justify-end gap-2">
+                  {requestRecoveryAction === "refresh" && (
+                    <button
+                      type="button"
+                      className="shrink-0 rounded-md border border-destructive-border px-2 py-1"
+                      onClick={() => window.location.reload()}
+                    >
+                      Refresh app
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="shrink-0 rounded-md border px-2 py-1"
-                    onClick={() => window.location.reload()}
+                    className="shrink-0 rounded-md border border-destructive-border px-2 py-1"
+                    onClick={() => {
+                      setRequestError("");
+                      setRequestRecoveryAction("none");
+                      if (governedVoiceHasError) governedVoice.stop();
+                    }}
                   >
-                    Refresh app
+                    Dismiss
                   </button>
-                )}
-                <button
-                  type="button"
-                  className="shrink-0 rounded-md border px-2 py-1"
-                  onClick={() => {
-                    setRequestError("");
-                    setRequestRecoveryAction("none");
-                    if (governedVoiceHasError) governedVoice.stop();
-                  }}
-                >
-                  Dismiss
-                </button>
+                </div>
               </div>
             )}
+            <label className="sr-only" htmlFor="chat-composer">
+              Message
+            </label>
             <textarea
-              className="field-sizing-content max-h-32 min-h-9 w-full min-w-0 resize-none bg-transparent py-2 text-sm outline-none"
+              id="chat-composer"
+              className="field-sizing-content max-h-32 min-h-11 w-full min-w-0 resize-none bg-transparent py-2 text-base outline-none sm:min-h-9 sm:text-sm"
               rows={1}
               placeholder="Send a message…"
               value={editingMessageId ? editingText : text}
@@ -2812,7 +2826,7 @@ export function BrainsChatPane() {
               onClick={() => void handleComposerAction()}
               disabled={sending}
               className={[
-                "absolute right-2 bottom-2 inline-flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border transition-[background-color,color,transform] active:scale-95 disabled:opacity-50",
+                "absolute right-2 bottom-2 inline-flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border transition-[background-color,color,transform] active:scale-95 disabled:opacity-50 sm:size-9",
                 composerHasText || voiceSessionVisible
                   ? "border-foreground bg-foreground text-background"
                   : "bg-background text-foreground",
@@ -2871,7 +2885,7 @@ export function BrainsChatPane() {
           </div>
 
           {voicePrivacyError && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-sm text-destructive-foreground">
               {voicePrivacyError}
             </p>
           )}

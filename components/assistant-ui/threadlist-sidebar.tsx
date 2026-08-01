@@ -19,12 +19,14 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const { brand } = useSiteBrand();
   const [query, setQuery] = React.useState("");
   const [creatingChat, setCreatingChat] = React.useState(false);
+  const [createError, setCreateError] = React.useState("");
   const { isMobile, setOpenMobile } = useSidebar();
 
   async function newChat() {
     if (creatingChat) return;
 
     setCreatingChat(true);
+    setCreateError("");
     try {
       const created = await authFetchJson<any>("/api/threads", {
         method: "POST",
@@ -44,15 +46,19 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
         ).thread_id;
 
       if (threadId) {
+        const detail = { thread_id: threadId, title: "New chat" };
         window.dispatchEvent(
           new CustomEvent("vs_active_thread", {
-            detail: { thread_id: threadId },
+            detail,
           }),
+        );
+        window.dispatchEvent(
+          new CustomEvent("vs_active_thread_metadata", { detail }),
         );
         if (isMobile) setOpenMobile(false);
       }
     } catch (error: any) {
-      alert(error?.message || String(error));
+      setCreateError(error?.message || String(error));
     } finally {
       setCreatingChat(false);
     }
@@ -60,7 +66,7 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar {...props}>
-      <SidebarHeader className="aui-sidebar-header mb-2 border-b">
+      <SidebarHeader className="aui-sidebar-header mb-2 border-b pt-[env(safe-area-inset-top)] md:pt-0">
         <div className="flex items-center justify-between gap-3 px-2 py-2">
           <div className="flex aspect-square size-10 items-center justify-center overflow-hidden rounded-lg">
             <Image
@@ -105,8 +111,16 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search chats…"
             aria-label="Search chats"
-            className="w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none"
+            className="min-h-11 w-full rounded-xl border bg-background px-3 py-2 text-base outline-none sm:min-h-9 sm:text-sm"
           />
+          {createError && (
+            <div
+              className="mt-2 rounded-lg border border-destructive-border bg-destructive-surface px-2.5 py-2 text-xs text-destructive-foreground"
+              role="alert"
+            >
+              {createError}
+            </div>
+          )}
         </div>
       </SidebarHeader>
 
@@ -116,7 +130,7 @@ export function ThreadListSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarRail />
 
-      <SidebarFooter className="aui-sidebar-footer border-t px-3 pb-3">
+      <SidebarFooter className="aui-sidebar-footer border-t px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:pb-3">
         <div className="py-2 pl-2 leading-tight">
           <div className="text-xs font-medium text-muted-foreground">
             {brand.name}

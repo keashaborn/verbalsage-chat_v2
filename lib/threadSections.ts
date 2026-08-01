@@ -3,6 +3,10 @@ export type ThreadSectionItem = {
   pinned?: boolean;
 };
 
+export type ThreadNavigationItem = ThreadSectionItem & {
+  thread_id: string;
+};
+
 export type ThreadSection<T extends ThreadSectionItem> = {
   key: string;
   label: string;
@@ -88,6 +92,36 @@ export function buildThreadSections<T extends ThreadSectionItem>(
   addSection("previous-seven-days", "Previous 7 days", previousSevenDays);
   addSection("previous-thirty-days", "Previous 30 days", previousThirtyDays);
   sections.push(...olderByMonth.values());
+
+  return sections;
+}
+
+export function buildInitialThreadSections<T extends ThreadNavigationItem>(
+  threads: readonly T[],
+  activeThreadId: string | null,
+  recentLimit = 5,
+): ThreadSection<T>[] {
+  const sorted = [...threads].sort(
+    (left, right) => timestamp(right.updated_at) - timestamp(left.updated_at),
+  );
+  const pinned = sorted.filter((thread) => thread.pinned);
+  const active = sorted.filter(
+    (thread) => !thread.pinned && thread.thread_id === activeThreadId,
+  );
+  const recent = sorted
+    .filter((thread) => !thread.pinned && thread.thread_id !== activeThreadId)
+    .slice(0, Math.max(0, recentLimit));
+
+  const sections: ThreadSection<T>[] = [];
+  if (pinned.length) {
+    sections.push({ key: "pinned", label: "Pinned", threads: pinned });
+  }
+  if (active.length) {
+    sections.push({ key: "open", label: "Open", threads: active });
+  }
+  if (recent.length) {
+    sections.push({ key: "recent", label: "Recent", threads: recent });
+  }
 
   return sections;
 }
