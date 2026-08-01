@@ -3,6 +3,7 @@
 import * as React from "react";
 import { authFetch } from "@/lib/authFetch";
 import { AccessRequestsPanel } from "@/components/admin/settings/AccessRequestsPanel";
+import { DevelopmentHistoryArchivePanel } from "@/components/admin/settings/DevelopmentHistoryArchivePanel";
 import { AiOperationsPanel } from "@/components/admin/settings/AiOperationsPanel";
 import { MemorySystemHealthPanel } from "@/components/admin/settings/MemorySystemHealthPanel";
 import { MemoryWorkbenchPanel } from "@/components/admin/settings/MemoryWorkbenchPanel";
@@ -795,6 +796,13 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
         mountWhenOpen
       >
         <UsageAnalyticsPanel />
+      </AdminSection>
+
+      <AdminSection
+        title="Development History Archive"
+        description="Owner-only intake, provenance, privacy, and approval status for historical exports."
+      >
+        <DevelopmentHistoryArchivePanel access={access} />
       </AdminSection>
 
       <AdminSection
