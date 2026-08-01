@@ -75,6 +75,26 @@ function safeNum(x: any, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function formatSessionDay(day?: string | null) {
+  const value = String(day || "").trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+
+  if (!match) return value || "Date unavailable";
+
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+function formatMetric(value: number) {
+  return new Intl.NumberFormat("en-US").format(Math.round(value));
+}
+
 function setExerciseRole(row: TrainingSetLogRow): "strength" | "rehab" {
   return row.exercise_role === "rehab" || row.exercise_role_snapshot === "rehab"
     ? "rehab"
@@ -206,50 +226,71 @@ export default function TrainingSessionPage() {
   const byExercise = React.useMemo(() => groupByExercise(sets), [sets]);
 
   return (
-    <div className="mx-auto max-w-5xl p-4">
+    <div className="mx-auto max-w-5xl px-4 pb-10 pt-5 sm:px-6 sm:pt-7">
       {readOnly ? (
-        <div className="mb-4 rounded-xl border bg-muted/20 p-3 text-sm">
+        <div className="mb-5 border-y border-border/60 py-3 text-sm text-muted-foreground" role="note">
           You are viewing {targetName ? `${targetName}’s` : "another person’s"} training session. This delegated view is read-only.
         </div>
       ) : null}
 
-      <div className="mb-4">
-        <Link
-          href={`/lifeswitch/training/calendar${targetUserId ? `?target_user_id=${encodeURIComponent(targetUserId)}&target_name=${encodeURIComponent(targetName)}` : ""}`}
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Back to Training Log
-        </Link>
-      </div>
+      <Link
+        href={`/lifeswitch/training/calendar${targetUserId ? `?target_user_id=${encodeURIComponent(targetUserId)}&target_name=${encodeURIComponent(targetName)}` : ""}`}
+        className="inline-flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
+        ← Back to Training Log
+      </Link>
 
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-lg font-semibold">{session?.name || "Training Session"}</div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            {session?.day || "—"}
-            {summary.strengthSetCount ? (
-              <>
-                {" "}· {summary.strengthExerciseCount} strength exercises · {summary.strengthSetCount} strength sets · volume{" "}
-                {Math.round(summary.strengthVolume)}
-              </>
-            ) : null}
-            {summary.rehabSetCount ? (
-              <>
-                {" "}· {summary.rehabExerciseCount} rehab exercises · {summary.rehabSetCount} rehab sets
-              </>
-            ) : null}
+      <header className="mt-2">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">{session?.name || "Training Session"}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {session?.day ? <time dateTime={session.day}>{formatSessionDay(session.day)}</time> : "Date unavailable"}
+            </p>
           </div>
+
+          <button
+            type="button"
+            className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => void loadSession()}
+            disabled={loading || !sessionId}
+          >
+            {loading ? "Loading…" : "Refresh"}
+          </button>
         </div>
 
-        <button
-          type="button"
-          className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
-          onClick={() => void loadSession()}
-          disabled={loading || !sessionId}
-        >
-          {loading ? "Loading…" : "Refresh"}
-        </button>
-      </div>
+        {session && sets.length ? (
+          <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-3 border-b border-border/60 pb-6">
+            {summary.strengthExerciseCount ? (
+              <div>
+                <dt className="text-xs text-muted-foreground">Strength exercises</dt>
+                <dd className="mt-0.5 text-base font-medium tabular-nums">{summary.strengthExerciseCount}</dd>
+              </div>
+            ) : null}
+            {summary.strengthSetCount ? (
+              <div>
+                <dt className="text-xs text-muted-foreground">Strength sets</dt>
+                <dd className="mt-0.5 text-base font-medium tabular-nums">{summary.strengthSetCount}</dd>
+              </div>
+            ) : null}
+            {summary.strengthSetCount ? (
+              <div>
+                <dt className="text-xs text-muted-foreground">Strength volume</dt>
+                <dd className="mt-0.5 text-base font-medium tabular-nums">{formatMetric(summary.strengthVolume)}</dd>
+              </div>
+            ) : null}
+            {summary.rehabSetCount ? (
+              <div>
+                <dt className="text-xs text-muted-foreground">Rehab</dt>
+                <dd className="mt-0.5 text-sm font-medium">
+                  {summary.rehabExerciseCount} {summary.rehabExerciseCount === 1 ? "exercise" : "exercises"} · {summary.rehabSetCount}{" "}
+                  {summary.rehabSetCount === 1 ? "set" : "sets"}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        ) : null}
+      </header>
 
       {showDebug ? (
         <details className="mt-3">
@@ -261,44 +302,45 @@ export default function TrainingSessionPage() {
         </details>
       ) : null}
 
-      <div className="mt-8">
+      <div className="mt-6">
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading…</div>
+          <div className="py-4 text-sm text-muted-foreground" role="status" aria-live="polite" aria-atomic="true">Loading session…</div>
         ) : !sessionId ? (
-          <div className="rounded-xl border p-4 text-sm text-muted-foreground">
+          <div className="border-y border-border/60 py-4 text-sm text-muted-foreground" role="status" aria-live="polite" aria-atomic="true">
             Missing session_id. Open a session from Training Log.
           </div>
         ) : !session ? (
-          <div className="rounded-xl border p-4 text-sm text-muted-foreground">Session not found.</div>
+          <div className="border-y border-border/60 py-4 text-sm text-muted-foreground" role="status" aria-live="polite" aria-atomic="true">Session not found.</div>
         ) : sets.length === 0 ? (
-          <div className="rounded-xl border p-4 text-sm text-muted-foreground">No sets found for this session.</div>
+          <div className="border-y border-border/60 py-4 text-sm text-muted-foreground" role="status" aria-live="polite" aria-atomic="true">No sets found for this session.</div>
         ) : (
-          <div className="divide-y divide-border/50 border-y border-border/50">
+          <div className="divide-y divide-border/60 border-b border-border/60">
             {byExercise.map((block) => (
-              <section key={block.key} className="py-5">
-                <div className="flex items-baseline justify-between gap-3">
+              <section key={block.key} className="py-6 first:pt-0">
+                <div className="flex items-start justify-between gap-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className="text-base font-semibold">{block.exerciseName}</div>
+                    <h2 className="text-base font-semibold text-foreground">{block.exerciseName}</h2>
                     {block.role === "strength" || block.role === "mixed" ? (
-                      <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-blue-400">
-                        Strength
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-blue-400">
+                        <span className="size-1.5 rounded-full bg-current" aria-hidden="true" /> Strength
                       </span>
                     ) : null}
                     {block.role === "rehab" || block.role === "mixed" ? (
-                      <span className="rounded-full border border-border/60 bg-muted/30 px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                        Rehab
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        <span className="size-1.5 rounded-full bg-current" aria-hidden="true" /> Rehab
                       </span>
                     ) : null}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {block.rows.length} sets
-                    {block.role === "rehab" ? " · excluded from strength totals" : ""}
-                  </div>
+                  <div className="shrink-0 pt-0.5 text-xs text-muted-foreground">{block.rows.length} sets</div>
                 </div>
+
+                {block.role === "rehab" ? (
+                  <p className="mt-1 text-xs text-muted-foreground">Rehab sets are excluded from strength totals.</p>
+                ) : null}
 
                 <div className="mt-3 divide-y divide-muted/20">
                   {block.rows.map((r) => (
-                    <div key={r.training_set_log_id} className="py-3 text-sm">
+                    <div key={r.training_set_log_id} className="py-3.5 text-sm">
                         {String(r.set_type || "straight").toLowerCase() === "drop" ? (() => {
                           const segs = segmentsBySet[r.training_set_log_id] || [];
                           const startSeg = segs[0] || null;
@@ -309,65 +351,67 @@ export default function TrainingSessionPage() {
                             : safeNum(r.reps, 0);
 
                           return (
-                            <div className="grid grid-cols-[4rem_1fr_1fr_1fr] items-center gap-2">
-                              <div className="text-muted-foreground">Set {r.set_index}</div>
-                              <div>
+                            <div className="grid grid-cols-[3.5rem_repeat(3,minmax(0,1fr))] items-end gap-x-3 sm:grid-cols-[4.5rem_repeat(3,minmax(0,1fr))]">
+                              <div className="pb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Set {r.set_index}</div>
+                              <div className="min-w-0">
                                 <div className="text-xs text-muted-foreground">Start</div>
-                                <div className="font-mono">{startWeight} × {startReps}</div>
+                                <div className="mt-0.5 font-medium tabular-nums">{startWeight} × {startReps}</div>
                               </div>
-                              <div>
+                              <div className="min-w-0">
                                 <div className="text-xs text-muted-foreground">Total reps</div>
-                                <div className="font-mono">{totalReps}</div>
+                                <div className="mt-0.5 font-medium tabular-nums">{totalReps}</div>
                               </div>
-                              <div>
+                              <div className="min-w-0">
                                 <div className="text-xs text-muted-foreground">Volume</div>
-                                <div className="font-mono">{Math.round(safeNum(r.volume, 0))}</div>
+                                <div className="mt-0.5 font-medium tabular-nums">{formatMetric(safeNum(r.volume, 0))}</div>
                               </div>
                             </div>
                           );
                         })() : (
-                          <div className="grid grid-cols-[4rem_1fr_1fr_1fr] items-center gap-2">
-                            <div className="text-muted-foreground">Set {r.set_index}</div>
-                            <div>
+                          <div className="grid grid-cols-[3.5rem_repeat(3,minmax(0,1fr))] items-end gap-x-3 sm:grid-cols-[4.5rem_repeat(3,minmax(0,1fr))]">
+                            <div className="pb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Set {r.set_index}</div>
+                            <div className="min-w-0">
                               <div className="text-xs text-muted-foreground">Weight</div>
-                              <div className="font-mono">{safeNum(r.weight, 0)}</div>
+                              <div className="mt-0.5 font-medium tabular-nums">{safeNum(r.weight, 0)}</div>
                             </div>
-                            <div>
+                            <div className="min-w-0">
                               <div className="text-xs text-muted-foreground">Reps</div>
-                              <div className="font-mono">{safeNum(r.reps, 0)}</div>
+                              <div className="mt-0.5 font-medium tabular-nums">{safeNum(r.reps, 0)}</div>
                             </div>
-                            <div>
+                            <div className="min-w-0">
                               <div className="text-xs text-muted-foreground">Volume</div>
-                              <div className="font-mono">{Math.round(safeNum(r.volume, 0))}</div>
+                              <div className="mt-0.5 font-medium tabular-nums">{formatMetric(safeNum(r.volume, 0))}</div>
                             </div>
                           </div>
                         )}
 
                         {String(r.set_type || "straight").toLowerCase() === "drop" ? (
                           <div className="mt-3 border-t border-border/40 pt-3">
-                            <div className="mb-2 text-xs font-medium text-muted-foreground">Drop set detail</div>
+                            <div className="mb-1 text-xs font-medium text-muted-foreground">Drop set detail</div>
                             {(segmentsBySet[r.training_set_log_id] || []).length ? (
-                              <div className="space-y-1">
+                              <div className="divide-y divide-border/30">
                                 {(segmentsBySet[r.training_set_log_id] || []).map((seg) => (
                                   <div
                                     key={`${r.training_set_log_id}:${seg.segment_index}`}
-                                    className="grid grid-cols-[5rem_1fr_1fr_1fr] gap-2 text-xs"
+                                    className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-x-3 py-2 text-xs sm:grid-cols-[5rem_minmax(0,1fr)]"
                                   >
-                                    <div className="text-muted-foreground">
+                                    <div className="pt-0.5 font-medium text-muted-foreground">
                                       {seg.label || (safeNum(seg.segment_index, 0) === 1 ? "Start" : `Drop ${safeNum(seg.segment_index, 1) - 1}`)}
                                     </div>
-                                    <div>
-                                      <span className="text-muted-foreground">wt </span>
-                                      <span className="font-mono">{safeNum(seg.weight, 0)}</span>
-                                    </div>
-                                    <div>
-                                      <span className="text-muted-foreground">reps </span>
-                                      <span className="font-mono">{safeNum(seg.reps, 0)}</span>
-                                    </div>
-                                    <div>
-                                      <span className="text-muted-foreground">vol </span>
-                                      <span className="font-mono">{Math.round(safeNum(seg.volume, 0))}</span>
-                                    </div>
+                                    <dl className="grid min-w-0 grid-cols-3 gap-x-3">
+                                      <div className="min-w-0">
+                                        <dt className="text-muted-foreground">Weight</dt>
+                                        <dd className="mt-0.5 font-medium tabular-nums">{safeNum(seg.weight, 0)}</dd>
+                                      </div>
+                                      <div className="min-w-0">
+                                        <dt className="text-muted-foreground">Reps</dt>
+                                        <dd className="mt-0.5 font-medium tabular-nums">{safeNum(seg.reps, 0)}</dd>
+                                      </div>
+                                      <div className="min-w-0">
+                                        <dt className="text-muted-foreground">Volume</dt>
+                                        <dd className="mt-0.5 font-medium tabular-nums">{formatMetric(safeNum(seg.volume, 0))}</dd>
+                                      </div>
+                                    </dl>
                                   </div>
                                 ))}
                               </div>
@@ -379,9 +423,9 @@ export default function TrainingSessionPage() {
 
                       {r.flags || r.notes ? (
                         <div className="mt-2 text-xs text-muted-foreground">
-                          {r.flags ? <span>flags: {r.flags}</span> : null}
+                          {r.flags ? <span>Flags: {r.flags}</span> : null}
                           {r.flags && r.notes ? <span> · </span> : null}
-                          {r.notes ? <span>notes: {r.notes}</span> : null}
+                          {r.notes ? <span>Notes: {r.notes}</span> : null}
                         </div>
                       ) : null}
                     </div>
