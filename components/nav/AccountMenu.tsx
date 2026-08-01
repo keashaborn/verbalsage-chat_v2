@@ -225,6 +225,12 @@ export function AccountMenu({ label = "Account" }: AccountMenuProps) {
             >
               Security
             </AccountMenuLink>
+            <AccountMenuLink
+              href="/settings/data-privacy"
+              onNavigate={() => setOpen(false)}
+            >
+              Data &amp; Privacy
+            </AccountMenuLink>
             {hasAdminAccess ? (
               <AccountMenuLink href="/admin" onNavigate={() => setOpen(false)}>
                 Admin Console
