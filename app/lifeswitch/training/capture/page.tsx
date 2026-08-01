@@ -6,6 +6,7 @@ import * as React from "react";
 import { Check, Plus } from "lucide-react";
 import { NumericInput } from "@/components/lifeswitch/NumericInput";
 import { FlatList, FlatListButton } from "@/components/lifeswitch/FlatList";
+import { TrainingCaptureModeSwitch } from "@/components/lifeswitch/training/TrainingCaptureModeSwitch";
 import {
   clearPendingSubmission,
   getOrCreateSubmission,
@@ -839,7 +840,7 @@ export default function TrainingCapturePage() {
     setPrefillSource("Choose a workout to begin");
     setRestoredLocalDraft(false);
     setDraftSavedAt("");
-    setFlash("Discarded unfinished workout draft");
+    setFlash("Draft discarded.");
     setStatus("");
   }
 
@@ -1102,20 +1103,10 @@ export default function TrainingCapturePage() {
         />
       </div>
 
-      <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-xl border text-sm">
-        <div className="flex min-h-11 items-center justify-center bg-muted px-3 py-2 text-center font-semibold">
-          Strength
-        </div>
-        <a
-          href="/lifeswitch/training/capture/conditioning"
-          className="flex min-h-11 items-center justify-center px-3 py-2 text-center hover:bg-muted/30"
-        >
-          Conditioning
-        </a>
-      </div>
+      <TrainingCaptureModeSwitch selected="strength" />
 
       {flash ? (
-        <div role="status" aria-live="polite" className="mt-3 text-sm text-green-600">{flash}</div>
+        <div role="status" aria-live="polite" className="mt-3 text-sm text-muted-foreground">{flash}</div>
       ) : null}
       {status ? (
         <div role="alert" className="mt-3 border-l-2 border-red-500/60 bg-red-500/5 py-2 pl-3 text-sm text-red-600">{status}</div>
@@ -1208,14 +1199,20 @@ export default function TrainingCapturePage() {
               : "hidden"
           }
         >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm font-semibold">Active session draft</div>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
+            <h2 className="min-w-0 truncate text-base font-semibold">
+              {selected?.name || "Workout draft"}
+            </h2>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="text-xs text-muted-foreground sm:text-center">
+              Active draft
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1 sm:justify-end">
               {draftRows.length ? (
                 <button
                   type="button"
-                  className="min-h-11 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
+                  className="min-h-11 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted/30 hover:text-foreground disabled:opacity-50"
                   onClick={discardLocalDraft}
                   disabled={finishLoading}
                 >
@@ -1225,7 +1222,7 @@ export default function TrainingCapturePage() {
 
               <button
                 type="button"
-                className="min-h-11 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                className="min-h-11 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:bg-transparent disabled:text-muted-foreground disabled:ring-1 disabled:ring-border/60"
                 onClick={() => void finishSession()}
                 disabled={
                   !selected ||
@@ -1284,20 +1281,20 @@ export default function TrainingCapturePage() {
                         </button>
 
                         {openExerciseOptionsId === first.exercise_id ? (
-                          <div className="absolute right-0 z-20 mt-2 w-44 rounded-lg border bg-background p-2 shadow-lg">
+                          <div className="absolute right-0 z-20 mt-2 w-52 rounded-lg border border-border/60 bg-popover p-1 shadow-lg">
                             <button
                               type="button"
-                              className="min-h-11 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted/30 sm:min-h-0"
+                              className="min-h-11 w-full rounded-md px-3 text-left text-sm hover:bg-muted/40"
                               onClick={() =>
                                 addSetAfter(block.rows[block.rows.length - 1])
                               }
                             >
-                              + Add Set
+                              Add set
                             </button>
 
                             <button
                               type="button"
-                              className="mt-2 min-h-11 w-full rounded-md border px-2 py-1 text-xs hover:bg-muted/30 sm:min-h-0"
+                              className="min-h-11 w-full rounded-md px-3 text-left text-sm hover:bg-muted/40"
                               onClick={() => {
                                 setOpenAddExerciseId(first.exercise_id);
                                 setExerciseSearch("");
@@ -1317,7 +1314,7 @@ export default function TrainingCapturePage() {
                                   }
                                 />
 
-                                <div className="mt-2 max-h-56 space-y-1 overflow-y-auto">
+                                <div className="mt-2 max-h-56 overflow-y-auto">
                                   {myExercises
                                     .filter((x) =>
                                       x.display_name
@@ -1329,7 +1326,7 @@ export default function TrainingCapturePage() {
                                       <button
                                         key={exercise.exercise_id}
                                         type="button"
-                                        className="min-h-11 w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30 sm:min-h-0"
+                                        className="min-h-11 w-full rounded-md px-2 text-left text-xs hover:bg-muted/40"
                                         onClick={() =>
                                           addExerciseToDraft(
                                             first.exercise_id,
@@ -1346,12 +1343,12 @@ export default function TrainingCapturePage() {
                                   Catalog
                                 </div>
 
-                                <div className="mt-1 max-h-56 space-y-1 overflow-y-auto">
+                                <div className="mt-1 max-h-56 overflow-y-auto">
                                   {catalogHits.map((hit) => (
                                     <button
                                       key={hit.exercise_id}
                                       type="button"
-                                      className="min-h-11 w-full rounded-md border px-2 py-1 text-left text-xs hover:bg-muted/30 sm:min-h-0"
+                                      className="min-h-11 w-full rounded-md px-2 text-left text-xs hover:bg-muted/40"
                                       onClick={() =>
                                         addExerciseToDraft(first.exercise_id, {
                                           my_exercise_id: "",
@@ -1377,7 +1374,7 @@ export default function TrainingCapturePage() {
                             ) : null}
                             <button
                               type="button"
-                              className="mt-2 min-h-11 w-full rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 sm:min-h-0"
+                              className="mt-1 min-h-11 w-full border-t border-border/60 px-3 pt-1 text-left text-sm text-red-600 hover:bg-red-500/10"
                               onClick={() =>
                                 removeExerciseFromDraft(first.exercise_id)
                               }

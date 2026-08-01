@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { authFetch } from "@/lib/authFetch";
 import { NumericInput } from "@/components/lifeswitch/NumericInput";
 import { FlatList, FlatListButton } from "@/components/lifeswitch/FlatList";
+import { TrainingCaptureModeSwitch } from "@/components/lifeswitch/training/TrainingCaptureModeSwitch";
 import {
   clearPendingSubmission,
   getOrCreateSubmission,
@@ -317,7 +317,7 @@ export default function ConditioningCapturePage() {
     setDoseType("open");
     setDoseConfig({});
     setRestoredDraft(false);
-    setStatus("Discarded conditioning draft");
+    setStatus("Draft discarded.");
   }
 
   async function saveSession() {
@@ -410,15 +410,7 @@ export default function ConditioningCapturePage() {
         />
       </div>
 
-      <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-xl border text-sm">
-        <Link
-          href="/lifeswitch/training/capture"
-          className="flex min-h-11 items-center justify-center px-3 py-2 text-center hover:bg-muted/30"
-        >
-          Strength
-        </Link>
-        <div className="flex min-h-11 items-center justify-center bg-muted px-3 py-2 text-center font-semibold">Conditioning</div>
-      </div>
+      <TrainingCaptureModeSwitch selected="conditioning" />
 
       {status ? <div role="status" aria-live="polite" className="mt-3 text-sm text-muted-foreground">{status}</div> : null}
 
@@ -485,18 +477,19 @@ export default function ConditioningCapturePage() {
         </aside>
 
         <main className={selected ? "border-y border-border/50 py-4" : "hidden"}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold">Active conditioning draft</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                {selected?.name}
-              </div>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
+            <h2 className="min-w-0 truncate text-base font-semibold">
+              {selected?.name || "Conditioning draft"}
+            </h2>
+
+            <div className="text-xs text-muted-foreground sm:text-center">
+              Active draft
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1 sm:justify-end">
               <button
                 type="button"
-                className="min-h-11 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                className="min-h-11 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted/30 hover:text-foreground disabled:opacity-50"
                 onClick={discardConditioningDraft}
                 disabled={saving}
               >
@@ -505,7 +498,7 @@ export default function ConditioningCapturePage() {
 
               <button
                 type="button"
-                className="min-h-11 rounded-xl border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                className="min-h-11 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:bg-transparent disabled:text-muted-foreground disabled:ring-1 disabled:ring-border/60"
                 onClick={() => void saveSession()}
                 disabled={!selected || saving}
               >
