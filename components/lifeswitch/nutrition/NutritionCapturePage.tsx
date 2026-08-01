@@ -5,6 +5,10 @@ import { authFetch } from "@/lib/authFetch";
 import * as React from "react";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import {
+  segmentTabClassName,
+  segmentTabListClassName,
+} from "@/components/lifeswitch/SegmentTabs";
+import {
   FoodQuantityControl,
   GRAMS_UNIT,
   preferredQuantitySelection,
@@ -486,12 +490,16 @@ export default function NutritionCapturePage() {
 
       {flash && <div className="mt-3 text-sm text-green-600">{flash}</div>}
 
-      <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-xl border" role="tablist" aria-label="Nutrition capture type">
+      <div
+        className={`mt-5 ${segmentTabListClassName} grid-cols-2`}
+        role="tablist"
+        aria-label="Nutrition capture type"
+      >
         <button
           type="button"
           role="tab"
           aria-selected={mode === "foods"}
-          className={`min-h-12 px-3 text-sm font-medium ${mode === "foods" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/20"}`}
+          className={segmentTabClassName(mode === "foods")}
           onClick={() => setMode("foods")}
         >
           Foods
@@ -501,7 +509,7 @@ export default function NutritionCapturePage() {
           type="button"
           role="tab"
           aria-selected={mode === "meals"}
-          className={`min-h-12 border-l px-3 text-sm font-medium ${mode === "meals" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/20"}`}
+          className={segmentTabClassName(mode === "meals")}
           onClick={() => setMode("meals")}
         >
           Meals

@@ -14,6 +14,10 @@ const modeSwitch = readFileSync(
   "components/lifeswitch/training/TrainingCaptureModeSwitch.tsx",
   "utf8",
 );
+const sharedSegments = readFileSync(
+  "components/lifeswitch/SegmentTabs.tsx",
+  "utf8",
+);
 
 test("both capture pages use one quiet, touch-safe mode selector", () => {
   assert.match(strength, /<TrainingCaptureModeSwitch selected="strength" \/>/);
@@ -22,8 +26,13 @@ test("both capture pages use one quiet, touch-safe mode selector", () => {
     /<TrainingCaptureModeSwitch selected="conditioning" \/>/,
   );
   assert.match(modeSwitch, /aria-label="Training capture type"/);
-  assert.match(modeSwitch, /min-h-11/);
-  assert.match(modeSwitch, /rounded-lg border border-border\/60 bg-muted\/10/);
+  assert.match(modeSwitch, /segmentTabListClassName/);
+  assert.match(modeSwitch, /segmentTabClassName\(active\)/);
+  assert.match(sharedSegments, /min-h-11/);
+  assert.match(
+    sharedSegments,
+    /rounded-lg border border-border\/60 bg-muted\/10/,
+  );
   assert.match(modeSwitch, /aria-current="page"/);
   assert.match(modeSwitch, /href: "\/lifeswitch\/training\/capture"/);
   assert.match(

@@ -1,4 +1,8 @@
 import Link from "next/link";
+import {
+  segmentTabClassName,
+  segmentTabListClassName,
+} from "@/components/lifeswitch/SegmentTabs";
 
 type TrainingCaptureMode = "strength" | "conditioning";
 
@@ -27,16 +31,11 @@ export function TrainingCaptureModeSwitch({
   return (
     <nav
       aria-label="Training capture type"
-      className="mt-4 grid grid-cols-2 overflow-hidden rounded-lg border border-border/60 bg-muted/10 text-sm"
+      className={`mt-4 ${segmentTabListClassName} grid-cols-2`}
     >
       {modes.map((mode) => {
         const active = mode.id === selected;
-        const className = [
-          "flex min-h-11 items-center justify-center px-3 text-center outline-none transition-colors focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-          active
-            ? "bg-muted/50 font-medium text-foreground"
-            : "text-muted-foreground hover:bg-muted/30 hover:text-foreground",
-        ].join(" ");
+        const className = segmentTabClassName(active);
 
         return active ? (
           <span key={mode.id} aria-current="page" className={className}>
