@@ -37,12 +37,34 @@ test("primary chat controls retain 44 pixel phone targets", () => {
   const account = read("components/nav/AccountMenu.tsx");
   const list = read("components/threads/BrainsThreadList.tsx");
 
-  assert.match(sidebar, /size-11 sm:size-7/);
+  assert.match(sidebar, /size-11[\s\S]*?sm:size-9/);
   assert.match(workspace, /min-h-11[\s\S]*?sm:min-h-0/);
   assert.match(account, /min-h-11[\s\S]*?sm:min-h-0/);
   assert.match(list, /min-h-11 min-w-0 flex-1[\s\S]*?sm:min-h-9/);
   assert.match(list, /inline-flex size-11[\s\S]*?sm:size-8/);
   assert.ok((list.match(/min-h-11 min-w-11/g) || []).length >= 2);
+});
+
+test("chat history trigger remains a visible state-aware arrow", () => {
+  const sidebar = read("components/ui/sidebar.tsx");
+
+  assert.match(sidebar, /ChevronLeftIcon, ChevronRightIcon/);
+  assert.match(
+    sidebar,
+    /const expanded = isMobile \? openMobile : state === "expanded"/,
+  );
+  assert.match(
+    sidebar,
+    /expanded \? "Close chat history" : "Open chat history"/,
+  );
+  assert.match(sidebar, /aria-expanded=\{expanded\}/);
+  assert.match(sidebar, /aria-label=\{label\}/);
+  assert.match(
+    sidebar,
+    /size-11 shrink-0 border border-border\/60 bg-background\/85[\s\S]*?sm:size-9/,
+  );
+  assert.match(sidebar, /ChevronLeftIcon className="size-5"/);
+  assert.match(sidebar, /ChevronRightIcon className="size-5"/);
 });
 
 test("an existing empty chat receives intentional guidance", () => {

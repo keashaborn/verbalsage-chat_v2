@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, VariantProps } from "class-variance-authority";
-import { PanelLeftIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -293,23 +293,36 @@ function SidebarTrigger({
   onClick,
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { toggleSidebar } = useSidebar();
+  const { isMobile, openMobile, state, toggleSidebar } = useSidebar();
+  const expanded = isMobile ? openMobile : state === "expanded";
+  const label = expanded ? "Close chat history" : "Open chat history";
 
   return (
     <Button
       data-sidebar="trigger"
       data-slot="sidebar-trigger"
+      data-state={expanded ? "expanded" : "collapsed"}
       variant="ghost"
       size="icon"
-      className={cn("size-11 sm:size-7", className)}
+      aria-expanded={expanded}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "size-11 shrink-0 border border-border/60 bg-background/85 text-foreground shadow-sm hover:bg-accent sm:size-9",
+        className,
+      )}
       onClick={(event) => {
         onClick?.(event);
         toggleSidebar();
       }}
       {...props}
     >
-      <PanelLeftIcon />
-      <span className="sr-only">Toggle Sidebar</span>
+      {expanded ? (
+        <ChevronLeftIcon className="size-5" />
+      ) : (
+        <ChevronRightIcon className="size-5" />
+      )}
+      <span className="sr-only">{label}</span>
     </Button>
   );
 }
