@@ -15,7 +15,7 @@
     "test:trusted-web": "node --experimental-strip-types --test tests/trustedWebSecurity.test.ts",
     "test:production-env": "node --test tests/productionEnvironmentPreflight.test.mjs tests/turnstileArtifactPreflight.test.mjs",
     "test:site-brand": "node --experimental-strip-types --test tests/siteBrandPolicy.test.ts tests/frontendSecurityRelease.test.ts",
-    "test:ui-policy": "node --experimental-strip-types --test tests/authFirstImpressionPolicy.test.mjs tests/conversationSelection.test.ts tests/conversationSelectionUi.test.mjs tests/integratedChatCorrections.test.mjs tests/lifeswitchActionPolicy.test.mjs tests/mobileFormViewportPolicy.test.mjs tests/navigationShellPolicy.test.mjs tests/overflowPolicy.test.mjs tests/personalizationVoiceV1.test.ts tests/subtleGlassPolicy.test.mjs tests/themeFallback.test.mjs tests/threadActionsMenu.test.ts tests/threadListOrganization.test.ts tests/trainingCapturePresentation.test.mjs tests/trainingSessionDetailPresentation.test.mjs",
+    "test:ui-policy": "node --experimental-strip-types --test tests/authFirstImpressionPolicy.test.mjs tests/conversationSelection.test.ts tests/conversationSelectionUi.test.mjs tests/integratedChatCorrections.test.mjs tests/lifeswitchActionPolicy.test.mjs tests/mobileFormViewportPolicy.test.mjs tests/navigationShellPolicy.test.mjs tests/overflowPolicy.test.mjs tests/personalizationVoiceV1.test.ts tests/subtleGlassPolicy.test.mjs tests/themeFallback.test.mjs tests/threadActionsMenu.test.ts tests/threadListOrganization.test.ts tests/trainingCapturePresentation.test.mjs tests/trainingSessionDetailPresentation.test.mjs tests/trainingWorkoutInlineDetail.test.mjs",
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write ."
   },

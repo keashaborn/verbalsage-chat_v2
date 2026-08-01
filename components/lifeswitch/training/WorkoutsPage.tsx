@@ -991,29 +991,28 @@ export default function TrainingWorkoutsPage() {
     }
   }
 
-  function renderSelectedWorkoutDetail() {
+  function renderSelectedWorkoutDetail(detailId: string, headingId: string) {
     if (!selected) return null;
 
     return (
-      <main className="grid min-w-0 gap-6">
+      <div
+        id={detailId}
+        role="region"
+        aria-labelledby={headingId}
+        className="grid min-w-0 gap-6 border-t border-border/50 px-1 pt-5 pb-6"
+      >
             <section className="min-w-0 border-b border-border/50 pb-6">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold">Selected workout</div>
-                  <div className="mt-1 truncate text-lg font-medium">
-                    {selected.name}
-                  </div>
-                  {selected.notes ? (
-                    <div className="mt-1 text-sm text-muted-foreground">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                {selected.notes ? (
+                  <div className="min-w-0 text-sm text-muted-foreground">
                       {selected.notes}
-                    </div>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                   <button
                     type="button"
-                    className="rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-50"
+                    className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-50"
                     onClick={() => void createShareLink()}
                     disabled={!selected}
                   >
@@ -1022,7 +1021,7 @@ export default function TrainingWorkoutsPage() {
 
                   <button
                     type="button"
-                    className="rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                    className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                     onClick={() => setEditingSelected((v) => !v)}
                   >
                     {editingSelected ? "Done" : "Edit"}
@@ -1030,7 +1029,7 @@ export default function TrainingWorkoutsPage() {
 
                   <button
                     type="button"
-                    className="rounded-lg bg-muted px-2.5 py-1.5 text-sm font-medium hover:bg-muted/80"
+                    className="inline-flex min-h-11 items-center rounded-lg bg-muted px-3 text-sm font-medium hover:bg-muted/80"
                     onClick={clearSelectedWorkout}
                   >
                     Close
@@ -1039,7 +1038,7 @@ export default function TrainingWorkoutsPage() {
               </div>
 
               {shareStatus || shareUrl ? (
-                <div className="mt-4 rounded-xl border bg-muted/20 p-3 text-sm">
+                <div className="mt-4 border-y border-border/50 py-3 text-sm">
                   {shareStatus ? <div>{shareStatus}</div> : null}
                   {shareUrl ? (
                     <div className="mt-2 text-xs break-all text-muted-foreground">
@@ -1431,7 +1430,7 @@ export default function TrainingWorkoutsPage() {
                 </div>
               ) : (
                 <div className="mt-3 text-sm text-muted-foreground">
-                  Empty. Search exercises on the right and add a few.
+                  Empty. Open the exercise library below to add a few.
                 </div>
               )}
             </section>
@@ -1448,7 +1447,7 @@ export default function TrainingWorkoutsPage() {
                 </div>
                 <button
                   type="button"
-                  className="rounded-lg bg-muted px-3 py-2 text-sm font-medium hover:bg-muted/80"
+                  className="inline-flex min-h-11 items-center rounded-lg bg-muted px-3 text-sm font-medium hover:bg-muted/80"
                   onClick={() => setExerciseLibraryOpen((open) => !open)}
                   aria-expanded={exerciseLibraryOpen}
                 >
@@ -1925,7 +1924,7 @@ export default function TrainingWorkoutsPage() {
                 </div>
               )}
             </section>
-      </main>
+      </div>
     );
   }
 
@@ -1946,7 +1945,7 @@ export default function TrainingWorkoutsPage() {
               <button
                 type="button"
                 className={[
-                  "inline-flex h-9 items-center justify-center gap-2 self-start rounded-lg border px-3 text-sm font-medium transition-colors",
+                  "inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-lg border px-3 text-sm font-medium transition-colors",
                   newWorkoutOpen
                     ? "border-border/60 bg-muted/70 text-foreground hover:bg-muted"
                     : "border-blue-500/25 bg-blue-500/10 text-blue-700 hover:bg-blue-500/20 dark:text-blue-300",
@@ -1970,7 +1969,7 @@ export default function TrainingWorkoutsPage() {
               </div>
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,0.45fr)_auto] sm:items-end">
               <input
-                className="h-9 w-full rounded-lg border bg-background px-3 text-sm"
+                className="min-h-11 w-full rounded-lg border bg-background px-3 text-sm"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="New workout name"
@@ -1984,7 +1983,7 @@ export default function TrainingWorkoutsPage() {
                   Workout type
                 </div>
                 <select
-                  className="h-9 w-full rounded-lg border bg-background px-3 text-sm"
+                  className="min-h-11 w-full rounded-lg border bg-background px-3 text-sm"
                   value={newRole}
                   onChange={(e) =>
                     setNewRole(
@@ -1998,7 +1997,7 @@ export default function TrainingWorkoutsPage() {
               </label>
               <button
                 type="button"
-                className="h-9 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90 disabled:opacity-40"
+                className="min-h-11 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90 disabled:opacity-40"
                 onClick={() => void createTemplate()}
                 disabled={!newName.trim()}
                 title="Create workout"
@@ -2025,22 +2024,28 @@ export default function TrainingWorkoutsPage() {
             <div className="mt-4 divide-y divide-border/50 border-y border-border/50">
               {templates.map((t) => {
                 const active = t.workout_template_id === selectedId;
+                const detailId = `workout-detail-${t.workout_template_id}`;
+                const headingId = `workout-heading-${t.workout_template_id}`;
 
                 return (
                   <div
                     key={t.workout_template_id}
-                    className={`px-1 py-3 ${active ? "bg-muted/30" : "hover:bg-muted/20"}`}
+                    className={`px-1 ${active ? "bg-muted/20" : "hover:bg-muted/20"}`}
                   >
-                    <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        className="min-w-0 text-left"
-                        onClick={() => setSelectedId(t.workout_template_id)}
-                      >
-                        <span className="block truncate text-sm font-semibold text-foreground">
-                          {t.name}
-                        </span>
-                      </button>
+                    <div className="flex min-w-0 flex-wrap items-center gap-2 py-3">
+                      <h3 id={headingId} className="min-w-0">
+                        <button
+                          type="button"
+                          className="inline-flex min-h-11 min-w-0 items-center text-left"
+                          onClick={() => setSelectedId(t.workout_template_id)}
+                          aria-expanded={active}
+                          aria-controls={active ? detailId : undefined}
+                        >
+                          <span className="block truncate text-sm font-semibold text-foreground">
+                            {t.name}
+                          </span>
+                        </button>
+                      </h3>
                       <span
                         className={`text-[10px] font-semibold tracking-wide uppercase ${
                           t.workout_role === "rehab"
@@ -2058,7 +2063,7 @@ export default function TrainingWorkoutsPage() {
                       </span>
                       <button
                         type="button"
-                        className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                        className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                         onClick={() =>
                           setOpenTemplateActionsId((prev) =>
                             prev === t.workout_template_id
@@ -2107,6 +2112,9 @@ export default function TrainingWorkoutsPage() {
                       </div>
                     ) : null}
 
+                    {active
+                      ? renderSelectedWorkoutDetail(detailId, headingId)
+                      : null}
                   </div>
                 );
               })}
@@ -2120,7 +2128,7 @@ export default function TrainingWorkoutsPage() {
               </p>
               <button
                 type="button"
-                className="mt-4 inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90"
+                className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90"
                 onClick={() => setNewWorkoutOpen(true)}
               >
                 <Plus className="h-4 w-4" />
@@ -2130,11 +2138,6 @@ export default function TrainingWorkoutsPage() {
           )}
         </section>
 
-        {selected ? (
-          <section className="border-t border-border/50 pt-6">
-            {renderSelectedWorkoutDetail()}
-          </section>
-        ) : null}
       </div>
     </div>
   );
