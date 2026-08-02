@@ -259,7 +259,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     setMfaCode("");
     // Best-effort, non-blocking extras.
     applySettingsFromSession(s);
-    void syncIdentityBestEffort(s);
+    void syncIdentityBestEffort(s).catch(() => undefined);
     void syncConversationStyleBestEffort();
   }
 

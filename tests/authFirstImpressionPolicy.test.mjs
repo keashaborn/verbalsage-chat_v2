@@ -60,3 +60,15 @@ test("the application viewport permits user zoom", () => {
   assert.doesNotMatch(layout, /userScalable/);
   assert.match(layout, /viewportFit: "cover"/);
 });
+
+test("identity synchronization stays bounded and best effort", () => {
+  const gate = read("components/auth/AuthGate.tsx");
+
+  assert.match(gate, /2500,\s*"identity\.sync"/);
+  assert.match(
+    gate,
+    /void syncIdentityBestEffort\(s\)\.catch\(\(\) => undefined\)/,
+  );
+  assert.doesNotMatch(gate, /await syncIdentityBestEffort\(s\)/);
+  assert.match(gate, /const showApp = !!session && mfaGate === "clear"/);
+});
