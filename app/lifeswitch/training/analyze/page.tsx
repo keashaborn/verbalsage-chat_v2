@@ -69,6 +69,14 @@ const PROGRESSION_METRICS: Array<{ value: ProgressionMetric; label: string }> = 
   { value: "total_volume", label: "Volume" },
 ];
 
+function analysisChoiceClassName(active: boolean) {
+  return `inline-flex min-h-11 min-w-11 items-center justify-center border-b-2 px-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
+    active
+      ? "border-foreground text-foreground"
+      : "border-transparent text-muted-foreground hover:text-foreground"
+  }`;
+}
+
 function safeNum(x: any, fallback = 0) {
   const n = Number(x);
   return Number.isFinite(n) ? n : fallback;
@@ -490,18 +498,13 @@ export default function TrainingAnalyzePage() {
 
   return (
     <div className="mx-auto max-w-6xl p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <div>
-          <div className="text-lg font-semibold">Training · Analyze</div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            Read-only training dashboard from completed strength, rehab, and conditioning logs.
-          </div>
-          <div className="mt-2 text-xs text-muted-foreground">
-            Range: {startDay} → {today}
-          </div>
+          <h1 className="text-xl font-semibold">Training · Analyze</h1>
+          <div className="mt-1 text-xs text-muted-foreground">{startDay} → {today}</div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Analysis range">
           {[
             { value: 10, label: "10d" },
             { value: 30, label: "30d" },
@@ -512,7 +515,8 @@ export default function TrainingAnalyzePage() {
             <button
               key={r.value}
               type="button"
-              className={`border-b-2 py-1 text-sm font-medium ${rangeDays === r.value ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+              className={analysisChoiceClassName(rangeDays === r.value)}
+              aria-pressed={rangeDays === r.value}
               onClick={() => setRangeDays(r.value as RangeDays)}
             >
               {r.label}
@@ -521,7 +525,7 @@ export default function TrainingAnalyzePage() {
 
           <button
             type="button"
-            className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
+            className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             onClick={() => {
               void loadRows();
               void loadProgressionRows();
@@ -535,7 +539,7 @@ export default function TrainingAnalyzePage() {
 
       {showDebug ? (
         <details className="mt-4">
-          <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
+          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm text-muted-foreground">Debug</summary>
           <div className="mt-2 text-xs font-mono text-muted-foreground">{status}</div>
         </details>
       ) : null}
@@ -548,10 +552,10 @@ export default function TrainingAnalyzePage() {
         <MetricCard label="Conditioning" value={formatDuration(summary.conditioningMinutes)} sub={`${summary.conditioningSessions} sessions`} />
       </section>
 
-      <section className="mt-6 border-y border-border/50 py-4" aria-label="Plan versus actual strength frequency">
+      <section className="mt-6 border-y border-border/50 py-4" aria-labelledby="strength-frequency-title">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold">Plan vs actual · Strength frequency</div>
+            <h2 id="strength-frequency-title" className="text-sm font-semibold">Plan vs actual · Strength frequency</h2>
             <div className="mt-1 text-xs text-muted-foreground">{planEvidence}</div>
           </div>
           <div className={`text-xs font-semibold tracking-wide uppercase ${strengthFrequencyStatusClass}`}>
@@ -573,40 +577,39 @@ export default function TrainingAnalyzePage() {
           </div>
         </div>
 
-        <div className="mt-4 space-y-1 text-xs text-muted-foreground">
-          <div>
-            Latest completed 7-day window: {strengthFrequency.windowStart} → {strengthFrequency.windowEnd}. Today ({today}) is excluded.
+        {strengthFrequency.status === "paused" ? (
+          <div className="mt-4 text-sm text-muted-foreground">
+            Recovery overlaps this window, so strength adherence is paused.
           </div>
-          {strengthFrequency.status === "paused" ? (
+        ) : null}
+
+        <details className="mt-2 border-t border-border/40 pt-1">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm text-muted-foreground hover:text-foreground">
+            How this is calculated
+          </summary>
+          <div className="space-y-1 pb-2 text-xs text-muted-foreground">
             <div>
-              Strength adherence is not judged while recovery overlaps today or
-              this evaluation window. Logged workouts and progression data are
-              preserved.
+              Latest completed 7-day window: {strengthFrequency.windowStart} → {strengthFrequency.windowEnd}. Today ({today}) is excluded.
             </div>
-          ) : null}
-          <div>
-            A completed strength or mixed strength + rehab session counts once. Rehab-only, conditioning-only, incomplete, inactive, and unclassified sessions are excluded.
+            <div>
+              A completed strength or mixed strength + rehab session counts once. Rehab-only, conditioning-only, incomplete, inactive, and unclassified sessions are excluded.
+            </div>
+            <div>
+              Excluded in this window: {strengthFrequency.excluded.rehab} rehab-only · {strengthFrequency.excluded.incomplete} incomplete · {strengthFrequency.excluded.unclassified} unclassified.
+            </div>
           </div>
-          <div>
-            Excluded in this window: {strengthFrequency.excluded.rehab} rehab-only · {strengthFrequency.excluded.incomplete} incomplete · {strengthFrequency.excluded.unclassified} unclassified.
-          </div>
-        </div>
+        </details>
 
         {strengthFrequency.excluded.unclassified > 0 ? (
-          <div className="mt-3 rounded-lg border border-amber-700/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+          <div className="mt-3 border-y border-amber-700/40 py-3 text-xs text-amber-800 dark:text-amber-200">
             {strengthFrequency.excluded.unclassified} unclassified session{strengthFrequency.excluded.unclassified === 1 ? " was" : "s were"} excluded. Classify historical sessions explicitly before using them as strength evidence.
           </div>
         ) : null}
       </section>
 
-      <section className="mt-6 border-y border-border/50 py-4" aria-label="Strength exercise progression">
+      <section className="mt-6 border-y border-border/50 py-4" aria-labelledby="strength-progression-title">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold">Strength progression</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Select one exercise to graph repeated completed exposures using a single consistent metric.
-            </div>
-          </div>
+          <h2 id="strength-progression-title" className="text-sm font-semibold">Strength progression</h2>
           <div className="text-xs text-muted-foreground">
             {strengthProgression.length} exercise{strengthProgression.length === 1 ? "" : "s"}
           </div>
@@ -617,7 +620,7 @@ export default function TrainingAnalyzePage() {
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Exercise</span>
             <select
               id="strength-progression-exercise"
-              className="mt-2 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              className="mt-2 min-h-11 w-full rounded-lg border bg-background px-3 py-2 text-sm"
               value={selectedExerciseId}
               onChange={(event) => setSelectedExerciseId(event.target.value)}
               disabled={!strengthProgression.length}
@@ -632,16 +635,13 @@ export default function TrainingAnalyzePage() {
 
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Graph</div>
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label="Progression metric">
               {PROGRESSION_METRICS.map((metric) => (
                 <button
                   key={metric.value}
                   type="button"
-                  className={`border-b-2 py-1.5 text-sm font-medium ${
-                    progressionMetric === metric.value
-                      ? "border-foreground text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={analysisChoiceClassName(progressionMetric === metric.value)}
+                  aria-pressed={progressionMetric === metric.value}
                   onClick={() => setProgressionMetric(metric.value)}
                 >
                   {metric.label}
@@ -661,11 +661,11 @@ export default function TrainingAnalyzePage() {
         </div>
 
         {progressionError ? (
-          <div className="mt-4 rounded-xl border border-red-700/40 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-300">
+          <div role="alert" className="mt-4 border-y border-red-700/40 py-3 text-sm text-red-700 dark:text-red-300">
             Strength progression unavailable: {progressionError}
           </div>
         ) : progressionLoading && !strengthProgression.length ? (
-          <div className="mt-4 rounded-xl border p-4 text-sm text-muted-foreground">
+          <div className="mt-4 border-y border-border/50 py-3 text-sm text-muted-foreground">
             Loading strength progression…
           </div>
         ) : selectedProgression && selectedProgressionSignal ? (
@@ -695,13 +695,18 @@ export default function TrainingAnalyzePage() {
                   Previous comparable {selectedProgression.previous.day}: {selectedProgression.previous.setCount} sets · {formatMetricNumber(selectedProgression.previous.totalReps)} reps · top {formatLoad(selectedProgression.previous.maxLoad, selectedProgression.previous.loadUnit)} · volume {formatK(selectedProgression.previous.totalVolume)}
                 </div>
               ) : null}
-              <div className="mt-1">
-                Only completed classified strength work using the latest comparable load unit is graphed. The line describes recorded performance; it does not independently prove a strength change.
-              </div>
+              <details className="mt-2">
+                <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm text-muted-foreground hover:text-foreground">
+                  How progression is calculated
+                </summary>
+                <div className="pb-1">
+                  Only completed classified strength work using the latest comparable load unit is graphed. The line describes recorded performance; it does not independently prove a strength change.
+                </div>
+              </details>
             </div>
           </div>
         ) : (
-          <div className="mt-4 rounded-xl border p-4 text-sm text-muted-foreground">
+          <div className="mt-4 border-y border-border/50 py-3 text-sm text-muted-foreground">
             No completed classified strength exercises were found in this range.
           </div>
         )}

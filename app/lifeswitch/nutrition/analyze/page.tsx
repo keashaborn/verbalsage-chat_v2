@@ -36,6 +36,14 @@ const NUTRITION_METRICS: Array<{
   { value: "fat_g", label: "Fat", yLabel: "Fat", suffix: "g" },
 ];
 
+function analysisChoiceClassName(active: boolean) {
+  return `inline-flex min-h-11 min-w-11 items-center justify-center border-b-2 px-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
+    active
+      ? "border-foreground text-foreground"
+      : "border-transparent text-muted-foreground hover:text-foreground"
+  }`;
+}
+
 type DaySummary = {
   day: string;
   raw: any;
@@ -479,27 +487,19 @@ export default function NutritionAnalyzePage() {
 
   return (
     <div className="mx-auto max-w-6xl p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <div>
-          <div className="text-lg font-semibold">Nutrition · Analyze</div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            Read-only nutrition dashboard from logged intake and current Plan targets.
-          </div>
-          <div className="mt-2 text-xs text-muted-foreground">
-            Range: {startDay} → {today}
-          </div>
+          <h1 className="text-xl font-semibold">Nutrition · Analyze</h1>
+          <div className="mt-1 text-xs text-muted-foreground">{startDay} → {today}</div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Analysis range">
           {[7, 14, 30, 90].map((d) => (
             <button
               key={d}
               type="button"
-              className={`border-b-2 py-1 text-sm font-medium ${
-                rangeDays === d
-                  ? "border-foreground text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
+              className={analysisChoiceClassName(rangeDays === d)}
+              aria-pressed={rangeDays === d}
               onClick={() => setRangeDays(d as RangeDays)}
             >
               {d}d
@@ -508,7 +508,7 @@ export default function NutritionAnalyzePage() {
 
           <button
             type="button"
-            className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
+            className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             onClick={() => void loadRows()}
             disabled={loading}
           >
@@ -519,7 +519,7 @@ export default function NutritionAnalyzePage() {
 
       {showDebug ? (
         <details className="mt-4">
-          <summary className="cursor-pointer text-sm text-muted-foreground">Debug</summary>
+          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm text-muted-foreground">Debug</summary>
           <div className="mt-2 space-y-1 text-xs font-mono text-muted-foreground">
             <div>status: {status}</div>
             <div>target source: {targetSource}</div>
@@ -531,7 +531,7 @@ export default function NutritionAnalyzePage() {
       ) : null}
 
       {status.startsWith("error:") ? (
-        <div className="mt-4 rounded-xl border border-red-700/40 bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-300">
+        <div role="alert" className="mt-4 border-y border-red-700/40 py-3 text-sm text-red-700 dark:text-red-300">
           Nutrition analysis unavailable: {status.slice("error:".length).trim()}
         </div>
       ) : null}
@@ -559,14 +559,11 @@ export default function NutritionAnalyzePage() {
         />
       </section>
 
-      <section className="mt-6 border-y border-border/50 py-4" aria-label="Plan versus actual nutrition adherence">
+      <section className="mt-6 border-y border-border/50 py-4" aria-labelledby="nutrition-adherence-title">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold">Plan vs actual · Nutrition adherence</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {targetSource}. Completed eligible days are scored; unfinished and
-              recovery-adjusted days are excluded from adherence.
-            </div>
+            <h2 id="nutrition-adherence-title" className="text-sm font-semibold">Plan vs actual · Nutrition adherence</h2>
+            <div className="mt-1 text-xs text-muted-foreground">{targetSource}</div>
           </div>
           {rollingScore.windowDays ? (
             <div className={`text-xs font-semibold tracking-wide uppercase ${rollingStatusClass}`}>
@@ -615,28 +612,29 @@ export default function NutritionAnalyzePage() {
               : proteinTargetLabel}
           />
         </div>
+
+        <details className="mt-2 border-t border-border/40 pt-1">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm text-muted-foreground hover:text-foreground">
+            How this is calculated
+          </summary>
+          <div className="pb-2 text-xs text-muted-foreground">
+            Completed eligible days are scored. Unfinished and recovery-adjusted days are excluded from adherence.
+          </div>
+        </details>
       </section>
 
-      <section className="mt-6 border-y border-border/50 py-4" aria-label="Nutrition trends">
+      <section className="mt-6 border-y border-border/50 py-4" aria-labelledby="nutrition-trends-title">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold">Nutrition trends</div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              One metric across completed logged days in the selected range.
-            </p>
-          </div>
+          <h2 id="nutrition-trends-title" className="text-sm font-semibold">Nutrition trends</h2>
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Graph</div>
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label="Nutrition metric">
               {NUTRITION_METRICS.map((metric) => (
                 <button
                   key={metric.value}
                   type="button"
-                  className={`border-b-2 py-1.5 text-sm font-medium ${
-                    nutritionMetric === metric.value
-                      ? "border-foreground text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={analysisChoiceClassName(nutritionMetric === metric.value)}
+                  aria-pressed={nutritionMetric === metric.value}
                   onClick={() => setNutritionMetric(metric.value)}
                 >
                   {metric.label}
@@ -652,16 +650,16 @@ export default function NutritionAnalyzePage() {
 
         <div className="mt-4">
           <MiniLineChart
-          title={`${selectedMetric.label} per completed logged day`}
-          series={nutritionSeries}
-          xMode="date"
-          xLabel="Completed logged days · oldest to newest"
-          yLabel={selectedMetric.yLabel}
-          ySuffix={selectedMetric.suffix}
-          yReferenceBands={nutritionReferenceBands}
-          yReferenceLines={nutritionReferenceLines}
-          includeZero={false}
-          heightPx={300}
+            title={`${selectedMetric.label} per completed logged day`}
+            series={nutritionSeries}
+            xMode="date"
+            xLabel="Completed logged days · oldest to newest"
+            yLabel={selectedMetric.yLabel}
+            ySuffix={selectedMetric.suffix}
+            yReferenceBands={nutritionReferenceBands}
+            yReferenceLines={nutritionReferenceLines}
+            includeZero={false}
+            heightPx={300}
           />
         </div>
       </section>

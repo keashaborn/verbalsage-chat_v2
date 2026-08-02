@@ -108,3 +108,55 @@ test("settings pages use short headers and a reachable Back action", () => {
   assert.match(frame, /min-h-11[\s\S]*← Back/);
   for (const page of pages) assert.doesNotMatch(read(page), /description=/);
 });
+
+test("Training and Nutrition Analyze keep dense data with quiet reachable controls", () => {
+  const training = read("app/lifeswitch/training/analyze/page.tsx");
+  const nutrition = read("app/lifeswitch/nutrition/analyze/page.tsx");
+
+  for (const page of [training, nutrition]) {
+    assert.match(page, /<h1 className="text-xl font-semibold">/);
+    assert.match(page, /analysisChoiceClassName/);
+    assert.match(page, /min-h-11 min-w-11/);
+    assert.match(page, /aria-pressed=/);
+    assert.match(page, /How this is calculated/);
+    assert.doesNotMatch(page, /Read-only .* dashboard/);
+  }
+
+  assert.match(training, /id="strength-frequency-title"/);
+  assert.match(training, /id="strength-progression-title"/);
+  assert.match(training, /className="mt-2 min-h-11 w-full/);
+  assert.match(training, /How progression is calculated/);
+  assert.doesNotMatch(training, /Select one exercise to graph/);
+
+  assert.match(nutrition, /id="nutrition-adherence-title"/);
+  assert.match(nutrition, /id="nutrition-trends-title"/);
+  assert.doesNotMatch(nutrition, /One metric across completed logged days/);
+});
+
+test("Analyze presentation cleanup preserves its read-only data contracts", () => {
+  const training = read("app/lifeswitch/training/analyze/page.tsx");
+  const nutrition = read("app/lifeswitch/nutrition/analyze/page.tsx");
+
+  for (const endpoint of [
+    "/api/lifeswitch/training/sessions?limit=500",
+    "/api/lifeswitch/training/conditioning_sessions?limit=500",
+    "/api/lifeswitch/training/progression?",
+    "/api/lifeswitch/plan/agentic/active",
+    "/api/lifeswitch/plan/agentic/recovery-adjustments",
+  ]) {
+    assert.match(training, new RegExp(endpoint.replace(/[?]/g, "\\?")));
+  }
+
+  for (const endpoint of [
+    "/api/lifeswitch/nutrition/log/range",
+    "/api/lifeswitch/plan/agentic/active",
+    "/api/lifeswitch/plan/profile?create_if_missing=0",
+    "/api/lifeswitch/plan/agentic/recovery-adjustments",
+  ]) {
+    assert.match(nutrition, new RegExp(endpoint.replace(/[?]/g, "\\?")));
+  }
+
+  for (const page of [training, nutrition]) {
+    assert.doesNotMatch(page, /method:\s*"(?:POST|PUT|PATCH|DELETE)"/);
+  }
+});
