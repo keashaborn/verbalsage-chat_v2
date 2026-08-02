@@ -633,51 +633,67 @@ function UsersAccessPanel({ access }: { access: AdminAccess }) {
 }
 
 function AdminSection({
+  id,
   title,
   description,
+  open,
+  onToggle,
   children,
   mountWhenOpen = false,
 }: {
+  id: string;
   title: string;
   description?: string;
+  open: boolean;
+  onToggle: (id: string) => void;
   children: React.ReactNode;
   mountWhenOpen?: boolean;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const panelId = `admin-section-${id}`;
 
   return (
-    <details
-      className="group"
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-    >
-      <summary className="cursor-pointer list-none py-4 hover:bg-muted/20 focus:outline-none focus-visible:bg-muted/30">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold">{title}</div>
-            {description ? (
-              <div className="mt-0.5 text-xs text-muted-foreground">
-                {description}
-              </div>
-            ) : null}
-          </div>
-          <div
-            className="shrink-0 text-xl text-muted-foreground transition-transform group-open:rotate-90"
-            aria-hidden="true"
-          >
-            ›
-          </div>
-        </div>
-      </summary>
+    <section>
+      <button
+        type="button"
+        className="flex min-h-11 w-full items-center justify-between gap-3 py-4 text-left hover:bg-muted/20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => onToggle(id)}
+      >
+        <span className="text-sm font-semibold">{title}</span>
+        <span
+          className={`shrink-0 text-xl text-muted-foreground transition-transform ${
+            open ? "rotate-90" : ""
+          }`}
+          aria-hidden="true"
+        >
+          ›
+        </span>
+      </button>
       {!mountWhenOpen || open ? (
-        <div className="border-t border-muted/20 py-5">{children}</div>
+        <div
+          id={panelId}
+          className="border-t border-muted/20 py-5"
+          hidden={!open}
+        >
+          {description ? (
+            <p className="mb-5 text-xs text-muted-foreground">{description}</p>
+          ) : null}
+          {children}
+        </div>
       ) : null}
-    </details>
+    </section>
   );
 }
 
 export function AdminConsolePage({ access }: { access: AdminAccess }) {
   const [inspectorEnabled, setInspectorEnabled] = React.useState(false);
   const [status, setStatus] = React.useState("");
+  const [openSection, setOpenSection] = React.useState<string | null>(null);
+
+  function toggleAdminSection(id: string) {
+    setOpenSection((current) => (current === id ? null : id));
+  }
 
   React.useEffect(() => {
     let cancelled = false;
@@ -742,16 +758,22 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
   return (
     <div className="divide-y divide-muted/20 border-y border-muted/20">
       <AdminSection
+        id="voice-health"
         title="Voice Health"
         description="Current voice availability, latency, and retained reliability history."
+        open={openSection === "voice-health"}
+        onToggle={toggleAdminSection}
         mountWhenOpen
       >
         <VoiceSystemHealthPanel />
       </AdminSection>
 
       <AdminSection
+        id="response-diagnostics"
         title="Response Diagnostics"
         description="Inspect governed response routing and execution details."
+        open={openSection === "response-diagnostics"}
+        onToggle={toggleAdminSection}
         mountWhenOpen
       >
         <div className="border-y border-muted/20 py-3">
@@ -783,31 +805,43 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
       </AdminSection>
 
       <AdminSection
+        id="ai-operations"
         title="AI Operations"
         description="Private reliability incidents from server-owned AI monitors."
+        open={openSection === "ai-operations"}
+        onToggle={toggleAdminSection}
         mountWhenOpen
       >
         <AiOperationsPanel />
       </AdminSection>
 
       <AdminSection
+        id="usage-analytics"
         title="Usage & Analytics"
         description="Backend-authoritative AI consumption and LifeSwitch activity aggregates."
+        open={openSection === "usage-analytics"}
+        onToggle={toggleAdminSection}
         mountWhenOpen
       >
         <UsageAnalyticsPanel />
       </AdminSection>
 
       <AdminSection
+        id="development-history"
         title="Development History Archive"
         description="Owner-only intake, provenance, privacy, and approval status for historical exports."
+        open={openSection === "development-history"}
+        onToggle={toggleAdminSection}
       >
         <DevelopmentHistoryArchivePanel access={access} />
       </AdminSection>
 
       <AdminSection
+        id="users-access"
         title="Users & Access"
         description="Review account requests and manage administrative access."
+        open={openSection === "users-access"}
+        onToggle={toggleAdminSection}
       >
         <div className="space-y-6">
           <div className="flex items-start justify-between gap-3 border-y border-muted/20 py-3">
@@ -852,16 +886,22 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
       </AdminSection>
 
       <AdminSection
+        id="memory-health"
         title="Memory Health"
         description="Governed memory activity, synchronization, processing, and answer use."
+        open={openSection === "memory-health"}
+        onToggle={toggleAdminSection}
         mountWhenOpen
       >
         <MemorySystemHealthPanel />
       </AdminSection>
 
       <AdminSection
+        id="memory-workbench"
         title="Memory Workbench"
         description="Review private GPU extraction results and record diagnostic feedback."
+        open={openSection === "memory-workbench"}
+        onToggle={toggleAdminSection}
         mountWhenOpen
       >
         <MemoryWorkbenchPanel />

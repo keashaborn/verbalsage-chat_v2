@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import BackButton from "@/components/nav/BackButton";
+import { PeopleWorkflowNav } from "@/components/lifeswitch/people/PeopleWorkflowNav";
 import { ShieldCheck } from "lucide-react";
 import { authFetch } from "@/lib/authFetch";
 
@@ -90,30 +90,23 @@ export default function LifeSwitchNetworkHelpingPage() {
   return (
     <div className="grid gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="text-2xl font-semibold">Viewing</div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            People who have granted you access to view or help with their
-            LifeSwitch data.
-          </div>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Shared with me
+        </h1>
 
         <div className="flex gap-2">
-          <BackButton
-            fallbackHref="/lifeswitch/people"
-            label="People"
-            className="rounded-md px-3 py-2 text-sm"
-          />
           <button
             type="button"
             onClick={() => void loadGranted()}
             disabled={loading}
-            className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+            className="min-h-11 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted/30 hover:text-foreground disabled:opacity-50"
           >
             Refresh
           </button>
         </div>
       </div>
+
+      <PeopleWorkflowNav />
 
       {error ? (
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
@@ -124,13 +117,7 @@ export default function LifeSwitchNetworkHelpingPage() {
       <div className="border-y">
         <div className="flex items-center gap-2 border-b py-3">
           <ShieldCheck className="h-4 w-4" />
-          <div>
-            <div className="text-sm font-semibold">Shared with me</div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              These people have granted you access to view or help with selected
-              LifeSwitch data.
-            </div>
-          </div>
+          <div className="text-sm font-semibold">Available access</div>
         </div>
 
         <div className="divide-y">
@@ -176,7 +163,7 @@ export default function LifeSwitchNetworkHelpingPage() {
                       {canMessage ? (
                         <Link
                           href="/lifeswitch/people/messages"
-                          className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                          className="inline-flex min-h-11 items-center rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
                         >
                           Message
                         </Link>
@@ -184,7 +171,7 @@ export default function LifeSwitchNetworkHelpingPage() {
                       {canViewPlan ? (
                         <Link
                           href={`/lifeswitch/plan?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
-                          className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                          className="inline-flex min-h-11 items-center rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
                         >
                           View plan
                         </Link>
@@ -192,7 +179,7 @@ export default function LifeSwitchNetworkHelpingPage() {
                       {canViewTraining ? (
                         <Link
                           href={`/lifeswitch/training/calendar?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
-                          className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                          className="inline-flex min-h-11 items-center rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
                         >
                           View training
                         </Link>
@@ -200,7 +187,7 @@ export default function LifeSwitchNetworkHelpingPage() {
                       {canViewNutrition ? (
                         <Link
                           href={`/lifeswitch/nutrition/log?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
-                          className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                          className="inline-flex min-h-11 items-center rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
                         >
                           View nutrition
                         </Link>
@@ -208,7 +195,7 @@ export default function LifeSwitchNetworkHelpingPage() {
                       {canViewMeasurements ? (
                         <Link
                           href={`/lifeswitch/measurements/log?target_user_id=${encodeURIComponent(group.grantor_user_id)}&target_name=${encodeURIComponent(group.grantor_display_name)}`}
-                          className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                          className="inline-flex min-h-11 items-center rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
                         >
                           View measurements
                         </Link>

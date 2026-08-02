@@ -40,7 +40,9 @@ function timezoneChoices(...included: string[]) {
     ).supportedValuesOf;
     values = supported ? supported("timeZone") : [];
   } catch {}
-  return Array.from(new Set(["UTC", ...included, ...values].filter(Boolean))).sort();
+  return Array.from(
+    new Set(["UTC", ...included, ...values].filter(Boolean)),
+  ).sort();
 }
 
 function displayNameFromUser(user: any) {
@@ -69,7 +71,7 @@ export default function AccountSettingsPage() {
   const [email, setEmail] = React.useState<string | null>(null);
   const [emailVerified, setEmailVerified] = React.useState(false);
   const [access, setAccess] = React.useState<AccountAccess | null>(null);
-  const [accessLoading, setAccessLoading] = React.useState(true);
+  const [, setAccessLoading] = React.useState(true);
   const [accessUnavailable, setAccessUnavailable] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState(false);
@@ -80,7 +82,8 @@ export default function AccountSettingsPage() {
   const [timezoneName, setTimezoneName] = React.useState("");
   const [savedTimezoneName, setSavedTimezoneName] = React.useState("");
   const [timezoneRevision, setTimezoneRevision] = React.useState(0);
-  const [timezoneSource, setTimezoneSource] = React.useState<AccountTimezone["source"]>(null);
+  const [timezoneSource, setTimezoneSource] =
+    React.useState<AccountTimezone["source"]>(null);
   const [timezoneSaving, setTimezoneSaving] = React.useState(false);
   const [timezoneStatus, setTimezoneStatus] = React.useState("");
   const detectedTimezone = React.useMemo(deviceTimezone, []);
@@ -152,7 +155,9 @@ export default function AccountSettingsPage() {
         method: "GET",
         cache: "no-store",
       });
-      const payload = (await response.json().catch(() => null)) as AccountTimezone | null;
+      const payload = (await response
+        .json()
+        .catch(() => null)) as AccountTimezone | null;
       if (!response.ok || !payload || !Number.isInteger(payload.revision)) {
         throw new Error("Timezone unavailable");
       }
@@ -239,9 +244,13 @@ export default function AccountSettingsPage() {
           expected_revision: timezoneRevision,
         }),
       });
-      const payload = (await response.json().catch(() => null)) as AccountTimezone | null;
+      const payload = (await response
+        .json()
+        .catch(() => null)) as AccountTimezone | null;
       if (response.status === 409) {
-        setTimezoneStatus("The time zone changed in another session. Reload and try again.");
+        setTimezoneStatus(
+          "The time zone changed in another session. Reload and try again.",
+        );
         return;
       }
       if (!response.ok || !payload?.timezone_name) {
@@ -259,34 +268,35 @@ export default function AccountSettingsPage() {
     }
   }
 
+  async function saveAccountChanges() {
+    if (normalizedFullName !== savedFullName) await saveIdentity();
+    if (timezoneName && timezoneName !== savedTimezoneName) {
+      await saveTimezone();
+    }
+  }
+
   const normalizedFullName = normalizeAccountFullName(fullName);
+  const identityChanged = normalizedFullName !== savedFullName;
+  const timezoneChanged =
+    Boolean(timezoneName) && timezoneName !== savedTimezoneName;
 
   return (
-    <SettingsPageFrame
-      title="Account"
-      description="Manage your account identity and current session."
-    >
+    <SettingsPageFrame title="Account">
       <div className="space-y-8">
         <section className="space-y-5">
           <div>
-            <h2 className="text-base font-semibold">Account identity</h2>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Your sign-in identity and current product access.
-            </p>
+            <h2 className="text-base font-semibold">Profile</h2>
           </div>
 
           {loading ? (
             <div
-              className="rounded-xl border border-muted/30 px-4 py-5 text-sm text-muted-foreground"
+              className="border-y border-muted/30 px-1 py-5 text-sm text-muted-foreground"
               role="status"
             >
               Loading account details…
             </div>
           ) : loadError ? (
-            <div
-              className="rounded-xl border border-muted/30 px-4 py-4"
-              role="alert"
-            >
+            <div className="border-y border-muted/30 px-1 py-4" role="alert">
               <div className="text-sm font-medium">
                 Account details could not be loaded.
               </div>
@@ -304,7 +314,7 @@ export default function AccountSettingsPage() {
             </div>
           ) : (
             <>
-              <div className="rounded-xl border border-muted/30 bg-muted/[0.08] p-4">
+              <div className="border-y border-muted/30 py-4">
                 <div className="flex items-start gap-3">
                   <div
                     className="product-brand-primary flex size-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
@@ -360,86 +370,20 @@ export default function AccountSettingsPage() {
                   disabled={saving}
                   className="w-full rounded-lg border bg-background px-3 py-2 text-sm disabled:opacity-60"
                 />
-                <span className="block text-xs text-muted-foreground">
-                  Shown in the account menu. Your email remains your sign-in
-                  identity.
-                </span>
               </label>
 
-              <div className="divide-y divide-muted/20 border-y border-muted/20">
-                <div className="flex flex-wrap items-start justify-between gap-3 py-3">
-                  <div>
-                    <div className="text-sm font-medium">Sign-in email</div>
-                    <div className="mt-0.5 text-sm text-muted-foreground">
-                      {email}
-                    </div>
-                  </div>
-                  <span
-                    className={`text-xs font-medium ${
-                      emailVerified
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-amber-700 dark:text-amber-400"
-                    }`}
-                  >
-                    {emailVerified ? "Verified" : "Not verified"}
-                  </span>
-                </div>
-
-                <div className="grid gap-3 py-3 sm:grid-cols-2">
-                  <div>
-                    <div className="text-sm font-medium">Product plan</div>
-                    <div className="mt-0.5 text-sm text-muted-foreground">
-                      {access
-                        ? productTierLabel(access.productTier)
-                        : accessLoading
-                          ? "Loading…"
-                          : "Unavailable"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium">Account role</div>
-                    <div className="mt-0.5 text-sm text-muted-foreground">
-                      {access
-                        ? roleLabel(access.role)
-                        : accessLoading
-                          ? "Loading…"
-                          : "Unavailable"}
-                    </div>
-                  </div>
-                  {accessUnavailable ? (
-                    <p className="text-xs text-muted-foreground sm:col-span-2">
-                      Access details could not be loaded. Your existing access
-                      has not changed.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-end gap-3">
-                <p className="text-xs text-muted-foreground" aria-live="polite">
-                  {status}
+              {accessUnavailable ? (
+                <p className="text-xs text-muted-foreground">
+                  Access details are temporarily unavailable. Your access has
+                  not changed.
                 </p>
-                <button
-                  type="button"
-                  onClick={saveIdentity}
-                  disabled={saving || normalizedFullName === savedFullName}
-                  className="product-brand-primary rounded-lg px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {saving ? "Saving…" : "Save changes"}
-                </button>
-              </div>
+              ) : null}
             </>
           )}
         </section>
 
         <section className="space-y-5 border-t border-muted/20 pt-6">
-          <div>
-            <h2 className="text-base font-semibold">Time zone</h2>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Dates, daily totals, and weekly summaries use this registered time zone.
-              It does not change automatically when you travel.
-            </p>
-          </div>
+          <h2 className="text-base font-semibold">Time zone</h2>
 
           {timezoneLoading ? (
             <div className="py-3 text-sm text-muted-foreground" role="status">
@@ -448,12 +392,14 @@ export default function AccountSettingsPage() {
           ) : (
             <div className="space-y-4">
               <label className="block space-y-1.5">
-                <span className="text-sm font-medium">Registered time zone</span>
+                <span className="text-sm font-medium">
+                  Registered time zone
+                </span>
                 <select
                   value={timezoneName}
                   onChange={(event) => setTimezoneName(event.target.value)}
                   disabled={timezoneSaving}
-                  className="w-full rounded-lg border bg-background px-3 py-2 text-sm disabled:opacity-60"
+                  className="min-h-11 w-full rounded-lg border bg-background px-3 py-2 text-sm disabled:opacity-60"
                 >
                   {timezoneOptions.map((value) => (
                     <option key={value} value={value}>
@@ -465,7 +411,8 @@ export default function AccountSettingsPage() {
 
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-xs text-muted-foreground">
-                  This device reports <span className="font-medium">{detectedTimezone}</span>.
+                  This device reports{" "}
+                  <span className="font-medium">{detectedTimezone}</span>.
                   {timezoneSource === "reviewed_migration"
                     ? " The current value was registered during migration."
                     : null}
@@ -474,54 +421,52 @@ export default function AccountSettingsPage() {
                   type="button"
                   onClick={() => setTimezoneName(detectedTimezone)}
                   disabled={timezoneSaving || timezoneName === detectedTimezone}
-                  className="rounded-md border px-3 py-2 text-sm hover:bg-muted/40 disabled:opacity-40"
+                  className="min-h-11 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground disabled:opacity-40"
                 >
-                  Use this device time zone
+                  Use device
                 </button>
               </div>
 
               {timezoneLoadError ? (
-                <p className="text-xs text-amber-700 dark:text-amber-400" role="alert">
+                <p
+                  className="text-xs text-amber-700 dark:text-amber-400"
+                  role="alert"
+                >
                   The saved value could not be loaded. Nothing has been changed.
                 </p>
               ) : null}
-
-              <div className="flex flex-wrap items-center justify-end gap-3">
-                <p className="text-xs text-muted-foreground" aria-live="polite">
-                  {timezoneStatus}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void saveTimezone()}
-                  disabled={
-                    timezoneSaving ||
-                    timezoneLoading ||
-                    !timezoneName ||
-                    timezoneName === savedTimezoneName
-                  }
-                  className="product-brand-primary rounded-lg px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {timezoneSaving ? "Saving…" : "Save time zone"}
-                </button>
-              </div>
             </div>
           )}
         </section>
 
         <section className="flex flex-col gap-3 border-t border-muted/20 pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-base font-semibold">Current session</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {email ? `Signed in as ${email}` : "Session details unavailable"}
-            </p>
-          </div>
+          <h2 className="text-base font-semibold">Current session</h2>
 
           <button
             type="button"
             onClick={handleSignOut}
-            className="self-start rounded-md border px-3 py-2 text-sm hover:bg-muted/40 sm:self-auto"
+            className="min-h-11 self-start rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted/40 hover:text-foreground sm:self-auto"
           >
             Sign out
+          </button>
+        </section>
+
+        <section className="flex flex-wrap items-center justify-end gap-3 border-t border-muted/20 pt-6">
+          <p className="text-xs text-muted-foreground" aria-live="polite">
+            {status || timezoneStatus}
+          </p>
+          <button
+            type="button"
+            onClick={() => void saveAccountChanges()}
+            disabled={
+              saving ||
+              timezoneSaving ||
+              timezoneLoading ||
+              (!identityChanged && !timezoneChanged)
+            }
+            className="product-brand-primary min-h-11 rounded-md px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {saving || timezoneSaving ? "Saving…" : "Save changes"}
           </button>
         </section>
       </div>

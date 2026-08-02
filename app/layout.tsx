@@ -69,7 +69,7 @@ export default async function RootLayout({
       data-theme={DEFAULT_THEME}
       data-product={siteId}
       data-product-accent={brand.accentColor}
-      style={{ colorScheme: "light", backgroundColor: "#f1f4f7" }}
+      style={{ colorScheme: "dark", backgroundColor: "#465464" }}
       suppressHydrationWarning
     >
       <script
@@ -80,22 +80,17 @@ export default async function RootLayout({
     var raw = localStorage.getItem("vs_theme");
     var value = raw ? (raw[0] === '"' ? JSON.parse(raw) : raw) : ${JSON.stringify(DEFAULT_THEME)};
     var normalized = String(value || "").trim().toLowerCase();
-    var t = (normalized === "paper" || normalized === "light") ? "paper"
-      : normalized === "mist" ? "mist"
-      : normalized === "slate" ? "slate"
-      : ["graphite", "dark", "carbon", "dark-hc"].includes(normalized) ? "graphite"
+    var t = normalized === "balanced" ? "balanced"
+      : ["paper", "light", "mist"].includes(normalized) ? "mist"
+      : ["slate", "graphite", "dark", "carbon", "dark-hc"].includes(normalized) ? "slate"
       : ${JSON.stringify(DEFAULT_THEME)};
     var root = document.documentElement;
 
     localStorage.setItem("vs_theme", JSON.stringify(t));
-    root.classList.remove("dark", "dark-hc", "paper", "graphite", "carbon", "slate", "mist");
+    root.classList.remove("dark", "dark-hc", "paper", "graphite", "carbon", "balanced", "slate", "mist");
     root.dataset.theme = t;
 
-    if (t === "paper") {
-      root.classList.add("paper");
-      root.style.colorScheme = "light";
-      root.style.backgroundColor = "#f7f5f0";
-    } else if (t === "mist") {
+    if (t === "mist") {
       root.classList.add("mist");
       root.style.colorScheme = "light";
       root.style.backgroundColor = "#f1f4f7";
@@ -104,9 +99,9 @@ export default async function RootLayout({
       root.style.colorScheme = "dark";
       root.style.backgroundColor = "#171c24";
     } else {
-      root.classList.add("dark", "graphite");
+      root.classList.add("dark", "balanced");
       root.style.colorScheme = "dark";
-      root.style.backgroundColor = "#111113";
+      root.style.backgroundColor = "#465464";
     }
 
   } catch (e) {}

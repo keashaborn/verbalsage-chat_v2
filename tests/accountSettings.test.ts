@@ -31,13 +31,13 @@ test("account page saves an optional display name without accepting authorizatio
   assert.match(page, /data: \{ full_name: nextFullName \|\| null \}/);
   assert.match(page, /Display name/);
   assert.match(page, /\(optional\)/);
-  assert.match(page, /Your email remains your sign-in/);
   assert.doesNotMatch(page, /data: \{ \.\.\./);
   assert.doesNotMatch(page, /Enter your full name/);
   assert.doesNotMatch(page, /!normalizeAccountFullName\(fullName\)/);
   assert.match(page, /Verified/);
   assert.match(page, /Not verified/);
   assert.match(page, /Save changes/);
+  assert.equal((page.match(/Save changes/g) || []).length, 1);
   assert.doesNotMatch(page, /updateUser\(\{\s*email:/);
   assert.doesNotMatch(page, /type="email"/);
 });
@@ -70,15 +70,15 @@ test("saved account names update the open navigation without a reload", () => {
   assert.match(menu, /roleLabel\(role\)/);
 });
 
-test("account page does not expose inert units and provides explicit account timezone control", () => {
+test("account page uses one quiet save flow for profile and time zone", () => {
   const page = source("app/settings/account/page.tsx");
 
   assert.doesNotMatch(page, /Preferred units/);
   assert.match(page, /Time zone/);
   assert.match(page, /Registered time zone/);
-  assert.match(page, /does not change automatically when you travel/);
-  assert.match(page, /Use this device time zone/);
-  assert.match(page, /Save time zone/);
+  assert.match(page, /Use device/);
+  assert.match(page, /saveAccountChanges/);
+  assert.doesNotMatch(page, /Save time zone/);
   assert.match(page, /expected_revision: timezoneRevision/);
   assert.match(page, /authFetch\("\/api\/user\/account-timezone"/);
 });

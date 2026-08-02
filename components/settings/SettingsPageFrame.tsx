@@ -45,7 +45,7 @@ export function SettingsPageFrame({
       </AppTopBar>
 
       <main className="mx-auto w-full max-w-4xl px-4 py-6">
-        <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="mb-6 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
             {description ? (
@@ -58,7 +58,7 @@ export function SettingsPageFrame({
           <button
             type="button"
             onClick={goBack}
-            className="shrink-0 px-1 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+            className="inline-flex min-h-11 shrink-0 items-center px-2 text-sm text-muted-foreground hover:text-foreground"
           >
             ← Back
           </button>

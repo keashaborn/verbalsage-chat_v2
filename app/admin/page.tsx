@@ -44,10 +44,7 @@ export default function AdminPage() {
 
   if (access === undefined) {
     return (
-      <SettingsPageFrame
-        title="Admin Console"
-        description="Administrative controls."
-      >
+      <SettingsPageFrame title="Admin Console">
         <div className="text-sm text-muted-foreground">Loading…</div>
       </SettingsPageFrame>
     );
@@ -55,11 +52,8 @@ export default function AdminPage() {
 
   if (!access) {
     return (
-      <SettingsPageFrame
-        title="Admin Console"
-        description="Administrative controls."
-      >
-        <div className="rounded-xl border p-4 text-sm text-muted-foreground">
+      <SettingsPageFrame title="Admin Console">
+        <div className="border-y border-muted/30 py-4 text-sm text-muted-foreground">
           This area is restricted to Owner and Admin accounts.
         </div>
       </SettingsPageFrame>
@@ -67,10 +61,7 @@ export default function AdminPage() {
   }
 
   return (
-    <SettingsPageFrame
-      title="Admin Console"
-      description="Inspect and manage administrative Verbal Sage systems."
-    >
+    <SettingsPageFrame title="Admin Console">
       <AdminConsolePage access={access} />
     </SettingsPageFrame>
   );

@@ -58,15 +58,7 @@ const PREFERENCE_AUTHORITY_NOTE =
 
 const RESPONSE_LENGTH_OPTIONS: ReadonlyArray<{
   value: FormState["response_length"];
-  description: string;
-}> = [
-  { value: "concise", description: "Brief and focused." },
-  {
-    value: "balanced",
-    description: "Moderate detail with essential context.",
-  },
-  { value: "detailed", description: "More context and explanation." },
-];
+}> = [{ value: "concise" }, { value: "balanced" }, { value: "detailed" }];
 
 const EMPTY: FormState = {
   revision: 0,
@@ -139,7 +131,7 @@ function TextField({
         </span>
       ) : null}
       <input
-        className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+        className="min-h-11 w-full rounded-md border bg-background px-3 py-2 text-sm"
         placeholder={placeholder}
         maxLength={maxLength}
         value={value}
@@ -175,7 +167,7 @@ function TextArea({
         </span>
       ) : null}
       <textarea
-        className="w-full rounded-lg border bg-background px-3 py-2 text-sm leading-relaxed"
+        className="w-full rounded-md border bg-background px-3 py-2 text-sm leading-relaxed"
         rows={rows}
         maxLength={maxLength}
         placeholder={placeholder}
@@ -208,7 +200,7 @@ function SelectField({
         </span>
       ) : null}
       <select
-        className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
+        className="min-h-11 w-full rounded-md border bg-background px-3 py-2 text-sm"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
@@ -369,19 +361,13 @@ export function AssistantPreferences() {
   }
 
   return (
-    <div className="space-y-8">
-      <section className="space-y-5" aria-labelledby="assistant-name-title">
-        <div>
-          <h2 id="assistant-name-title" className="text-base font-semibold">
-            Assistant name
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Choose what you would like to call the assistant.
-          </p>
-        </div>
+    <div className="space-y-7">
+      <section className="space-y-5" aria-labelledby="about-you-title">
+        <h2 id="about-you-title" className="text-base font-semibold">
+          You
+        </h2>
         <TextField
-          label="Name"
-          description="Optional. This name applies to typed and voice conversations on your signed-in devices."
+          label="Assistant name"
           placeholder="Enter a name"
           maxLength={40}
           value={form.assistant_name}
@@ -389,20 +375,6 @@ export function AssistantPreferences() {
             setForm((state) => ({ ...state, assistant_name }))
           }
         />
-      </section>
-
-      <section
-        className="space-y-5 border-t border-muted/20 pt-7"
-        aria-labelledby="about-you-title"
-      >
-        <div>
-          <h2 id="about-you-title" className="text-base font-semibold">
-            About you
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Information the assistant can use when it is relevant.
-          </p>
-        </div>
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
             label="Your nickname"
@@ -421,7 +393,6 @@ export function AssistantPreferences() {
         </div>
         <TextArea
           label="More about you"
-          description="Optional background. It is used only when relevant and is not treated as memory evidence."
           rows={4}
           maxLength={2000}
           value={form.more_about_you}
@@ -440,21 +411,12 @@ export function AssistantPreferences() {
             id="response-preferences-title"
             className="text-base font-semibold"
           >
-            AI response preferences
+            Responses
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Set the general style and amount of detail. These controls do not
-            change safety, factual standards, memory, or tools.
-          </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <SelectField
             label="Conversation style"
-            description={
-              CONVERSATION_STYLE_OPTIONS.find(
-                (option) => option.value === form.conversation_style,
-              )?.description
-            }
             value={form.conversation_style}
             options={CONVERSATION_STYLE_OPTIONS.map((option) => option.value)}
             onChange={(conversation_style) =>
@@ -467,11 +429,6 @@ export function AssistantPreferences() {
           />
           <SelectField
             label="Response length"
-            description={
-              RESPONSE_LENGTH_OPTIONS.find(
-                (option) => option.value === form.response_length,
-              )?.description
-            }
             value={form.response_length}
             options={RESPONSE_LENGTH_OPTIONS.map((option) => option.value)}
             onChange={(response_length) =>
@@ -483,12 +440,21 @@ export function AssistantPreferences() {
             }
           />
         </div>
+      </section>
 
-        <details className="group border-t border-muted/20 pt-4">
-          <summary className="cursor-pointer text-sm font-semibold">
-            Advanced
-          </summary>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <details className="group border-t border-muted/20 pt-7">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-base font-semibold [&::-webkit-details-marker]:hidden">
+          <span>Advanced</span>
+          <span
+            className="text-xl text-muted-foreground transition-transform group-open:rotate-90"
+            aria-hidden="true"
+          >
+            ›
+          </span>
+        </summary>
+
+        <div className="mt-5 space-y-5">
+          <div className="grid gap-4 md:grid-cols-2">
             <SelectField
               label="Technical depth"
               value={form.technical_depth}
@@ -513,129 +479,111 @@ export function AssistantPreferences() {
               }
             />
           </div>
-        </details>
-      </section>
 
-      <section
-        className="space-y-5 border-t border-muted/20 pt-7"
-        aria-labelledby="guided-preferences-title"
-      >
-        <div>
-          <h2 id="guided-preferences-title" className="text-base font-semibold">
-            Describe how you want responses to feel
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Write naturally and include as much context as you need. The
-            assistant will translate it into a small set of supported response
-            preferences. Your wording is never placed directly into the
-            assistant prompt.
-          </p>
-        </div>
-
-        {!candidate ? (
-          <div className="space-y-4">
-            <TextArea
-              label="Your preferences"
-              description="For example: Be candid and concise. Answer first, avoid generic praise, and do not end every response with an offer."
-              placeholder="Describe what would make responses work better for you."
-              rows={8}
-              maxLength={MAX_PREFERENCE_NARRATIVE_CHARS}
-              value={instructionDraft}
-              onChange={(value) => {
-                setInstructionDraft(value);
-                setStatus("");
-              }}
-            />
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-muted-foreground">
-                {instructionDraft.length}/{MAX_PREFERENCE_NARRATIVE_CHARS}
-              </span>
-              <button
-                type="button"
-                disabled={!ready || reviewing || hasUnsavedFormChanges}
-                onClick={() => void reviewInstructions()}
-                className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted/40 disabled:opacity-40"
-              >
-                {reviewing ? "Reviewing…" : "Review preferences"}
-              </button>
-            </div>
-            {hasUnsavedFormChanges ? (
-              <p className="text-xs text-muted-foreground">
-                Save the other page changes before requesting a review.
-              </p>
-            ) : null}
-            {form.compilation.status === "active" &&
-            form.compilation.summary.length ? (
-              <div className="space-y-2 border-t border-muted/20 pt-4">
-                <h3 className="text-sm font-semibold">Currently applied</h3>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  {form.compilation.summary.map((item) => (
-                    <li key={item}>• {item}</li>
-                  ))}
-                </ul>
+          {!candidate ? (
+            <div className="space-y-4">
+              <TextArea
+                label="Your preferences"
+                placeholder="Describe what would make responses work better for you."
+                rows={8}
+                maxLength={MAX_PREFERENCE_NARRATIVE_CHARS}
+                value={instructionDraft}
+                onChange={(value) => {
+                  setInstructionDraft(value);
+                  setStatus("");
+                }}
+              />
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">
+                  {instructionDraft.length}/{MAX_PREFERENCE_NARRATIVE_CHARS}
+                </span>
+                <button
+                  type="button"
+                  disabled={!ready || reviewing || hasUnsavedFormChanges}
+                  onClick={() => void reviewInstructions()}
+                  className="min-h-11 rounded-md border px-4 py-2 text-sm font-semibold hover:bg-muted/40 disabled:opacity-40"
+                >
+                  {reviewing ? "Reviewing…" : "Review preferences"}
+                </button>
               </div>
-            ) : null}
-          </div>
-        ) : (
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">What will change</h3>
-              {candidate.summary.length ? (
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  {candidate.summary.map((item) => (
-                    <li key={item}>• {item}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No supported response changes were identified.
+              {hasUnsavedFormChanges ? (
+                <p className="text-xs text-muted-foreground">
+                  Save the other page changes before requesting a review.
                 </p>
-              )}
+              ) : null}
+              {form.compilation.status === "active" &&
+              form.compilation.summary.length ? (
+                <div className="space-y-2 border-t border-muted/20 pt-4">
+                  <h3 className="text-sm font-semibold">Currently applied</h3>
+                  <ul className="space-y-1 text-sm text-muted-foreground">
+                    {form.compilation.summary.map((item) => (
+                      <li key={item}>• {item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
-            {candidate.not_applied.length ? (
-              <div className="space-y-2 border-t border-muted/20 pt-4">
-                <h3 className="text-sm font-semibold">Not applied</h3>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  {candidate.not_applied.map((item) => (
-                    <li key={item}>• {item}</li>
-                  ))}
-                </ul>
+          ) : (
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold">What will change</h3>
+                {candidate.summary.length ? (
+                  <ul className="space-y-1 text-sm text-muted-foreground">
+                    {candidate.summary.map((item) => (
+                      <li key={item}>• {item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No supported response changes were identified.
+                  </p>
+                )}
               </div>
-            ) : null}
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              {PREFERENCE_AUTHORITY_NOTE}
-            </p>
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              Nothing changes until you apply this review.
-            </p>
-            <div className="flex flex-wrap justify-end gap-3">
-              <button
-                type="button"
-                disabled={applying}
-                onClick={() => setCandidate(null)}
-                className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted/40 disabled:opacity-40"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                disabled={applying || candidate.status === "rejected"}
-                onClick={() => void applyCandidate()}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-40"
-              >
-                {applying ? "Applying…" : "Apply preferences"}
-              </button>
+              {candidate.not_applied.length ? (
+                <div className="space-y-2 border-t border-muted/20 pt-4">
+                  <h3 className="text-sm font-semibold">Not applied</h3>
+                  <ul className="space-y-1 text-sm text-muted-foreground">
+                    {candidate.not_applied.map((item) => (
+                      <li key={item}>• {item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {PREFERENCE_AUTHORITY_NOTE}
+              </p>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Nothing changes until you apply this review.
+              </p>
+              <div className="flex flex-wrap justify-end gap-3">
+                <button
+                  type="button"
+                  disabled={applying}
+                  onClick={() => setCandidate(null)}
+                  className="min-h-11 rounded-md border px-4 py-2 text-sm font-semibold hover:bg-muted/40 disabled:opacity-40"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  disabled={applying || candidate.status === "rejected"}
+                  onClick={() => void applyCandidate()}
+                  className="min-h-11 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-40"
+                >
+                  {applying ? "Applying…" : "Apply preferences"}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-      </section>
+          )}
+        </div>
+      </details>
 
       <section className="border-t border-muted/20 pt-7">
         <div className="flex items-center justify-end gap-3">
           <span className="text-xs text-muted-foreground">{status}</span>
           <button
             type="button"
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-40"
+            className="min-h-11 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-40"
             disabled={!ready || saving}
             onClick={() => void save()}
           >

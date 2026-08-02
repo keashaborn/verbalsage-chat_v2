@@ -13,12 +13,11 @@ test("Security page separates account security from data controls", () => {
   const page = source("app/settings/security/page.tsx");
   const panel = source("components/admin/SecurityPanel.tsx");
 
-  assert.match(
-    page,
-    /Manage password access, active sessions, and private data controls/,
-  );
-  assert.match(panel, /Account security/);
-  assert.match(panel, /Data &amp; privacy/);
+  assert.match(page, /<SecurityPanel view="security"/);
+  assert.match(panel, /title="Password"/);
+  assert.match(panel, /title="Sessions"/);
+  assert.match(panel, /showSecurity/);
+  assert.match(panel, /showData/);
   assert.doesNotMatch(panel, /Operator tools/);
 });
 
@@ -41,7 +40,7 @@ test("Data controls retain existing protected routes with accurate labels", () =
   assert.match(panel, /\/api\/admin\/forget_recent\?minutes=/);
   assert.match(panel, /authFetch\("\/api\/admin\/delete_all"/);
   assert.match(panel, /Conversation and memory data/);
-  assert.match(panel, /Downloads chat threads, transcripts/);
+  assert.match(panel, /title="Export"/);
   assert.match(panel, /Forget recent conversations/);
   assert.match(panel, /Delete conversation and memory data/);
   assert.match(panel, /structured\s+LifeSwitch tracking data remain active/);
@@ -93,7 +92,7 @@ test("Owner security settings support primary and backup TOTP enrollment", () =>
   assert.match(panel, /Set up primary authenticator/);
   assert.match(panel, /Add independent backup authenticator/);
   assert.match(panel, /mfaFactors\.length >= 2/);
-  assert.match(panel, /Supabase does not issue\s+recovery codes/);
+  assert.match(panel, /Supabase does\s+not issue recovery codes/);
   assert.doesNotMatch(panel, /console\.(?:log|info|warn|error).*totp/i);
 });
 

@@ -17,11 +17,16 @@ function Group({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const headingId = React.useId();
+
   return (
-    <div className="space-y-2">
-      <div className="px-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+    <section className="space-y-2" aria-labelledby={headingId}>
+      <h2
+        id={headingId}
+        className="px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+      >
         {title}
-      </div>
+      </h2>
       <div className="border-y border-muted/20">
         <div className="divide-y divide-muted/20">{children}</div>
       </div>
@@ -30,7 +35,7 @@ function Group({
           {footer}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -69,7 +74,7 @@ function ActionRow({
     <button
       type="button"
       className={[
-        "w-full px-3 py-3 text-left text-sm hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-60",
+        "min-h-11 w-full px-3 py-3 text-left text-sm hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-60",
         danger ? "text-red-500" : "",
       ].join(" ")}
       onClick={onClick}
@@ -92,7 +97,7 @@ function SmallButton({
   return (
     <button
       type="button"
-      className="rounded-lg border px-3 py-2 text-sm hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+      className="min-h-11 rounded-md border px-3 py-2 text-sm hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
       onClick={onClick}
       disabled={disabled}
     >
@@ -154,7 +159,11 @@ async function protectedActionError(
   return fallback;
 }
 
-export function SecurityPanel() {
+type SecurityPanelView = "all" | "security" | "data";
+
+export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
+  const showSecurity = view !== "data";
+  const showData = view !== "security";
   const [email, setEmail] = React.useState<string | null>(null);
   const [emailVerified, setEmailVerified] = React.useState(false);
   const [lastSignInAt, setLastSignInAt] = React.useState<string | null>(null);
@@ -228,6 +237,12 @@ export function SecurityPanel() {
   }, []);
 
   React.useEffect(() => {
+    if (!showSecurity) {
+      setAccountLoading(false);
+      setMfaLoading(false);
+      return;
+    }
+
     let alive = true;
 
     void (async () => {
@@ -261,7 +276,7 @@ export function SecurityPanel() {
     return () => {
       alive = false;
     };
-  }, [loadMfaState]);
+  }, [loadMfaState, showSecurity]);
 
   async function sendPasswordCode() {
     if (!email || !emailVerified) {
@@ -559,440 +574,447 @@ export function SecurityPanel() {
 
   return (
     <div className="space-y-5">
-      <Group
-        title="Account security"
-        footer={
-          <>
-            Password changes use a one-time code sent to your verified email.
-            Other sessions can remain active briefly until their current access
-            token expires.
-          </>
-        }
-      >
-        <Row
-          left={
-            <div>
-              <div className="font-medium">Verified email</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
-                {accountLoading ? "Loading…" : email || "Unavailable"}
-              </div>
-            </div>
-          }
-          right={
-            <span
-              className={`text-xs font-medium ${
-                emailVerified
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-amber-700 dark:text-amber-400"
-              }`}
-            >
-              {accountLoading
-                ? "Checking"
-                : emailVerified
-                  ? "Verified"
-                  : "Not verified"}
-            </span>
-          }
-        />
-        <Row
-          left={
-            <div>
-              <div className="font-medium">Password</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
-                Send a private code before choosing a new password.
-              </div>
-            </div>
-          }
-          right={
-            <SmallButton
-              onClick={() => void sendPasswordCode()}
-              disabled={
-                accountLoading ||
-                passwordBusy ||
-                !email ||
-                !emailVerified ||
-                !passwordResetToken
-              }
-            >
-              {passwordBusy ? "Sending…" : "Email change code"}
-            </SmallButton>
-          }
-        >
-          <TurnstileWidget
-            ref={passwordResetTurnstileRef}
-            action="password_reset"
-            onToken={setPasswordResetToken}
-          />
-        </Row>
-        <Row
-          left={
-            <div>
-              <div className="font-medium">Last successful sign-in</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
-                {accountLoading ? "Loading…" : formatLastSignIn(lastSignInAt)}
-              </div>
-            </div>
-          }
-        />
-        <Row
-          left={
-            <div>
-              <div className="font-medium">Other sessions</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
-                Revoke saved sessions on other browsers and devices.
-              </div>
-            </div>
-          }
-          right={
-            <SmallButton
-              onClick={() => void signOutOtherSessions()}
-              disabled={accountLoading || sessionsBusy}
-            >
-              {sessionsBusy ? "Revoking…" : "Sign out others"}
-            </SmallButton>
-          }
-        />
-      </Group>
-
-      {privilegedAccount && (
+      {showSecurity ? (
         <>
           <Group
-            title="Owner multi-factor authentication"
+            title="Password"
             footer={
               <>
-                Enroll a primary authenticator and an independent backup before
-                owner-operation enforcement is enabled. Supabase does not issue
-                recovery codes for TOTP factors.
+                Password changes use a one-time code sent to your verified
+                email.
               </>
             }
           >
             <Row
               left={
                 <div>
-                  <div className="font-medium">Authenticator status</div>
+                  <div className="font-medium">Verified email</div>
                   <div className="mt-0.5 text-xs text-muted-foreground">
-                    {mfaLoading
-                      ? "Checking…"
-                      : mfaFactors.length === 0
-                        ? "No verified authenticators"
-                        : mfaFactors.length === 1
-                          ? "Primary verified; backup still required"
-                          : "Primary and backup verified"}
+                    {accountLoading ? "Loading…" : email || "Unavailable"}
                   </div>
                 </div>
               }
               right={
                 <span
                   className={`text-xs font-medium ${
-                    mfaReadyForEnforcement
+                    emailVerified
                       ? "text-emerald-600 dark:text-emerald-400"
                       : "text-amber-700 dark:text-amber-400"
                   }`}
                 >
-                  {mfaLoading
+                  {accountLoading
                     ? "Checking"
-                    : mfaReadyForEnforcement
-                      ? "Ready"
-                      : mfaFactors.length === 1
-                        ? "Backup needed"
-                        : "Not started"}
+                    : emailVerified
+                      ? "Verified"
+                      : "Not verified"}
                 </span>
               }
             />
-
             <Row
               left={
                 <div>
-                  <div className="font-medium">Current session</div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    {mfaLoading
-                      ? "Checking authenticator assurance…"
-                      : mfaCurrentLevel === "aal2"
-                        ? "Password and authenticator verified"
-                        : "Password or email verification only"}
-                  </div>
+                  <div className="font-medium">Password</div>
                 </div>
               }
               right={
-                <span
-                  className={`text-xs font-medium ${
-                    mfaCurrentLevel === "aal2"
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-amber-700 dark:text-amber-400"
-                  }`}
+                <SmallButton
+                  onClick={() => void sendPasswordCode()}
+                  disabled={
+                    accountLoading ||
+                    passwordBusy ||
+                    !email ||
+                    !emailVerified ||
+                    !passwordResetToken
+                  }
                 >
-                  {mfaLoading
-                    ? "Checking"
-                    : mfaCurrentLevel === "aal2"
-                      ? "Protected"
-                      : "Standard"}
-                </span>
+                  {passwordBusy ? "Sending…" : "Email change code"}
+                </SmallButton>
               }
-            />
-
-            {mfaFactors.map((factor) => (
-              <Row
-                key={factor.id}
-                left={
-                  <div>
-                    <div className="font-medium">{factor.friendlyName}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      Verified TOTP authenticator
-                    </div>
-                  </div>
-                }
-                right={
-                  <SmallButton
-                    onClick={() => void removeMfaFactor(factor)}
-                    disabled={
-                      mfaBusy ||
-                      mfaCurrentLevel !== "aal2" ||
-                      mfaFactors.length <= 1
-                    }
-                  >
-                    Remove
-                  </SmallButton>
-                }
+            >
+              <TurnstileWidget
+                ref={passwordResetTurnstileRef}
+                action="password_reset"
+                onToken={setPasswordResetToken}
               />
-            ))}
+            </Row>
+          </Group>
 
-            {!mfaEnrollment && mfaFactors.length < 2 && (
-              <ActionRow
-                label={
-                  mfaBusy
-                    ? "Starting setup…"
-                    : mfaFactors.length === 0
-                      ? "Set up primary authenticator"
-                      : "Add independent backup authenticator"
-                }
-                onClick={() => void startMfaEnrollment()}
-                disabled={mfaLoading || mfaBusy}
-              />
-            )}
-
-            {mfaEnrollment && (
-              <Row
-                left={
-                  <div>
-                    <div className="font-medium">
-                      Set up {mfaEnrollment.friendlyName}
-                    </div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      Scan this QR code with an authenticator app. Then enter
-                      its current 6-digit code.
-                    </div>
-                  </div>
-                }
-              >
-                <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
-                  <div className="rounded-xl border bg-white p-3">
-                    <img
-                      src={mfaEnrollment.qrCode}
-                      alt="LifeSwitch authenticator enrollment QR code"
-                      className="mx-auto size-36"
-                    />
-                  </div>
-                  <div className="grid content-start gap-3">
-                    <label className="grid gap-1 text-xs">
-                      <span>Manual setup key</span>
-                      <input
-                        className="w-full rounded-lg border bg-background px-3 py-2 font-mono"
-                        type="password"
-                        value={mfaEnrollment.secret}
-                        readOnly
-                        autoComplete="off"
-                      />
-                    </label>
-                    <SmallButton
-                      onClick={() => void copyMfaSecret()}
-                      disabled={mfaBusy}
-                    >
-                      Copy setup key
-                    </SmallButton>
-                    <label className="grid gap-1 text-xs">
-                      <span>Authenticator code</span>
-                      <input
-                        className="w-full rounded-lg border bg-background px-3 py-2 font-mono tracking-[0.2em]"
-                        type="text"
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        value={mfaCode}
-                        onChange={(event) =>
-                          setMfaCode(
-                            event.target.value
-                              .replace(/[^0-9]/g, "")
-                              .slice(0, 6),
-                          )
-                        }
-                        disabled={mfaBusy}
-                      />
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      <SmallButton
-                        onClick={() => void verifyMfaEnrollment()}
-                        disabled={mfaBusy || mfaCode.length !== 6}
-                      >
-                        {mfaBusy ? "Verifying…" : "Verify authenticator"}
-                      </SmallButton>
-                      <SmallButton
-                        onClick={() => void cancelMfaEnrollment()}
-                        disabled={mfaBusy}
-                      >
-                        Cancel
-                      </SmallButton>
-                    </div>
+          <Group
+            title="Sessions"
+            footer={
+              <>
+                Other sessions can remain active briefly until their current
+                access token expires.
+              </>
+            }
+          >
+            <Row
+              left={
+                <div>
+                  <div className="font-medium">Last successful sign-in</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {accountLoading
+                      ? "Loading…"
+                      : formatLastSignIn(lastSignInAt)}
                   </div>
                 </div>
-              </Row>
-            )}
+              }
+            />
+            <Row
+              left={
+                <div>
+                  <div className="font-medium">Other sessions</div>
+                </div>
+              }
+              right={
+                <SmallButton
+                  onClick={() => void signOutOtherSessions()}
+                  disabled={accountLoading || sessionsBusy}
+                >
+                  {sessionsBusy ? "Revoking…" : "Sign out others"}
+                </SmallButton>
+              }
+            />
           </Group>
+
+          {privilegedAccount && (
+            <>
+              <Group
+                title="Authenticators"
+                footer={
+                  <>
+                    Enroll a primary authenticator and an independent backup
+                    before owner-operation enforcement is enabled. Supabase does
+                    not issue recovery codes for TOTP factors.
+                  </>
+                }
+              >
+                <Row
+                  left={
+                    <div>
+                      <div className="font-medium">Authenticator status</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">
+                        {mfaLoading
+                          ? "Checking…"
+                          : mfaFactors.length === 0
+                            ? "No verified authenticators"
+                            : mfaFactors.length === 1
+                              ? "Primary verified; backup still required"
+                              : "Primary and backup verified"}
+                      </div>
+                    </div>
+                  }
+                  right={
+                    <span
+                      className={`text-xs font-medium ${
+                        mfaReadyForEnforcement
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-amber-700 dark:text-amber-400"
+                      }`}
+                    >
+                      {mfaLoading
+                        ? "Checking"
+                        : mfaReadyForEnforcement
+                          ? "Ready"
+                          : mfaFactors.length === 1
+                            ? "Backup needed"
+                            : "Not started"}
+                    </span>
+                  }
+                />
+
+                <Row
+                  left={
+                    <div>
+                      <div className="font-medium">Current session</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">
+                        {mfaLoading
+                          ? "Checking authenticator assurance…"
+                          : mfaCurrentLevel === "aal2"
+                            ? "Password and authenticator verified"
+                            : "Password or email verification only"}
+                      </div>
+                    </div>
+                  }
+                  right={
+                    <span
+                      className={`text-xs font-medium ${
+                        mfaCurrentLevel === "aal2"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-amber-700 dark:text-amber-400"
+                      }`}
+                    >
+                      {mfaLoading
+                        ? "Checking"
+                        : mfaCurrentLevel === "aal2"
+                          ? "Protected"
+                          : "Standard"}
+                    </span>
+                  }
+                />
+
+                {mfaFactors.map((factor) => (
+                  <Row
+                    key={factor.id}
+                    left={
+                      <div>
+                        <div className="font-medium">{factor.friendlyName}</div>
+                      </div>
+                    }
+                    right={
+                      <SmallButton
+                        onClick={() => void removeMfaFactor(factor)}
+                        disabled={
+                          mfaBusy ||
+                          mfaCurrentLevel !== "aal2" ||
+                          mfaFactors.length <= 1
+                        }
+                      >
+                        Remove
+                      </SmallButton>
+                    }
+                  />
+                ))}
+
+                {!mfaEnrollment && mfaFactors.length < 2 && (
+                  <ActionRow
+                    label={
+                      mfaBusy
+                        ? "Starting setup…"
+                        : mfaFactors.length === 0
+                          ? "Set up primary authenticator"
+                          : "Add independent backup authenticator"
+                    }
+                    onClick={() => void startMfaEnrollment()}
+                    disabled={mfaLoading || mfaBusy}
+                  />
+                )}
+
+                {mfaEnrollment && (
+                  <Row
+                    left={
+                      <div>
+                        <div className="font-medium">
+                          Set up {mfaEnrollment.friendlyName}
+                        </div>
+                        <div className="mt-0.5 text-xs text-muted-foreground">
+                          Scan this QR code with an authenticator app. Then
+                          enter its current 6-digit code.
+                        </div>
+                      </div>
+                    }
+                  >
+                    <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
+                      <div className="rounded-xl border bg-white p-3">
+                        <img
+                          src={mfaEnrollment.qrCode}
+                          alt="LifeSwitch authenticator enrollment QR code"
+                          className="mx-auto size-36"
+                        />
+                      </div>
+                      <div className="grid content-start gap-3">
+                        <label className="grid gap-1 text-xs">
+                          <span>Manual setup key</span>
+                          <input
+                            className="w-full rounded-lg border bg-background px-3 py-2 font-mono"
+                            type="password"
+                            value={mfaEnrollment.secret}
+                            readOnly
+                            autoComplete="off"
+                          />
+                        </label>
+                        <SmallButton
+                          onClick={() => void copyMfaSecret()}
+                          disabled={mfaBusy}
+                        >
+                          Copy setup key
+                        </SmallButton>
+                        <label className="grid gap-1 text-xs">
+                          <span>Authenticator code</span>
+                          <input
+                            className="w-full rounded-lg border bg-background px-3 py-2 font-mono tracking-[0.2em]"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            value={mfaCode}
+                            onChange={(event) =>
+                              setMfaCode(
+                                event.target.value
+                                  .replace(/[^0-9]/g, "")
+                                  .slice(0, 6),
+                              )
+                            }
+                            disabled={mfaBusy}
+                          />
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          <SmallButton
+                            onClick={() => void verifyMfaEnrollment()}
+                            disabled={mfaBusy || mfaCode.length !== 6}
+                          >
+                            {mfaBusy ? "Verifying…" : "Verify authenticator"}
+                          </SmallButton>
+                          <SmallButton
+                            onClick={() => void cancelMfaEnrollment()}
+                            disabled={mfaBusy}
+                          >
+                            Cancel
+                          </SmallButton>
+                        </div>
+                      </div>
+                    </div>
+                  </Row>
+                )}
+              </Group>
+
+              <p
+                className="min-h-5 px-1 text-xs text-muted-foreground"
+                aria-live="polite"
+              >
+                {mfaStatus}
+              </p>
+            </>
+          )}
 
           <p
             className="min-h-5 px-1 text-xs text-muted-foreground"
             aria-live="polite"
           >
-            {mfaStatus}
+            {securityStatus}
           </p>
         </>
-      )}
+      ) : null}
 
-      <p
-        className="min-h-5 px-1 text-xs text-muted-foreground"
-        aria-live="polite"
-      >
-        {securityStatus}
-      </p>
-
-      <div>
-        <h2 className="text-sm font-semibold">Data &amp; privacy</h2>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          Download or remove your Verbal Sage conversation and memory data.
-          These controls do not delete your login or structured LifeSwitch
-          tracking records.
-        </p>
-      </div>
-
-      <Group title="Download">
-        <Row
-          left={
-            <div>
-              <div className="font-medium">Conversation and memory data</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
-                Downloads chat threads, transcripts, and latest memory cards as
-                JSON.
-              </div>
-            </div>
-          }
-          right={
-            <SmallButton
-              disabled={exportBusy}
-              onClick={() => void downloadExport()}
-            >
-              {exportBusy ? "Preparing…" : "Download"}
-            </SmallButton>
-          }
-        />
-      </Group>
-
-      <Group
-        title="Forget recent conversations"
-        footer={
-          <>
-            Deletes recent transcript rows and matching conversational memory.
-          </>
-        }
-      >
-        <Row
-          left="Time range"
-          right={
-            <select
-              className="w-[210px] rounded-lg border bg-background px-2 py-1.5 text-sm"
-              value={forgetMinutes}
-              onChange={(event) => setForgetMinutes(Number(event.target.value))}
-              disabled={forgetBusy}
-            >
-              <option value={15}>Last 15 minutes</option>
-              <option value={60}>Last 1 hour</option>
-              <option value={240}>Last 4 hours</option>
-              <option value={1440}>Last 24 hours</option>
-            </select>
-          }
-        />
-        <ActionRow
-          label={forgetBusy ? "Forgetting…" : "Forget selected conversations"}
-          disabled={forgetBusy}
-          onClick={() => void forgetRecent()}
-        />
-      </Group>
-
-      <details
-        className="group overflow-hidden rounded-xl border border-muted/30"
-        onToggle={(event) => {
-          if (!event.currentTarget.open) setDeleteConfirm("");
-        }}
-      >
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-3 py-3 text-sm hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
-          <div>
-            <div className="font-medium">Delete chat data</div>
-            <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-              Permanently remove all conversations and conversational memory.
-            </div>
-          </div>
-          <span
-            className="shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
-            aria-hidden="true"
-          >
-            ›
-          </span>
-        </summary>
-
-        <div className="border-t border-red-500/30 bg-red-500/[0.03]">
-          <Row
-            left={
-              <div>
-                <div className="font-medium text-red-600 dark:text-red-400">
-                  Delete conversation and memory data
+      {showData ? (
+        <>
+          <Group title="Export">
+            <Row
+              left={
+                <div>
+                  <div className="font-medium">
+                    Conversation and memory data
+                  </div>
                 </div>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  Permanently deletes all chat threads, transcripts, and stored
-                  conversational memory. Your sign-in account and structured
-                  LifeSwitch tracking data remain active.
-                </p>
-                <p className="mt-3">
-                  Type <span className="font-semibold">DELETE CHAT DATA</span>{" "}
-                  to confirm.
-                </p>
-              </div>
+              }
+              right={
+                <SmallButton
+                  disabled={exportBusy}
+                  onClick={() => void downloadExport()}
+                >
+                  {exportBusy ? "Preparing…" : "Download"}
+                </SmallButton>
+              }
+            />
+          </Group>
+
+          <Group
+            title="Forget recent conversations"
+            footer={
+              <>
+                Deletes recent transcript rows and matching conversational
+                memory.
+              </>
             }
           >
-            <input
-              className="mt-2 w-full rounded-lg border bg-background px-2 py-2 text-sm outline-none"
-              value={deleteConfirm}
-              onChange={(event) => setDeleteConfirm(event.target.value)}
-              placeholder="DELETE CHAT DATA"
-              autoComplete="off"
+            <Row
+              left="Time range"
+              right={
+                <select
+                  className="w-[210px] rounded-lg border bg-background px-2 py-1.5 text-sm"
+                  value={forgetMinutes}
+                  onChange={(event) =>
+                    setForgetMinutes(Number(event.target.value))
+                  }
+                  disabled={forgetBusy}
+                >
+                  <option value={15}>Last 15 minutes</option>
+                  <option value={60}>Last 1 hour</option>
+                  <option value={240}>Last 4 hours</option>
+                  <option value={1440}>Last 24 hours</option>
+                </select>
+              }
             />
-          </Row>
+            <ActionRow
+              label={
+                forgetBusy ? "Forgetting…" : "Forget selected conversations"
+              }
+              disabled={forgetBusy}
+              onClick={() => void forgetRecent()}
+            />
+          </Group>
 
-          <ActionRow
-            label={
-              deletingAll
-                ? "Deleting conversation data…"
-                : "Delete conversation and memory data"
-            }
-            danger
-            disabled={deleteConfirm !== "DELETE CHAT DATA" || deletingAll}
-            onClick={() => void deleteConversationData()}
-          />
-        </div>
-      </details>
+          <details
+            className="group overflow-hidden border-y border-muted/30"
+            onToggle={(event) => {
+              if (!event.currentTarget.open) setDeleteConfirm("");
+            }}
+          >
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 px-3 py-3 text-sm hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+              <div>
+                <div className="font-medium">Delete chat data</div>
+                <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  Permanently remove all conversations and conversational
+                  memory.
+                </div>
+              </div>
+              <span
+                className="shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
+                aria-hidden="true"
+              >
+                ›
+              </span>
+            </summary>
 
-      <p
-        className="min-h-5 px-1 text-xs text-muted-foreground"
-        aria-live="polite"
-      >
-        {dataStatus}
-      </p>
+            <div className="border-t border-red-500/30 bg-red-500/[0.03]">
+              <Row
+                left={
+                  <div>
+                    <div className="font-medium text-red-600 dark:text-red-400">
+                      Delete conversation and memory data
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      Permanently deletes all chat threads, transcripts, and
+                      stored conversational memory. Your sign-in account and
+                      structured LifeSwitch tracking data remain active.
+                    </p>
+                    <p className="mt-3">
+                      Type{" "}
+                      <span className="font-semibold">DELETE CHAT DATA</span> to
+                      confirm.
+                    </p>
+                  </div>
+                }
+              >
+                <input
+                  className="mt-2 w-full rounded-lg border bg-background px-2 py-2 text-sm outline-none"
+                  value={deleteConfirm}
+                  onChange={(event) => setDeleteConfirm(event.target.value)}
+                  placeholder="DELETE CHAT DATA"
+                  autoComplete="off"
+                />
+              </Row>
+
+              <ActionRow
+                label={
+                  deletingAll
+                    ? "Deleting conversation data…"
+                    : "Delete conversation and memory data"
+                }
+                danger
+                disabled={deleteConfirm !== "DELETE CHAT DATA" || deletingAll}
+                onClick={() => void deleteConversationData()}
+              />
+            </div>
+          </details>
+
+          <p
+            className="min-h-5 px-1 text-xs text-muted-foreground"
+            aria-live="polite"
+          >
+            {dataStatus}
+          </p>
+        </>
+      ) : null}
     </div>
   );
 }

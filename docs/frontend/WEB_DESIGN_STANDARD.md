@@ -145,8 +145,8 @@ Cards are not the default for:
 
 ### Theme rules
 
-- Mist is the fallback theme for accounts without a saved preference.
-- Graphite, Slate, and Paper remain supported.
+- Balanced is the fallback theme for accounts without a saved preference.
+- Appearance exposes exactly three choices: Balanced, Light, and Dark.
 - A saved account or local preference always overrides the fallback across Chat and LifeSwitch.
 - Use semantic theme tokens rather than hard-coded black, white, or page-specific grays.
 - New components must be checked in both a dark theme and a light theme.
@@ -330,7 +330,7 @@ Do not intentionally remove a core workflow from phone merely because it is more
 - Use one centered, independent surface with a moderate radius. Divide related steps with spacing and thin separators instead of nesting cards.
 - Give every field a persistent visible label. Placeholders may provide examples, but they must not be the only label.
 - Keep tabs and primary controls at least 44 CSS pixels tall on touch devices.
-- Use semantic theme tokens for errors, success, borders, and controls so feedback remains readable in Mist, Graphite, Slate, and Paper.
+- Use semantic theme tokens for errors, success, borders, and controls so feedback remains readable in Balanced, Light, and Dark.
 - Convert API failures into short user-safe messages. Never render raw response objects, provider errors, or implementation details.
 - Keep technical recovery actions under a clearly labeled help disclosure rather than presenting them as routine actions.
 - Authentication overlays may use restrained glass because they sit above the application. Public invitation and password-setup pages should use an opaque surface.

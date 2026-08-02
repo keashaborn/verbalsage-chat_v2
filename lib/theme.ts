@@ -1,8 +1,17 @@
-export type VSTheme = "graphite" | "slate" | "mist" | "paper";
+export type VSTheme = "balanced" | "mist" | "slate";
 
-export const DEFAULT_THEME: VSTheme = "mist";
+export const DEFAULT_THEME: VSTheme = "balanced";
 
-const LEGACY_THEME_CLASSES = ["dark", "dark-hc", "paper", "graphite", "carbon", "slate", "mist"];
+const LEGACY_THEME_CLASSES = [
+  "dark",
+  "dark-hc",
+  "paper",
+  "graphite",
+  "carbon",
+  "balanced",
+  "slate",
+  "mist",
+];
 
 export function normalizeThemeValue(raw: unknown): VSTheme | null {
   let value = raw;
@@ -21,18 +30,24 @@ export function normalizeThemeValue(raw: unknown): VSTheme | null {
     }
   }
 
-  const theme = String(value || "").trim().toLowerCase();
-  if (theme === "paper" || theme === "light") return "paper";
-  if (theme === "mist") return "mist";
-  if (theme === "slate") return "slate";
-  if (["graphite", "dark", "carbon", "dark-hc"].includes(theme)) return "graphite";
+  const theme = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (theme === "balanced") return "balanced";
+  if (theme === "paper" || theme === "light" || theme === "mist") return "mist";
+  if (["slate", "graphite", "dark", "carbon", "dark-hc"].includes(theme)) {
+    return "slate";
+  }
   return null;
 }
 
 export function readStoredTheme(): VSTheme {
   if (typeof window === "undefined") return DEFAULT_THEME;
   try {
-    return normalizeThemeValue(window.localStorage.getItem("vs_theme")) || DEFAULT_THEME;
+    return (
+      normalizeThemeValue(window.localStorage.getItem("vs_theme")) ||
+      DEFAULT_THEME
+    );
   } catch {
     return DEFAULT_THEME;
   }
@@ -45,11 +60,7 @@ export function applyTheme(theme: VSTheme) {
   root.classList.remove(...LEGACY_THEME_CLASSES);
   root.dataset.theme = theme;
 
-  if (theme === "paper") {
-    root.classList.add("paper");
-    root.style.colorScheme = "light";
-    root.style.backgroundColor = "#f7f5f0";
-  } else if (theme === "mist") {
+  if (theme === "mist") {
     root.classList.add("mist");
     root.style.colorScheme = "light";
     root.style.backgroundColor = "#f1f4f7";
@@ -58,9 +69,9 @@ export function applyTheme(theme: VSTheme) {
     root.style.colorScheme = "dark";
     root.style.backgroundColor = "#171c24";
   } else {
-    root.classList.add("dark", "graphite");
+    root.classList.add("dark", "balanced");
     root.style.colorScheme = "dark";
-    root.style.backgroundColor = "#111113";
+    root.style.backgroundColor = "#465464";
   }
 
   try {

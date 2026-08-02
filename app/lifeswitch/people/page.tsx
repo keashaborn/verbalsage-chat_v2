@@ -19,6 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
+import { PeopleWorkflowNav } from "@/components/lifeswitch/people/PeopleWorkflowNav";
 import { authFetch } from "@/lib/authFetch";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -842,28 +843,15 @@ export default function LifeSwitchPeoplePage() {
   return (
     <div className="grid gap-4 pt-1 sm:pt-0">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="text-2xl font-semibold">People</div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            Connect, message, and control exactly what each person can access.
-          </div>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">People</h1>
 
         <div className="flex flex-wrap gap-2">
-          <Link
-            href="/lifeswitch/people/messages"
-            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
-          >
-            <MessageSquare className="h-4 w-4" />
-            Messages
-          </Link>
-
           <button
             type="button"
             onClick={() => setInvitePanelOpen((open) => !open)}
             aria-expanded={invitePanelOpen}
             className={[
-              "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm",
+              "inline-flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 text-sm",
               invitePanelOpen ? "bg-muted/40" : "hover:bg-muted/30",
             ].join(" ")}
           >
@@ -878,6 +866,8 @@ export default function LifeSwitchPeoplePage() {
         </div>
       </div>
 
+      <PeopleWorkflowNav />
+
       {error ? (
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
           {error}
@@ -889,15 +879,11 @@ export default function LifeSwitchPeoplePage() {
           <div className="flex items-start justify-between gap-3 border-b py-3">
             <div>
               <div className="text-sm font-semibold">Invite someone</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Create a private, expiring connection link and send it with
-                Mail, Messages, or another sharing app.
-              </div>
             </div>
             <button
               type="button"
               onClick={() => setInvitePanelOpen(false)}
-              className="rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+              className="min-h-11 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-muted/30"
             >
               Close
             </button>
@@ -909,7 +895,7 @@ export default function LifeSwitchPeoplePage() {
                 value={inviteLabel}
                 onChange={(e) => setInviteLabel(e.target.value)}
                 placeholder="Person name or label"
-                className="rounded-md border bg-background px-3 py-2 text-sm"
+                className="min-h-11 rounded-md border bg-background px-3 py-2 text-sm"
               />
               <select
                 value={inviteKind}
@@ -918,7 +904,7 @@ export default function LifeSwitchPeoplePage() {
                     e.target.value as Relationship["relationship_kind"],
                   )
                 }
-                className="rounded-md border bg-background px-3 py-2 text-sm"
+                className="min-h-11 rounded-md border bg-background px-3 py-2 text-sm"
               >
                 <option value="friend">Friend</option>
                 <option value="training_partner">Training partner</option>
@@ -929,15 +915,10 @@ export default function LifeSwitchPeoplePage() {
                 type="button"
                 onClick={() => void createInviteLink()}
                 disabled={saving || !canMutate}
-                className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                className="min-h-11 rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
               >
                 Create link
               </button>
-            </div>
-
-            <div className="text-xs text-muted-foreground">
-              The relationship label is descriptive. It never grants training,
-              Plan, nutrition, or measurement access automatically.
             </div>
 
             {lastInviteLink ? (
@@ -950,7 +931,7 @@ export default function LifeSwitchPeoplePage() {
                   <button
                     type="button"
                     onClick={() => void shareInviteLink(lastInviteLink)}
-                    className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
                   >
                     <Share2 className="h-3.5 w-3.5" />
                     Share invite
@@ -958,7 +939,7 @@ export default function LifeSwitchPeoplePage() {
                   <button
                     type="button"
                     onClick={() => void copyInviteLink(lastInviteLink)}
-                    className="rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                    className="min-h-11 rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
                   >
                     Copy link
                   </button>
@@ -1010,7 +991,7 @@ export default function LifeSwitchPeoplePage() {
                                 : inv.invitation_id,
                             )
                           }
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                          className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                           aria-expanded={
                             openInviteActionsId === inv.invitation_id
                           }
@@ -1034,7 +1015,7 @@ export default function LifeSwitchPeoplePage() {
                             type="button"
                             onClick={() => void revokeInvite(inv.invitation_id)}
                             disabled={saving || !canMutate}
-                            className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                            className="flex min-h-11 w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-500/10 disabled:opacity-50"
                           >
                             <Trash2 className="h-3 w-3" />
                             Revoke invite
@@ -1141,7 +1122,7 @@ export default function LifeSwitchPeoplePage() {
                   {permissionTheyGiveByScope.has("messages:send") ? (
                     <Link
                       href="/lifeswitch/people/messages"
-                      className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
+                      className="inline-flex min-h-11 items-center gap-1.5 rounded-md border px-3 py-2 text-xs hover:bg-muted/30"
                     >
                       <MessageSquare className="h-3.5 w-3.5" />
                       Message
@@ -1150,7 +1131,7 @@ export default function LifeSwitchPeoplePage() {
                   <button
                     type="button"
                     onClick={clearSelectedContact}
-                    className="rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                    className="min-h-11 rounded-md border px-3 py-2 text-xs text-muted-foreground hover:bg-muted/30"
                   >
                     <span className="lg:hidden">← People</span>
                     <span className="hidden lg:inline">Close</span>
@@ -1163,7 +1144,7 @@ export default function LifeSwitchPeoplePage() {
                         setRelationshipActionsOpen((open) => !open)
                       }
                       aria-expanded={relationshipActionsOpen}
-                      className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
+                      className="inline-flex min-h-11 items-center gap-1 rounded-md border px-3 py-2 text-xs text-muted-foreground hover:bg-muted/30"
                     >
                       Actions
                       {relationshipActionsOpen ? (
@@ -1213,7 +1194,7 @@ export default function LifeSwitchPeoplePage() {
                           e.target.value as Relationship["relationship_kind"],
                         )
                       }
-                      className="rounded-md border bg-background px-3 py-2 text-sm"
+                      className="min-h-11 rounded-md border bg-background px-3 py-2 text-sm"
                     >
                       <option value="friend">Friend</option>
                       <option value="training_partner">Training partner</option>
@@ -1229,15 +1210,10 @@ export default function LifeSwitchPeoplePage() {
                       type="button"
                       onClick={() => void saveRelationship()}
                       disabled={saving || !selectedRelationship || !canMutate}
-                      className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                      className="min-h-11 rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
                     >
                       Update
                     </button>
-                  </div>
-
-                  <div className="text-xs text-muted-foreground">
-                    This label helps organize the relationship. Access remains
-                    separately controlled below.
                   </div>
                 </div>
               </details>
@@ -1248,14 +1224,7 @@ export default function LifeSwitchPeoplePage() {
             <div className="flex items-center gap-2 py-3">
               <ShieldCheck className="h-4 w-4" />
               <div>
-                <div className="text-sm font-semibold">
-                  What {displayName(selectedPerson, selectedUserId)} shares with
-                  you
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  Open only the LifeSwitch areas this person has explicitly
-                  shared.
-                </div>
+                <div className="text-sm font-semibold">They share with you</div>
               </div>
             </div>
 
@@ -1319,13 +1288,7 @@ export default function LifeSwitchPeoplePage() {
             <div className="flex items-center gap-2 py-3">
               <ShieldCheck className="h-4 w-4" />
               <div>
-                <div className="text-sm font-semibold">
-                  Access you give {displayName(selectedPerson, selectedUserId)}
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  Every request is checked against your verified identity and
-                  this directional access grant.
-                </div>
+                <div className="text-sm font-semibold">You share with them</div>
               </div>
             </div>
 
@@ -1363,14 +1326,11 @@ export default function LifeSwitchPeoplePage() {
                               <div className="text-sm font-semibold">
                                 {p.label}
                               </div>
-                              <div className="mt-1 text-xs text-muted-foreground">
-                                {p.description}
-                              </div>
                             </div>
 
                             <div className="grid min-w-[7.5rem] justify-items-end gap-1">
-                              <div className="text-[11px] text-muted-foreground">
-                                Currently {enabled ? "allowed" : "not allowed"}
+                              <div className="text-xs text-muted-foreground">
+                                {enabled ? "Allowed" : "Not allowed"}
                               </div>
                               <button
                                 type="button"
@@ -1384,13 +1344,13 @@ export default function LifeSwitchPeoplePage() {
                                   enabled ? "Remove" : "Allow"
                                 } ${p.label} access`}
                                 className={[
-                                  "min-w-[7.5rem] rounded-md border px-3 py-2 text-xs disabled:opacity-50 sm:text-sm",
+                                  "min-h-11 min-w-[6rem] rounded-md border px-3 py-2 text-xs disabled:opacity-50 sm:text-sm",
                                   enabled
                                     ? "hover:bg-muted/30"
                                     : "bg-muted/40 hover:bg-muted/60",
                                 ].join(" ")}
                               >
-                                {enabled ? "Remove access" : "Allow access"}
+                                {enabled ? "Remove" : "Allow"}
                               </button>
                             </div>
                           </div>
@@ -1413,8 +1373,7 @@ export default function LifeSwitchPeoplePage() {
                                 {group.label}
                               </div>
                               <div className="mt-1 text-xs text-muted-foreground">
-                                {group.description} Off unless you explicitly
-                                allow it.
+                                Off by default
                               </div>
                             </div>
                           </div>
@@ -1431,9 +1390,6 @@ export default function LifeSwitchPeoplePage() {
                         <div>
                           <div className="text-sm font-semibold">
                             {group.label}
-                          </div>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            {group.description}
                           </div>
                         </div>
                       </div>

@@ -4,13 +4,13 @@ import { test } from "node:test";
 
 const read = (path) => readFileSync(path, "utf8");
 
-test("Mist is the single untouched-account fallback", () => {
+test("Balanced is the single untouched-account fallback", () => {
   const theme = read("lib/theme.ts");
   const authGate = read("components/auth/AuthGate.tsx");
   const layout = read("app/layout.tsx");
   const standard = read("docs/frontend/WEB_DESIGN_STANDARD.md");
 
-  assert.match(theme, /DEFAULT_THEME: VSTheme = "mist"/);
+  assert.match(theme, /DEFAULT_THEME: VSTheme = "balanced"/);
   assert.match(
     authGate,
     /applyTheme\(cloudTheme \|\| localTheme \|\| DEFAULT_THEME\)/,
@@ -28,8 +28,19 @@ test("Mist is the single untouched-account fallback", () => {
   );
   assert.match(
     standard,
-    /Mist is the fallback theme for accounts without a saved preference/,
+    /Balanced is the fallback theme for accounts without a saved preference/,
   );
+});
+
+test("appearance retains one balanced, one light, and one dark choice", () => {
+  const theme = read("lib/theme.ts");
+  const appearance = read("components/admin/PersonalizationPanel.tsx");
+
+  assert.match(theme, /export type VSTheme = "balanced" \| "mist" \| "slate"/);
+  assert.match(appearance, /<option value="balanced">Balanced<\/option>/);
+  assert.match(appearance, /<option value="mist">Light<\/option>/);
+  assert.match(appearance, /<option value="slate">Dark<\/option>/);
+  assert.doesNotMatch(appearance, /label: "(?:Paper|Graphite|Carbon)"/);
 });
 
 test("saved theme values still take precedence over the fallback", () => {

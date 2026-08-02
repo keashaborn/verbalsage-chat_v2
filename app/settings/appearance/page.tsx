@@ -7,10 +7,7 @@ import { SettingsPageFrame } from "@/components/settings/SettingsPageFrame";
 export default function AppearanceSettingsPage() {
   return (
     <SettingsStoreProvider open={true}>
-      <SettingsPageFrame
-        title="Appearance"
-        description="Adjust the interface appearance for LifeSwitch and Verbal Sage."
-      >
+      <SettingsPageFrame title="Appearance">
         <PersonalizationPanel />
       </SettingsPageFrame>
     </SettingsStoreProvider>

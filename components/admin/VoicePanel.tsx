@@ -194,13 +194,12 @@ export function VoicePanel() {
       }
       const payload = (await capabilitiesResponse.json()) as VoiceCapabilities;
       const supportedLanguages = (payload.language?.options ?? [])
-        .filter(
-          (item): item is VoiceLanguageOption =>
-            Boolean(
-              item &&
-                VOICE_LANGUAGE_IDS.includes(item.id as VoiceLanguage) &&
-                String(item.label || "").trim(),
-            ),
+        .filter((item): item is VoiceLanguageOption =>
+          Boolean(
+            item &&
+            VOICE_LANGUAGE_IDS.includes(item.id as VoiceLanguage) &&
+            String(item.label || "").trim(),
+          ),
         )
         .map((item) => ({
           id: normalizeVoiceLanguage(item.id),
@@ -336,21 +335,7 @@ export function VoicePanel() {
   }
 
   return (
-    <section
-      className="space-y-5"
-      aria-busy={busy}
-      aria-labelledby="voice-settings-title"
-    >
-      <div className="space-y-1">
-        <h2 id="voice-settings-title" className="text-base font-semibold">
-          Choose a voice
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Swipe the symbol or use the arrows to hear each voice. Your choice
-          saves automatically across your signed-in devices.
-        </p>
-      </div>
-
+    <section className="space-y-5" aria-busy={busy} aria-label="Voice settings">
       <div className="rounded-2xl border bg-muted/10 p-4 sm:p-5">
         <div className="mx-auto flex max-w-md flex-col items-center text-center">
           <div
@@ -428,15 +413,20 @@ export function VoicePanel() {
               <button
                 key={item}
                 type="button"
-                className={`h-2.5 w-2.5 rounded-full transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none ${
-                  index === selectedIndex
-                    ? "bg-foreground"
-                    : "bg-muted-foreground/25 hover:bg-muted-foreground/50"
-                }`}
+                className="grid h-11 w-11 place-items-center rounded-full transition hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
                 aria-label={`Select ${VOICE_COPY[item].label}`}
                 aria-current={index === selectedIndex ? "true" : undefined}
                 onClick={() => selectAndPreview(item)}
-              />
+              >
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    index === selectedIndex
+                      ? "bg-foreground"
+                      : "bg-muted-foreground/25"
+                  }`}
+                  aria-hidden="true"
+                />
+              </button>
             ))}
           </div>
         </div>
@@ -445,7 +435,7 @@ export function VoicePanel() {
       <div className="border-y border-muted/20">
         <button
           type="button"
-          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           aria-expanded={languageOpen}
           onClick={() => setLanguageOpen((value) => !value)}
         >
@@ -481,7 +471,7 @@ export function VoicePanel() {
                     type="button"
                     role="option"
                     aria-selected={item.id === language}
-                    className={`flex w-full items-center justify-between gap-3 border-b px-3 py-2.5 text-left text-sm last:border-b-0 hover:bg-muted/50 ${
+                    className={`flex min-h-11 w-full items-center justify-between gap-3 border-b px-3 py-2.5 text-left text-sm last:border-b-0 hover:bg-muted/50 ${
                       item.id === language ? "bg-muted/60 font-semibold" : ""
                     }`}
                     onClick={() => {
@@ -506,7 +496,7 @@ export function VoicePanel() {
         ) : null}
       </div>
 
-      <div className="space-y-1 px-1 text-xs text-muted-foreground">
+      <div className="min-h-9 space-y-1 px-1 text-xs text-muted-foreground">
         <div>AI-generated voice. Raw microphone audio is not stored.</div>
         {status ? <div role="status">{status}</div> : null}
       </div>

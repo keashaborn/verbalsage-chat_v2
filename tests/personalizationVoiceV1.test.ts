@@ -35,27 +35,24 @@ test("conversation styles change presentation without enabling agreement", () =>
   assert.match(styles, /"natural"/);
   assert.match(styles, /"warm"/);
   assert.match(styles, /without becoming agreeable/);
-  assert.match(preferences, /CONVERSATION_STYLE_OPTIONS\.find/);
-  assert.match(preferences, /\?\.description/);
+  assert.match(preferences, /CONVERSATION_STYLE_OPTIONS\.map/);
+  assert.match(preferences, /normalizeConversationStyle/);
   assert.doesNotMatch(preferences, /label="Friendliness"/);
 });
 
-test("primary response preference selects use matching helper text", () => {
+test("primary response preference selects stay short and direct", () => {
   const preferences = source("components/settings/AssistantPreferences.tsx");
 
-  assert.match(preferences, /RESPONSE_LENGTH_OPTIONS\.find/);
-  assert.match(
-    preferences,
-    /label="Response length"[\s\S]*?description=\{[\s\S]*?RESPONSE_LENGTH_OPTIONS\.find/,
-  );
+  assert.match(preferences, /label="Response length"/);
+  assert.match(preferences, /RESPONSE_LENGTH_OPTIONS\.map/);
+  assert.doesNotMatch(preferences, /label="Response length"[\s\S]{0,180}description=/);
 });
 
 test("assistant name is optional, account-scoped, and narrowly validated", () => {
   const preferences = source("components/settings/AssistantPreferences.tsx");
   const api = source("app/api/user/assistant-preferences/route.ts");
 
-  assert.match(preferences, />\s*Assistant name\s*</);
-  assert.match(preferences, /typed and voice conversations/);
+  assert.match(preferences, /label="Assistant name"/);
   assert.match(preferences, /maxLength=\{40\}/);
   assert.match(api, /assistant-preferences/);
   assert.match(api, /expected_revision/);
@@ -90,8 +87,7 @@ test("guided response preferences use review then explicit apply", () => {
   const compile = source("app/api/user/assistant-preferences/compile/route.ts");
   const approve = source("app/api/user/assistant-preferences/approve/route.ts");
 
-  assert.match(preferences, />\s*AI response preferences\s*</);
-  assert.match(preferences, /Describe how you want responses to feel/);
+  assert.match(preferences, /label="Your preferences"/);
   assert.match(preferences, /What will change/);
   assert.match(preferences, /Not applied/);
   assert.match(preferences, /Nothing changes until you apply this review/);
@@ -104,10 +100,6 @@ test("guided response preferences use review then explicit apply", () => {
     /Response preferences cannot control tools, memory ownership, retrieval, safety, or system policy/,
   );
   assert.match(compile, /MAX_PREFERENCE_NARRATIVE_CHARS = 8000/);
-  assert.match(
-    preferences,
-    /Your wording is never\s+placed directly into the\s+assistant prompt/,
-  );
   assert.match(preferences, /\/api\/user\/assistant-preferences\/compile/);
   assert.match(preferences, /\/api\/user\/assistant-preferences\/approve/);
   assert.match(compile, /expected_revision/);
@@ -121,7 +113,7 @@ test("guided response preferences use review then explicit apply", () => {
 test("primary response controls remain simple and advanced controls are tucked away", () => {
   const preferences = source("components/settings/AssistantPreferences.tsx");
 
-  const primaryStart = preferences.indexOf("AI response preferences");
+  const primaryStart = preferences.indexOf("response-preferences-title");
   const advancedStart = preferences.indexOf("<details");
   assert.ok(primaryStart >= 0);
   assert.ok(advancedStart > primaryStart);
@@ -182,7 +174,6 @@ test("voice settings present a capability-filtered identity carousel", () => {
   const speech = source("lib/speechSettings.ts");
 
   assert.match(panel, /aria-roledescription="carousel"/);
-  assert.match(panel, /Swipe the symbol or use the arrows/);
   assert.match(panel, /aria-label="Previous voice"/);
   assert.match(panel, /aria-label="Next voice"/);
   assert.match(panel, /event\.key === "ArrowLeft"/);

@@ -5,10 +5,7 @@ import { SettingsPageFrame } from "@/components/settings/SettingsPageFrame";
 
 export default function DataPrivacySettingsPage() {
   return (
-    <SettingsPageFrame
-      title="Data & Privacy"
-      description="Manage personal data, history, portability, and account-level privacy tools."
-    >
+    <SettingsPageFrame title="Data & Privacy">
       <DataPrivacyPanel />
     </SettingsPageFrame>
   );

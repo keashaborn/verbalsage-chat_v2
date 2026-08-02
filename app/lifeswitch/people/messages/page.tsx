@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { Trash2 } from "lucide-react";
-import BackButton from "@/components/nav/BackButton";
 import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
+import { PeopleWorkflowNav } from "@/components/lifeswitch/people/PeopleWorkflowNav";
 import { authFetch } from "@/lib/authFetch";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -550,12 +550,7 @@ export default function LifeSwitchPeopleMessagesPage() {
   return (
     <div className="grid max-w-full min-w-0 gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="text-2xl font-semibold">Messages</div>
-          <div className="mt-1 text-sm [overflow-wrap:anywhere] break-words text-muted-foreground">
-            One-to-one LifeSwitch conversations with your connections.
-          </div>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">Messages</h1>
 
         <div
           className={[
@@ -565,21 +560,18 @@ export default function LifeSwitchPeopleMessagesPage() {
             .filter(Boolean)
             .join(" ")}
         >
-          <BackButton
-            fallbackHref="/lifeswitch/people"
-            label="People"
-            className="rounded-md px-3 py-2 text-sm"
-          />
           <button
             type="button"
             onClick={() => setShowNewMessage((v) => !v)}
             disabled={!authResolved || !currentUserId}
-            className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
+            className="min-h-11 rounded-md border px-3 py-2 text-sm hover:bg-muted/30"
           >
             {showNewMessage ? "Close" : "New message"}
           </button>
         </div>
       </div>
+
+      <PeopleWorkflowNav />
 
       {showNewMessage ? (
         <div className="max-w-full min-w-0 overflow-hidden border-y py-4">
@@ -591,7 +583,7 @@ export default function LifeSwitchPeopleMessagesPage() {
               value={selectedPersonId}
               onChange={(e) => changeSelectedPerson(e.target.value)}
               disabled={loadingPeople || !authResolved || !currentUserId}
-              className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
+              className="min-h-11 min-w-0 rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-50"
             >
               <option value="">
                 {loadingPeople
@@ -613,7 +605,7 @@ export default function LifeSwitchPeopleMessagesPage() {
               disabled={
                 saving || !selectedPersonId || !authResolved || !currentUserId
               }
-              className="rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+              className="min-h-11 rounded-md border px-3 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
             >
               Start
             </button>
@@ -654,7 +646,7 @@ export default function LifeSwitchPeopleMessagesPage() {
                 !authResolved ||
                 !currentUserId
               }
-              className="rounded-md border px-2 py-1 text-xs hover:bg-muted/30 disabled:opacity-50"
+              className="min-h-11 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-muted/30 hover:text-foreground disabled:opacity-50"
             >
               Refresh
             </button>
@@ -724,7 +716,7 @@ export default function LifeSwitchPeopleMessagesPage() {
                 onClick={() => {
                   changeSelectedConversation("");
                 }}
-                className="mb-2 rounded-md border px-2 py-1 text-xs hover:bg-muted/30 lg:hidden"
+                className="mb-2 min-h-11 rounded-md px-3 py-2 text-xs hover:bg-muted/30 lg:hidden"
               >
                 ← Messages
               </button>
@@ -753,7 +745,7 @@ export default function LifeSwitchPeopleMessagesPage() {
                       !authResolved ||
                       !currentUserId
                     }
-                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-red-500/40 px-2 py-1 text-xs text-red-500 hover:bg-red-500/10 disabled:opacity-50"
+                    className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md border border-red-500/40 px-3 py-2 text-xs text-red-500 hover:bg-red-500/10 disabled:opacity-50"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     {removingConversationId ===
@@ -788,10 +780,8 @@ export default function LifeSwitchPeopleMessagesPage() {
                   <div
                     key={m.message_id}
                     className={[
-                      "max-w-[85%] min-w-0 overflow-hidden rounded-md border p-3",
-                      mine
-                        ? "justify-self-end bg-muted/30"
-                        : "justify-self-start",
+                      "w-full min-w-0 overflow-hidden border-b border-muted/20 py-3",
+                      mine ? "border-l-2 border-l-primary pl-3" : "",
                     ].join(" ")}
                   >
                     <div className="text-xs text-muted-foreground">
@@ -832,7 +822,7 @@ export default function LifeSwitchPeopleMessagesPage() {
                 type="button"
                 onClick={() => void sendMessage()}
                 disabled={!canSend || !draft.trim() || saving}
-                className="rounded-md border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
+                className="min-h-11 rounded-md border px-4 py-2 text-sm hover:bg-muted/30 disabled:opacity-50"
               >
                 Send
               </button>
