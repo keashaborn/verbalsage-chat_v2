@@ -349,7 +349,7 @@ function MetricCard({
 }) {
   return (
     <div className="min-w-0 px-3 py-4 sm:px-5">
-      <div className="text-[11px] tracking-wide text-muted-foreground uppercase sm:text-xs">
+      <div className="text-xs tracking-wide text-muted-foreground uppercase">
         {label}
       </div>
       <div className="mt-1.5 text-xl font-semibold break-words sm:text-2xl">
@@ -523,7 +523,7 @@ export function MeasurementWorkspace({
   }
 
   return (
-    <div className="mx-auto max-w-5xl pb-8">
+    <div className="mx-auto max-w-5xl pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-8">
       {isDelegatedView ? (
         <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
           You are viewing {targetName || "this person"}’s measurements. This
@@ -532,29 +532,27 @@ export function MeasurementWorkspace({
       ) : null}
 
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Measurements</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Record body-state observations and compare like with like over time.
-          </p>
-        </div>
+        <h1 className="text-2xl font-semibold">Measurements</h1>
 
         {!isDelegatedView ? (
           <Link
             href="/lifeswitch/measurements/capture"
-            className="rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background hover:opacity-90"
+            className="inline-flex min-h-11 items-center rounded-lg border border-border/60 px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
           >
-            Record measurements
+            + Record
           </Link>
         ) : null}
       </div>
 
       {status ? (
-        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-600">
-          {status}
+        <div
+          role="alert"
+          className="mt-4 flex flex-wrap items-center gap-2 border-y border-red-500/30 py-3 text-sm text-red-600"
+        >
+          <span>{status}</span>
           <button
             type="button"
-            className="ml-3 underline"
+            className="min-h-11 rounded-lg px-3 font-medium underline underline-offset-4"
             onClick={() => void loadEntries()}
           >
             Try again
@@ -689,7 +687,7 @@ export function MeasurementWorkspace({
 
                           {details.length ? (
                             <details className="mt-3">
-                              <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+                              <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium text-muted-foreground hover:text-foreground">
                                 Details
                               </summary>
                               <dl className="mt-3 grid gap-x-5 gap-y-2 text-xs sm:grid-cols-2">
@@ -720,10 +718,6 @@ export function MeasurementWorkspace({
         </section>
       ) : (
         <section className="mt-6 space-y-4">
-          <div className="border-y py-4 text-sm text-muted-foreground">
-            Each chart uses one consistent source and method. Different body-fat
-            methods and scan types are not combined.
-          </div>
           <TrendCard title="Weight" series={weightSeries} />
           <TrendCard title="Waist" series={waistSeries} />
           <TrendCard title="Body-fat estimate" series={bodyFatSeries} />

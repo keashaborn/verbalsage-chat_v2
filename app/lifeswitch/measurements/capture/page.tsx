@@ -4,6 +4,10 @@ import * as React from "react";
 import Link from "next/link";
 import { authFetch } from "@/lib/authFetch";
 import { NumericInput } from "@/components/lifeswitch/NumericInput";
+import {
+  segmentTabClassName,
+  segmentTabListClassName,
+} from "@/components/lifeswitch/SegmentTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -95,7 +99,7 @@ function Field({
         </div>
       ) : null}
       <NumericInput
-        className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm"
+        className="mt-2 min-h-11 w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
         mode="decimal"
         min={0}
         value={value}
@@ -128,7 +132,7 @@ function TextField({
         </div>
       ) : null}
       <input
-        className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm"
+        className="mt-2 min-h-11 w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
         value={value}
         onChange={(e) => onChange(e.currentTarget.value)}
         placeholder={placeholder || ""}
@@ -159,7 +163,7 @@ function SelectField({
         </div>
       ) : null}
       <select
-        className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm"
+        className="mt-2 min-h-11 w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
         value={value}
         onChange={(e) => onChange(e.currentTarget.value)}
       >
@@ -458,38 +462,36 @@ export default function MeasurementsCapturePage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl pb-8">
-      <Link
-        href="/lifeswitch/measurements"
-        className="inline-flex text-sm text-muted-foreground hover:text-foreground"
-      >
-        ← Measurements
-      </Link>
-
-      <div className="mt-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Record measurements</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Choose what you measured. Each saved item becomes a dated
-            observation in your history.
-          </p>
-        </div>
+    <div className="mx-auto max-w-3xl pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold sm:text-2xl">
+          Measurements · Capture
+        </h1>
 
         <input
+          aria-label="Measurement date"
           type="date"
           value={localDate}
           onChange={(e) => setLocalDate(e.currentTarget.value)}
-          className="rounded-md border bg-background px-3 py-2 text-sm"
+          className="min-h-11 rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
         />
       </div>
 
       {status ? (
-        <div className="mt-4 text-sm text-red-600">{status}</div>
+        <div
+          role="alert"
+          className="mt-4 border-y border-red-500/30 py-3 text-sm text-red-600"
+        >
+          {status}
+        </div>
       ) : null}
 
-      <main className="mt-6 border-t pt-4">
-        <div className="text-sm font-medium">What are you recording?</div>
-        <div className="mt-2 grid grid-cols-2 border-y sm:grid-cols-4 sm:divide-x">
+      <section className="mt-6" aria-label="Measurement entry">
+        <div
+          className={`${segmentTabListClassName} grid-cols-2 sm:grid-cols-4`}
+          role="tablist"
+          aria-label="Measurement type"
+        >
           {(
             [
               ["weight", "Weight"],
@@ -497,14 +499,18 @@ export default function MeasurementsCapturePage() {
               ["skinfolds", "Skinfolds"],
               ["scan", "Body scan"],
             ] as Array<[EntryKind, string]>
-          ).map(([kind, label]) => (
+          ).map(([kind, label], index) => (
             <button
               key={kind}
               type="button"
-              className={`border-b-2 px-3 py-3 text-sm font-medium sm:border-b-0 ${
-                entryKind === kind
-                  ? "border-foreground text-foreground sm:bg-muted/20"
-                  : "border-transparent text-muted-foreground hover:bg-muted/20 hover:text-foreground"
+              role="tab"
+              aria-selected={entryKind === kind}
+              className={`${segmentTabClassName(entryKind === kind)} ${
+                index === 2
+                  ? "border-t border-l-0 border-border/40 sm:border-t-0 sm:border-l"
+                  : index === 3
+                    ? "border-t border-border/40 sm:border-t-0"
+                    : ""
               }`}
               onClick={() => setEntryKindWithDefaults(kind)}
             >
@@ -550,13 +556,74 @@ export default function MeasurementsCapturePage() {
           ) : null}
         </div>
 
+        {entryKind === "tape" || entryKind === "skinfolds" ? (
+          <details className="mt-5 border-y py-2">
+            <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium text-muted-foreground hover:text-foreground">
+              Measurement guidance
+            </summary>
+            {entryKind === "tape" ? (
+              <p className="pb-3 text-sm leading-relaxed text-muted-foreground">
+                Use the same tape, posture, anatomical locations, and time of
+                day. Keep the tape flat and snug without compressing tissue.
+              </p>
+            ) : (
+              <div className="space-y-3 pb-3 text-sm leading-relaxed text-muted-foreground">
+                <p>
+                  For the Jackson–Pollock 7-site method, take 2–3 readings at
+                  each site and use the average or median.
+                </p>
+                <dl className="grid gap-x-5 gap-y-2 sm:grid-cols-2">
+                  <div>
+                    <dt className="font-medium text-foreground">Chest</dt>
+                    <dd>
+                      Diagonal fold halfway between the front armpit line and
+                      nipple.
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-foreground">Abdomen</dt>
+                    <dd>
+                      Vertical fold about 1 inch to the side of the navel.
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-foreground">Thigh</dt>
+                    <dd>
+                      Vertical fold midway between hip crease and kneecap.
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-foreground">Triceps</dt>
+                    <dd>Vertical fold midway between shoulder and elbow.</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-foreground">Subscapular</dt>
+                    <dd>
+                      Diagonal fold below the lower angle of the shoulder blade.
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-foreground">Suprailiac</dt>
+                    <dd>
+                      Diagonal fold above the hip bone along the natural crease.
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-foreground">Midaxillary</dt>
+                    <dd>
+                      Vertical fold at the side of the torso, level with the
+                      sternum.
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            )}
+          </details>
+        ) : null}
+
         {entryKind === "weight" ? (
           <section className="mt-6 border-t pt-5">
             <div className="text-sm font-semibold">Weight entry</div>
-            <p className="mt-1 text-xs leading-snug text-muted-foreground">
-              Best practice: weigh at a consistent time, ideally morning after
-              bathroom and before food or drink.
-            </p>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <Field
                 label="Weight (lb)"
@@ -577,12 +644,6 @@ export default function MeasurementsCapturePage() {
         {entryKind === "tape" ? (
           <section className="mt-6 border-t pt-5">
             <div className="text-sm font-semibold">Tape measurements</div>
-            <p className="mt-1 text-xs leading-snug text-muted-foreground">
-              Use the same tape, same posture, same anatomical locations, and
-              similar time of day. Keep the tape flat and snug, but do not
-              compress tissue.
-            </p>
-
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <Field
                 label="Waist (in)"
@@ -655,12 +716,6 @@ export default function MeasurementsCapturePage() {
         {entryKind === "skinfolds" ? (
           <section className="mt-6 border-t pt-5">
             <div className="text-sm font-semibold">Skinfolds / calipers</div>
-            <p className="mt-1 text-xs leading-snug text-muted-foreground">
-              Harpenden/Jackson-Pollock 7-site entry. Take each site
-              consistently. A good default is 2–3 readings per site and use the
-              average or median.
-            </p>
-
             <div className="mt-4 grid gap-4 md:grid-cols-4">
               <Field
                 label="Age"
@@ -700,43 +755,36 @@ export default function MeasurementsCapturePage() {
                 label="Chest skinfold (mm)"
                 value={sfChest}
                 onChange={setSfChest}
-                help="Diagonal fold halfway between the front armpit line and nipple."
               />
               <Field
                 label="Abdomen skinfold (mm)"
                 value={sfAbdomen}
                 onChange={setSfAbdomen}
-                help="Vertical fold about 1 inch to the side of the navel."
               />
               <Field
                 label="Thigh skinfold (mm)"
                 value={sfThigh}
                 onChange={setSfThigh}
-                help="Vertical fold on the front midline of the thigh, halfway between hip crease and kneecap."
               />
               <Field
                 label="Triceps skinfold (mm)"
                 value={sfTriceps}
                 onChange={setSfTriceps}
-                help="Vertical fold on the back of the upper arm, halfway between shoulder and elbow."
               />
               <Field
                 label="Subscapular skinfold (mm)"
                 value={sfSubscapular}
                 onChange={setSfSubscapular}
-                help="Diagonal fold just below the lower angle of the shoulder blade."
               />
               <Field
                 label="Suprailiac skinfold (mm)"
                 value={sfSuprailiac}
                 onChange={setSfSuprailiac}
-                help="Diagonal fold just above the hip bone along the natural crease."
               />
               <Field
                 label="Midaxillary skinfold (mm)"
                 value={sfMidaxillary}
                 onChange={setSfMidaxillary}
-                help="Vertical fold on the side of the torso at the level of the sternum/xiphoid."
               />
             </div>
           </section>
@@ -745,11 +793,6 @@ export default function MeasurementsCapturePage() {
         {entryKind === "scan" ? (
           <section className="mt-6 border-t pt-5">
             <div className="text-sm font-semibold">Body scan result</div>
-            <p className="mt-1 text-xs leading-snug text-muted-foreground">
-              Enter the main values reported by a DEXA, InBody, BodPod,
-              hydrostatic test, or 3D scan.
-            </p>
-
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <TextField
                 label="Facility / device"
@@ -794,8 +837,8 @@ export default function MeasurementsCapturePage() {
           </section>
         ) : null}
 
-        <details className="mt-6 border-y py-4">
-          <summary className="cursor-pointer text-sm font-medium">
+        <details className="mt-6 border-y py-2">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium text-muted-foreground hover:text-foreground">
             Optional context
           </summary>
 
@@ -820,7 +863,7 @@ export default function MeasurementsCapturePage() {
           <label className="mt-4 block text-sm">
             <div className="text-muted-foreground">Notes</div>
             <textarea
-              className="mt-2 min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm"
+              className="mt-2 min-h-28 w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm"
               value={notes}
               onChange={(e) => setNotes(e.currentTarget.value)}
               placeholder="Time of day, hydration, soreness, device, facility, or other measurement context."
@@ -829,23 +872,23 @@ export default function MeasurementsCapturePage() {
         </details>
 
         {saved ? (
-          <div className="mt-6 border-y border-emerald-500/30 py-4">
-            <div className="font-medium text-emerald-500">
+          <div
+            aria-live="polite"
+            className="mt-6 border-y border-emerald-500/30 py-4"
+          >
+            <div className="text-sm font-medium text-emerald-500">
               {flash || "Measurement saved."}
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              The dated observation is now available in Measurements.
-            </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link
                 href="/lifeswitch/measurements"
-                className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background"
+                className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
               >
                 View measurements
               </Link>
               <button
                 type="button"
-                className="rounded-md border px-4 py-2 text-sm hover:bg-muted/30"
+                className="min-h-11 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                 onClick={clearForm}
               >
                 Record another
@@ -856,7 +899,7 @@ export default function MeasurementsCapturePage() {
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               type="button"
-              className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
+              className="min-h-11 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50"
               onClick={() => void saveEntry()}
               disabled={saving}
             >
@@ -867,14 +910,14 @@ export default function MeasurementsCapturePage() {
 
             <button
               type="button"
-              className="rounded-md border px-4 py-2 text-sm hover:bg-muted/30"
+              className="min-h-11 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted/30 hover:text-foreground"
               onClick={clearForm}
             >
               Clear form
             </button>
           </div>
         )}
-      </main>
+      </section>
     </div>
   );
 }
