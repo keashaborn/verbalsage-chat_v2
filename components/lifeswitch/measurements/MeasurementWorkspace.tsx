@@ -10,7 +10,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type WorkspaceView = "history" | "progress";
+type ProgressMetric = "weight" | "waist" | "body_fat";
 
 type MeasurementEntry = {
   measurement_entry_id: string;
@@ -337,18 +337,35 @@ function compatibleSeries(
 }
 
 function MetricCard({
+  metric,
   label,
   value,
   date,
   method,
+  active,
+  onSelect,
 }: {
+  metric: ProgressMetric;
   label: string;
   value: string;
   date?: string | null;
   method?: string | null;
+  active: boolean;
+  onSelect: () => void;
 }) {
   return (
-    <div className="min-w-0 px-3 py-4 sm:px-5">
+    <button
+      id={`measurement-metric-${metric}`}
+      type="button"
+      aria-pressed={active}
+      aria-controls="measurement-progress"
+      className={`min-h-11 min-w-0 border-b-2 px-3 py-4 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset sm:px-5 ${
+        active
+          ? "border-foreground bg-muted/20"
+          : "border-transparent hover:bg-muted/15"
+      }`}
+      onClick={onSelect}
+    >
       <div className="text-xs tracking-wide text-muted-foreground uppercase">
         {label}
       </div>
@@ -359,7 +376,7 @@ function MetricCard({
         {date ? longDate(date) : "No observation"}
         {method ? ` · ${method}` : ""}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -428,14 +445,13 @@ function TrendCard({
 export function MeasurementWorkspace({
   targetUserId = "",
   targetName = "",
-  initialView = "history",
 }: {
   targetUserId?: string;
   targetName?: string;
-  initialView?: WorkspaceView;
 }) {
   const [entries, setEntries] = React.useState<MeasurementEntry[]>([]);
-  const [view, setView] = React.useState<WorkspaceView>(initialView);
+  const [selectedMetric, setSelectedMetric] =
+    React.useState<ProgressMetric>("weight");
   const [loading, setLoading] = React.useState(true);
   const [status, setStatus] = React.useState("");
 
@@ -460,10 +476,6 @@ export function MeasurementWorkspace({
       setLoading(false);
     }
   }, [targetUserId]);
-
-  React.useEffect(() => {
-    setView(initialView);
-  }, [initialView]);
 
   React.useEffect(() => {
     void loadEntries();
@@ -509,21 +521,21 @@ export function MeasurementWorkspace({
     [entries],
   );
   const isDelegatedView = Boolean(targetUserId);
-
-  function chooseView(nextView: WorkspaceView) {
-    setView(nextView);
-    const url = new URL(window.location.href);
-    if (nextView === "progress") url.searchParams.set("view", "progress");
-    else url.searchParams.delete("view");
-    window.history.replaceState(
-      {},
-      "",
-      `${url.pathname}${url.search}${url.hash}`,
-    );
-  }
+  const selectedSeries =
+    selectedMetric === "weight"
+      ? weightSeries
+      : selectedMetric === "waist"
+        ? waistSeries
+        : bodyFatSeries;
+  const selectedTitle =
+    selectedMetric === "weight"
+      ? "Weight"
+      : selectedMetric === "waist"
+        ? "Waist"
+        : "Body fat";
 
   return (
-    <div className="mx-auto max-w-5xl pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-8">
+    <div className="mx-auto max-w-5xl pb-8">
       {isDelegatedView ? (
         <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
           You are viewing {targetName || "this person"}’s measurements. This
@@ -560,8 +572,13 @@ export function MeasurementWorkspace({
         </div>
       ) : null}
 
-      <div className="mt-6 grid grid-cols-3 divide-x border-y">
+      <div
+        className="mt-6 grid grid-cols-3 divide-x border-y"
+        role="group"
+        aria-label="Progress metric"
+      >
         <MetricCard
+          metric="weight"
           label="Weight"
           value={
             latestWeight?.weight_value != null
@@ -570,8 +587,11 @@ export function MeasurementWorkspace({
           }
           date={latestWeight?.local_date}
           method={latestWeight ? humanize(latestWeight.source) : null}
+          active={selectedMetric === "weight"}
+          onSelect={() => setSelectedMetric("weight")}
         />
         <MetricCard
+          metric="waist"
           label="Waist"
           value={
             latestWaist?.waist_value != null
@@ -580,8 +600,11 @@ export function MeasurementWorkspace({
           }
           date={latestWaist?.local_date}
           method={latestWaist ? humanize(latestWaist.source) : null}
+          active={selectedMetric === "waist"}
+          onSelect={() => setSelectedMetric("waist")}
         />
         <MetricCard
+          metric="body_fat"
           label="Body fat"
           value={
             latestBodyFat?.body_fat_percent != null
@@ -594,134 +617,119 @@ export function MeasurementWorkspace({
               ? humanize(latestBodyFat.body_fat_method || latestBodyFat.source)
               : null
           }
+          active={selectedMetric === "body_fat"}
+          onSelect={() => setSelectedMetric("body_fat")}
         />
-      </div>
-
-      <div className="mt-6 flex items-center justify-between gap-3 border-b">
-        <div
-          className="flex gap-1"
-          role="tablist"
-          aria-label="Measurement views"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === "history"}
-            className={`border-b-2 px-3 py-3 text-sm font-medium ${
-              view === "history"
-                ? "border-foreground"
-                : "border-transparent text-muted-foreground"
-            }`}
-            onClick={() => chooseView("history")}
-          >
-            History
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === "progress"}
-            className={`border-b-2 px-3 py-3 text-sm font-medium ${
-              view === "progress"
-                ? "border-foreground"
-                : "border-transparent text-muted-foreground"
-            }`}
-            onClick={() => chooseView("progress")}
-          >
-            Progress
-          </button>
-        </div>
-
-        <div className="text-xs text-muted-foreground">
-          {byDate.length} check-in{byDate.length === 1 ? "" : "s"}
-        </div>
       </div>
 
       {loading ? (
         <div className="mt-6 border-y py-5 text-sm text-muted-foreground">
           Loading measurements…
         </div>
-      ) : view === "history" ? (
-        <section className="mt-6">
-          {byDate.length === 0 ? (
-            <div className="border-y py-5 text-sm text-muted-foreground">
-              No measurements have been recorded.
-            </div>
-          ) : (
-            <div className="border-t">
-              {byDate.map(([date, rows]) => (
-                <section key={date} className="border-b py-1">
-                  <div className="flex items-center justify-between gap-3 px-1 py-3">
-                    <h2 className="text-sm font-semibold">{longDate(date)}</h2>
-                    <span className="text-xs text-muted-foreground">
-                      {rows.length} observation{rows.length === 1 ? "" : "s"}
-                    </span>
-                  </div>
-
-                  <div className="divide-y">
-                    {rows.map((entry) => {
-                      const details = detailRows(entry);
-                      return (
-                        <div
-                          key={entry.measurement_entry_id}
-                          className="px-1 py-3"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="text-sm font-medium">
-                                {displayKind(entry.entry_kind)}
-                              </div>
-                              <div className="mt-1 text-sm text-muted-foreground">
-                                {entrySummary(entry)}
-                              </div>
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {humanize(entry.source)}
-                            </div>
-                          </div>
-
-                          {entry.notes ? (
-                            <div className="mt-2 text-xs whitespace-pre-wrap text-muted-foreground">
-                              {entry.notes}
-                            </div>
-                          ) : null}
-
-                          {details.length ? (
-                            <details className="mt-3">
-                              <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium text-muted-foreground hover:text-foreground">
-                                Details
-                              </summary>
-                              <dl className="mt-3 grid gap-x-5 gap-y-2 text-xs sm:grid-cols-2">
-                                {details.map(([label, value]) => (
-                                  <div
-                                    key={`${entry.measurement_entry_id}:${label}`}
-                                    className="grid grid-cols-2 gap-3"
-                                  >
-                                    <dt className="text-muted-foreground">
-                                      {label}
-                                    </dt>
-                                    <dd className="font-medium break-words">
-                                      {value}
-                                    </dd>
-                                  </div>
-                                ))}
-                              </dl>
-                            </details>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
-            </div>
-          )}
-        </section>
       ) : (
-        <section className="mt-6 space-y-4">
-          <TrendCard title="Weight" series={weightSeries} />
-          <TrendCard title="Waist" series={waistSeries} />
-          <TrendCard title="Body-fat estimate" series={bodyFatSeries} />
-        </section>
+        <>
+          <div
+            id="measurement-progress"
+            role="region"
+            aria-labelledby={`measurement-metric-${selectedMetric}`}
+            className="mt-6"
+          >
+            <TrendCard title={selectedTitle} series={selectedSeries} />
+          </div>
+
+          <section
+            className="mt-8"
+            aria-labelledby="measurement-history-heading"
+          >
+            <div className="flex items-center justify-between gap-3 border-b pb-3">
+              <h2
+                id="measurement-history-heading"
+                className="text-base font-semibold"
+              >
+                History
+              </h2>
+              <div className="text-xs text-muted-foreground">
+                {byDate.length} check-in{byDate.length === 1 ? "" : "s"}
+              </div>
+            </div>
+
+            {byDate.length === 0 ? (
+              <div className="border-b py-5 text-sm text-muted-foreground">
+                No measurements have been recorded.
+              </div>
+            ) : (
+              <div>
+                {byDate.map(([date, rows]) => (
+                  <section key={date} className="border-b py-1">
+                    <div className="flex items-center justify-between gap-3 px-1 py-3">
+                      <h3 className="text-sm font-semibold">
+                        {longDate(date)}
+                      </h3>
+                      <span className="text-xs text-muted-foreground">
+                        {rows.length} observation{rows.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+
+                    <div className="divide-y">
+                      {rows.map((entry) => {
+                        const details = detailRows(entry);
+                        return (
+                          <div
+                            key={entry.measurement_entry_id}
+                            className="px-1 py-3"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium">
+                                  {displayKind(entry.entry_kind)}
+                                </div>
+                                <div className="mt-1 text-sm text-muted-foreground">
+                                  {entrySummary(entry)}
+                                </div>
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {humanize(entry.source)}
+                              </div>
+                            </div>
+
+                            {entry.notes ? (
+                              <div className="mt-2 text-xs whitespace-pre-wrap text-muted-foreground">
+                                {entry.notes}
+                              </div>
+                            ) : null}
+
+                            {details.length ? (
+                              <details className="mt-3">
+                                <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium text-muted-foreground hover:text-foreground">
+                                  Details
+                                </summary>
+                                <dl className="mt-3 grid gap-x-5 gap-y-2 text-xs sm:grid-cols-2">
+                                  {details.map(([label, value]) => (
+                                    <div
+                                      key={`${entry.measurement_entry_id}:${label}`}
+                                      className="grid grid-cols-2 gap-3"
+                                    >
+                                      <dt className="text-muted-foreground">
+                                        {label}
+                                      </dt>
+                                      <dd className="font-medium break-words">
+                                        {value}
+                                      </dd>
+                                    </div>
+                                  ))}
+                                </dl>
+                              </details>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
       )}
     </div>
   );

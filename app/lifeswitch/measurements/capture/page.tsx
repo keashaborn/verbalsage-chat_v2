@@ -462,10 +462,17 @@ export default function MeasurementsCapturePage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="mx-auto max-w-3xl pb-8">
+      <Link
+        href="/lifeswitch/measurements"
+        className="inline-flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        ← Measurements
+      </Link>
+
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold sm:text-2xl">
-          Measurements · Capture
+          Record measurements
         </h1>
 
         <input

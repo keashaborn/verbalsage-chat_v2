@@ -25,11 +25,12 @@ test("the document shell does not conceal horizontal overflow", () => {
 
 test("the LifeSwitch shell leaves horizontal geometry visible", () => {
   const layout = read("app/lifeswitch/layout.tsx");
+  const routeChrome = read("components/lifeswitch/LifeSwitchRouteChrome.tsx");
   const rootClass = layout.match(/data-lifeswitch-root className="([^"]+)"/);
-  const mainClass = layout.match(/<main className="([^"]+)"/);
+  const mainClass = routeChrome.match(/<main[\s\S]*?className=\{`([^`]*)`\}/);
 
   assert.ok(rootClass, "expected the LifeSwitch root class");
-  assert.ok(mainClass, "expected the LifeSwitch main class");
+  assert.ok(mainClass, "expected the route-aware LifeSwitch main class");
   assert.doesNotMatch(
     rootClass[1],
     /overflow-x-(?:hidden|clip)/,

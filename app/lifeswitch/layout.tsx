@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { AppTopBar } from "@/components/nav/AppTopBar";
 import { WorkspaceMenu } from "@/components/nav/WorkspaceMenu";
 import { AccountMenu } from "@/components/nav/AccountMenu";
-import { LifeSwitchModeNav } from "@/components/lifeswitch/LifeSwitchModeNav";
+import { LifeSwitchRouteChrome } from "@/components/lifeswitch/LifeSwitchRouteChrome";
 import { ConfirmActionProvider } from "@/components/lifeswitch/ConfirmActionProvider";
 import { AuthGate } from "@/components/auth/AuthGate";
 import { ProductAccessGate } from "@/components/auth/ProductAccessGate";
@@ -29,11 +29,7 @@ export default function LifeSwitchLayout({
               </div>
             </AppTopBar>
 
-            <LifeSwitchModeNav />
-
-            <main className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-10">
-              {children}
-            </main>
+            <LifeSwitchRouteChrome>{children}</LifeSwitchRouteChrome>
           </ConfirmActionProvider>
         </div>
       </ProductAccessGate>

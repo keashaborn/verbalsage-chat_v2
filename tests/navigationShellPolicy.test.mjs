@@ -40,15 +40,34 @@ test("the document has one ordinary scrolling root", () => {
   );
 });
 
-test("mobile workflow navigation remains stable across plan and measurements", () => {
+test("measurements is standalone while training and nutrition retain workflow navigation", () => {
   const nav = read("components/lifeswitch/LifeSwitchModeNav.tsx");
+  const routeChrome = read("components/lifeswitch/LifeSwitchRouteChrome.tsx");
+  const layout = read("app/lifeswitch/layout.tsx");
 
   assert.match(nav, /activeDomain/);
   assert.match(nav, /rememberedDomainFromBrowser/);
   assert.doesNotMatch(nav, /setPlanSection/);
-  assert.doesNotMatch(nav, /rawDomain === "measurements"\) return null/);
   assert.match(nav, /data-lifeswitch-mode-nav="mobile"/);
   assert.match(nav, /transform-gpu/);
+  assert.match(
+    routeChrome,
+    /\^\\\/lifeswitch\\\/measurements\(\?:\\\/\|\$\)\//,
+  );
+  assert.match(
+    routeChrome,
+    /measurementsStandalone \? null : <LifeSwitchModeNav \/>/,
+  );
+  assert.match(routeChrome, /measurementsStandalone[\s\S]*?"pb-10"/);
+  assert.match(
+    routeChrome,
+    /pb-\[calc\(7rem\+env\(safe-area-inset-bottom\)\)\] md:pb-10/,
+  );
+  assert.match(
+    layout,
+    /<LifeSwitchRouteChrome>\{children\}<\/LifeSwitchRouteChrome>/,
+  );
+  assert.doesNotMatch(layout, /<LifeSwitchModeNav \/>/);
 });
 
 test("dropdowns remain denser than the top navigation surface", () => {

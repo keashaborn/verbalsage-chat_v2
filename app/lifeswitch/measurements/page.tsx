@@ -19,7 +19,6 @@ export default async function MeasurementsHome({
     <MeasurementWorkspace
       targetUserId={firstValue(raw.target_user_id)}
       targetName={firstValue(raw.target_name)}
-      initialView={firstValue(raw.view) === "progress" ? "progress" : "history"}
     />
   );
 }

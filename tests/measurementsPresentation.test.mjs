@@ -10,12 +10,20 @@ const capture = readFileSync(
   "app/lifeswitch/measurements/capture/page.tsx",
   "utf8",
 );
+const measurementsPage = readFileSync(
+  "app/lifeswitch/measurements/page.tsx",
+  "utf8",
+);
+const routeChrome = readFileSync(
+  "components/lifeswitch/LifeSwitchRouteChrome.tsx",
+  "utf8",
+);
 const sharedSegments = readFileSync(
   "components/lifeswitch/SegmentTabs.tsx",
   "utf8",
 );
 
-test("measurements overview stays flat and preserves its useful summary", () => {
+test("measurements overview combines selectable progress with history", () => {
   assert.match(workspace, />Measurements</);
   assert.match(workspace, />\s*\+\s*Record\s*</);
   assert.doesNotMatch(
@@ -25,20 +33,34 @@ test("measurements overview stays flat and preserves its useful summary", () => 
   assert.match(workspace, /label="Weight"/);
   assert.match(workspace, /label="Waist"/);
   assert.match(workspace, /label="Body fat"/);
+  assert.match(workspace, /aria-label="Progress metric"/);
+  assert.match(workspace, /role="group"/);
+  assert.match(workspace, /aria-pressed=\{active\}/);
+  assert.match(workspace, /aria-controls="measurement-progress"/);
+  assert.match(workspace, /role="region"/);
+  assert.match(
+    workspace,
+    /<TrendCard title=\{selectedTitle\} series=\{selectedSeries\} \/>/,
+  );
   assert.match(workspace, />\s*History\s*</);
-  assert.match(workspace, />\s*Progress\s*</);
-  assert.match(workspace, /aria-label="Measurement views"/);
+  assert.doesNotMatch(workspace, /aria-label="Measurement views"/);
+  assert.doesNotMatch(workspace, /type WorkspaceView/);
+  assert.doesNotMatch(workspace, /chooseView/);
+  assert.doesNotMatch(workspace, /initialView/);
   assert.doesNotMatch(
     workspace,
     /Each chart uses one consistent source and method/,
   );
+  assert.doesNotMatch(measurementsPage, /initialView=/);
 });
 
-test("overview actions and disclosures are touch-safe above the mobile dock", () => {
+test("measurements routes omit the workflow dock and retain touch-safe controls", () => {
+  assert.match(workspace, /mx-auto max-w-5xl pb-8/);
   assert.match(
-    workspace,
-    /pb-\[calc\(7rem\+env\(safe-area-inset-bottom\)\)\] md:pb-8/,
+    routeChrome,
+    /measurementsStandalone \? null : <LifeSwitchModeNav \/>/,
   );
+  assert.match(routeChrome, /measurementsStandalone[\s\S]*?"pb-10"/);
   assert.match(
     workspace,
     /inline-flex min-h-11 items-center rounded-lg border border-border\/60/,
@@ -51,10 +73,11 @@ test("overview actions and disclosures are touch-safe above the mobile dock", ()
   assert.match(workspace, /Try again/);
 });
 
-test("capture leads with context and reuses the shared segmented treatment", () => {
-  assert.match(capture, />\s*Measurements · Capture\s*</);
+test("capture has a quiet return path and reuses the shared segmented treatment", () => {
+  assert.match(capture, /href="\/lifeswitch\/measurements"/);
+  assert.match(capture, />\s*← Measurements\s*</);
+  assert.match(capture, />\s*Record measurements\s*</);
   assert.match(capture, /aria-label="Measurement date"/);
-  assert.doesNotMatch(capture, /← Measurements/);
   assert.doesNotMatch(capture, /Choose what you measured/);
   assert.doesNotMatch(capture, /What are you recording/);
   assert.match(capture, /aria-label="Measurement type"/);
@@ -80,10 +103,7 @@ test("routine directions are removed and detailed technique stays optional", () 
 });
 
 test("capture controls and feedback retain a quiet touch-safe contract", () => {
-  assert.match(
-    capture,
-    /pb-\[calc\(7rem\+env\(safe-area-inset-bottom\)\)\] md:pb-8/,
-  );
+  assert.match(capture, /mx-auto max-w-3xl pb-8/);
   assert.match(capture, /min-h-11 w-full rounded-lg border border-border\/60/);
   assert.match(capture, /aria-live="polite"/);
   assert.match(capture, /Measurement saved\./);
