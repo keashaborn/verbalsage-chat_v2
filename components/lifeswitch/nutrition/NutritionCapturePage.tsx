@@ -472,10 +472,7 @@ export default function NutritionCapturePage() {
     <div className="mx-auto max-w-5xl p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <div className="text-lg font-semibold">Nutrition · Capture</div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            Log single foods or saved meals for the selected day.
-          </div>
+          <h1 className="text-xl font-semibold">Nutrition · Capture</h1>
         </div>
 
         <input
@@ -518,17 +515,12 @@ export default function NutritionCapturePage() {
 
       {mode === "meals" && (
         <div className="mt-6">
-          <div>
-            <div className="text-sm font-semibold">Meals</div>
-            <div className="text-xs text-muted-foreground">
-              Search your saved meals, select one, then adjust or log its foods.
-            </div>
-          </div>
+          <h2 className="text-sm font-semibold">Meals</h2>
 
-          <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
             <input
               type="search"
-              className="min-h-12 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              className="min-h-12 min-w-0 w-full rounded-xl border bg-background px-3 py-2 text-sm"
               placeholder="Search meals"
               value={mealQuery}
               onChange={(event) => setMealQuery(event.target.value)}
@@ -536,7 +528,7 @@ export default function NutritionCapturePage() {
             />
             <button
               type="button"
-              className="min-h-12 rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/30 disabled:opacity-50"
+              className="inline-flex min-h-12 items-center rounded-lg px-3 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-50"
               onClick={() => void loadMeals()}
               disabled={mealsLoading}
             >
@@ -721,11 +713,12 @@ export default function NutritionCapturePage() {
 
       {mode === "foods" && (
         <div className="mt-4">
-          <div className="text-sm font-semibold">Foods</div>
+          <h2 className="text-sm font-semibold">Foods</h2>
 
-          <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
             <input
-              className="min-h-12 w-full rounded-xl border bg-background px-3 py-2 text-sm"
+              type="search"
+              className="min-h-12 min-w-0 w-full rounded-xl border bg-background px-3 py-2 text-sm"
               placeholder="Search foods"
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -739,7 +732,7 @@ export default function NutritionCapturePage() {
 
             <button
               type="button"
-              className="min-h-12 rounded-xl border px-4 py-2 text-sm font-medium hover:bg-muted/30 disabled:opacity-50"
+              className="inline-flex min-h-12 items-center rounded-lg px-3 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-50"
               onClick={() => void loadFoods()}
               disabled={foodsLoading}
             >

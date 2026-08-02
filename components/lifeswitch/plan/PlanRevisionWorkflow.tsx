@@ -399,14 +399,14 @@ function PlanSummary({
         <h2 className="text-base font-semibold">{title}</h2>
         <div className="flex gap-2">
           <button
-            className="text-xs font-medium text-muted-foreground hover:text-foreground"
+            className="inline-flex min-h-11 items-center px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
             type="button"
             onClick={() => setExpandedSections(new Set(sectionKeys))}
           >
             Expand all
           </button>
           <button
-            className="text-xs font-medium text-muted-foreground hover:text-foreground"
+            className="inline-flex min-h-11 items-center px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
             type="button"
             onClick={() => setExpandedSections(new Set())}
           >
@@ -848,15 +848,11 @@ export function PlanRevisionWorkflow() {
             <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               {humanize(revision.state)}
             </span>
-          ) : activePlan ? (
-            <span className="text-xs font-semibold tracking-wide text-blue-700 uppercase dark:text-blue-300">
-              Active version {activePlan.version_number}
-            </span>
-          ) : (
+          ) : !activePlan && !revision ? (
             <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               Not prepared
             </span>
-          )}
+          ) : null}
         </div>
 
         {status === "loading" ? (
@@ -917,23 +913,24 @@ export function PlanRevisionWorkflow() {
           <div className="mt-4 grid gap-4">
             {revision.state === "draft" && canEdit ? (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-y border-border/50 py-3">
-                  <div>
-                    <div className="text-sm font-semibold">
+                <div className="flex flex-wrap items-center justify-between gap-3 py-2">
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">
                       {revisionMatchesActive
                         ? "No unpublished changes"
                         : "Draft saved"}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
+                    </span>
+                    <span aria-hidden="true"> · </span>
+                    <span>
                       {revisionMatchesActive
-                        ? `This draft matches active version ${activePlan?.version_number ?? "—"}.`
-                        : "This draft is not active yet."}
-                    </div>
+                        ? `Matches active version ${activePlan?.version_number ?? "—"}`
+                        : "Not active"}
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {activePlan && !draftEditorOpen ? (
                       <button
-                        className="rounded-lg border px-3 py-2 text-sm font-medium"
+                        className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                         type="button"
                         onClick={() =>
                           setPlanView((current) =>
@@ -947,7 +944,7 @@ export function PlanRevisionWorkflow() {
                       </button>
                     ) : null}
                     <button
-                      className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+                      className="inline-flex min-h-11 items-center rounded-lg bg-muted px-3 text-sm font-medium hover:bg-muted/80"
                       type="button"
                       onClick={() => {
                         setPlanView("draft");

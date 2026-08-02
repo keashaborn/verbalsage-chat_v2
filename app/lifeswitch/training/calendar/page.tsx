@@ -644,15 +644,12 @@ export default function TrainingCalendarPage() {
 
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-lg font-semibold">Training · Log</div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            Review completed strength, rehab, and conditioning sessions from Training Capture.
-          </div>
+          <h1 className="text-xl font-semibold">Training · Log</h1>
         </div>
 
         <button
           type="button"
-          className="rounded-xl border px-3 py-2 text-sm hover:bg-muted/30"
+          className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-50"
           onClick={() => void loadSessions()}
           disabled={loading}
         >

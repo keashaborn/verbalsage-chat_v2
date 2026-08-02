@@ -9,9 +9,6 @@ export default function TrainingDesignLayout({ children }: { children: ReactNode
           Training
         </div>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Workouts</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Build workouts, organize conditioning, and manage the exercises you use.
-        </p>
       </header>
 
       <SegmentTabs

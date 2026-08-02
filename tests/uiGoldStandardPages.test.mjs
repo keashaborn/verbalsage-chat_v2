@@ -160,3 +160,59 @@ test("Analyze presentation cleanup preserves its read-only data contracts", () =
     assert.doesNotMatch(page, /method:\s*"(?:POST|PUT|PATCH|DELETE)"/);
   }
 });
+
+test("Plan, Nutrition Capture, and Training use concise headers and quiet controls", () => {
+  const plan = read("components/lifeswitch/plan/PlanRevisionWorkflow.tsx");
+  const nutritionCapture = read(
+    "components/lifeswitch/nutrition/NutritionCapturePage.tsx",
+  );
+  const trainingLog = read("app/lifeswitch/training/calendar/page.tsx");
+  const trainingDesign = read("app/lifeswitch/training/design/layout.tsx");
+  const planHeader = plan.slice(
+    plan.indexOf("const headerDocument"),
+    plan.indexOf('{status === "loading"'),
+  );
+
+  assert.equal(
+    (planHeader.match(/Active version \{activePlan\.version_number\}/g) || [])
+      .length,
+    1,
+  );
+  assert.match(plan, /Expand all[\s\S]{0,500}Collapse all/);
+  assert.match(
+    plan,
+    /inline-flex min-h-11 items-center px-2 text-xs[\s\S]{0,180}Expand all/,
+  );
+  assert.match(
+    plan,
+    /Preview draft[\s\S]{0,420}inline-flex min-h-11 items-center rounded-lg bg-muted/,
+  );
+  assert.match(plan, /: "Draft saved"/);
+  assert.match(plan, /: "Not active"/);
+
+  assert.match(
+    nutritionCapture,
+    /<h1 className="text-xl font-semibold">Nutrition · Capture<\/h1>/,
+  );
+  assert.doesNotMatch(
+    nutritionCapture,
+    /Log single foods or saved meals for the selected day/,
+  );
+  assert.doesNotMatch(nutritionCapture, /Search your saved meals, select one/);
+  assert.equal(
+    (
+      nutritionCapture.match(
+        /<div className="mt-2 grid grid-cols-\[minmax\(0,1fr\)_auto\] gap-2">/g,
+      ) || []
+    ).length,
+    2,
+  );
+  assert.doesNotMatch(nutritionCapture, /rounded-xl border px-4 py-2/);
+
+  assert.match(
+    trainingLog,
+    /<h1 className="text-xl font-semibold">Training · Log<\/h1>/,
+  );
+  assert.doesNotMatch(trainingLog, /Review completed strength, rehab/);
+  assert.doesNotMatch(trainingDesign, /Build workouts, organize conditioning/);
+});
