@@ -3254,7 +3254,7 @@ export function BrainsChatPane() {
                 Boolean(editingMessageId) ||
                 pendingAttachments.length >= MAX_CHAT_ATTACHMENTS
               }
-              className="absolute bottom-2 left-2 inline-flex size-11 shrink-0 items-center justify-center rounded-full border bg-background text-foreground transition-transform active:scale-95 disabled:opacity-40 sm:size-9"
+              className="absolute bottom-2 left-2 inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent text-muted-foreground transition-[background-color,color,transform] hover:bg-muted/40 hover:text-foreground focus-visible:bg-muted/40 focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 disabled:opacity-40 sm:size-9"
               aria-label="Add TXT or Markdown attachment"
               title="Add attachment"
             >

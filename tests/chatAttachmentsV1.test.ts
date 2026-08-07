@@ -46,6 +46,14 @@ test("composer exposes bounded TXT and Markdown picker and desktop drop intake",
   assert.match(pane, /type="file"/);
   assert.match(pane, /accept=\{CHAT_ATTACHMENT_FILE_ACCEPT\}/);
   assert.match(pane, /aria-label="Add TXT or Markdown attachment"/);
+  assert.match(
+    pane,
+    /data-chat-attachment-picker[\s\S]*?className="[^"]*size-11[^"]*border-transparent[^"]*bg-transparent[^"]*text-muted-foreground[^"]*hover:bg-muted\/40[^"]*focus-visible:ring-2[^"]*sm:size-9"/,
+  );
+  assert.doesNotMatch(
+    pane,
+    /data-chat-attachment-picker[\s\S]*?className="[^"]*rounded-full border bg-background text-foreground/,
+  );
   assert.match(pane, /onDragEnter=\{handleAttachmentDragEnter\}/);
   assert.match(pane, /onDragOver=\{handleAttachmentDragOver\}/);
   assert.match(pane, /onDragLeave=\{handleAttachmentDragLeave\}/);
