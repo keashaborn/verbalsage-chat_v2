@@ -14,6 +14,7 @@ import {
   Pause,
   Play,
   Check,
+  FileText,
 } from "lucide-react";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
 import {
@@ -171,7 +172,49 @@ type Msg = {
   trusted_web_fallback?: boolean;
   trusted_web_sources?: TrustedWebSource[];
   trusted_web_admitted_sources?: TrustedWebSource[];
+  attachments?: ChatAttachmentSummary[];
 };
+
+type ChatAttachmentSummary = {
+  id: string;
+  filename: string;
+  media_type: "text/plain" | "text/markdown";
+  content_sha256: string;
+  byte_size: number;
+  processing_status: "ready" | "error" | "deleted";
+  deleted_at?: string | null;
+};
+
+type PendingChatAttachment = {
+  localId: string;
+  filename: string;
+  mediaType: "text/plain" | "text/markdown";
+  content: string;
+  contentSha256: string;
+  byteSize: number;
+  status: "pending" | "uploading" | "ready" | "error";
+  remote?: ChatAttachmentSummary;
+  error?: string;
+};
+
+const LARGE_PASTE_ATTACHMENT_BYTES = 8_192;
+const MAX_CHAT_ATTACHMENT_BYTES = 49_152;
+const MAX_CHAT_ATTACHMENTS = 4;
+
+function formatAttachmentBytes(value: number): string {
+  if (value < 1024) return `${value} B`;
+  return `${(value / 1024).toFixed(value < 10_240 ? 1 : 0)} KB`;
+}
+
+async function sha256Text(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
 
 function normalizeTrustedWebSources(value: unknown): TrustedWebSource[] {
   if (!Array.isArray(value)) return [];
@@ -576,6 +619,9 @@ export function BrainsChatPane() {
   }, []);
 
   const [text, setText] = React.useState("");
+  const [pendingAttachments, setPendingAttachments] = React.useState<
+    PendingChatAttachment[]
+  >([]);
 
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const [atBottom, setAtBottom] = React.useState(true);
@@ -1617,6 +1663,7 @@ export function BrainsChatPane() {
     voiceTurnId?: string,
     voiceSessionId?: string,
     responseLanguage?: VoiceLanguage,
+    attachmentIds: string[] = [],
   ): Promise<ChatResult> {
     const { response: r, responseText } = await withRequestDeadline(
       async (signal) => {
@@ -1637,6 +1684,7 @@ export function BrainsChatPane() {
             thread_id: tid,
             regen,
             noStore,
+            ...(attachmentIds.length ? { attachment_ids: attachmentIds } : {}),
           }),
           signal,
         });
@@ -1941,9 +1989,127 @@ export function BrainsChatPane() {
     void startListening();
   }
 
+  async function handleComposerPaste(
+    event: React.ClipboardEvent<HTMLTextAreaElement>,
+  ) {
+    if (editingMessageId) return;
+    const pasted = event.clipboardData.getData("text/plain");
+    const raw = new TextEncoder().encode(pasted);
+    if (raw.byteLength < LARGE_PASTE_ATTACHMENT_BYTES) return;
+    event.preventDefault();
+    if (raw.byteLength > MAX_CHAT_ATTACHMENT_BYTES) {
+      setRequestError(
+        `Pasted text is ${formatAttachmentBytes(raw.byteLength)}. The first Chat Attachments release accepts up to 48 KB per attachment.`,
+      );
+      return;
+    }
+    if (pendingAttachments.length >= MAX_CHAT_ATTACHMENTS) {
+      setRequestError("A message can include up to four text attachments.");
+      return;
+    }
+    try {
+      const contentSha256 = await sha256Text(pasted);
+      const now = new Date();
+      const stamp = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        String(now.getDate()).padStart(2, "0"),
+        "-",
+        String(now.getHours()).padStart(2, "0"),
+        String(now.getMinutes()).padStart(2, "0"),
+        String(now.getSeconds()).padStart(2, "0"),
+      ].join("");
+      setPendingAttachments((current) => [
+        ...current,
+        {
+          localId: crypto.randomUUID(),
+          filename: `Pasted text ${stamp}.md`,
+          mediaType: "text/markdown",
+          content: pasted,
+          contentSha256,
+          byteSize: raw.byteLength,
+          status: "pending",
+        },
+      ]);
+      if (!text.trim()) setText("Please review the attached text.");
+      setRequestError("");
+    } catch {
+      setRequestError("The pasted text could not be prepared as an attachment.");
+    }
+  }
+
+  async function uploadPendingAttachment(
+    attachment: PendingChatAttachment,
+    tid: string,
+  ): Promise<ChatAttachmentSummary> {
+    if (attachment.remote && attachment.status === "ready") {
+      return attachment.remote;
+    }
+    setPendingAttachments((current) =>
+      current.map((item) =>
+        item.localId === attachment.localId
+          ? { ...item, status: "uploading", error: undefined }
+          : item,
+      ),
+    );
+    const response = await authFetch("/api/chat/attachments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        thread_id: tid,
+        filename: attachment.filename,
+        media_type: attachment.mediaType,
+        content: attachment.content,
+        content_sha256: attachment.contentSha256,
+      }),
+    });
+    const payload = await response.json().catch(() => null);
+    const remote = payload?.attachment as ChatAttachmentSummary | undefined;
+    if (
+      !response.ok ||
+      !remote ||
+      remote.processing_status !== "ready" ||
+      remote.content_sha256 !== attachment.contentSha256 ||
+      remote.byte_size !== attachment.byteSize
+    ) {
+      throw new Error("Attachment upload failed. Retry when ready.");
+    }
+    setPendingAttachments((current) =>
+      current.map((item) =>
+        item.localId === attachment.localId
+          ? { ...item, status: "ready", remote, error: undefined }
+          : item,
+      ),
+    );
+    return remote;
+  }
+
+  async function removePendingAttachment(localId: string) {
+    const attachment = pendingAttachments.find((item) => item.localId === localId);
+    setPendingAttachments((current) =>
+      current.filter((item) => item.localId !== localId),
+    );
+    if (!attachment?.remote?.id) return;
+    await authFetch(
+      `/api/chat/attachments/${encodeURIComponent(attachment.remote.id)}`,
+      { method: "DELETE" },
+    ).catch(() => undefined);
+  }
+
+  function retryPendingAttachment(localId: string) {
+    setPendingAttachments((current) =>
+      current.map((item) =>
+        item.localId === localId
+          ? { ...item, status: "pending", error: undefined, remote: undefined }
+          : item,
+      ),
+    );
+    setRequestError("");
+  }
+
   async function handleComposerAction() {
     const composerValue = editingMessageId ? editingText : text;
-    if (composerValue.trim()) {
+    if (composerValue.trim() || pendingAttachments.length) {
       if (voiceIsActive || voiceIsConnecting) {
         await stopListeningAndRespond();
       }
@@ -1990,9 +2156,14 @@ export function BrainsChatPane() {
     options: VoiceSendOptions = {},
   ) {
     stopTTS();
-    const msg = String(
+    const attachmentsForTurn =
+      overrideText == null && !editingMessageId ? [...pendingAttachments] : [];
+    const typedMessage = String(
       overrideText ?? (editingMessageId ? editingText : text),
     ).trim();
+    const msg =
+      typedMessage ||
+      (attachmentsForTurn.length ? "Please review the attached text." : "");
     if (!msg || sending) return;
 
     const lower = msg.toLowerCase();
@@ -2048,9 +2219,40 @@ export function BrainsChatPane() {
       return;
     }
 
+    const uploadedAttachments: ChatAttachmentSummary[] = [];
+    if (attachmentsForTurn.length) {
+      try {
+        for (const attachment of attachmentsForTurn) {
+          uploadedAttachments.push(
+            await uploadPendingAttachment(attachment, tid),
+          );
+        }
+      } catch (error: any) {
+        const message = String(error?.message || "Attachment upload failed.");
+        setPendingAttachments((current) =>
+          current.map((item) =>
+            attachmentsForTurn.some(
+              (attachment) => attachment.localId === item.localId,
+            ) && item.status !== "ready"
+              ? { ...item, status: "error", error: message }
+              : item,
+          ),
+        );
+        setText(msg);
+        setRequestError(message);
+        setSending(false);
+        return;
+      }
+    }
+
     setMsgs((prev) => [
       ...prev,
-      { role: "user", content: msg, web_search: false },
+      {
+        role: "user",
+        content: msg,
+        web_search: false,
+        attachments: uploadedAttachments,
+      },
     ]);
 
     const responseStartedAt = performance.now();
@@ -2065,7 +2267,9 @@ export function BrainsChatPane() {
         options.voiceTurn
           ? normalizeVoiceLanguage(options.voiceTurn.transcriptionLanguage)
           : undefined,
+        uploadedAttachments.map((attachment) => attachment.id),
       );
+      if (uploadedAttachments.length) setPendingAttachments([]);
       const responseMs = Math.max(
         0,
         Math.round(performance.now() - responseStartedAt),
@@ -2286,7 +2490,8 @@ export function BrainsChatPane() {
   const lastAIdx = lastAssistantIndex(msgs);
 
   const composerValue = editingMessageId ? editingText : text;
-  const composerHasText = composerValue.trim().length > 0;
+  const composerHasText =
+    composerValue.trim().length > 0 || pendingAttachments.length > 0;
   const voiceSessionVisible = voiceIsConnecting || voiceIsActive;
   const foregroundThreadSyncSafe = canApplyForegroundThreadSync(
     foregroundThreadSyncStateRef.current.state,
@@ -2484,6 +2689,26 @@ export function BrainsChatPane() {
                         You
                       </div>
                       <div>{m.content}</div>
+                      {Array.isArray(m.attachments) && m.attachments.length > 0 && (
+                        <div className="mt-2 space-y-1.5" aria-label="Message attachments">
+                          {m.attachments.map((attachment) => (
+                            <div
+                              key={attachment.id}
+                              className="flex max-w-full items-center gap-2 rounded-lg border bg-muted/30 px-2.5 py-2 text-left text-xs"
+                            >
+                              <FileText className="size-4 shrink-0" aria-hidden="true" />
+                              <span className="min-w-0 flex-1 truncate">
+                                {attachment.filename}
+                              </span>
+                              <span className="shrink-0 text-muted-foreground">
+                                {attachment.processing_status === "deleted"
+                                  ? "Removed"
+                                  : formatAttachmentBytes(attachment.byte_size)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -2788,6 +3013,50 @@ export function BrainsChatPane() {
                 </div>
               </div>
             )}
+            {pendingAttachments.length > 0 && (
+              <div className="mb-2 space-y-1.5" aria-label="Attachments ready to send">
+                {pendingAttachments.map((attachment) => (
+                  <div
+                    key={attachment.localId}
+                    className="flex items-center gap-2 rounded-lg border bg-muted/30 px-2.5 py-2 text-xs"
+                  >
+                    {attachment.status === "uploading" ? (
+                      <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <FileText className="size-4 shrink-0" aria-hidden="true" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">
+                      {attachment.filename}
+                    </span>
+                    <span className="shrink-0 text-muted-foreground">
+                      {attachment.status === "error"
+                        ? "Upload failed"
+                        : attachment.status === "ready"
+                          ? "Attached"
+                          : formatAttachmentBytes(attachment.byteSize)}
+                    </span>
+                    {attachment.status === "error" && (
+                      <button
+                        type="button"
+                        className="min-h-8 shrink-0 rounded-md border px-2"
+                        onClick={() => retryPendingAttachment(attachment.localId)}
+                      >
+                        Retry
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="grid size-8 shrink-0 place-items-center rounded-md hover:bg-muted"
+                      onClick={() => void removePendingAttachment(attachment.localId)}
+                      disabled={attachment.status === "uploading" || sending}
+                      aria-label={`Remove ${attachment.filename}`}
+                    >
+                      <X className="size-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <label className="sr-only" htmlFor="chat-composer">
               Message
             </label>
@@ -2797,6 +3066,7 @@ export function BrainsChatPane() {
               rows={1}
               placeholder="Send a message…"
               value={editingMessageId ? editingText : text}
+              onPaste={(event) => void handleComposerPaste(event)}
               onChange={(e) => {
                 if (editingMessageId) {
                   setEditingText(e.target.value);

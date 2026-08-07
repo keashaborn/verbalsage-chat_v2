@@ -521,6 +521,23 @@ export async function POST(req: Request) {
         headers: { "x-request-id": rid },
       });
     }
+    const rawAttachmentIds = body?.attachment_ids;
+    const attachmentIds =
+      rawAttachmentIds == null
+        ? []
+        : Array.isArray(rawAttachmentIds) &&
+            rawAttachmentIds.length <= 4 &&
+            rawAttachmentIds.every(
+              (value: unknown) => typeof value === "string" && UUID_RE.test(value),
+            )
+          ? [...new Set(rawAttachmentIds as string[])]
+          : null;
+    if (attachmentIds === null || attachmentIds.length !== (rawAttachmentIds?.length || 0)) {
+      return new Response("Invalid attachments", {
+        status: 400,
+        headers: { "x-request-id": rid },
+      });
+    }
     if (!resolveServerSearchControlV1(body)) {
       return new Response("Invalid search control", {
         status: 400,
@@ -606,6 +623,12 @@ export async function POST(req: Request) {
         headers: { "x-request-id": rid },
       });
     }
+    if (attachmentIds.length && (noStore || isVoiceRequest)) {
+      return new Response("Attachments require stored text chat", {
+        status: 400,
+        headers: { "x-request-id": rid },
+      });
+    }
 
     const includeInspection = await responseTraceAccessAllowedV2(req);
     const brains = process.env.BRAINS_URL || "http://172.31.32.171:8088";
@@ -615,7 +638,7 @@ export async function POST(req: Request) {
       "normal_chat"
     > | null = null;
     let automaticFallbackToChat = false;
-    if (automaticSearchAuthorized) {
+    if (automaticSearchAuthorized && attachmentIds.length === 0) {
       const searchResult = await runServerSearchPlan(
         req,
         rid,
@@ -658,6 +681,7 @@ export async function POST(req: Request) {
       BRAINS_RESPONSE_TIMEOUT_MS,
       req.signal,
     );
+    let attachmentMessageId: string | null = null;
     if (!noStore) {
       const log = await fetch(`${brains}/log`, {
         method: "POST",
@@ -673,6 +697,7 @@ export async function POST(req: Request) {
           source: "frontend/chat:user",
           text: message,
           tags: ["user", "chat"],
+          ...(attachmentIds.length ? { attachment_ids: attachmentIds } : {}),
         }),
         cache: "no-store",
         signal: upstreamSignal,
@@ -683,6 +708,16 @@ export async function POST(req: Request) {
           headers: { "x-request-id": rid },
         });
       }
+      if (attachmentIds.length) {
+        const logged = await log.json().catch(() => null);
+        attachmentMessageId = String(logged?.id || "");
+        if (!UUID_RE.test(attachmentMessageId)) {
+          return new Response("Attachment binding unavailable", {
+            status: 502,
+            headers: { "x-request-id": rid },
+          });
+        }
+      }
     }
 
     const upstream = await fetch(`${brains}/response/query`, {
@@ -690,7 +725,7 @@ export async function POST(req: Request) {
       headers: brainsUpstreamHeaders(rid, userId, {
         "Content-Type": "application/json",
         ...(authorization ? { authorization } : {}),
-        ...(automaticSearchAuthorized
+        ...(automaticSearchAuthorized && attachmentIds.length === 0
           ? {
               "x-vs-web-search-authorization": "supabase_fresh_web_search_v1",
             }
@@ -707,6 +742,12 @@ export async function POST(req: Request) {
         thread_id: threadId,
         no_store: noStore,
         include_inspection: includeInspection,
+        ...(attachmentIds.length
+          ? {
+              attachment_ids: attachmentIds,
+              attachment_message_id: attachmentMessageId,
+            }
+          : {}),
       }),
       cache: "no-store",
       signal: upstreamSignal,
