@@ -47,7 +47,7 @@ const SITE_BRANDS: Readonly<Record<SiteId, SiteBrand>> = {
     backgroundColor: "#111113",
     accentColor: "#30343b",
     accentStrongColor: "#111113",
-    attribution: "powered by Verbal Sage",
+    attribution: "powered by SeeBx",
     manifestIcons: [
       {
         src: "/brand/lifeswitch/app-icon-favorite-192-v4.png",
@@ -92,6 +92,7 @@ const SITE_BRANDS: Readonly<Record<SiteId, SiteBrand>> = {
     backgroundColor: "#111113",
     accentColor: "#9e3dff",
     accentStrongColor: "#832cea",
+    attribution: "powered by SeeBx",
     manifestIcons: [
       {
         src: "/brand/verbal-sage/app-icon-192.png",

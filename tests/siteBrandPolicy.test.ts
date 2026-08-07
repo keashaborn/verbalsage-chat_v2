@@ -108,7 +108,9 @@ test("brand metadata and visual identity are distinct", () => {
   const lifeSwitch = brandForSite("lifeswitch");
 
   assert.equal(verbalSage.name, "Verbal Sage");
+  assert.equal(verbalSage.attribution, "powered by SeeBx");
   assert.equal(lifeSwitch.name, "LifeSwitch");
+  assert.equal(lifeSwitch.attribution, "powered by SeeBx");
   assert.notEqual(verbalSage.favicon, lifeSwitch.favicon);
   assert.notEqual(verbalSage.accentColor, lifeSwitch.accentColor);
   assert.notEqual(verbalSage.canonicalHostname, lifeSwitch.canonicalHostname);
