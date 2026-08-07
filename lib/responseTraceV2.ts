@@ -109,10 +109,34 @@ export type ResponseInspectionV3 = Omit<
   };
 };
 
+export type ResponseInspectionV4 = Omit<
+  ResponseInspectionV3,
+  "contract_version" | "before_openai" | "after_openai"
+> & {
+  contract_version: "response_inspection_v4";
+  before_openai: ResponseInspectionV3["before_openai"] & {
+    prior_lifeswitch_provenance_status:
+      | "OFF"
+      | "EMPTY"
+      | "SELECTED"
+      | "UNAVAILABLE";
+    prior_lifeswitch_provenance_database_accessed: boolean;
+    prior_lifeswitch_provenance_included: boolean;
+    prior_lifeswitch_response_count: number;
+    prior_lifeswitch_source_ref_count: number;
+    prior_lifeswitch_estimated_tokens: number;
+  };
+  after_openai: ResponseInspectionV3["after_openai"] & {
+    lifeswitch_provenance_receipt: "bound" | "none";
+    lifeswitch_provenance_receipt_contract_version?: string | null;
+  };
+};
+
 export type ResponseInspection =
   | ResponseInspectionV1
   | ResponseInspectionV2
-  | ResponseInspectionV3;
+  | ResponseInspectionV3
+  | ResponseInspectionV4;
 
 export type ResponseTraceTimingV2 = {
   command_validation_ms?: number;
@@ -238,6 +262,7 @@ export function responseInspectionFromValue(
       "response_inspection_v1",
       "response_inspection_v2",
       "response_inspection_v3",
+      "response_inspection_v4",
     ].includes(String(value.contract_version))
   ) {
     return null;
@@ -307,9 +332,11 @@ export function responseInspectionFromValue(
     return null;
   }
   if (
-    ["response_inspection_v2", "response_inspection_v3"].includes(
-      String(value.contract_version),
-    ) &&
+    [
+      "response_inspection_v2",
+      "response_inspection_v3",
+      "response_inspection_v4",
+    ].includes(String(value.contract_version)) &&
     (typeof before.interaction_version !== "string" ||
       typeof before.interaction !== "string" ||
       typeof before.question_policy !== "string" ||
@@ -321,7 +348,9 @@ export function responseInspectionFromValue(
     return null;
   }
   if (
-    value.contract_version === "response_inspection_v3" &&
+    ["response_inspection_v3", "response_inspection_v4"].includes(
+      String(value.contract_version),
+    ) &&
     (typeof before.lifeswitch_status !== "string" ||
       typeof before.lifeswitch_intent !== "string" ||
       !isStringArray(before.lifeswitch_reason_codes) ||
@@ -332,6 +361,21 @@ export function responseInspectionFromValue(
       !isNonnegativeNumber(before.lifeswitch_estimated_tokens) ||
       !isStringArray(before.lifeswitch_projections) ||
       !["bound", "none"].includes(String(after.lifeswitch_binding)))
+  ) {
+    return null;
+  }
+  if (
+    value.contract_version === "response_inspection_v4" &&
+    (!["OFF", "EMPTY", "SELECTED", "UNAVAILABLE"].includes(
+      String(before.prior_lifeswitch_provenance_status),
+    ) ||
+      typeof before.prior_lifeswitch_provenance_database_accessed !==
+        "boolean" ||
+      typeof before.prior_lifeswitch_provenance_included !== "boolean" ||
+      !isNonnegativeNumber(before.prior_lifeswitch_response_count) ||
+      !isNonnegativeNumber(before.prior_lifeswitch_source_ref_count) ||
+      !isNonnegativeNumber(before.prior_lifeswitch_estimated_tokens) ||
+      !["bound", "none"].includes(String(after.lifeswitch_provenance_receipt)))
   ) {
     return null;
   }
@@ -361,7 +405,8 @@ export function responseTraceV2FromValue(value: unknown): ResponseTrace | null {
   if (
     value.contract_version === "response_inspection_v1" ||
     value.contract_version === "response_inspection_v2" ||
-    value.contract_version === "response_inspection_v3"
+    value.contract_version === "response_inspection_v3" ||
+    value.contract_version === "response_inspection_v4"
   ) {
     return responseInspectionFromValue(value);
   }
@@ -411,11 +456,21 @@ function safeInspectionCopy(
       answer_binding: inspection.after_openai.answer_binding,
       transcript_persistence: inspection.after_openai.transcript_persistence,
       memory_binding: inspection.after_openai.memory_binding,
-      ...(inspection.contract_version === "response_inspection_v3"
+      ...(inspection.contract_version === "response_inspection_v3" ||
+      inspection.contract_version === "response_inspection_v4"
         ? {
             lifeswitch_binding: inspection.after_openai.lifeswitch_binding,
             lifeswitch_binding_contract_version:
               inspection.after_openai.lifeswitch_binding_contract_version,
+          }
+        : {}),
+      ...(inspection.contract_version === "response_inspection_v4"
+        ? {
+            lifeswitch_provenance_receipt:
+              inspection.after_openai.lifeswitch_provenance_receipt,
+            lifeswitch_provenance_receipt_contract_version:
+              inspection.after_openai
+                .lifeswitch_provenance_receipt_contract_version,
           }
         : {}),
     },
@@ -428,7 +483,8 @@ export function safeResponseTraceForCopy(
   if (
     trace.contract_version === "response_inspection_v1" ||
     trace.contract_version === "response_inspection_v2" ||
-    trace.contract_version === "response_inspection_v3"
+    trace.contract_version === "response_inspection_v3" ||
+    trace.contract_version === "response_inspection_v4"
   ) {
     return {
       copy_contract: RESPONSE_TRACE_SAFE_COPY_VERSION,

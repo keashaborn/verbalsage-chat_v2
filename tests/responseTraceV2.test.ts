@@ -12,6 +12,7 @@ import {
   type ResponseInspectionV1,
   type ResponseInspectionV2,
   type ResponseInspectionV3,
+  type ResponseInspectionV4,
   type ResponseTraceV2,
   // @ts-expect-error Node's strip-types runner requires the TypeScript extension.
 } from "../lib/responseTraceV2.ts";
@@ -110,6 +111,26 @@ const inspectionV3: ResponseInspectionV3 = {
     ...inspectionV2.after_openai,
     lifeswitch_binding: "bound",
     lifeswitch_binding_contract_version: "lifeswitch_answer_binding_v1",
+  },
+};
+
+const inspectionV4: ResponseInspectionV4 = {
+  ...inspectionV3,
+  contract_version: "response_inspection_v4",
+  before_openai: {
+    ...inspectionV3.before_openai,
+    prior_lifeswitch_provenance_status: "SELECTED",
+    prior_lifeswitch_provenance_database_accessed: true,
+    prior_lifeswitch_provenance_included: true,
+    prior_lifeswitch_response_count: 1,
+    prior_lifeswitch_source_ref_count: 2,
+    prior_lifeswitch_estimated_tokens: 96,
+  },
+  after_openai: {
+    ...inspectionV3.after_openai,
+    lifeswitch_provenance_receipt: "bound",
+    lifeswitch_provenance_receipt_contract_version:
+      "lifeswitch_answer_provenance_receipt_v1",
   },
 };
 
@@ -212,6 +233,22 @@ test("inspection v3 preserves bounded LifeSwitch selection and binding", () => {
   assert.doesNotMatch(safe, /answer-sensitive-id/);
 });
 
+test("inspection v4 preserves content-free prior-answer provenance", () => {
+  assert.equal(responseInspectionFromValue(inspectionV4), inspectionV4);
+  assert.equal(responseTraceV2FromValue(inspectionV4), inspectionV4);
+
+  const traceV4: ResponseTraceV2 = {
+    ...trace,
+    response_inspection: inspectionV4,
+  };
+  assert.equal(responseTraceV2FromValue(traceV4), traceV4);
+  const safe = JSON.stringify(safeResponseTraceForCopy(traceV4));
+  assert.match(safe, /response_inspection_v4/);
+  assert.match(safe, /prior_lifeswitch_provenance_status/);
+  assert.match(safe, /lifeswitch_answer_provenance_receipt_v1/);
+  assert.doesNotMatch(safe, /answer-sensitive-id/);
+});
+
 test("safe copy removes operational identifiers without losing decisions", () => {
   const safe = safeResponseTraceForCopy(trace);
   const serialized = JSON.stringify(safe);
@@ -284,6 +321,28 @@ test("inspection v3 requires content-free LifeSwitch fields", () => {
   assert.equal(responseInspectionFromValue(missingBinding), null);
 });
 
+test("inspection v4 requires content-free provenance fields", () => {
+  for (const key of [
+    "prior_lifeswitch_provenance_status",
+    "prior_lifeswitch_provenance_database_accessed",
+    "prior_lifeswitch_provenance_included",
+    "prior_lifeswitch_response_count",
+    "prior_lifeswitch_source_ref_count",
+    "prior_lifeswitch_estimated_tokens",
+  ]) {
+    const malformed = structuredClone(inspectionV4) as any;
+    delete malformed.before_openai[key];
+    assert.equal(
+      responseInspectionFromValue(malformed),
+      null,
+      `missing ${key}`,
+    );
+  }
+  const missingReceipt = structuredClone(inspectionV4) as any;
+  delete missingReceipt.after_openai.lifeswitch_provenance_receipt;
+  assert.equal(responseInspectionFromValue(missingReceipt), null);
+});
+
 test("trace v2 rejects a malformed nested inspection", () => {
   const malformedTrace = structuredClone(trace) as any;
   delete malformedTrace.response_inspection.before_openai.question_policy;
@@ -346,6 +405,9 @@ test("read-only panel exposes decisions and copies only the safe trace", () => {
   assert.match(panel, /Question policy/);
   assert.match(panel, /interaction_reason_codes/);
   assert.match(panel, /Personalization/);
+  assert.match(panel, /Prior answer evidence/);
+  assert.match(panel, /Prior answer sources/);
+  assert.match(panel, /Provenance receipt/);
   assert.match(panel, /estimated_tokens/);
   assert.match(pane, /safeResponseTraceForCopy\(inspect\)/);
   assert.doesNotMatch(pane, /JSON\.stringify\(inspect, null, 2\)/);

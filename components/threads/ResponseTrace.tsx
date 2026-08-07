@@ -91,11 +91,17 @@ export function ResponseTrace({
   const backend = responseInspectionFromTrace(inspection);
   const backendV2 =
     backend?.contract_version === "response_inspection_v2" ||
-    backend?.contract_version === "response_inspection_v3"
+    backend?.contract_version === "response_inspection_v3" ||
+    backend?.contract_version === "response_inspection_v4"
       ? backend
       : null;
   const backendV3 =
-    backend?.contract_version === "response_inspection_v3" ? backend : null;
+    backend?.contract_version === "response_inspection_v3" ||
+    backend?.contract_version === "response_inspection_v4"
+      ? backend
+      : null;
+  const backendV4 =
+    backend?.contract_version === "response_inspection_v4" ? backend : null;
   const before = backend?.before_openai;
   const timings = traceV2 ? timingRows(traceV2) : [];
 
@@ -330,6 +336,49 @@ export function ResponseTrace({
                       )}
                     </>
                   )}
+                  {backendV4 && (
+                    <>
+                      <span className="text-muted-foreground">
+                        Prior answer evidence
+                      </span>
+                      <span>
+                        {titleCase(
+                          backendV4.before_openai
+                            .prior_lifeswitch_provenance_status,
+                        )}{" "}
+                        · database{" "}
+                        {backendV4.before_openai
+                          .prior_lifeswitch_provenance_database_accessed
+                          ? "read"
+                          : "not read"}
+                      </span>
+                      {backendV4.before_openai
+                        .prior_lifeswitch_provenance_included && (
+                        <>
+                          <span className="text-muted-foreground">
+                            Prior answer sources
+                          </span>
+                          <span>
+                            {
+                              backendV4.before_openai
+                                .prior_lifeswitch_response_count
+                            }{" "}
+                            responses ·{" "}
+                            {
+                              backendV4.before_openai
+                                .prior_lifeswitch_source_ref_count
+                            }{" "}
+                            source refs ·{" "}
+                            {
+                              backendV4.before_openai
+                                .prior_lifeswitch_estimated_tokens
+                            }{" "}
+                            estimated tokens
+                          </span>
+                        </>
+                      )}
+                    </>
+                  )}
                   {backendV2?.before_openai.personalization && (
                     <>
                       <span className="text-muted-foreground">
@@ -402,6 +451,16 @@ export function ResponseTrace({
                         LifeSwitch binding
                       </span>
                       <span>{backendV3.after_openai.lifeswitch_binding}</span>
+                    </>
+                  )}
+                  {backendV4 && (
+                    <>
+                      <span className="text-muted-foreground">
+                        Provenance receipt
+                      </span>
+                      <span>
+                        {backendV4.after_openai.lifeswitch_provenance_receipt}
+                      </span>
                     </>
                   )}
                 </div>
