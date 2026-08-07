@@ -78,6 +78,10 @@ import {
   type ForegroundThreadSyncState,
 } from "@/lib/foregroundThreadSync";
 import {
+  normalizeChatAttachmentHistoryV1,
+  type ChatAttachmentSummary,
+} from "@/lib/chatAttachmentHistoryV1";
+import {
   formatConversationTranscript,
   nextMessageSelection,
   selectAllMessageIndexes,
@@ -175,14 +179,8 @@ type Msg = {
   attachments?: ChatAttachmentSummary[];
 };
 
-type ChatAttachmentSummary = {
-  id: string;
-  filename: string;
-  media_type: "text/plain" | "text/markdown";
-  content_sha256: string;
-  byte_size: number;
-  processing_status: "ready" | "error" | "deleted";
-  deleted_at?: string | null;
+type HistoryMsgWire = Omit<Msg, "attachments"> & {
+  attachments?: unknown;
 };
 
 type PendingChatAttachment = {
@@ -1421,13 +1419,17 @@ export function BrainsChatPane() {
   ): Promise<Msg[] | null> {
     setLoading(true);
     try {
-      const data = await fetchJson<Msg[]>(
+      const data = await fetchJson<HistoryMsgWire[]>(
         `/api/threads/${encodeURIComponent(tid)}/messages`,
       );
-      const normalized = (Array.isArray(data) ? data : []).map((m) =>
-        m.role === "assistant"
+      const normalized: Msg[] = (Array.isArray(data) ? data : []).map((m) => {
+        const withAttachments: Msg = {
+          ...m,
+          attachments: normalizeChatAttachmentHistoryV1(m.attachments),
+        };
+        return m.role === "assistant"
           ? {
-              ...m,
+              ...withAttachments,
               v: 1,
               trusted_web_sources: normalizeTrustedWebSources(
                 m.trusted_web_sources,
@@ -1436,8 +1438,8 @@ export function BrainsChatPane() {
                 m.trusted_web_admitted_sources,
               ),
             }
-          : m,
-      );
+          : withAttachments;
+      });
 
       if (isAdmin && attach && (attach.inspect || attach.inspect_error)) {
         const idx = lastAssistantIndex(normalized);
