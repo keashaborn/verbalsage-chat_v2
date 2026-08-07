@@ -15,6 +15,7 @@ import {
   Play,
   Check,
   FileText,
+  Plus,
 } from "lucide-react";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
 import {
@@ -81,6 +82,12 @@ import {
   normalizeChatAttachmentHistoryV1,
   type ChatAttachmentSummary,
 } from "@/lib/chatAttachmentHistoryV1";
+import {
+  CHAT_ATTACHMENT_FILE_ACCEPT,
+  MAX_CHAT_ATTACHMENTS,
+  formatChatAttachmentBytes,
+  validateChatAttachmentIntakeV1,
+} from "@/lib/chatAttachmentIntakeV1";
 import {
   formatConversationTranscript,
   nextMessageSelection,
@@ -196,13 +203,6 @@ type PendingChatAttachment = {
 };
 
 const LARGE_PASTE_ATTACHMENT_BYTES = 8_192;
-const MAX_CHAT_ATTACHMENT_BYTES = 49_152;
-const MAX_CHAT_ATTACHMENTS = 4;
-
-function formatAttachmentBytes(value: number): string {
-  if (value < 1024) return `${value} B`;
-  return `${(value / 1024).toFixed(value < 10_240 ? 1 : 0)} KB`;
-}
 
 async function sha256Text(value: string): Promise<string> {
   const digest = await crypto.subtle.digest(
@@ -620,6 +620,10 @@ export function BrainsChatPane() {
   const [pendingAttachments, setPendingAttachments] = React.useState<
     PendingChatAttachment[]
   >([]);
+  const [attachmentDragActive, setAttachmentDragActive] =
+    React.useState(false);
+  const attachmentInputRef = React.useRef<HTMLInputElement | null>(null);
+  const attachmentDragDepthRef = React.useRef(0);
 
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const [atBottom, setAtBottom] = React.useState(true);
@@ -1999,34 +2003,25 @@ export function BrainsChatPane() {
     const raw = new TextEncoder().encode(pasted);
     if (raw.byteLength < LARGE_PASTE_ATTACHMENT_BYTES) return;
     event.preventDefault();
-    if (raw.byteLength > MAX_CHAT_ATTACHMENT_BYTES) {
-      setRequestError(
-        `Pasted text is ${formatAttachmentBytes(raw.byteLength)}. The first Chat Attachments release accepts up to 48 KB per attachment.`,
-      );
-      return;
-    }
-    if (pendingAttachments.length >= MAX_CHAT_ATTACHMENTS) {
-      setRequestError("A message can include up to four text attachments.");
+    const filename = `Pasted text ${attachmentTimestamp()}.md`;
+    const validation = validateChatAttachmentIntakeV1({
+      filename,
+      byteSize: raw.byteLength,
+      currentCount: pendingAttachments.length,
+      currentTotalBytes: pendingAttachmentBytes(pendingAttachments),
+    });
+    if (!validation.ok) {
+      setRequestError(validation.error);
       return;
     }
     try {
       const contentSha256 = await sha256Text(pasted);
-      const now = new Date();
-      const stamp = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, "0"),
-        String(now.getDate()).padStart(2, "0"),
-        "-",
-        String(now.getHours()).padStart(2, "0"),
-        String(now.getMinutes()).padStart(2, "0"),
-        String(now.getSeconds()).padStart(2, "0"),
-      ].join("");
       setPendingAttachments((current) => [
         ...current,
         {
           localId: crypto.randomUUID(),
-          filename: `Pasted text ${stamp}.md`,
-          mediaType: "text/markdown",
+          filename,
+          mediaType: validation.mediaType,
           content: pasted,
           contentSha256,
           byteSize: raw.byteLength,
@@ -2038,6 +2033,129 @@ export function BrainsChatPane() {
     } catch {
       setRequestError("The pasted text could not be prepared as an attachment.");
     }
+  }
+
+  function attachmentTimestamp(): string {
+    const now = new Date();
+    return [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, "0"),
+      String(now.getDate()).padStart(2, "0"),
+      "-",
+      String(now.getHours()).padStart(2, "0"),
+      String(now.getMinutes()).padStart(2, "0"),
+      String(now.getSeconds()).padStart(2, "0"),
+    ].join("");
+  }
+
+  function pendingAttachmentBytes(
+    attachments: PendingChatAttachment[],
+  ): number {
+    return attachments.reduce(
+      (total, attachment) => total + attachment.byteSize,
+      0,
+    );
+  }
+
+  async function handleComposerFiles(files: File[]) {
+    if (editingMessageId || sending || files.length === 0) return;
+    const additions: PendingChatAttachment[] = [];
+    const working = [...pendingAttachments];
+
+    for (const file of files) {
+      const validation = validateChatAttachmentIntakeV1({
+        filename: file.name,
+        byteSize: file.size,
+        currentCount: working.length,
+        currentTotalBytes: pendingAttachmentBytes(working),
+      });
+      if (!validation.ok) {
+        setRequestError(validation.error);
+        return;
+      }
+
+      let raw: Uint8Array;
+      let content: string;
+      try {
+        raw = new Uint8Array(await file.arrayBuffer());
+        if (raw.byteLength !== file.size) throw new Error("file size changed");
+        content = new TextDecoder("utf-8", {
+          fatal: true,
+          ignoreBOM: true,
+        }).decode(raw);
+        if (new TextEncoder().encode(content).byteLength !== raw.byteLength) {
+          throw new Error("file bytes changed during decoding");
+        }
+      } catch {
+        setRequestError(
+          `${file.name} must contain valid UTF-8 text and remain unchanged while it is prepared.`,
+        );
+        return;
+      }
+
+      let contentSha256: string;
+      try {
+        contentSha256 = await sha256Text(content);
+      } catch {
+        setRequestError(`${file.name} could not be prepared as an attachment.`);
+        return;
+      }
+      const attachment: PendingChatAttachment = {
+        localId: crypto.randomUUID(),
+        filename: file.name.trim(),
+        mediaType: validation.mediaType,
+        content,
+        contentSha256,
+        byteSize: raw.byteLength,
+        status: "pending",
+      };
+      additions.push(attachment);
+      working.push(attachment);
+    }
+
+    setPendingAttachments((current) => [...current, ...additions]);
+    if (!text.trim()) setText("Please review the attached text.");
+    setRequestError("");
+  }
+
+  function draggedFiles(event: React.DragEvent<HTMLDivElement>): boolean {
+    return (
+      event.dataTransfer.files.length > 0 ||
+      Array.from(event.dataTransfer.types).includes("Files")
+    );
+  }
+
+  function handleAttachmentDragEnter(event: React.DragEvent<HTMLDivElement>) {
+    if (!draggedFiles(event) || editingMessageId || sending) return;
+    event.preventDefault();
+    attachmentDragDepthRef.current += 1;
+    setAttachmentDragActive(true);
+  }
+
+  function handleAttachmentDragOver(event: React.DragEvent<HTMLDivElement>) {
+    if (!draggedFiles(event) || editingMessageId || sending) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }
+
+  function handleAttachmentDragLeave(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    attachmentDragDepthRef.current = Math.max(
+      0,
+      attachmentDragDepthRef.current - 1,
+    );
+    if (attachmentDragDepthRef.current === 0) {
+      setAttachmentDragActive(false);
+    }
+  }
+
+  function handleAttachmentDrop(event: React.DragEvent<HTMLDivElement>) {
+    if (!draggedFiles(event)) return;
+    event.preventDefault();
+    attachmentDragDepthRef.current = 0;
+    setAttachmentDragActive(false);
+    if (editingMessageId || sending) return;
+    void handleComposerFiles(Array.from(event.dataTransfer.files));
   }
 
   async function uploadPendingAttachment(
@@ -2529,7 +2647,13 @@ export function BrainsChatPane() {
         : "Start voice conversation";
 
   return (
-    <div className="relative flex h-full max-w-full min-w-0 flex-col overflow-hidden">
+    <div
+      className="relative flex h-full max-w-full min-w-0 flex-col overflow-hidden"
+      onDragEnter={handleAttachmentDragEnter}
+      onDragOver={handleAttachmentDragOver}
+      onDragLeave={handleAttachmentDragLeave}
+      onDrop={handleAttachmentDrop}
+    >
       {/* keep-awake video (hidden) */}
       <video
         ref={keepAwakeVideoRef}
@@ -2565,6 +2689,22 @@ export function BrainsChatPane() {
         }}
         onClose={() => void stopListeningAndRespond()}
       />
+
+      {attachmentDragActive && (
+        <div
+          className="pointer-events-none absolute inset-3 z-50 grid place-items-center rounded-2xl border-2 border-dashed border-foreground/45 bg-background/95 px-6 text-center shadow-xl"
+          role="status"
+          aria-live="polite"
+        >
+          <div>
+            <FileText className="mx-auto mb-3 size-8" aria-hidden="true" />
+            <p className="text-sm font-medium">Drop TXT or Markdown files here</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Up to 72 KB per file
+            </p>
+          </div>
+        </div>
+      )}
 
       {voiceSessionVisible && effectiveVoiceMode === "governed" && (
         <div
@@ -2705,7 +2845,7 @@ export function BrainsChatPane() {
                               <span className="shrink-0 text-muted-foreground">
                                 {attachment.processing_status === "deleted"
                                   ? "Removed"
-                                  : formatAttachmentBytes(attachment.byte_size)}
+                                  : formatChatAttachmentBytes(attachment.byte_size)}
                               </span>
                             </div>
                           ))}
@@ -3035,7 +3175,7 @@ export function BrainsChatPane() {
                         ? "Upload failed"
                         : attachment.status === "ready"
                           ? "Attached"
-                          : formatAttachmentBytes(attachment.byteSize)}
+                          : formatChatAttachmentBytes(attachment.byteSize)}
                     </span>
                     {attachment.status === "error" && (
                       <button
@@ -3062,9 +3202,22 @@ export function BrainsChatPane() {
             <label className="sr-only" htmlFor="chat-composer">
               Message
             </label>
+            <input
+              ref={attachmentInputRef}
+              type="file"
+              className="sr-only"
+              tabIndex={-1}
+              accept={CHAT_ATTACHMENT_FILE_ACCEPT}
+              multiple
+              onChange={(event) => {
+                const files = Array.from(event.currentTarget.files || []);
+                event.currentTarget.value = "";
+                void handleComposerFiles(files);
+              }}
+            />
             <textarea
               id="chat-composer"
-              className="field-sizing-content max-h-32 min-h-11 w-full min-w-0 resize-none bg-transparent py-2 text-base outline-none sm:min-h-9 sm:text-sm"
+              className="field-sizing-content max-h-32 min-h-11 w-full min-w-0 resize-none bg-transparent py-2 pr-1 pl-11 text-base outline-none sm:min-h-9 sm:text-sm"
               rows={1}
               placeholder="Send a message…"
               value={editingMessageId ? editingText : text}
@@ -3092,6 +3245,21 @@ export function BrainsChatPane() {
                 {liveComposerStatus}
               </div>
             )}
+            <button
+              type="button"
+              data-chat-attachment-picker
+              onClick={() => attachmentInputRef.current?.click()}
+              disabled={
+                sending ||
+                Boolean(editingMessageId) ||
+                pendingAttachments.length >= MAX_CHAT_ATTACHMENTS
+              }
+              className="absolute bottom-2 left-2 inline-flex size-11 shrink-0 items-center justify-center rounded-full border bg-background text-foreground transition-transform active:scale-95 disabled:opacity-40 sm:size-9"
+              aria-label="Add TXT or Markdown attachment"
+              title="Add attachment"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+            </button>
             <button
               type="button"
               data-contextual-composer-action

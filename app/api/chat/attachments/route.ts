@@ -8,11 +8,11 @@ import {
 } from "@/app/api/_auth/supabaseUser";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import { productTierAllows } from "@/lib/productEntitlements";
+import { MAX_CHAT_ATTACHMENT_BYTES } from "@/lib/chatAttachmentIntakeV1";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHA256_RE = /^[0-9a-f]{64}$/;
-const MAX_ATTACHMENT_BYTES = 49_152;
 const MEDIA_TYPES = new Set(["text/plain", "text/markdown"]);
 
 function requestId(req: Request): string {
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     !validFilename(filename) ||
     !MEDIA_TYPES.has(mediaType) ||
     raw.length < 1 ||
-    raw.length > MAX_ATTACHMENT_BYTES ||
+    raw.length > MAX_CHAT_ATTACHMENT_BYTES ||
     !SHA256_RE.test(contentSha256) ||
     contentSha256 !== exactHash
   ) {

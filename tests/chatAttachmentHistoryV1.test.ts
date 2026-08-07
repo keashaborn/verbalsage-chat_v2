@@ -4,6 +4,8 @@ import test from "node:test";
 
 import { normalizeChatAttachmentHistoryV1 } from "../lib/chatAttachmentHistoryV1.ts";
 
+const MAX_ATTACHMENT_BYTES = 73_728;
+
 const attachment = {
   id: "8a72912d-3933-4eb1-b7ce-caf1db72e536",
   filename: "Pasted text 20260807-000036.md",
@@ -33,6 +35,11 @@ test("preserves removed attachment history with exact deletion metadata", () => 
   assert.deepEqual(normalizeChatAttachmentHistoryV1([removed]), [removed]);
 });
 
+test("accepts the expanded exact byte boundary", () => {
+  const boundary = { ...attachment, byte_size: MAX_ATTACHMENT_BYTES };
+  assert.deepEqual(normalizeChatAttachmentHistoryV1([boundary]), [boundary]);
+});
+
 test("denies malformed, oversized, ambiguous, and non-array payloads", () => {
   assert.deepEqual(normalizeChatAttachmentHistoryV1("not-json"), []);
   assert.deepEqual(normalizeChatAttachmentHistoryV1("{}"), []);
@@ -58,7 +65,7 @@ test("denies invalid metadata, extra keys, excessive counts, and duplicate ids",
     { ...attachment, filename: "bad\nname.md" },
     { ...attachment, media_type: "application/pdf" },
     { ...attachment, content_sha256: "not-a-hash" },
-    { ...attachment, byte_size: 49_153 },
+    { ...attachment, byte_size: MAX_ATTACHMENT_BYTES + 1 },
     { ...attachment, processing_status: "processing" },
     { ...attachment, deleted_at: "2026-08-07T05:22:53.000Z" },
     { ...attachment, extra: "field" },
