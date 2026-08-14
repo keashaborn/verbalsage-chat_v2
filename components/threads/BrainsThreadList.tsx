@@ -274,8 +274,8 @@ export function BrainsThreadList({ query = "" }: { query?: string }) {
           new CustomEvent("vs_active_thread", { detail: nextActive }),
         );
       }
-    } catch (e: any) {
-      setActionError(e?.message || String(e));
+    } catch {
+      setActionError("Chat deletion could not be completed. Please try again.");
     } finally {
       setBusyThreadId(null);
       setDeleteCandidate(null);
