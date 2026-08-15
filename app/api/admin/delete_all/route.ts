@@ -2,18 +2,27 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { requireFreshCapability } from "@/app/api/_auth/requireCapability";
+import { executeAdminConversationErasure } from "@/app/api/_brains/conversationErasureRequest";
 import { cookieSecure } from "@/lib/cookieSecure";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
-
 
 function getRequestId(req: Request): string {
-  const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
+  const raw = (
+    req.headers.get("x-request-id") ||
+    req.headers.get("x-correlation-id") ||
+    ""
+  ).trim();
   if (raw && raw.length <= 128) return raw;
   return randomUUID();
 }
 
+function noStoreHeaders(requestId: string): Record<string, string> {
+  return {
+    "cache-control": "private, no-store, max-age=0, must-revalidate",
+    "x-request-id": requestId,
+  };
+}
 
 export async function DELETE(req: Request) {
   const requestId = getRequestId(req);
@@ -22,39 +31,59 @@ export async function DELETE(req: Request) {
   if (!auth.ok) {
     return NextResponse.json(
       { error: auth.msg },
-      { status: auth.status, headers: { "x-request-id": requestId } }
+      { status: auth.status, headers: noStoreHeaders(requestId) },
     );
   }
 
   if (process.env.VS_ALLOW_DELETE_ALL !== "true") {
-    return NextResponse.json({ error: "delete_all disabled" }, { status: 403, headers: { "x-request-id": requestId } });
-  }
-
-  const BRAINS = process.env.BRAINS_URL || "http://172.31.32.171:8088";
-  const user_id = String((auth as any).payload?.sub || "");
-  if (!user_id) return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { "x-request-id": requestId } });
-
-  const r = await fetch(`${BRAINS}/user/${encodeURIComponent(user_id)}/data`, {
-    method: "DELETE",
-    headers: brainsUpstreamHeaders(requestId, user_id),
-    cache: "no-store",
-  });
-
-  const txt = await r.text().catch(() => "");
-  if (!r.ok) {
     return NextResponse.json(
-      { error: `brains HTTP ${r.status}`, details: txt },
-      { status: 502, headers: { "x-request-id": requestId } }
+      { error: "delete_all_disabled" },
+      { status: 403, headers: noStoreHeaders(requestId) },
     );
   }
 
-  // Clear active thread cookie so UI doesn't point at deleted data
-  const res = new NextResponse(txt, {
-    status: 200,
-    headers: { "Content-Type": "application/json", "x-request-id": requestId },
+  const user_id = String((auth as any).payload?.sub || "");
+  const authorization = (req.headers.get("authorization") || "").trim();
+  if (!user_id || !authorization) {
+    return NextResponse.json(
+      { error: "unauthorized" },
+      { status: 401, headers: noStoreHeaders(requestId) },
+    );
+  }
+
+  const operationId = randomUUID();
+  const result = await executeAdminConversationErasure({
+    requestId,
+    userId: user_id,
+    authorization,
+    operationId,
+    selector: { selectorKind: "all_conversations" },
   });
 
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: result.code },
+      { status: result.status, headers: noStoreHeaders(requestId) },
+    );
+  }
+
+  const res = NextResponse.json(
+    {
+      status: "ok",
+      operation_id: result.operationId,
+      state: "completed",
+      target_count: result.targetCount,
+    },
+    { status: 200, headers: noStoreHeaders(requestId) },
+  );
+
   const secure = await cookieSecure();
-  res.cookies.set("vs_tid", "", { httpOnly: true, secure, sameSite: "lax", path: "/", maxAge: 0 });
+  res.cookies.set("vs_tid", "", {
+    httpOnly: true,
+    secure,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
   return res;
 }

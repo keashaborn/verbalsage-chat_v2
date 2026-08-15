@@ -5,6 +5,8 @@ import { test } from "node:test";
 import {
   CONVERSATION_ERASURE_DATA_DOMAIN,
   CONVERSATION_ERASURE_REQUEST_VERSION,
+  conversationAllDeletionConfirmationSha256,
+  conversationRecentDeletionConfirmationSha256,
   conversationThreadDeletionConfirmationSha256,
 } from "../lib/conversationErasure.ts";
 
@@ -18,6 +20,22 @@ const pinRouteSource = readFileSync(
 );
 const deleteRouteSource = readFileSync(
   "app/api/threads/[thread_id]/route.ts",
+  "utf8",
+);
+const deleteAllRouteSource = readFileSync(
+  "app/api/admin/delete_all/route.ts",
+  "utf8",
+);
+const forgetRecentRouteSource = readFileSync(
+  "app/api/admin/forget_recent/route.ts",
+  "utf8",
+);
+const adminErasureSource = readFileSync(
+  "app/api/_brains/conversationErasureRequest.ts",
+  "utf8",
+);
+const securityPanelSource = readFileSync(
+  "components/admin/SecurityPanel.tsx",
   "utf8",
 );
 
@@ -108,4 +126,68 @@ test("thread deletion uses the governed chat-only erasure coordinator", () => {
   assert.match(deleteRouteSource, /method: "GET"/);
   assert.match(deleteRouteSource, /status\.state === "completed"/);
   assert.match(deleteRouteSource, /operationId = threadId/);
+});
+
+test("admin deletion confirmations match the governed-memory Python contract", () => {
+  const operationId = "11111111-1111-4111-8111-111111111111";
+  assert.equal(
+    conversationAllDeletionConfirmationSha256(operationId),
+    "582f2c97074d9d892fbb6c55457a715c064ba78c4e26769893186a3590234367",
+  );
+  assert.equal(
+    conversationRecentDeletionConfirmationSha256(operationId, 3600),
+    "b1f4ab45159ec2ade8eb93d0db706128d298b35552beabb11d0fc23a21a6a349",
+  );
+  assert.equal(
+    conversationRecentDeletionConfirmationSha256(operationId, 86400),
+    "66cfd0075117286418713fe71820cc8994a37934909ee99c2f6993bb5264b6de",
+  );
+});
+
+test("admin deletion routes use only the governed chat-erasure coordinator", () => {
+  for (const source of [deleteAllRouteSource, forgetRecentRouteSource]) {
+    assert.match(source, /requireFreshCapability/);
+    assert.match(source, /authorization/);
+    assert.match(source, /executeAdminConversationErasure/);
+    assert.doesNotMatch(source, /\/user\/\$\{encodeURIComponent\(user_id\)\}/);
+    assert.doesNotMatch(source, /method: "DELETE"/);
+  }
+  assert.match(deleteAllRouteSource, /selectorKind: "all_conversations"/);
+  assert.match(forgetRecentRouteSource, /selectorKind: "recent"/);
+  assert.match(forgetRecentRouteSource, /recentWindowSeconds: minutes \* 60/);
+  assert.match(
+    adminErasureSource,
+    /ERASURE_REQUEST_PATH = "\/memory\/conversations\/erasure-requests"/,
+  );
+  assert.match(adminErasureSource, /method: "POST"/);
+  assert.match(adminErasureSource, /method: "GET"/);
+  assert.match(adminErasureSource, /Authorization: authorization/);
+  assert.match(adminErasureSource, /status\.state === "completed"/);
+});
+
+test("recent-deletion UI exposes only governed contract windows and refreshes after completion", () => {
+  assert.match(
+    securityPanelSource,
+    /<option value=\{60\}>Last 1 hour<\/option>/,
+  );
+  assert.match(
+    securityPanelSource,
+    /<option value=\{1440\}>Last 24 hours<\/option>/,
+  );
+  assert.match(
+    securityPanelSource,
+    /<option value=\{10080\}>Last 7 days<\/option>/,
+  );
+  assert.match(
+    securityPanelSource,
+    /<option value=\{43200\}>Last 30 days<\/option>/,
+  );
+  assert.doesNotMatch(securityPanelSource, /<option value=\{15\}>/);
+  assert.doesNotMatch(securityPanelSource, /<option value=\{240\}>/);
+  assert.match(securityPanelSource, /minutes === 10080/);
+  assert.match(securityPanelSource, /minutes === 43200/);
+  assert.equal(
+    securityPanelSource.match(/window\.location\.reload\(\)/g)?.length,
+    2,
+  );
 });

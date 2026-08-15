@@ -111,6 +111,8 @@ function forgetLabel(minutes: number) {
   if (minutes === 60) return "the last hour";
   if (minutes === 240) return "the last 4 hours";
   if (minutes === 1440) return "the last 24 hours";
+  if (minutes === 10080) return "the last 7 days";
+  if (minutes === 43200) return "the last 30 days";
   return `the last ${minutes} minutes`;
 }
 
@@ -523,6 +525,7 @@ export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
         );
       }
       setDataStatus(`Forgot conversations from ${forgetLabel(forgetMinutes)}.`);
+      window.location.reload();
     } catch (error: unknown) {
       setDataStatus(
         error instanceof Error
@@ -558,6 +561,7 @@ export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
       setDataStatus(
         "Conversation and memory data deleted. Your LifeSwitch account remains active.",
       );
+      window.location.reload();
     } catch (error: unknown) {
       setDataStatus(
         error instanceof Error
@@ -927,10 +931,10 @@ export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
                   }
                   disabled={forgetBusy}
                 >
-                  <option value={15}>Last 15 minutes</option>
                   <option value={60}>Last 1 hour</option>
-                  <option value={240}>Last 4 hours</option>
                   <option value={1440}>Last 24 hours</option>
+                  <option value={10080}>Last 7 days</option>
+                  <option value={43200}>Last 30 days</option>
                 </select>
               }
             />
