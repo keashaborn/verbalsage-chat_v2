@@ -33,20 +33,23 @@ test("Security page uses the authenticated Supabase account for recovery and ses
   assert.match(panel, /This device remains signed in/);
 });
 
-test("Data controls retain existing protected routes with accurate labels", () => {
+test("Data controls separate history clearing from full AI-data deletion", () => {
   const panel = source("components/admin/SecurityPanel.tsx");
 
   assert.match(panel, /authFetch\("\/api\/admin\/export"/);
   assert.match(panel, /\/api\/admin\/forget_recent\?minutes=/);
+  assert.match(panel, /authFetch\("\/api\/admin\/clear_chat_history"/);
   assert.match(panel, /authFetch\("\/api\/admin\/delete_all"/);
   assert.match(panel, /Conversation and memory data/);
   assert.match(panel, /title="Export"/);
-  assert.match(panel, /Forget recent conversations/);
-  assert.match(panel, /removes those conversations\s+as memory sources/);
-  assert.match(panel, /conversations you\s+keep can remain/);
-  assert.match(panel, /Delete conversation and memory data/);
+  assert.match(panel, /Clear recent chat history/);
+  assert.match(panel, /Retained\s+conversational memory remains available/);
+  assert.match(panel, /Clear all chat history/);
+  assert.match(panel, /Zep and\s+governed memory are not deleted/);
+  assert.match(panel, /Delete all AI data/);
   assert.match(panel, /structured\s+LifeSwitch tracking data remain active/);
-  assert.match(panel, /DELETE CHAT DATA/);
+  assert.match(panel, /CLEAR CHAT HISTORY/);
+  assert.match(panel, /DELETE ALL AI DATA/);
   assert.doesNotMatch(panel, /Delete all my data/);
   assert.doesNotMatch(panel, /Removes everything for your user/);
 });
@@ -56,8 +59,13 @@ test("destructive data deletion stays collapsed until explicitly opened", () => 
 
   assert.match(panel, /<details/);
   assert.match(panel, /<summary/);
-  assert.match(panel, /Delete chat data/);
+  assert.match(panel, /Clear all chat history/);
+  assert.match(panel, /Delete all AI data/);
   assert.match(panel, /group-open:rotate-90/);
+  assert.match(
+    panel,
+    /if \(!event\.currentTarget\.open\) setClearHistoryConfirm\(""\)/,
+  );
   assert.match(
     panel,
     /if \(!event\.currentTarget\.open\) setDeleteConfirm\(""\)/,

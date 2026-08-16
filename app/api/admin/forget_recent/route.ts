@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { requireFreshCapability } from "@/app/api/_auth/requireCapability";
-import { executeAdminConversationErasure } from "@/app/api/_brains/conversationErasureRequest";
+import { executeChatHistoryClear } from "@/app/api/_brains/chatHistoryClearRequest";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
@@ -53,14 +53,12 @@ export async function DELETE(req: Request) {
     );
   }
 
-  const operationId = randomUUID();
-  const result = await executeAdminConversationErasure({
+  const result = await executeChatHistoryClear({
     requestId,
     userId: user_id,
     authorization,
-    operationId,
     selector: {
-      selectorKind: "recent",
+      scope: "recent",
       recentWindowSeconds: minutes * 60,
     },
   });
@@ -74,9 +72,9 @@ export async function DELETE(req: Request) {
   return NextResponse.json(
     {
       status: "ok",
-      operation_id: result.operationId,
-      state: "completed",
-      target_count: result.targetCount,
+      memory_retained: true,
+      deleted_message_count: result.deletedMessageCount,
+      deleted_thread_count: result.deletedThreadCount,
     },
     { status: 200, headers: noStoreHeaders(requestId) },
   );

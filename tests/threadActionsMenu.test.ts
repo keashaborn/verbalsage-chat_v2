@@ -36,6 +36,14 @@ const forgetRecentRouteSource = readFileSync(
   "app/api/admin/forget_recent/route.ts",
   "utf8",
 );
+const clearAllHistoryRouteSource = readFileSync(
+  "app/api/admin/clear_chat_history/route.ts",
+  "utf8",
+);
+const chatHistoryClearSource = readFileSync(
+  "app/api/_brains/chatHistoryClearRequest.ts",
+  "utf8",
+);
 const adminErasureSource = readFileSync(
   "app/api/_brains/conversationErasureRequest.ts",
   "utf8",
@@ -126,23 +134,13 @@ test("message-tail erasure confirmation matches the governed-memory Python contr
   );
 });
 
-test("thread deletion uses the governed chat-only erasure coordinator", () => {
+test("thread deletion clears visible history while retaining memory", () => {
   assert.doesNotMatch(deleteRouteSource, /vs_tid|response\.cookies/);
-  assert.doesNotMatch(deleteRouteSource, /`\$\{BRAINS\}\/threads\//);
-  assert.match(
-    deleteRouteSource,
-    /ERASURE_REQUEST_PATH = "\/memory\/conversations\/erasure-requests"/,
-  );
-  assert.match(deleteRouteSource, /method: "POST"/);
-  assert.match(deleteRouteSource, /Authorization: authorization/);
-  assert.match(deleteRouteSource, /contract_version:/);
-  assert.match(deleteRouteSource, /data_domain:/);
-  assert.match(deleteRouteSource, /confirmation_sha256:/);
-  assert.match(deleteRouteSource, /selector_kind: "thread"/);
-  assert.match(deleteRouteSource, /thread_id: threadId/);
-  assert.match(deleteRouteSource, /method: "GET"/);
-  assert.match(deleteRouteSource, /status\.state === "completed"/);
-  assert.match(deleteRouteSource, /operationId = threadId/);
+  assert.match(deleteRouteSource, /executeChatHistoryClear/);
+  assert.match(deleteRouteSource, /scope: "thread"/);
+  assert.match(deleteRouteSource, /memory_retained: true/);
+  assert.doesNotMatch(deleteRouteSource, /executeAdminConversationErasure/);
+  assert.doesNotMatch(deleteRouteSource, /ERASURE_REQUEST_PATH/);
 });
 
 test("message edit truncation uses the governed chat-only erasure coordinator", () => {
@@ -183,17 +181,25 @@ test("admin deletion confirmations match the governed-memory Python contract", (
   );
 });
 
-test("admin deletion routes use only the governed chat-erasure coordinator", () => {
-  for (const source of [deleteAllRouteSource, forgetRecentRouteSource]) {
+test("admin routes separate retained history clearing from full erasure", () => {
+  assert.match(deleteAllRouteSource, /requireFreshCapability/);
+  assert.match(deleteAllRouteSource, /executeAdminConversationErasure/);
+  assert.match(deleteAllRouteSource, /selectorKind: "all_conversations"/);
+  for (const source of [forgetRecentRouteSource, clearAllHistoryRouteSource]) {
     assert.match(source, /requireFreshCapability/);
     assert.match(source, /authorization/);
-    assert.match(source, /executeAdminConversationErasure/);
-    assert.doesNotMatch(source, /\/user\/\$\{encodeURIComponent\(user_id\)\}/);
-    assert.doesNotMatch(source, /method: "DELETE"/);
+    assert.match(source, /executeChatHistoryClear/);
+    assert.doesNotMatch(source, /executeAdminConversationErasure/);
   }
-  assert.match(deleteAllRouteSource, /selectorKind: "all_conversations"/);
-  assert.match(forgetRecentRouteSource, /selectorKind: "recent"/);
+  assert.match(clearAllHistoryRouteSource, /scope: "all"/);
+  assert.match(forgetRecentRouteSource, /scope: "recent"/);
   assert.match(forgetRecentRouteSource, /recentWindowSeconds: minutes \* 60/);
+  assert.match(
+    chatHistoryClearSource,
+    /CHAT_HISTORY_CLEAR_PATH = "\/chat-history\/clear"/,
+  );
+  assert.match(chatHistoryClearSource, /memory_retained !== true/);
+  assert.match(chatHistoryClearSource, /zep_called !== false/);
   assert.match(
     adminErasureSource,
     /ERASURE_REQUEST_PATH = "\/memory\/conversations\/erasure-requests"/,
@@ -227,6 +233,6 @@ test("recent-deletion UI exposes only governed contract windows and refreshes af
   assert.match(securityPanelSource, /minutes === 43200/);
   assert.equal(
     securityPanelSource.match(/window\.location\.reload\(\)/g)?.length,
-    2,
+    3,
   );
 });

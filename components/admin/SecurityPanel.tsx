@@ -193,6 +193,8 @@ export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
   const [exportBusy, setExportBusy] = React.useState(false);
   const [forgetMinutes, setForgetMinutes] = React.useState<number>(60);
   const [forgetBusy, setForgetBusy] = React.useState(false);
+  const [clearHistoryConfirm, setClearHistoryConfirm] = React.useState("");
+  const [clearingHistory, setClearingHistory] = React.useState(false);
   const [deleteConfirm, setDeleteConfirm] = React.useState("");
   const [deletingAll, setDeletingAll] = React.useState(false);
   const [dataStatus, setDataStatus] = React.useState("");
@@ -505,7 +507,7 @@ export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
 
   async function forgetRecent() {
     const confirmed = window.confirm(
-      `Permanently forget conversations from ${forgetLabel(forgetMinutes)}?`,
+      `Clear visible chat history from ${forgetLabel(forgetMinutes)}? Retained memory will remain available.`,
     );
     if (!confirmed) return;
 
@@ -520,26 +522,62 @@ export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
         throw new Error(
           await protectedActionError(
             response,
-            "Recent conversations could not be forgotten.",
+            "Recent chat history could not be cleared.",
           ),
         );
       }
-      setDataStatus(`Forgot conversations from ${forgetLabel(forgetMinutes)}.`);
+      setDataStatus(
+        `Cleared chat history from ${forgetLabel(forgetMinutes)}. Retained memory remains available.`,
+      );
       window.location.reload();
     } catch (error: unknown) {
       setDataStatus(
         error instanceof Error
           ? error.message
-          : "Recent conversations could not be forgotten.",
+          : "Recent chat history could not be cleared.",
       );
     } finally {
       setForgetBusy(false);
     }
   }
 
+  async function clearAllChatHistory() {
+    const confirmed = window.confirm(
+      "Clear all visible chat history? Retained memory will remain available.",
+    );
+    if (!confirmed) return;
+
+    setClearingHistory(true);
+    setDataStatus("");
+    try {
+      const response = await authFetch("/api/admin/clear_chat_history", {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        throw new Error(
+          await protectedActionError(
+            response,
+            "Chat history could not be cleared.",
+          ),
+        );
+      }
+      setClearHistoryConfirm("");
+      setDataStatus("Chat history cleared. Retained memory remains available.");
+      window.location.reload();
+    } catch (error: unknown) {
+      setDataStatus(
+        error instanceof Error
+          ? error.message
+          : "Chat history could not be cleared.",
+      );
+    } finally {
+      setClearingHistory(false);
+    }
+  }
+
   async function deleteConversationData() {
     const confirmed = window.confirm(
-      "Permanently delete all conversation and memory data? Your LifeSwitch account and structured tracking data will remain active.",
+      "Permanently delete all chat and conversational memory data? Your LifeSwitch account and structured tracking data will remain active.",
     );
     if (!confirmed) return;
 
@@ -553,20 +591,20 @@ export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
         throw new Error(
           await protectedActionError(
             response,
-            "Conversation and memory data could not be deleted.",
+            "All AI data could not be deleted.",
           ),
         );
       }
       setDeleteConfirm("");
       setDataStatus(
-        "Conversation and memory data deleted. Your LifeSwitch account remains active.",
+        "All chat and conversational memory data deleted. Your LifeSwitch account remains active.",
       );
       window.location.reload();
     } catch (error: unknown) {
       setDataStatus(
         error instanceof Error
           ? error.message
-          : "Conversation and memory data could not be deleted.",
+          : "All AI data could not be deleted.",
       );
     } finally {
       setDeletingAll(false);
@@ -912,12 +950,11 @@ export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
           </Group>
 
           <Group
-            title="Forget recent conversations"
+            title="Clear recent chat history"
             footer={
               <>
-                Deletes recent transcript rows and removes those conversations
-                as memory sources. Information supported by conversations you
-                keep can remain.
+                Removes recent transcripts from your visible history. Retained
+                conversational memory remains available.
               </>
             }
           >
@@ -940,13 +977,79 @@ export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
               }
             />
             <ActionRow
-              label={
-                forgetBusy ? "Forgetting…" : "Forget selected conversations"
-              }
+              label={forgetBusy ? "Clearing…" : "Clear selected chat history"}
               disabled={forgetBusy}
               onClick={() => void forgetRecent()}
             />
           </Group>
+
+          <details
+            className="group overflow-hidden border-y border-muted/30"
+            onToggle={(event) => {
+              if (!event.currentTarget.open) setClearHistoryConfirm("");
+            }}
+          >
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 px-3 py-3 text-sm hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+              <div>
+                <div className="font-medium">Clear all chat history</div>
+                <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  Remove visible conversations while keeping retained memory.
+                </div>
+              </div>
+              <span
+                className="shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
+                aria-hidden="true"
+              >
+                ›
+              </span>
+            </summary>
+
+            <div className="border-t border-amber-500/30 bg-amber-500/[0.03]">
+              <Row
+                left={
+                  <div>
+                    <div className="font-medium text-amber-700 dark:text-amber-400">
+                      Clear visible chat history
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      Deletes chat threads and transcripts from LifeSwitch.
+                      Retained conversational memory remains available. Zep and
+                      governed memory are not deleted.
+                    </p>
+                    <p className="mt-3">
+                      Type{" "}
+                      <span className="font-semibold">CLEAR CHAT HISTORY</span>{" "}
+                      to confirm.
+                    </p>
+                  </div>
+                }
+              >
+                <input
+                  className="mt-2 w-full rounded-lg border bg-background px-2 py-2 text-sm outline-none"
+                  value={clearHistoryConfirm}
+                  onChange={(event) =>
+                    setClearHistoryConfirm(event.target.value)
+                  }
+                  placeholder="CLEAR CHAT HISTORY"
+                  autoComplete="off"
+                />
+              </Row>
+
+              <ActionRow
+                label={
+                  clearingHistory
+                    ? "Clearing chat history…"
+                    : "Clear all chat history"
+                }
+                danger
+                disabled={
+                  clearHistoryConfirm !== "CLEAR CHAT HISTORY" ||
+                  clearingHistory
+                }
+                onClick={() => void clearAllChatHistory()}
+              />
+            </div>
+          </details>
 
           <details
             className="group overflow-hidden border-y border-muted/30"
@@ -956,10 +1059,10 @@ export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
           >
             <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 px-3 py-3 text-sm hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
               <div>
-                <div className="font-medium">Delete chat data</div>
+                <div className="font-medium">Delete all AI data</div>
                 <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  Permanently remove all conversations and conversational
-                  memory.
+                  Permanently remove conversations and retained conversational
+                  memory together.
                 </div>
               </div>
               <span
@@ -975,7 +1078,7 @@ export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
                 left={
                   <div>
                     <div className="font-medium text-red-600 dark:text-red-400">
-                      Delete conversation and memory data
+                      Delete chats and memory
                     </div>
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                       Permanently deletes all chat threads, transcripts, and
@@ -984,8 +1087,8 @@ export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
                     </p>
                     <p className="mt-3">
                       Type{" "}
-                      <span className="font-semibold">DELETE CHAT DATA</span> to
-                      confirm.
+                      <span className="font-semibold">DELETE ALL AI DATA</span>{" "}
+                      to confirm.
                     </p>
                   </div>
                 }
@@ -994,19 +1097,17 @@ export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
                   className="mt-2 w-full rounded-lg border bg-background px-2 py-2 text-sm outline-none"
                   value={deleteConfirm}
                   onChange={(event) => setDeleteConfirm(event.target.value)}
-                  placeholder="DELETE CHAT DATA"
+                  placeholder="DELETE ALL AI DATA"
                   autoComplete="off"
                 />
               </Row>
 
               <ActionRow
                 label={
-                  deletingAll
-                    ? "Deleting conversation data…"
-                    : "Delete conversation and memory data"
+                  deletingAll ? "Deleting all AI data…" : "Delete all AI data"
                 }
                 danger
-                disabled={deleteConfirm !== "DELETE CHAT DATA" || deletingAll}
+                disabled={deleteConfirm !== "DELETE ALL AI DATA" || deletingAll}
                 onClick={() => void deleteConversationData()}
               />
             </div>
