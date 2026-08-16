@@ -59,7 +59,6 @@ test("access requests require bounded server-side Turnstile verification", () =>
 test("public access, login, and password reset flows use single-use Turnstile tokens", () => {
   const widget = source("components/auth/TurnstileWidget.tsx");
   const gate = source("components/auth/AuthGate.tsx");
-  const relationshipInvite = source("app/invite/lifeswitch/[token]/page.tsx");
   const securityPanel = source("components/admin/SecurityPanel.tsx");
 
   assert.match(widget, /NEXT_PUBLIC_TURNSTILE_SITE_KEY/);
@@ -78,17 +77,15 @@ test("public access, login, and password reset flows use single-use Turnstile to
   assert.match(widget, /window\.turnstile\.reset/);
   assert.doesNotMatch(widget, /TURNSTILE_SECRET_KEY/);
 
-  for (const client of [gate, relationshipInvite]) {
-    assert.match(client, /<TurnstileWidget/);
-    assert.match(client, /action="auth_login"/);
-    assert.match(client, /options: \{ captchaToken: loginToken \}/);
-    assert.match(client, /loginTurnstileRef\.current\?\.reset\(\)/);
-    assert.match(client, /action="request_access"/);
-    assert.match(client, /turnstile_token: accessRequestToken/);
-    assert.match(client, /accessRequestTurnstileRef\.current\?\.reset\(\)/);
-    assert.match(client, /access_request_verification_failed/);
-    assert.match(client, /mode === "request" && !accessRequestToken/);
-  }
+  assert.match(gate, /<TurnstileWidget/);
+  assert.match(gate, /action="auth_login"/);
+  assert.match(gate, /options: \{ captchaToken: loginToken \}/);
+  assert.match(gate, /loginTurnstileRef\.current\?\.reset\(\)/);
+  assert.match(gate, /action="request_access"/);
+  assert.match(gate, /turnstile_token: accessRequestToken/);
+  assert.match(gate, /accessRequestTurnstileRef\.current\?\.reset\(\)/);
+  assert.match(gate, /access_request_verification_failed/);
+  assert.match(gate, /mode === "request" && !accessRequestToken/);
 
   assert.match(securityPanel, /action="password_reset"/);
   assert.match(securityPanel, /captchaToken: passwordResetToken/);
@@ -97,7 +94,7 @@ test("public access, login, and password reset flows use single-use Turnstile to
     /passwordResetTurnstileRef\.current\?\.reset\(\)/,
   );
   assert.doesNotMatch(
-    gate + relationshipInvite + securityPanel,
+    gate + securityPanel,
     /TURNSTILE_SECRET_KEY/,
   );
 });

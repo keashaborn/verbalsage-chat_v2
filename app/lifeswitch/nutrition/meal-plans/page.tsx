@@ -418,7 +418,7 @@ export default function MealPlansPage() {
     <div className="mx-auto min-w-0 max-w-5xl p-4">
 
       <div className="mb-3 flex justify-end">
-        <Link href="/lifeswitch/plan#nutrition-targets" className="inline-flex min-h-11 items-center rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 sm:min-h-0">
+        <Link href="/lifeswitch/nutrition/analyze" className="inline-flex min-h-11 items-center rounded-md border px-3 py-1.5 text-xs hover:bg-muted/30 sm:min-h-0">
           Back
         </Link>
       </div>

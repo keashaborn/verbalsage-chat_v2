@@ -7,7 +7,6 @@ import { DevelopmentHistoryArchivePanel } from "@/components/admin/settings/Deve
 import { AiOperationsPanel } from "@/components/admin/settings/AiOperationsPanel";
 import { MemorySystemHealthPanel } from "@/components/admin/settings/MemorySystemHealthPanel";
 import { MemoryWorkbenchPanel } from "@/components/admin/settings/MemoryWorkbenchPanel";
-import { UsageAnalyticsPanel } from "@/components/admin/settings/UsageAnalyticsPanel";
 import { VoiceSystemHealthPanel } from "@/components/admin/settings/VoiceSystemHealthPanel";
 import { productTierLabel } from "@/lib/productEntitlements";
 
@@ -813,17 +812,6 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
         mountWhenOpen
       >
         <AiOperationsPanel />
-      </AdminSection>
-
-      <AdminSection
-        id="usage-analytics"
-        title="Usage & Analytics"
-        description="Backend-authoritative AI consumption and LifeSwitch activity aggregates."
-        open={openSection === "usage-analytics"}
-        onToggle={toggleAdminSection}
-        mountWhenOpen
-      >
-        <UsageAnalyticsPanel />
       </AdminSection>
 
       <AdminSection

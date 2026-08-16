@@ -231,7 +231,7 @@ export default function NutritionAnalyzePage() {
   const [nutritionTargets, setNutritionTargets] = React.useState<PlanNutritionTargetConfig>(
     () => readPlanNutritionTargets(null),
   );
-  const [targetSource, setTargetSource] = React.useState("Plan targets not loaded");
+  const [targetSource] = React.useState("Targets not configured");
   const [days, setDays] = React.useState<DaySummary[]>([]);
   const [recoveryAdjustments, setRecoveryAdjustments] = React.useState<
     RecoveryAdjustment[]
@@ -248,54 +248,14 @@ export default function NutritionAnalyzePage() {
     setStatus("loading nutrition analysis…");
 
     try {
-      let nextTargets = readPlanNutritionTargets(null);
-      let nextTargetSource = "No calorie or protein targets found";
-
-      try {
-        const activePlanJson = await fetchJson("/api/lifeswitch/plan/agentic/active");
-        const activeDocument = activePlanJson?.active_plan?.document;
-
-        if (
-          activeDocument &&
-          typeof activeDocument === "object" &&
-          !Array.isArray(activeDocument)
-        ) {
-          nextTargets = readPlanNutritionTargets(activeDocument.nutrition_targets || {});
-          nextTargetSource = "Active Plan";
-        } else {
-          const legacyPlanJson = await fetchJson(
-            "/api/lifeswitch/plan/profile?create_if_missing=0",
-          );
-          nextTargets = readPlanNutritionTargets(legacyPlanJson?.nutrition_targets || {});
-          nextTargetSource = "Legacy Plan profile";
-        }
-      } catch (targetError: any) {
-        nextTargetSource = `Plan targets unavailable: ${String(targetError?.message || targetError)}`;
-      }
-
-      setNutritionTargets(nextTargets);
-      setTargetSource(nextTargetSource);
-
-      const recoveryUrl = new URL(
-        "/api/lifeswitch/plan/agentic/recovery-adjustments",
-        window.location.origin,
-      );
-      recoveryUrl.searchParams.set("starts_on", daysAgoYYYYMMDD(89));
-      recoveryUrl.searchParams.set("ends_on", todayLocalYYYYMMDD());
+      setNutritionTargets(readPlanNutritionTargets(null));
+      setRecoveryAdjustments([]);
       const rangeUrl = new URL("/api/lifeswitch/nutrition/log/range", window.location.origin);
       rangeUrl.searchParams.set("start_day", daysAgoYYYYMMDD(89));
       rangeUrl.searchParams.set("end_day", todayLocalYYYYMMDD());
       rangeUrl.searchParams.set("include_entries", "0");
-      const [rangeJson, recoveryJson] = await Promise.all([
-        fetchJson(rangeUrl.toString()),
-        fetchJson(recoveryUrl.toString()),
-      ]);
+      const rangeJson = await fetchJson(rangeUrl.toString());
       const rangeRows = Array.isArray(rangeJson?.days) ? rangeJson.days : [];
-      setRecoveryAdjustments(
-        Array.isArray(recoveryJson?.recovery_adjustments)
-          ? recoveryJson.recovery_adjustments
-          : [],
-      );
 
       const out: DaySummary[] = rangeRows
         .map((rangeDay: any) => {

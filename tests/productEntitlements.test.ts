@@ -66,7 +66,6 @@ test("fresh Supabase app metadata is the product authority", () => {
 
 test("all private LifeSwitch APIs pass a fresh product gate", () => {
   const publicPreviewRoutes = new Set([
-    "app/api/lifeswitch/people/invitations/preview/route.ts",
     "app/api/lifeswitch/training/workout_template_shares/preview/route.ts",
   ]);
 

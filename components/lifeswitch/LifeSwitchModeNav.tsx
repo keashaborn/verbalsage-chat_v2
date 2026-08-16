@@ -6,13 +6,12 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen,
   CalendarDays,
-  ClipboardList,
   Dumbbell,
   LineChart,
   PlusSquare,
 } from "lucide-react";
 
-const MODES = ["log", "design", "capture", "plan", "analyze"] as const;
+const MODES = ["log", "design", "capture", "analyze"] as const;
 const ACTIVE_DOMAINS = new Set(["nutrition", "training", "measurements"]);
 
 type Mode = (typeof MODES)[number];
@@ -22,39 +21,16 @@ function normalizeDomainFromPath(pathname: string): string {
   const d = (m?.[1] || "").toLowerCase();
 
   if (!d) return "";
-  if (d === "plan") return "plan";
   if (!ACTIVE_DOMAINS.has(d)) return "";
 
   return d;
 }
 
 function normalizeModeFromPath(pathname: string): Mode {
-  if (String(pathname || "").match(/^\/lifeswitch\/plan(?:[\/?#]|$)/))
-    return "plan";
-
   const m = String(pathname || "").match(/^\/lifeswitch\/[^\/?#]+\/([^\/?#]+)/);
   const mode = (m?.[1] || "").toLowerCase() as Mode;
 
   return (MODES as readonly string[]).includes(mode) ? mode : "log";
-}
-
-function normalizePlanSectionFromBrowser(): string {
-  if (typeof window === "undefined") return "";
-
-  const raw = new URLSearchParams(window.location.search).get("section") || "";
-  const section = raw.toLowerCase();
-
-  return ACTIVE_DOMAINS.has(section) ? section : "";
-}
-
-function rememberedDomainFromBrowser(): string {
-  if (typeof window === "undefined") return "";
-
-  const domain = String(
-    window.localStorage.getItem("lifeswitch:lastDomain") || "",
-  ).toLowerCase();
-
-  return ACTIVE_DOMAINS.has(domain) ? domain : "";
 }
 
 function Tab({
@@ -96,16 +72,6 @@ function Tab({
   );
 }
 
-function planHrefForDomain(domain: string) {
-  if (domain === "training")
-    return "/lifeswitch/plan?section=training#training-targets";
-  if (domain === "nutrition")
-    return "/lifeswitch/plan?section=nutrition#nutrition-targets";
-  if (domain === "measurements")
-    return "/lifeswitch/plan?section=measurements#body-state";
-  return "/lifeswitch/plan";
-}
-
 function designHrefForDomain(domain: string) {
   if (domain === "training") return "/lifeswitch/training/design/workouts";
   return `/lifeswitch/${domain}/design`;
@@ -114,26 +80,14 @@ function designHrefForDomain(domain: string) {
 export function LifeSwitchModeNav() {
   const pathname = usePathname() || "";
   const rawDomain = normalizeDomainFromPath(pathname);
-  const [activeDomain, setActiveDomain] = React.useState(
-    rawDomain === "plan" ? "nutrition" : rawDomain,
-  );
 
   React.useEffect(() => {
-    const nextDomain =
-      rawDomain === "plan"
-        ? normalizePlanSectionFromBrowser() ||
-          rememberedDomainFromBrowser() ||
-          "nutrition"
-        : rawDomain;
-
-    if (!ACTIVE_DOMAINS.has(nextDomain)) return;
-
-    setActiveDomain(nextDomain);
-    window.localStorage.setItem("lifeswitch:lastDomain", nextDomain);
+    if (!ACTIVE_DOMAINS.has(rawDomain)) return;
+    window.localStorage.setItem("lifeswitch:lastDomain", rawDomain);
   }, [rawDomain, pathname]);
 
-  const domain = rawDomain === "plan" ? activeDomain : rawDomain;
-  const mode = rawDomain === "plan" ? "plan" : normalizeModeFromPath(pathname);
+  const domain = rawDomain;
+  const mode = normalizeModeFromPath(pathname);
 
   if (!domain) return null;
 
@@ -171,12 +125,6 @@ export function LifeSwitchModeNav() {
       active: mode === "capture",
     },
     {
-      href: planHrefForDomain(domain),
-      label: "Plan",
-      Icon: ClipboardList,
-      active: mode === "plan",
-    },
-    {
       href: `/lifeswitch/${domain}/analyze`,
       label: "Analyze",
       Icon: LineChart,
@@ -192,7 +140,7 @@ export function LifeSwitchModeNav() {
         className="sticky top-14 z-40 hidden border-b border-border/40 bg-background supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur-xl md:block"
       >
         <div className="mx-auto flex max-w-5xl px-4 py-2">
-          <div className="inline-grid grid-cols-5 gap-1 rounded-2xl bg-muted/50 p-1">
+          <div className="inline-grid grid-cols-4 gap-1 rounded-2xl bg-muted/50 p-1">
             {tabs.map((tab) => (
               <Tab key={tab.href} {...tab} onClick={rememberDomain} />
             ))}
@@ -205,7 +153,7 @@ export function LifeSwitchModeNav() {
         aria-label={`${domain} workflow`}
         className="fixed right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 z-50 transform-gpu rounded-2xl border border-border/60 bg-card p-1.5 shadow-xl ring-1 ring-foreground/5 supports-[backdrop-filter]:bg-card/80 supports-[backdrop-filter]:backdrop-blur-2xl md:hidden"
       >
-        <div className="grid grid-cols-5 gap-1">
+        <div className="grid grid-cols-4 gap-1">
           {tabs.map((tab) => (
             <Tab key={tab.href} {...tab} compact onClick={rememberDomain} />
           ))}

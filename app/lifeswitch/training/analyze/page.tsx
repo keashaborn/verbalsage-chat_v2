@@ -204,7 +204,7 @@ export default function TrainingAnalyzePage() {
   const [selectedExerciseId, setSelectedExerciseId] = React.useState("");
   const [progressionMetric, setProgressionMetric] = React.useState<ProgressionMetric>("max_load");
   const [trainingTargets, setTrainingTargets] = React.useState<Record<string, unknown> | null>(null);
-  const [planEvidence, setPlanEvidence] = React.useState("Active Plan not loaded");
+  const [planEvidence, setPlanEvidence] = React.useState("Targets not configured");
   const [recoveryAdjustments, setRecoveryAdjustments] = React.useState<
     RecoveryAdjustment[]
   >([]);
@@ -219,19 +219,9 @@ export default function TrainingAnalyzePage() {
     setStatus("loading training analysis…");
 
     try {
-      const recoveryUrl = new URL(
-        "/api/lifeswitch/plan/agentic/recovery-adjustments",
-        window.location.origin,
-      );
-      recoveryUrl.searchParams.set("starts_on", daysAgoYYYYMMDD(364));
-      recoveryUrl.searchParams.set("ends_on", todayLocalYYYYMMDD());
-      const [strengthJson, conditioningJson, planResult, recoveryJson] = await Promise.all([
+      const [strengthJson, conditioningJson] = await Promise.all([
         fetchJson("/api/lifeswitch/training/sessions?limit=500"),
         fetchJson("/api/lifeswitch/training/conditioning_sessions?limit=500"),
-        fetchJson("/api/lifeswitch/plan/agentic/active")
-          .then((value) => ({ value, failed: false }))
-          .catch(() => ({ value: null, failed: true })),
-        fetchJson(recoveryUrl.toString()),
       ]);
 
       const strengthArr = Array.isArray(strengthJson) ? (strengthJson as TrainingSessionRow[]) : [];
@@ -251,36 +241,16 @@ export default function TrainingAnalyzePage() {
 
       setStrengthSessions(strengthArr);
       setConditioningSessions(conditioningArr);
-      setRecoveryAdjustments(
-        Array.isArray(recoveryJson?.recovery_adjustments)
-          ? recoveryJson.recovery_adjustments
-          : [],
-      );
-      const activePlan = planResult.value?.active_plan;
-      const activeDocument = activePlan?.document;
-      if (activeDocument && typeof activeDocument === "object" && !Array.isArray(activeDocument)) {
-        const nextTargets = activeDocument.training_targets;
-        setTrainingTargets(
-          nextTargets && typeof nextTargets === "object" && !Array.isArray(nextTargets)
-            ? (nextTargets as Record<string, unknown>)
-            : {},
-        );
-        setPlanEvidence(
-          activePlan.version_number != null
-            ? `Active Plan v${activePlan.version_number}`
-            : "Active Plan",
-        );
-      } else {
-        setTrainingTargets(null);
-        setPlanEvidence(planResult.failed ? "Active Plan unavailable" : "No active Plan");
-      }
+      setRecoveryAdjustments([]);
+      setTrainingTargets(null);
+      setPlanEvidence("Targets not configured");
       setStatus(`loaded ${strengthArr.length} resistance sessions and ${conditioningArr.length} conditioning sessions`);
     } catch (e: any) {
       setStrengthSessions([]);
       setConditioningSessions([]);
       setRecoveryAdjustments([]);
       setTrainingTargets(null);
-      setPlanEvidence("Active Plan unavailable");
+      setPlanEvidence("Targets not configured");
       setStatus(`error: ${String(e?.message || e)}`);
     } finally {
       setLoading(false);

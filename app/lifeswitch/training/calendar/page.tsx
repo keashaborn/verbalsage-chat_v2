@@ -2,7 +2,6 @@
 
 import { authFetch } from "@/lib/authFetch";
 import { useConfirmAction } from "@/components/lifeswitch/ConfirmActionProvider";
-import { RecoveryAdjustmentApplied } from "@/components/lifeswitch/RecoveryAdjustmentApplied";
 import Link from "next/link";
 import * as React from "react";
 import { MoreHorizontal, Trash2 } from "lucide-react";
@@ -656,12 +655,6 @@ export default function TrainingCalendarPage() {
           {loading ? "Loading…" : "Refresh"}
         </button>
       </div>
-
-      <RecoveryAdjustmentApplied
-        domain="strength"
-        targetUserId={targetUserId}
-        variant="plain"
-      />
 
       <div className="mt-4 text-xs text-muted-foreground">
         <div className="font-medium text-foreground">Training days</div>

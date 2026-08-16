@@ -69,20 +69,12 @@ test("notification failures do not change the generic public response", () => {
 
 test("all public entry points require Owner approval for new accounts", () => {
   const gate = source("components/auth/AuthGate.tsx");
-  const relationshipInvite = source("app/invite/lifeswitch/[token]/page.tsx");
 
   assert.match(gate, /Request access/);
   assert.match(gate, /fetch\("\/api\/access-requests"/);
   assert.match(gate, /<TurnstileWidget/);
   assert.match(gate, /turnstile_token: accessRequestToken/);
   assert.doesNotMatch(gate, /supabase\.auth\.signUp/);
-  assert.match(relationshipInvite, /Request access/);
-  assert.match(relationshipInvite, /fetch\("\/api\/access-requests"/);
-  assert.match(relationshipInvite, /<TurnstileWidget/);
-  assert.match(relationshipInvite, /turnstile_token: accessRequestToken/);
-  assert.doesNotMatch(relationshipInvite, /supabase\.auth\.signUp/);
-  assert.doesNotMatch(relationshipInvite, /Create account/);
-  assert.doesNotMatch(relationshipInvite, />Sign up</);
 });
 
 test("successful public access requests replace the form with confirmation", () => {

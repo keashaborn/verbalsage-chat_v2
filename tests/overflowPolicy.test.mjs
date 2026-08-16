@@ -58,10 +58,6 @@ test("full-page LifeSwitch surfaces do not reinstate overflow masks", () => {
       "mx-auto max-w-6xl p-4 overflow-x-hidden",
     ],
     [
-      "app/lifeswitch/people/messages/page.tsx",
-      "grid max-w-full min-w-0 gap-4 overflow-x-hidden",
-    ],
-    [
       "app/lifeswitch/training/analyze/page.tsx",
       "mx-auto max-w-6xl p-4 overflow-x-hidden",
     ],
@@ -80,14 +76,6 @@ test("full-page LifeSwitch surfaces do not reinstate overflow masks", () => {
     [
       "components/lifeswitch/training/WorkoutsPage.tsx",
       "w-full min-w-0 overflow-x-hidden",
-    ],
-    [
-      "components/lifeswitch/plan/PlanDraftWorkspace.tsx",
-      "mx-auto flex min-h-full w-full max-w-3xl min-w-0 flex-col overflow-x-hidden",
-    ],
-    [
-      "components/lifeswitch/plan/PlanDraftWorkspace.tsx",
-      "grid w-full min-w-0 flex-1 content-start gap-4 overflow-x-hidden px-4 py-6",
     ],
     [
       "app/collect/layout.tsx",

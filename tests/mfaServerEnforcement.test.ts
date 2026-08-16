@@ -49,6 +49,7 @@ test("every direct privileged route enforces aal2 after role authorization", () 
     "app/api/admin/users/route.ts",
     "app/api/admin/users/[userId]/role/route.ts",
     "app/api/admin/users/[userId]/password-setup/route.ts",
+    "app/api/admin/users/[userId]/product-tier/route.ts",
     "app/api/admin/users/[userId]/route.ts",
   ];
 
@@ -88,12 +89,8 @@ test("all admin routes inherit fresh privileged MFA enforcement", () => {
     "app/api/admin/users/route.ts",
     "app/api/admin/users/[userId]/role/route.ts",
     "app/api/admin/users/[userId]/password-setup/route.ts",
+    "app/api/admin/users/[userId]/product-tier/route.ts",
     "app/api/admin/users/[userId]/route.ts",
-  ]);
-  const usageRoutes = new Set([
-    "app/api/admin/usage/overview/route.ts",
-    "app/api/admin/usage/users/route.ts",
-    "app/api/admin/usage/users/[userId]/route.ts",
   ]);
   const aiOperationsReadRoutes = new Set([
     "app/api/admin/ai-operations/incidents/route.ts",
@@ -104,7 +101,7 @@ test("all admin routes inherit fresh privileged MFA enforcement", () => {
   ]);
   const routes = adminRouteFiles();
 
-  assert.equal(routes.length, 24, "classify every new admin route");
+  assert.equal(routes.length, 22, "classify every new admin route");
   for (const routePath of routes) {
     const route = source(routePath);
     if (directRoutes.has(routePath)) {
@@ -112,12 +109,6 @@ test("all admin routes inherit fresh privileged MFA enforcement", () => {
         route,
         /hasRequiredPrivilegedAal2\(auth\)/,
         `${routePath}: missing direct MFA gate`,
-      );
-    } else if (usageRoutes.has(routePath)) {
-      assert.match(
-        route,
-        /authorizeUsage\(/,
-        `${routePath}: missing usage authorizer`,
       );
     } else if (aiOperationsReadRoutes.has(routePath)) {
       assert.match(
@@ -140,8 +131,6 @@ test("all admin routes inherit fresh privileged MFA enforcement", () => {
     }
   }
 
-  const usageAuthorizer = source("app/api/admin/usage/_shared.ts");
-  assert.match(usageAuthorizer, /requireFreshCapability/);
   const aiOperationsAuthorizer = source(
     "app/api/admin/ai-operations/_shared.ts",
   );

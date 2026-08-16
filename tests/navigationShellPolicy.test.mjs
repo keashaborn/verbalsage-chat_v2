@@ -45,9 +45,9 @@ test("measurements is standalone while training and nutrition retain workflow na
   const routeChrome = read("components/lifeswitch/LifeSwitchRouteChrome.tsx");
   const layout = read("app/lifeswitch/layout.tsx");
 
-  assert.match(nav, /activeDomain/);
-  assert.match(nav, /rememberedDomainFromBrowser/);
-  assert.doesNotMatch(nav, /setPlanSection/);
+  assert.match(nav, /const domain = rawDomain/);
+  assert.match(nav, /grid-cols-4/);
+  assert.doesNotMatch(nav, /\/lifeswitch\/plan/);
   assert.match(nav, /data-lifeswitch-mode-nav="mobile"/);
   assert.match(nav, /transform-gpu/);
   assert.match(

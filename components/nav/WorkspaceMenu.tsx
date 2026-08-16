@@ -13,11 +13,9 @@ type WorkspaceMenuProps = {
 const WORKSPACE_LINKS = [{ href: "/", label: "Chat" }];
 
 const LIFESWITCH_LINKS = [
-  { href: "/lifeswitch/plan", label: "Plan" },
   { href: "/lifeswitch/nutrition", label: "Nutrition" },
   { href: "/lifeswitch/training", label: "Training" },
   { href: "/lifeswitch/measurements", label: "Measurements" },
-  { href: "/lifeswitch/people", label: "People" },
 ];
 
 export function WorkspaceMenu({

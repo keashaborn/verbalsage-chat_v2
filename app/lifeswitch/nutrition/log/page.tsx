@@ -1,7 +1,6 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
-import { RecoveryAdjustmentApplied } from "@/components/lifeswitch/RecoveryAdjustmentApplied";
 import { readPlanNutritionTargets } from "@/lib/lifeswitch/planNutritionTargets";
 import {
   scoreNutritionDay,
@@ -340,7 +339,7 @@ export default function NutritionLogPage() {
   const [nutritionTargets, setNutritionTargets] = React.useState(() =>
     readPlanNutritionTargets(null),
   );
-  const [targetStatus, setTargetStatus] = React.useState<string>("loading Plan targets…");
+  const [targetStatus, setTargetStatus] = React.useState<string>("Targets not configured");
   const targetProteinG = nutritionTargets.proteinMinimumG;
   const targetKcal = nutritionTargets.nominalKcal;
 
@@ -413,60 +412,9 @@ export default function NutritionLogPage() {
         setTargetName(targetLabel);
         setStatus(targetUid ? `loading ${targetLabel || "delegated"} nutrition…` : "loading days…");
 
-        let nextNutritionTargets = readPlanNutritionTargets(null);
-
-        try {
-          const activePlanUrl = new URL(
-            "/api/lifeswitch/plan/agentic/active",
-            window.location.origin,
-          );
-          if (targetUid) {
-            activePlanUrl.searchParams.set("target_user_id", targetUid);
-          }
-
-          const activePlanJson = await fetchJson(activePlanUrl.toString());
-          const activeDocument = activePlanJson?.active_plan?.document;
-          let nt: unknown;
-          let targetSource: string;
-
-          if (
-            activeDocument &&
-            typeof activeDocument === "object" &&
-            !Array.isArray(activeDocument)
-          ) {
-            nt = activeDocument.nutrition_targets || {};
-            targetSource = "active Plan";
-          } else {
-            const legacyPlanUrl = new URL(
-              "/api/lifeswitch/plan/profile",
-              window.location.origin,
-            );
-            legacyPlanUrl.searchParams.set("create_if_missing", "0");
-            if (targetUid) {
-              legacyPlanUrl.searchParams.set("target_user_id", targetUid);
-            }
-            const legacyPlanJson = await fetchJson(legacyPlanUrl.toString());
-            nt = legacyPlanJson?.nutrition_targets || {};
-            targetSource = "legacy Plan profile";
-          }
-
-          const targets = readPlanNutritionTargets(nt);
-          nextNutritionTargets = targets;
-
-          if (!cancelled) {
-            setNutritionTargets(targets);
-            setTargetStatus(
-              targets.nominalKcal != null || targets.proteinMinimumG != null
-                ? `loaded from ${targetSource}`
-                : `no calorie/protein targets found in ${targetSource}`
-            );
-          }
-        } catch (e: any) {
-          if (!cancelled) {
-            setNutritionTargets(readPlanNutritionTargets(null));
-            setTargetStatus(`Plan target error: ${e?.message || String(e)}`);
-          }
-        }
+        const nextNutritionTargets = readPlanNutritionTargets(null);
+        setNutritionTargets(nextNutritionTargets);
+        setTargetStatus("Targets not configured");
 
         const rangeUrl = new URL("/api/lifeswitch/nutrition/log/range", window.location.origin);
         rangeUrl.searchParams.set("start_day", daysAgoYYYYMMDD(59));
@@ -730,11 +678,6 @@ export default function NutritionLogPage() {
         <div className="mt-1 text-xs text-muted-foreground">
           {calorieTargetLabel} · {proteinTargetLabel} · {targetStatus}
         </div>
-
-        <RecoveryAdjustmentApplied
-          domain="nutrition"
-          targetUserId={targetUserId}
-        />
 
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-muted/20 py-3 text-xs text-muted-foreground">
           <div className="font-medium text-foreground">Status</div>

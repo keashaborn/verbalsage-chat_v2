@@ -139,7 +139,6 @@ test("TTS accepts only the fixed conversation-style boundary", () => {
   const route = source("app/api/tts/route.ts");
   const styles = source("lib/conversationStyle.ts");
   const callers = [
-    source("components/lifeswitch/helper/LifeSwitchHelper.tsx"),
     source("components/admin/VoicePanel.tsx"),
     source("components/threads/BrainsChatPane.tsx"),
     source("components/assistant-ui/thread.tsx"),
@@ -162,11 +161,9 @@ test("TTS accepts only the fixed conversation-style boundary", () => {
 test("preview and message speech wrap raw PCM before browser playback", () => {
   const panel = source("components/admin/VoicePanel.tsx");
   const messageThread = source("components/assistant-ui/thread.tsx");
-  const helper = source("components/lifeswitch/helper/LifeSwitchHelper.tsx");
 
   assert.match(panel, /speechResponseToWavBlob/);
   assert.match(messageThread, /speechResponseToWavBlob/);
-  assert.match(helper, /speechResponseToWavBlob/);
 });
 
 test("voice settings present a capability-filtered identity carousel", () => {

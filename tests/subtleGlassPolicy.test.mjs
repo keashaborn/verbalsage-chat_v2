@@ -6,7 +6,6 @@ const files = {
   shell: "app/lifeswitch/layout.tsx",
   topBar: "components/nav/AppTopBar.tsx",
   workflow: "components/lifeswitch/LifeSwitchModeNav.tsx",
-  helper: "components/lifeswitch/helper/LifeSwitchHelper.tsx",
   account: "components/nav/AccountMenu.tsx",
   workspace: "components/nav/WorkspaceMenu.tsx",
   standard: "docs/frontend/WEB_DESIGN_STANDARD.md",
@@ -36,8 +35,6 @@ test("glass surfaces keep opaque fallbacks", async () => {
   }
 
   assert.match(await source("shell"), /AppTopBar/);
-  assert.match(await source("helper"), /bg-background/);
-  assert.doesNotMatch(await source("helper"), /backdrop-blur/);
 });
 
 test("global navigation menus use the same dense glass treatment", async () => {

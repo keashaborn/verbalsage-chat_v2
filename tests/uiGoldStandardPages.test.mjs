@@ -4,35 +4,6 @@ import { test } from "node:test";
 
 const read = (path) => readFileSync(path, "utf8");
 
-test("People has one quiet workflow navigation across all three routes", () => {
-  const nav = read("components/lifeswitch/people/PeopleWorkflowNav.tsx");
-  const pages = [
-    read("app/lifeswitch/people/page.tsx"),
-    read("app/lifeswitch/people/helping/page.tsx"),
-    read("app/lifeswitch/people/messages/page.tsx"),
-  ];
-
-  assert.match(nav, /label: "Connections"/);
-  assert.match(nav, /label: "Shared with me"/);
-  assert.match(nav, /label: "Messages"/);
-  assert.match(nav, /aria-current=\{active \? "page"/);
-  assert.match(nav, /min-h-11/);
-  for (const page of pages) {
-    assert.match(page, /<PeopleWorkflowNav \/>/);
-    assert.match(page, /<h1/);
-    assert.doesNotMatch(page, /BackButton/);
-  }
-});
-
-test("People messages use a flat transcript and reachable primary controls", () => {
-  const page = read("app/lifeswitch/people/messages/page.tsx");
-
-  assert.match(page, /border-b border-muted\/20 py-3/);
-  assert.doesNotMatch(page, /max-w-\[85%\]/);
-  assert.match(page, /New message[\s\S]*min-h-11/);
-  assert.match(page, /<textarea/);
-});
-
 test("Personalization keeps primary choices visible and advanced choices collapsed", () => {
   const preferences = read("components/settings/AssistantPreferences.tsx");
   const page = read("app/settings/assistant-profile/page.tsx");
@@ -141,17 +112,12 @@ test("Analyze presentation cleanup preserves its read-only data contracts", () =
     "/api/lifeswitch/training/sessions?limit=500",
     "/api/lifeswitch/training/conditioning_sessions?limit=500",
     "/api/lifeswitch/training/progression?",
-    "/api/lifeswitch/plan/agentic/active",
-    "/api/lifeswitch/plan/agentic/recovery-adjustments",
   ]) {
     assert.match(training, new RegExp(endpoint.replace(/[?]/g, "\\?")));
   }
 
   for (const endpoint of [
     "/api/lifeswitch/nutrition/log/range",
-    "/api/lifeswitch/plan/agentic/active",
-    "/api/lifeswitch/plan/profile?create_if_missing=0",
-    "/api/lifeswitch/plan/agentic/recovery-adjustments",
   ]) {
     assert.match(nutrition, new RegExp(endpoint.replace(/[?]/g, "\\?")));
   }
@@ -161,34 +127,12 @@ test("Analyze presentation cleanup preserves its read-only data contracts", () =
   }
 });
 
-test("Plan, Nutrition Capture, and Training use concise headers and quiet controls", () => {
-  const plan = read("components/lifeswitch/plan/PlanRevisionWorkflow.tsx");
+test("Nutrition Capture and Training use concise headers and quiet controls", () => {
   const nutritionCapture = read(
     "components/lifeswitch/nutrition/NutritionCapturePage.tsx",
   );
   const trainingLog = read("app/lifeswitch/training/calendar/page.tsx");
   const trainingDesign = read("app/lifeswitch/training/design/layout.tsx");
-  const planHeader = plan.slice(
-    plan.indexOf("const headerDocument"),
-    plan.indexOf('{status === "loading"'),
-  );
-
-  assert.equal(
-    (planHeader.match(/Active version \{activePlan\.version_number\}/g) || [])
-      .length,
-    1,
-  );
-  assert.match(plan, /Expand all[\s\S]{0,500}Collapse all/);
-  assert.match(
-    plan,
-    /inline-flex min-h-11 items-center px-2 text-xs[\s\S]{0,180}Expand all/,
-  );
-  assert.match(
-    plan,
-    /Preview draft[\s\S]{0,420}inline-flex min-h-11 items-center rounded-lg bg-muted/,
-  );
-  assert.match(plan, /: "Draft saved"/);
-  assert.match(plan, /: "Not active"/);
 
   assert.match(
     nutritionCapture,

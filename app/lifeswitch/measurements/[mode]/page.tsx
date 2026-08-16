@@ -10,8 +10,7 @@ export default async function MeasurementsModePage({
 
   if (mode === "capture") redirect("/lifeswitch/measurements/capture");
   if (mode === "analyze") redirect("/lifeswitch/measurements?view=progress");
-  if (mode === "plan")
-    redirect("/lifeswitch/plan?section=measurements#body-state");
+  if (mode === "plan") redirect("/lifeswitch/measurements");
 
   redirect("/lifeswitch/measurements");
 }

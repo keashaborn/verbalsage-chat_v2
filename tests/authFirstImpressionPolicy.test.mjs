@@ -9,7 +9,6 @@ test("public authentication pages share one restrained shell", () => {
   const pages = [
     read("app/auth/accept-invite/page.tsx"),
     read("app/auth/confirm-invite/page.tsx"),
-    read("app/invite/lifeswitch/[token]/page.tsx"),
   ];
 
   assert.match(shell, /rounded-xl border bg-background/);
@@ -25,7 +24,6 @@ test("public authentication pages share one restrained shell", () => {
 
 test("first-impression forms use visible labels and accessible touch targets", () => {
   const gate = read("components/auth/AuthGate.tsx");
-  const relationshipInvite = read("app/invite/lifeswitch/[token]/page.tsx");
 
   assert.match(gate, /role="tablist"/);
   assert.match(gate, /aria-selected=\{mode === "login"\}/);
@@ -37,20 +35,6 @@ test("first-impression forms use visible labels and accessible touch targets", (
   assert.match(gate, /Reset saved sign-in session/);
   assert.doesNotMatch(gate, />\s*Clear session\s*</);
 
-  assert.match(relationshipInvite, /<span>Email<\/span>/);
-  assert.match(relationshipInvite, /<span>Password<\/span>/);
-  assert.match(relationshipInvite, /min-h-11/);
-});
-
-test("public invitation errors stay readable and do not expose objects", () => {
-  const invite = read("app/invite/lifeswitch/[token]/page.tsx");
-  const shell = read("components/auth/PublicAuthShell.tsx");
-
-  assert.doesNotMatch(invite, /String\(e\?\.message \|\| e\)/);
-  assert.doesNotMatch(invite, /text-red-200/);
-  assert.match(invite, /PublicAuthNotice tone="error"/);
-  assert.match(shell, /text-foreground/);
-  assert.match(shell, /border-destructive\/30 bg-destructive\/10/);
 });
 
 test("the application viewport permits user zoom", () => {
