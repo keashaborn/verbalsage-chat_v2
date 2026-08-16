@@ -103,13 +103,9 @@ test("Admin UI uses inline confirmation and never a native confirm dialog", () =
 
 test("every sensitive administrative route fresh-checks the current role", () => {
   const routes = [
-    "app/api/admin/cards/route.ts",
-    "app/api/admin/cards/[card_id]/route.ts",
     "app/api/admin/delete_all/route.ts",
     "app/api/admin/export/route.ts",
     "app/api/admin/forget_recent/route.ts",
-    "app/api/admin/memory-review/route.ts",
-    "app/api/admin/vantage-cards/route.ts",
     "app/api/chat/inspect/route.ts",
   ];
 

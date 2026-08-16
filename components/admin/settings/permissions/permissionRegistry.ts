@@ -29,7 +29,6 @@ export type PermissionCategory =
   | "diagnostics"
   | "voice"
   | "web_search"
-  | "memory"
   | "admin_console"
   | "account_data"
   | "lifeswitch"
@@ -191,77 +190,6 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
     backendEnforced: true,
     notes:
       "Canary-limited by role. Requires a fresh Supabase user check, the Verbal Sage BFF, the Brains service boundary, actor/owner matching, and the backend kill switch.",
-  },
-
-  // Memory
-  {
-    key: "memory_cards.view",
-    label: "View Memory Cards",
-    description:
-      "View structured memory cards and Vantage-scoped card summaries.",
-    category: "memory",
-    scope: "own_account",
-    access: "view",
-    risk: "high",
-    defaultRoles: ["owner", "admin", "developer"],
-    backendEnforced: true,
-  },
-  {
-    key: "memory_cards.view_raw",
-    label: "View Raw Memory Payloads",
-    description:
-      "View raw card payloads, source metadata, and internal memory diagnostics.",
-    category: "memory",
-    scope: "own_account",
-    access: "view",
-    risk: "critical",
-    defaultRoles: ["owner", "admin", "developer"],
-    backendEnforced: true,
-  },
-  {
-    key: "memory_cards.edit",
-    label: "Edit Memory Cards",
-    description: "Create or modify memory cards.",
-    category: "memory",
-    scope: "own_account",
-    access: "edit",
-    risk: "critical",
-    defaultRoles: ["owner", "admin"],
-    backendEnforced: true,
-  },
-  {
-    key: "memory_cards.delete",
-    label: "Delete Memory Cards",
-    description: "Delete or retire memory cards.",
-    category: "memory",
-    scope: "own_account",
-    access: "delete",
-    risk: "critical",
-    defaultRoles: ["owner", "admin"],
-    backendEnforced: true,
-  },
-  {
-    key: "memory_system.view",
-    label: "View Memory System Status",
-    description:
-      "View memory architecture status, active layers, and retrieval/prompt-injection diagnostics.",
-    category: "memory",
-    scope: "system",
-    access: "view",
-    risk: "high",
-    defaultRoles: ["owner", "admin", "developer"],
-    backendEnforced: true,
-  },
-  {
-    key: "memory_system.manage",
-    label: "Manage Memory System",
-    description: "Change memory-layer settings, gates, or migration behavior.",
-    category: "memory",
-    scope: "system",
-    access: "manage",
-    risk: "critical",
-    defaultRoles: ["owner", "admin"],
-    backendEnforced: true,
   },
 
   // Admin console

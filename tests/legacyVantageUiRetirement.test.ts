@@ -22,6 +22,37 @@ test("dormant Vantage settings surfaces are absent", () => {
   }
 });
 
+test("legacy memory admin surfaces and permissions are absent", () => {
+  for (const relativePath of [
+    "components/admin/settings/MemorySystemHealthPanel.tsx",
+    "components/admin/settings/MemoryWorkbenchPanel.tsx",
+    "components/admin/settings/CardsPanel.tsx",
+    "components/admin/settings/MemoryReviewPanel.tsx",
+    "app/api/admin/memory-health/route.ts",
+    "app/api/admin/memory-workbench/route.ts",
+    "app/api/admin/memory-review/route.ts",
+    "app/api/admin/vantage-cards/route.ts",
+    "app/api/admin/cards/route.ts",
+    "app/api/admin/cards/[card_id]/route.ts",
+  ]) {
+    assert.equal(fs.existsSync(path.join(root, relativePath)), false, relativePath);
+  }
+
+  const adminConsole = source("components/admin/settings/AdminConsolePage.tsx");
+  const permissions = source(
+    "components/admin/settings/permissions/permissionRegistry.ts",
+  );
+
+  assert.doesNotMatch(
+    adminConsole,
+    /MemorySystemHealthPanel|MemoryWorkbenchPanel|Memory Health|Memory Workbench/,
+  );
+  assert.doesNotMatch(
+    permissions,
+    /memory_cards\.|memory_system\.|category: "memory"/,
+  );
+});
+
 test("retired model diagnostics are absent from the Admin Console", () => {
   const adminConsole = source("components/admin/settings/AdminConsolePage.tsx");
   const permissions = source(

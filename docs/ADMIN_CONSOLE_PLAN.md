@@ -1,5 +1,12 @@
 # Admin Console Plan
 
+> Historical implementation record. It is not current runtime authority.
+>
+> On 2026-08-16, the legacy Memory Health, Memory Workbench, Memory Review,
+> Cards, and Vantage Cards frontend surfaces were retired. Their backend
+> endpoints were already explicit retirement stubs. Any future memory console
+> must be designed against the backend-owned Zep integration.
+
 ## Purpose
 
 Build a professional admin system for Verbal Sage that separates normal user preferences from system-level configuration, developer tools, security operations, and future product administration.

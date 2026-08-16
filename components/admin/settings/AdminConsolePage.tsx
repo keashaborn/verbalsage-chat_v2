@@ -5,8 +5,6 @@ import { authFetch } from "@/lib/authFetch";
 import { AccessRequestsPanel } from "@/components/admin/settings/AccessRequestsPanel";
 import { DevelopmentHistoryArchivePanel } from "@/components/admin/settings/DevelopmentHistoryArchivePanel";
 import { AiOperationsPanel } from "@/components/admin/settings/AiOperationsPanel";
-import { MemorySystemHealthPanel } from "@/components/admin/settings/MemorySystemHealthPanel";
-import { MemoryWorkbenchPanel } from "@/components/admin/settings/MemoryWorkbenchPanel";
 import { VoiceSystemHealthPanel } from "@/components/admin/settings/VoiceSystemHealthPanel";
 import { productTierLabel } from "@/lib/productEntitlements";
 
@@ -871,28 +869,6 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
             </div>
           </div>
         </div>
-      </AdminSection>
-
-      <AdminSection
-        id="memory-health"
-        title="Memory Health"
-        description="Governed memory activity, synchronization, processing, and answer use."
-        open={openSection === "memory-health"}
-        onToggle={toggleAdminSection}
-        mountWhenOpen
-      >
-        <MemorySystemHealthPanel />
-      </AdminSection>
-
-      <AdminSection
-        id="memory-workbench"
-        title="Memory Workbench"
-        description="Review private GPU extraction results and record diagnostic feedback."
-        open={openSection === "memory-workbench"}
-        onToggle={toggleAdminSection}
-        mountWhenOpen
-      >
-        <MemoryWorkbenchPanel />
       </AdminSection>
     </div>
   );
