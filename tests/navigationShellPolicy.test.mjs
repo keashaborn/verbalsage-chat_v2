@@ -46,8 +46,10 @@ test("measurements is standalone while training and nutrition retain workflow na
   const layout = read("app/lifeswitch/layout.tsx");
 
   assert.match(nav, /const domain = rawDomain/);
-  assert.match(nav, /grid-cols-4/);
-  assert.doesNotMatch(nav, /\/lifeswitch\/plan/);
+  assert.match(nav, /grid-cols-5/);
+  assert.match(nav, /label: "Plan"/);
+  assert.match(nav, /\/lifeswitch\/plan\?section=nutrition/);
+  assert.match(nav, /\/lifeswitch\/plan\?section=training/);
   assert.match(nav, /data-lifeswitch-mode-nav="mobile"/);
   assert.match(nav, /transform-gpu/);
   assert.match(
