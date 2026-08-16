@@ -44,6 +44,10 @@ const chatHistoryClearSource = readFileSync(
   "app/api/_brains/chatHistoryClearRequest.ts",
   "utf8",
 );
+const fullAiDataClearSource = readFileSync(
+  "app/api/_brains/fullAiDataClearRequest.ts",
+  "utf8",
+);
 const adminErasureSource = readFileSync(
   "app/api/_brains/conversationErasureRequest.ts",
   "utf8",
@@ -183,8 +187,10 @@ test("admin deletion confirmations match the governed-memory Python contract", (
 
 test("admin routes separate retained history clearing from full erasure", () => {
   assert.match(deleteAllRouteSource, /requireFreshCapability/);
-  assert.match(deleteAllRouteSource, /executeAdminConversationErasure/);
-  assert.match(deleteAllRouteSource, /selectorKind: "all_conversations"/);
+  assert.match(deleteAllRouteSource, /executeFullAiDataClear/);
+  assert.doesNotMatch(deleteAllRouteSource, /executeAdminConversationErasure/);
+  assert.match(deleteAllRouteSource, /memory_retained: false/);
+  assert.match(deleteAllRouteSource, /zep_deleted: true/);
   for (const source of [forgetRecentRouteSource, clearAllHistoryRouteSource]) {
     assert.match(source, /requireFreshCapability/);
     assert.match(source, /authorization/);
@@ -200,6 +206,15 @@ test("admin routes separate retained history clearing from full erasure", () => 
   );
   assert.match(chatHistoryClearSource, /memory_retained !== true/);
   assert.match(chatHistoryClearSource, /zep_called !== false/);
+  assert.match(
+    fullAiDataClearSource,
+    /FULL_AI_DATA_CLEAR_PATH = "\/memory\/chat-and-zep\/clear"/,
+  );
+  assert.match(fullAiDataClearSource, /method: "DELETE"/);
+  assert.match(fullAiDataClearSource, /Authorization: authorization/);
+  assert.match(fullAiDataClearSource, /memory_retained !== false/);
+  assert.match(fullAiDataClearSource, /zep_called !== true/);
+  assert.match(fullAiDataClearSource, /zep_deleted !== true/);
   assert.match(
     adminErasureSource,
     /ERASURE_REQUEST_PATH = "\/memory\/conversations\/erasure-requests"/,
