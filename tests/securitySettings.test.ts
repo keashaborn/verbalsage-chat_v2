@@ -42,6 +42,8 @@ test("Data controls retain existing protected routes with accurate labels", () =
   assert.match(panel, /Conversation and memory data/);
   assert.match(panel, /title="Export"/);
   assert.match(panel, /Forget recent conversations/);
+  assert.match(panel, /removes those conversations\s+as memory sources/);
+  assert.match(panel, /conversations you\s+keep can remain/);
   assert.match(panel, /Delete conversation and memory data/);
   assert.match(panel, /structured\s+LifeSwitch tracking data remain active/);
   assert.match(panel, /DELETE CHAT DATA/);

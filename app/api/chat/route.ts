@@ -528,11 +528,15 @@ export async function POST(req: Request) {
         : Array.isArray(rawAttachmentIds) &&
             rawAttachmentIds.length <= 4 &&
             rawAttachmentIds.every(
-              (value: unknown) => typeof value === "string" && UUID_RE.test(value),
+              (value: unknown) =>
+                typeof value === "string" && UUID_RE.test(value),
             )
           ? [...new Set(rawAttachmentIds as string[])]
           : null;
-    if (attachmentIds === null || attachmentIds.length !== (rawAttachmentIds?.length || 0)) {
+    if (
+      attachmentIds === null ||
+      attachmentIds.length !== (rawAttachmentIds?.length || 0)
+    ) {
       return new Response("Invalid attachments", {
         status: 400,
         headers: { "x-request-id": rid },
@@ -681,7 +685,7 @@ export async function POST(req: Request) {
       BRAINS_RESPONSE_TIMEOUT_MS,
       req.signal,
     );
-    let attachmentMessageId: string | null = null;
+    let storedMessageId: string | null = null;
     if (!noStore) {
       const log = await fetch(`${brains}/log`, {
         method: "POST",
@@ -708,15 +712,13 @@ export async function POST(req: Request) {
           headers: { "x-request-id": rid },
         });
       }
-      if (attachmentIds.length) {
-        const logged = await log.json().catch(() => null);
-        attachmentMessageId = String(logged?.id || "");
-        if (!UUID_RE.test(attachmentMessageId)) {
-          return new Response("Attachment binding unavailable", {
-            status: 502,
-            headers: { "x-request-id": rid },
-          });
-        }
+      const logged = await log.json().catch(() => null);
+      storedMessageId = String(logged?.id || "");
+      if (!UUID_RE.test(storedMessageId)) {
+        return new Response("Transcript binding unavailable", {
+          status: 502,
+          headers: { "x-request-id": rid },
+        });
       }
     }
 
@@ -737,10 +739,11 @@ export async function POST(req: Request) {
         thread_id: threadId,
         no_store: noStore,
         include_inspection: includeInspection,
+        ...(storedMessageId ? { message_id: storedMessageId } : {}),
         ...(attachmentIds.length
           ? {
               attachment_ids: attachmentIds,
-              attachment_message_id: attachmentMessageId,
+              attachment_message_id: storedMessageId,
             }
           : {}),
       }),

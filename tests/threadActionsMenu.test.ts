@@ -6,6 +6,7 @@ import {
   CONVERSATION_ERASURE_DATA_DOMAIN,
   CONVERSATION_ERASURE_REQUEST_VERSION,
   conversationAllDeletionConfirmationSha256,
+  conversationMessageTailDeletionConfirmationSha256,
   conversationRecentDeletionConfirmationSha256,
   conversationThreadDeletionConfirmationSha256,
 } from "../lib/conversationErasure.ts";
@@ -22,6 +23,11 @@ const deleteRouteSource = readFileSync(
   "app/api/threads/[thread_id]/route.ts",
   "utf8",
 );
+const truncateRouteSource = readFileSync(
+  "app/api/threads/[thread_id]/messages/[message_id]/truncate/route.ts",
+  "utf8",
+);
+const chatRouteSource = readFileSync("app/api/chat/route.ts", "utf8");
 const deleteAllRouteSource = readFileSync(
   "app/api/admin/delete_all/route.ts",
   "utf8",
@@ -109,6 +115,17 @@ test("thread erasure confirmation matches the governed-memory Python contract", 
   );
 });
 
+test("message-tail erasure confirmation matches the governed-memory Python contract", () => {
+  assert.equal(
+    conversationMessageTailDeletionConfirmationSha256(
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222",
+      "33333333-3333-4333-8333-333333333333",
+    ),
+    "fcb914c1a21dfddc19656ed7be3ccef7b020e723cbfe365a66b230bd6ccf77ef",
+  );
+});
+
 test("thread deletion uses the governed chat-only erasure coordinator", () => {
   assert.doesNotMatch(deleteRouteSource, /vs_tid|response\.cookies/);
   assert.doesNotMatch(deleteRouteSource, /`\$\{BRAINS\}\/threads\//);
@@ -126,6 +143,28 @@ test("thread deletion uses the governed chat-only erasure coordinator", () => {
   assert.match(deleteRouteSource, /method: "GET"/);
   assert.match(deleteRouteSource, /status\.state === "completed"/);
   assert.match(deleteRouteSource, /operationId = threadId/);
+});
+
+test("message edit truncation uses the governed chat-only erasure coordinator", () => {
+  assert.match(truncateRouteSource, /getThreadUserId/);
+  assert.match(truncateRouteSource, /threadBelongsToUser/);
+  assert.match(truncateRouteSource, /Authorization|authorization/);
+  assert.match(truncateRouteSource, /executeAdminConversationErasure/);
+  assert.match(truncateRouteSource, /selectorKind: "message_tail"/);
+  assert.match(truncateRouteSource, /threadId/);
+  assert.match(truncateRouteSource, /anchorMessageId: messageId/);
+  assert.match(truncateRouteSource, /operationId: messageId/);
+  assert.doesNotMatch(
+    truncateRouteSource,
+    /`\$\{BRAINS\}\/threads\/\$\{encodeURIComponent\(tid\)\}/,
+  );
+});
+
+test("stored chat forwards its canonical message id for Zep metadata mapping", () => {
+  assert.match(chatRouteSource, /storedMessageId = String\(logged\?\.id/);
+  assert.match(chatRouteSource, /message_id: storedMessageId/);
+  assert.match(chatRouteSource, /attachment_message_id: storedMessageId/);
+  assert.match(chatRouteSource, /Transcript binding unavailable/);
 });
 
 test("admin deletion confirmations match the governed-memory Python contract", () => {

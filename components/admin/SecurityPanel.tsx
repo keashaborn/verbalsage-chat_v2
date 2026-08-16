@@ -915,8 +915,9 @@ export function SecurityPanel({ view = "all" }: { view?: SecurityPanelView }) {
             title="Forget recent conversations"
             footer={
               <>
-                Deletes recent transcript rows and matching conversational
-                memory.
+                Deletes recent transcript rows and removes those conversations
+                as memory sources. Information supported by conversations you
+                keep can remain.
               </>
             }
           >

@@ -3,7 +3,9 @@ import {
   CONVERSATION_ERASURE_DATA_DOMAIN,
   CONVERSATION_ERASURE_REQUEST_VERSION,
   conversationAllDeletionConfirmationSha256,
+  conversationMessageTailDeletionConfirmationSha256,
   conversationRecentDeletionConfirmationSha256,
+  conversationThreadDeletionConfirmationSha256,
 } from "@/lib/conversationErasure";
 
 const ERASURE_REQUEST_PATH = "/memory/conversations/erasure-requests";
@@ -12,7 +14,13 @@ const ERASURE_MAX_POLLS = 45;
 
 type AdminErasureSelector =
   | { selectorKind: "all_conversations" }
-  | { selectorKind: "recent"; recentWindowSeconds: number };
+  | { selectorKind: "recent"; recentWindowSeconds: number }
+  | { selectorKind: "thread"; threadId: string }
+  | {
+      selectorKind: "message_tail";
+      threadId: string;
+      anchorMessageId: string;
+    };
 
 type ErasureStatus = {
   operation_id?: unknown;
@@ -116,13 +124,28 @@ export async function executeAdminConversationErasure({
   selector: AdminErasureSelector;
 }): Promise<AdminErasureResult> {
   const BRAINS = process.env.BRAINS_URL || "http://172.31.32.171:8088";
-  const confirmationSha256 =
-    selector.selectorKind === "all_conversations"
-      ? conversationAllDeletionConfirmationSha256(operationId)
-      : conversationRecentDeletionConfirmationSha256(
+  const confirmationSha256 = (() => {
+    switch (selector.selectorKind) {
+      case "all_conversations":
+        return conversationAllDeletionConfirmationSha256(operationId);
+      case "recent":
+        return conversationRecentDeletionConfirmationSha256(
           operationId,
           selector.recentWindowSeconds,
         );
+      case "thread":
+        return conversationThreadDeletionConfirmationSha256(
+          operationId,
+          selector.threadId,
+        );
+      case "message_tail":
+        return conversationMessageTailDeletionConfirmationSha256(
+          operationId,
+          selector.threadId,
+          selector.anchorMessageId,
+        );
+    }
+  })();
   const body = {
     confirmation_sha256: confirmationSha256,
     contract_version: CONVERSATION_ERASURE_REQUEST_VERSION,
@@ -131,6 +154,13 @@ export async function executeAdminConversationErasure({
     selector_kind: selector.selectorKind,
     ...(selector.selectorKind === "recent"
       ? { recent_window_seconds: selector.recentWindowSeconds }
+      : {}),
+    ...(selector.selectorKind === "thread" ||
+    selector.selectorKind === "message_tail"
+      ? { thread_id: selector.threadId }
+      : {}),
+    ...(selector.selectorKind === "message_tail"
+      ? { anchor_message_id: selector.anchorMessageId }
       : {}),
   };
   const upstreamHeaders = brainsUpstreamHeaders(requestId, userId, {

@@ -20,8 +20,9 @@ function framedField(name: string, value: string | null): Buffer {
 
 type ConversationDeletionConfirmationInput = {
   operationId: string;
-  selectorKind: "all_conversations" | "recent" | "thread";
+  selectorKind: "all_conversations" | "message_tail" | "recent" | "thread";
   threadId?: string;
+  anchorMessageId?: string;
   recentWindowSeconds?: number;
 };
 
@@ -29,10 +30,12 @@ function conversationDeletionConfirmationSha256({
   operationId,
   selectorKind,
   threadId,
+  anchorMessageId,
   recentWindowSeconds,
 }: ConversationDeletionConfirmationInput): string {
   const confirmationPhrase = {
     all_conversations: "DELETE CHAT DATA",
+    message_tail: "DELETE MESSAGE AND FOLLOWING",
     recent: "FORGET RECENT CONVERSATIONS",
     thread: "DELETE CHAT",
   }[selectorKind];
@@ -42,7 +45,7 @@ function conversationDeletionConfirmationSha256({
     ["operation_id", operationId],
     ["selector_kind", selectorKind],
     ["thread_id", threadId ?? null],
-    ["anchor_message_id", null],
+    ["anchor_message_id", anchorMessageId ?? null],
     [
       "recent_seconds",
       recentWindowSeconds === undefined ? null : String(recentWindowSeconds),
@@ -62,6 +65,19 @@ export function conversationThreadDeletionConfirmationSha256(
     operationId,
     selectorKind: "thread",
     threadId,
+  });
+}
+
+export function conversationMessageTailDeletionConfirmationSha256(
+  operationId: string,
+  threadId: string,
+  anchorMessageId: string,
+): string {
+  return conversationDeletionConfirmationSha256({
+    operationId,
+    selectorKind: "message_tail",
+    threadId,
+    anchorMessageId,
   });
 }
 
