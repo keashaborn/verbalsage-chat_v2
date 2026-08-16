@@ -5,7 +5,8 @@ const CHAT_HISTORY_CLEAR_PATH = "/chat-history/clear";
 export type ChatHistoryClearSelector =
   | { scope: "all" }
   | { scope: "recent"; recentWindowSeconds: number }
-  | { scope: "thread"; threadId: string };
+  | { scope: "thread"; threadId: string }
+  | { scope: "message_tail"; threadId: string; anchorMessageId: string };
 
 type ClearResponse = {
   status?: unknown;
@@ -53,6 +54,7 @@ export async function executeChatHistoryClear({
     all: "CLEAR CHAT HISTORY",
     recent: "CLEAR RECENT CHAT HISTORY",
     thread: "CLEAR CHAT",
+    message_tail: "CLEAR MESSAGE TAIL",
   }[selector.scope];
   const body = {
     scope: selector.scope,
@@ -60,7 +62,12 @@ export async function executeChatHistoryClear({
     ...(selector.scope === "recent"
       ? { recent_window_seconds: selector.recentWindowSeconds }
       : {}),
-    ...(selector.scope === "thread" ? { thread_id: selector.threadId } : {}),
+    ...(selector.scope === "thread" || selector.scope === "message_tail"
+      ? { thread_id: selector.threadId }
+      : {}),
+    ...(selector.scope === "message_tail"
+      ? { anchor_message_id: selector.anchorMessageId }
+      : {}),
   };
 
   let response: Response;
@@ -88,7 +95,14 @@ export async function executeChatHistoryClear({
   if (!response.ok) {
     if (response.status === 401) return failure(401, "unauthorized");
     if (response.status === 403) return failure(403, "forbidden");
-    if (response.status === 404) return failure(404, "thread_not_found");
+    if (response.status === 404) {
+      return failure(
+        404,
+        parsed?.detail === "message_not_found"
+          ? "message_not_found"
+          : "thread_not_found",
+      );
+    }
     if (
       response.status === 409 &&
       parsed?.detail === "chat_memory_still_processing"

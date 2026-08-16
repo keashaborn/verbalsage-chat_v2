@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { executeAdminConversationErasure } from "@/app/api/_brains/conversationErasureRequest";
+import { executeChatHistoryClear } from "@/app/api/_brains/chatHistoryClearRequest";
 import {
   forbiddenThread,
   getRequestId,
@@ -54,15 +54,12 @@ export async function DELETE(
   const authorization = (req.headers.get("authorization") || "").trim();
   if (!authorization) return unauthorized(requestId);
 
-  // A message UUID is globally unique and therefore doubles as the
-  // idempotency key for deleting that message and every following message.
-  const result = await executeAdminConversationErasure({
+  const result = await executeChatHistoryClear({
     requestId,
     userId,
     authorization,
-    operationId: messageId,
     selector: {
-      selectorKind: "message_tail",
+      scope: "message_tail",
       threadId,
       anchorMessageId: messageId,
     },
@@ -78,9 +75,11 @@ export async function DELETE(
   return NextResponse.json(
     {
       status: "ok",
-      operation_id: result.operationId,
       state: "completed",
-      target_count: result.targetCount,
+      target_count: result.deletedMessageCount,
+      deleted_message_count: result.deletedMessageCount,
+      deleted_thread_count: result.deletedThreadCount,
+      memory_retained: true,
     },
     { status: 200, headers: noStoreHeaders(requestId) },
   );

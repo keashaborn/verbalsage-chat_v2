@@ -1,15 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-// @ts-expect-error Node's strip-types test runner loads the TypeScript file directly.
-import {
-  CONVERSATION_ERASURE_DATA_DOMAIN,
-  CONVERSATION_ERASURE_REQUEST_VERSION,
-  conversationAllDeletionConfirmationSha256,
-  conversationMessageTailDeletionConfirmationSha256,
-  conversationRecentDeletionConfirmationSha256,
-  conversationThreadDeletionConfirmationSha256,
-} from "../lib/conversationErasure.ts";
 
 const listSource = readFileSync(
   "components/threads/BrainsThreadList.tsx",
@@ -46,10 +37,6 @@ const chatHistoryClearSource = readFileSync(
 );
 const fullAiDataClearSource = readFileSync(
   "app/api/_brains/fullAiDataClearRequest.ts",
-  "utf8",
-);
-const adminErasureSource = readFileSync(
-  "app/api/_brains/conversationErasureRequest.ts",
   "utf8",
 );
 const securityPanelSource = readFileSync(
@@ -109,35 +96,6 @@ test("pin proxy validates identity, ownership, UUID, and boolean input", () => {
   assert.match(pinRouteSource, /typeof body\?\.pinned !== "boolean"/);
 });
 
-test("thread erasure confirmation matches the governed-memory Python contract", () => {
-  assert.equal(
-    conversationThreadDeletionConfirmationSha256(
-      "11111111-1111-4111-8111-111111111111",
-      "22222222-2222-4222-8222-222222222222",
-    ),
-    "d782830b3395b38033ff2d9c924e56f87687aec6fccf19383d7d8ef6f506c6c5",
-  );
-  assert.equal(
-    CONVERSATION_ERASURE_REQUEST_VERSION,
-    "governed-memory-conversation-deletion-request-v1",
-  );
-  assert.equal(
-    CONVERSATION_ERASURE_DATA_DOMAIN,
-    "chat_source_and_derived_governed_conversational_memory_v1",
-  );
-});
-
-test("message-tail erasure confirmation matches the governed-memory Python contract", () => {
-  assert.equal(
-    conversationMessageTailDeletionConfirmationSha256(
-      "11111111-1111-4111-8111-111111111111",
-      "22222222-2222-4222-8222-222222222222",
-      "33333333-3333-4333-8333-333333333333",
-    ),
-    "fcb914c1a21dfddc19656ed7be3ccef7b020e723cbfe365a66b230bd6ccf77ef",
-  );
-});
-
 test("thread deletion clears visible history while retaining memory", () => {
   assert.doesNotMatch(deleteRouteSource, /vs_tid|response\.cookies/);
   assert.match(deleteRouteSource, /executeChatHistoryClear/);
@@ -147,15 +105,16 @@ test("thread deletion clears visible history while retaining memory", () => {
   assert.doesNotMatch(deleteRouteSource, /ERASURE_REQUEST_PATH/);
 });
 
-test("message edit truncation uses the governed chat-only erasure coordinator", () => {
+test("message edit truncation uses owner-scoped chat clearing and retains Zep", () => {
   assert.match(truncateRouteSource, /getThreadUserId/);
   assert.match(truncateRouteSource, /threadBelongsToUser/);
   assert.match(truncateRouteSource, /Authorization|authorization/);
-  assert.match(truncateRouteSource, /executeAdminConversationErasure/);
-  assert.match(truncateRouteSource, /selectorKind: "message_tail"/);
+  assert.match(truncateRouteSource, /executeChatHistoryClear/);
+  assert.match(truncateRouteSource, /scope: "message_tail"/);
   assert.match(truncateRouteSource, /threadId/);
   assert.match(truncateRouteSource, /anchorMessageId: messageId/);
-  assert.match(truncateRouteSource, /operationId: messageId/);
+  assert.match(truncateRouteSource, /memory_retained: true/);
+  assert.doesNotMatch(truncateRouteSource, /executeAdminConversationErasure/);
   assert.doesNotMatch(
     truncateRouteSource,
     /`\$\{BRAINS\}\/threads\/\$\{encodeURIComponent\(tid\)\}/,
@@ -167,22 +126,6 @@ test("stored chat forwards its canonical message id for Zep metadata mapping", (
   assert.match(chatRouteSource, /message_id: storedMessageId/);
   assert.match(chatRouteSource, /attachment_message_id: storedMessageId/);
   assert.match(chatRouteSource, /Transcript binding unavailable/);
-});
-
-test("admin deletion confirmations match the governed-memory Python contract", () => {
-  const operationId = "11111111-1111-4111-8111-111111111111";
-  assert.equal(
-    conversationAllDeletionConfirmationSha256(operationId),
-    "582f2c97074d9d892fbb6c55457a715c064ba78c4e26769893186a3590234367",
-  );
-  assert.equal(
-    conversationRecentDeletionConfirmationSha256(operationId, 3600),
-    "b1f4ab45159ec2ade8eb93d0db706128d298b35552beabb11d0fc23a21a6a349",
-  );
-  assert.equal(
-    conversationRecentDeletionConfirmationSha256(operationId, 86400),
-    "66cfd0075117286418713fe71820cc8994a37934909ee99c2f6993bb5264b6de",
-  );
 });
 
 test("admin routes separate retained history clearing from full erasure", () => {
@@ -215,14 +158,8 @@ test("admin routes separate retained history clearing from full erasure", () => 
   assert.match(fullAiDataClearSource, /memory_retained !== false/);
   assert.match(fullAiDataClearSource, /zep_called !== true/);
   assert.match(fullAiDataClearSource, /zep_deleted !== true/);
-  assert.match(
-    adminErasureSource,
-    /ERASURE_REQUEST_PATH = "\/memory\/conversations\/erasure-requests"/,
-  );
-  assert.match(adminErasureSource, /method: "POST"/);
-  assert.match(adminErasureSource, /method: "GET"/);
-  assert.match(adminErasureSource, /Authorization: authorization/);
-  assert.match(adminErasureSource, /status\.state === "completed"/);
+  assert.match(chatHistoryClearSource, /scope: "message_tail"/);
+  assert.match(chatHistoryClearSource, /anchor_message_id/);
 });
 
 test("recent-deletion UI exposes only governed contract windows and refreshes after completion", () => {
