@@ -40,3 +40,15 @@ test("regeneration reuses the persisted user message id", () => {
   assert.match(block, /lastUserMessageId,\s*\);/);
   assert.doesNotMatch(block, /getOrCreateSubmission/);
 });
+
+
+test("regeneration appends after a failed user turn instead of replacing an earlier answer", () => {
+  const pane = source("components/threads/BrainsChatPane.tsx");
+  const start = pane.indexOf("async function regenerateLast()");
+  const end = pane.indexOf("async function startGovernedListening()", start);
+  assert.ok(start >= 0 && end > start);
+  const block = pane.slice(start, end);
+  assert.match(block, /const reverseUserOffset = \[\.\.\.prev\]/);
+  assert.match(block, /const lastUserIdx =/);
+  assert.match(block, /if \(idx < 0 \|\| idx < lastUserIdx\)/);
+});

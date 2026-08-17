@@ -1839,8 +1839,13 @@ export function BrainsChatPane() {
 
       setMsgs((prev) => {
         const idx = lastAssistantIndex(prev);
+        const reverseUserOffset = [...prev]
+          .reverse()
+          .findIndex((message) => message.role === "user");
+        const lastUserIdx =
+          reverseUserOffset < 0 ? -1 : prev.length - 1 - reverseUserOffset;
         requestAnimationFrame(() => scrollToBottom("smooth"));
-        if (idx < 0) {
+        if (idx < 0 || idx < lastUserIdx) {
           return [
             ...prev,
             {
