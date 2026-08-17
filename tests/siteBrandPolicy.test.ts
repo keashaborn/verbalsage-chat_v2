@@ -8,11 +8,18 @@ import {
   resolveSiteHost,
 } from "../lib/siteBrand.ts";
 
-test("production hostnames resolve to separate canonical brands", () => {
+test("retired Verbal Sage hosts resolve to canonical LifeSwitch", () => {
   assert.deepEqual(resolveSiteHost("verbalsage.com"), {
     hostname: "verbalsage.com",
-    siteId: "verbal-sage",
-    canonicalHostname: "verbalsage.com",
+    siteId: "lifeswitch",
+    canonicalHostname: "lifeswitch.com",
+    recognized: true,
+    local: false,
+  });
+  assert.deepEqual(resolveSiteHost("www.verbalsage.com"), {
+    hostname: "www.verbalsage.com",
+    siteId: "lifeswitch",
+    canonicalHostname: "lifeswitch.com",
     recognized: true,
     local: false,
   });

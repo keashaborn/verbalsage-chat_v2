@@ -649,6 +649,7 @@ export function BrainsChatPane() {
   // Copy feedback (per message)
   // -----------------------------
   const [copiedIdx, setCopiedIdx] = React.useState<number | null>(null);
+  const [copyFailedIdx, setCopyFailedIdx] = React.useState<number | null>(null);
   const copiedTimerRef = React.useRef<number | null>(null);
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
   const copiedKeyTimerRef = React.useRef<number | null>(null);
@@ -711,11 +712,12 @@ export function BrainsChatPane() {
       if (copiedKeyTimerRef.current != null)
         window.clearTimeout(copiedKeyTimerRef.current);
 
+      setCopyFailedIdx(null);
       if (typeof idx === "number") {
         setCopiedIdx(idx);
         copiedTimerRef.current = window.setTimeout(
           () => setCopiedIdx(null),
-          900,
+          1500,
         );
       } else if (key) {
         setCopiedKey(key);
@@ -725,7 +727,16 @@ export function BrainsChatPane() {
         );
       }
     } catch {
-      // ignore
+      if (typeof idx === "number") {
+        if (copiedTimerRef.current != null)
+          window.clearTimeout(copiedTimerRef.current);
+        setCopiedIdx(null);
+        setCopyFailedIdx(idx);
+        copiedTimerRef.current = window.setTimeout(
+          () => setCopyFailedIdx(null),
+          1500,
+        );
+      }
     }
   }
 
@@ -2859,6 +2870,7 @@ export function BrainsChatPane() {
             const disableSpeak = ttsBusy && !isTtsLoading && !isTtsPlaying;
 
             const isCopied = copiedIdx === idx;
+            const isCopyFailed = copyFailedIdx === idx;
             const isSelected = selectedMessageIndexes.includes(idx);
 
             return (
@@ -2967,13 +2979,38 @@ export function BrainsChatPane() {
                     </button>
 
                     <button
-                      className="inline-flex size-11 items-center justify-center rounded-md hover:bg-muted sm:size-8"
+                      className={[
+                        "inline-flex size-11 items-center justify-center rounded-md hover:bg-muted sm:size-8",
+                        isCopied ? "bg-muted" : "",
+                        isCopyFailed ? "bg-muted" : "",
+                      ].join(" ")}
                       onClick={() => copyText(m.content, idx)}
-                      aria-label="Copy message"
-                      title="Copy message"
+                      aria-label={
+                        isCopied
+                          ? "Copied"
+                          : isCopyFailed
+                            ? "Copy failed"
+                            : "Copy message"
+                      }
+                      title={
+                        isCopied
+                          ? "Copied"
+                          : isCopyFailed
+                            ? "Copy failed"
+                            : "Copy message"
+                      }
                     >
-                      ⧉
+                      {isCopied ? (
+                        <Check className="size-4" aria-hidden="true" />
+                      ) : isCopyFailed ? (
+                        <X className="size-4" aria-hidden="true" />
+                      ) : (
+                        <Copy className="size-4" aria-hidden="true" />
+                      )}
                     </button>
+                    <span className="sr-only" aria-live="polite">
+                      {isCopied ? "Copied" : isCopyFailed ? "Copy failed" : ""}
+                    </span>
                   </div>
                 )}
 

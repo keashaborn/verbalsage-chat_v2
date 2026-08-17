@@ -88,10 +88,10 @@ export function ProductAccessGate({
         <div className="mt-5 flex flex-wrap gap-3">
           {verbalSageOnly && product === "lifeswitch" ? (
             <a
-              href="https://verbalsage.com/"
+              href="https://lifeswitch.com/"
               className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background"
             >
-              Open Verbal Sage
+              Open chat
             </a>
           ) : null}
           <button

@@ -129,6 +129,11 @@ const PRODUCTION_HOSTS: Readonly<Record<string, SiteId>> = {
   "www.verbalsage.com": "verbal-sage",
 };
 
+const RETIRED_PRODUCTION_HOSTS = new Set([
+  "verbalsage.com",
+  "www.verbalsage.com",
+]);
+
 const LOCAL_HOSTS: Readonly<Record<string, SiteId>> = {
   localhost: "lifeswitch",
   "127.0.0.1": "lifeswitch",
@@ -196,7 +201,9 @@ export function normalizeSiteHostname(raw: unknown): string {
 
 export function resolveSiteHost(raw: unknown): SiteHostResolution {
   const hostname = normalizeSiteHostname(raw);
-  const productionSite = PRODUCTION_HOSTS[hostname];
+  const productionSite = RETIRED_PRODUCTION_HOSTS.has(hostname)
+    ? "lifeswitch"
+    : PRODUCTION_HOSTS[hostname];
   if (productionSite) {
     return {
       hostname,

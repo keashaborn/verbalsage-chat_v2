@@ -3,12 +3,12 @@ import "server-only";
 import type { ProductTier } from "@/lib/productEntitlements";
 
 const DEFAULT_REDIRECTS: Record<ProductTier, string> = {
-  verbal_sage: "https://verbalsage.com/auth/accept-invite",
+  verbal_sage: "https://lifeswitch.com/auth/accept-invite",
   lifeswitch: "https://lifeswitch.com/auth/accept-invite",
 };
 
 const EXPECTED_HOSTS: Record<ProductTier, string> = {
-  verbal_sage: "verbalsage.com",
+  verbal_sage: "lifeswitch.com",
   lifeswitch: "lifeswitch.com",
 };
 

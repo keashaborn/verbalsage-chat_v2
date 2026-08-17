@@ -113,15 +113,19 @@ test("legacy form and catalog proxies are no longer anonymous", () => {
 
 test("page admission and chat execution both enforce assigned products", () => {
   const home = source("app/page.tsx");
+  const productGate = source("components/auth/ProductAccessGate.tsx");
   const lifeSwitchLayout = source("app/lifeswitch/layout.tsx");
   const collectLayout = source("app/collect/layout.tsx");
   const chat = source("app/api/chat/route.ts");
 
-  assert.match(home, /requestSiteId/);
-  assert.match(home, /<ProductAccessGate/);
+  assert.match(home, /<ProductAccessGate product="verbal_sage">/);
+  assert.doesNotMatch(home, /requestSiteId/);
   assert.match(lifeSwitchLayout, /<ProductAccessGate product="lifeswitch">/);
   assert.match(collectLayout, /<ProductAccessGate product="lifeswitch">/);
   assert.match(chat, /productTierAllows\(auth\.app_metadata\.product_tier/);
+  assert.match(productGate, /href="https:\/\/lifeswitch\.com\/"/);
+  assert.match(productGate, />\s*Open chat\s*</);
+  assert.doesNotMatch(productGate, /href="https:\/\/verbalsage\.com\/"/);
 });
 
 test("Owner product assignment is fresh, MFA-protected, and metadata-preserving", () => {
@@ -146,8 +150,8 @@ test("invite redirects are tier-specific and allowlisted", () => {
   const approval = source("app/api/admin/access-requests/[requestId]/route.ts");
   const setup = source("app/api/admin/users/[userId]/password-setup/route.ts");
 
-  assert.match(redirect, /verbalsage\.com\/auth\/accept-invite/);
   assert.match(redirect, /lifeswitch\.com\/auth\/accept-invite/);
+  assert.doesNotMatch(redirect, /verbalsage\.com/);
   assert.match(redirect, /parsed\.hostname !== EXPECTED_HOSTS\[tier\]/);
   assert.match(approval, /accessInviteRedirectUrl\(productTier\)/);
   assert.match(approval, /assignProductTier/);

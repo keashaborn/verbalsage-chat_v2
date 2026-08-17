@@ -51,6 +51,8 @@ test("owner notifications use a bounded server-only Resend request", () => {
   assert.match(notification, /Idempotency-Key/);
   assert.match(notification, /LifeSwitch <no-reply@mail\.lifeswitch\.com>/);
   assert.match(notification, /subject: "New LifeSwitch access request"/);
+  assert.match(notification, /https:\/\/lifeswitch\.com\/admin/);
+  assert.doesNotMatch(notification, /verbalsage\.com/);
   assert.match(notification, /text: notificationText\(input\)/);
   assert.match(notification, /AbortSignal\.timeout\(REQUEST_TIMEOUT_MS\)/);
   assert.doesNotMatch(notification, /NEXT_PUBLIC_/);
@@ -180,9 +182,9 @@ test("invite confirmation URL validation is fail-closed", async () => {
   ).href;
   const { validateAccessInviteConfirmationUrl } = await import(moduleUrl);
   const supabaseUrl = "https://project-ref.supabase.co";
-  const appOrigin = "https://verbalsage.com";
+  const appOrigin = "https://lifeswitch.com";
   const redirect = encodeURIComponent(
-    "https://verbalsage.com/auth/accept-invite",
+    "https://lifeswitch.com/auth/accept-invite",
   );
   const valid =
     `https://project-ref.supabase.co/auth/v1/verify` +
@@ -211,7 +213,7 @@ test("invite confirmation URL validation is fail-closed", async () => {
   assert.equal(
     validateAccessInviteConfirmationUrl(
       valid.replace(
-        encodeURIComponent("https://verbalsage.com/auth/accept-invite"),
+        encodeURIComponent("https://lifeswitch.com/auth/accept-invite"),
         encodeURIComponent("https://attacker.example/steal"),
       ),
       supabaseUrl,

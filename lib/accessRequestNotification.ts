@@ -2,7 +2,7 @@ import "server-only";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const NOTIFICATION_FROM = "LifeSwitch <no-reply@mail.lifeswitch.com>";
-const ADMIN_URL = "https://verbalsage.com/admin";
+const ADMIN_URL = "https://lifeswitch.com/admin";
 const REQUEST_TIMEOUT_MS = 4_000;
 
 export type AccessRequestNotificationInput = {

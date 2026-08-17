@@ -142,6 +142,17 @@ test("message editing exposes explicit save, cancel, and confirmed delete action
   assert.doesNotMatch(paneSource, /window\.confirm/);
 });
 
+test("user-message copy reports temporary success and failure feedback", () => {
+  assert.match(paneSource, /const \[copyFailedIdx, setCopyFailedIdx\]/);
+  assert.match(paneSource, /setCopiedIdx\(idx\)/);
+  assert.match(paneSource, /setCopyFailedIdx\(idx\)/);
+  assert.match(paneSource, /isCopied \? "Copied"/);
+  assert.match(paneSource, /isCopyFailed\s*\? "Copy failed"/);
+  assert.match(paneSource, /aria-live="polite"/);
+  assert.match(paneSource, /<Check className="size-4" aria-hidden="true" \/>/);
+  assert.match(paneSource, /<X className="size-4" aria-hidden="true" \/>/);
+});
+
 test("confirmed message deletion reuses truncation and removes the local message tail", () => {
   assert.match(paneSource, /async function deleteEditedMessage/);
   assert.match(
