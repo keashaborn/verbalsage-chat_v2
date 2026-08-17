@@ -93,6 +93,10 @@ import {
   nextMessageSelection,
   selectAllMessageIndexes,
 } from "@/lib/conversationSelection";
+import {
+  clearPendingSubmission,
+  getOrCreateSubmission,
+} from "@/lib/lifeswitchSubmission";
 
 type TrustedWebSource = {
   url: string;
@@ -1670,6 +1674,7 @@ export function BrainsChatPane() {
     voiceSessionId?: string,
     responseLanguage?: VoiceLanguage,
     attachmentIds: string[] = [],
+    submissionId?: string,
   ): Promise<ChatResult> {
     const { response: r, responseText } = await withRequestDeadline(
       async (signal) => {
@@ -1690,6 +1695,7 @@ export function BrainsChatPane() {
             thread_id: tid,
             regen,
             noStore,
+            ...(submissionId ? { submission_id: submissionId } : {}),
             ...(attachmentIds.length ? { attachment_ids: attachmentIds } : {}),
           }),
           signal,
@@ -1806,13 +1812,30 @@ export function BrainsChatPane() {
     const lastUserMessage = [...msgs].reverse().find((m) => m.role === "user");
     const lastUser = lastUserMessage?.content?.trim() || "";
     if (!lastUser) return;
+    const lastUserMessageId = String(lastUserMessage?.id || "").trim();
+    if (!lastUserMessageId) {
+      setRequestError(
+        "The saved user message is unavailable. Reload this chat and try again.",
+      );
+      return;
+    }
 
     let tid = threadId;
     if (!tid) tid = await ensureThread();
 
     setSending(true);
     try {
-      const reply = await callChat(lastUser, tid!, true, false);
+      const reply = await callChat(
+        lastUser,
+        tid!,
+        true,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        [],
+        lastUserMessageId,
+      );
 
       setMsgs((prev) => {
         const idx = lastAssistantIndex(prev);
@@ -2377,6 +2400,19 @@ export function BrainsChatPane() {
 
     const responseStartedAt = performance.now();
     try {
+      const submissionStorageKey = `vs_chat_pending_submission_v1:${tid}`;
+      const pendingSubmission = await getOrCreateSubmission(
+        submissionStorageKey,
+        {
+          thread_id: tid,
+          input: msg,
+          attachment_ids: uploadedAttachments.map(
+            (attachment) => attachment.id,
+          ),
+          channel: options.voiceTurn ? "voice" : "text",
+          voice_turn_id: options.voiceTurn?.voiceTurnId || null,
+        },
+      );
       const reply = await callChat(
         msg,
         tid,
@@ -2388,7 +2424,9 @@ export function BrainsChatPane() {
           ? normalizeVoiceLanguage(options.voiceTurn.transcriptionLanguage)
           : undefined,
         uploadedAttachments.map((attachment) => attachment.id),
+        pendingSubmission.key,
       );
+      clearPendingSubmission(submissionStorageKey);
       if (uploadedAttachments.length) setPendingAttachments([]);
       const responseMs = Math.max(
         0,

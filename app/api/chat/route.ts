@@ -542,6 +542,17 @@ export async function POST(req: Request) {
         headers: { "x-request-id": rid },
       });
     }
+    const rawSubmissionId = body?.submission_id;
+    const submissionId =
+      typeof rawSubmissionId === "string" && UUID_RE.test(rawSubmissionId)
+        ? rawSubmissionId
+        : null;
+    if (rawSubmissionId != null && !submissionId) {
+      return new Response("Invalid submission id", {
+        status: 400,
+        headers: { "x-request-id": rid },
+      });
+    }
     if (!resolveServerSearchControlV1(body)) {
       return new Response("Invalid search control", {
         status: 400,
@@ -627,6 +638,12 @@ export async function POST(req: Request) {
         headers: { "x-request-id": rid },
       });
     }
+    if (!noStore && !submissionId) {
+      return new Response("submission_id required", {
+        status: 400,
+        headers: { "x-request-id": rid },
+      });
+    }
     if (attachmentIds.length && (noStore || isVoiceRequest)) {
       return new Response("Attachments require stored text chat", {
         status: 400,
@@ -701,6 +718,7 @@ export async function POST(req: Request) {
           source: "frontend/chat:user",
           text: message,
           tags: ["user", "chat"],
+          submission_id: submissionId,
           ...(attachmentIds.length ? { attachment_ids: attachmentIds } : {}),
         }),
         cache: "no-store",
