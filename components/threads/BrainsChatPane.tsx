@@ -16,6 +16,7 @@ import {
   Check,
   FileText,
   Plus,
+  Trash2,
 } from "lucide-react";
 import { MarkdownMessage } from "@/components/shared/MarkdownMessage";
 import {
@@ -492,6 +493,12 @@ export function BrainsChatPane() {
     null,
   );
   const [editingText, setEditingText] = React.useState("");
+  const [deleteMessageTarget, setDeleteMessageTarget] = React.useState<{
+    threadId: string;
+    messageId: string;
+  } | null>(null);
+  const [deletingMessage, setDeletingMessage] = React.useState(false);
+  const [deleteMessageError, setDeleteMessageError] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [sending, setSending] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(false);
@@ -1416,6 +1423,18 @@ export function BrainsChatPane() {
     setEditingText(m.content || "");
   }
 
+  function cancelEditingMessage() {
+    if (sending) return;
+    setEditingMessageId(null);
+    setEditingText("");
+  }
+
+  function requestEditedMessageDeletion() {
+    if (!editingMessageId || !threadId || sending) return;
+    setDeleteMessageError("");
+    setDeleteMessageTarget({ threadId, messageId: editingMessageId });
+  }
+
   async function loadMessages(
     tid: string,
     attach?: {
@@ -1805,6 +1824,35 @@ export function BrainsChatPane() {
       { method: "DELETE" },
     );
     if (!r.ok) throw new Error(await r.text());
+  }
+
+  async function deleteEditedMessage(): Promise<void> {
+    const target = deleteMessageTarget;
+    if (!target || deletingMessage) return;
+
+    setDeletingMessage(true);
+    setDeleteMessageError("");
+    try {
+      await truncateThreadFromMessage(target.threadId, target.messageId);
+      if (threadId === target.threadId) {
+        setMsgs((current) => {
+          const index = current.findIndex(
+            (message) => message.id === target.messageId,
+          );
+          return index < 0 ? current : current.slice(0, index);
+        });
+        setEditingMessageId(null);
+        setEditingText("");
+      }
+      setDeleteMessageTarget(null);
+      window.dispatchEvent(new Event("vs_threads_refresh"));
+    } catch (error: any) {
+      setDeleteMessageError(
+        String(error?.message || "This message could not be deleted."),
+      );
+    } finally {
+      setDeletingMessage(false);
+    }
   }
 
   async function regenerateLast() {
@@ -2257,6 +2305,11 @@ export function BrainsChatPane() {
 
   async function handleComposerAction() {
     const composerValue = editingMessageId ? editingText : text;
+    if (editingMessageId) {
+      if (!composerValue.trim() || sending) return;
+      await sendMessage();
+      return;
+    }
     if (composerValue.trim() || pendingAttachments.length) {
       if (voiceIsActive || voiceIsConnecting) {
         await stopListeningAndRespond();
@@ -2682,8 +2735,12 @@ export function BrainsChatPane() {
           ? "processing"
           : voiceStatus;
   const composerActionLabel = sending
-    ? "Sending message"
-    : composerHasText
+    ? editingMessageId
+      ? "Saving changes"
+      : "Sending message"
+    : editingMessageId
+      ? "Save changes"
+      : composerHasText
       ? "Send message"
       : voiceSessionVisible
         ? "End voice conversation"
@@ -3149,6 +3206,42 @@ export function BrainsChatPane() {
                 </div>
               )}
               <div className="relative rounded-xl border bg-background px-3 py-2 pr-14 sm:pr-12">
+            {editingMessageId && (
+              <div
+                className="mb-1 flex min-h-11 items-center gap-1 border-b pb-1 sm:min-h-9"
+                role="toolbar"
+                aria-label="Edit message actions"
+              >
+                <button
+                  type="button"
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground hover:bg-destructive-surface hover:text-destructive-foreground focus-visible:bg-destructive-surface focus-visible:text-destructive-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 sm:min-h-9"
+                  onClick={requestEditedMessageDeletion}
+                  disabled={sending}
+                >
+                  <Trash2 className="size-3.5" aria-hidden="true" />
+                  Delete
+                </button>
+                <span className="mr-auto pl-1 text-xs text-muted-foreground">
+                  Editing message
+                </span>
+                <button
+                  type="button"
+                  className="min-h-11 rounded-md px-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 sm:min-h-9"
+                  onClick={cancelEditingMessage}
+                  disabled={sending}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="min-h-11 rounded-md bg-foreground px-3 text-sm text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 sm:min-h-9"
+                  onClick={() => void handleComposerAction()}
+                  disabled={sending || !editingText.trim()}
+                >
+                  {sending ? "Saving…" : "Save"}
+                </button>
+              </div>
+            )}
             {pendingActiveThreadSync && (
               <div
                 className="mb-2 flex items-center justify-between gap-3 rounded-xl border bg-muted/40 px-3 py-2 text-xs"
@@ -3260,7 +3353,10 @@ export function BrainsChatPane() {
             />
             <textarea
               id="chat-composer"
-              className="field-sizing-content max-h-32 min-h-11 w-full min-w-0 resize-none bg-transparent py-2 pr-1 pl-11 text-base outline-none sm:min-h-9 sm:text-sm"
+              className={[
+                "field-sizing-content max-h-32 min-h-11 w-full min-w-0 resize-none bg-transparent py-2 text-base outline-none sm:min-h-9 sm:text-sm",
+                editingMessageId ? "px-1" : "pr-1 pl-11",
+              ].join(" ")}
               rows={1}
               placeholder="Send a message…"
               value={editingMessageId ? editingText : text}
@@ -3288,49 +3384,52 @@ export function BrainsChatPane() {
                 {liveComposerStatus}
               </div>
             )}
-            <button
-              type="button"
-              data-chat-attachment-picker
-              onClick={() => attachmentInputRef.current?.click()}
-              disabled={
-                sending ||
-                Boolean(editingMessageId) ||
-                pendingAttachments.length >= MAX_CHAT_ATTACHMENTS
-              }
-              className="absolute bottom-2 left-2 inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent text-muted-foreground transition-[background-color,color,transform] hover:bg-muted/40 hover:text-foreground focus-visible:bg-muted/40 focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 disabled:opacity-40 sm:size-9"
-              aria-label="Add TXT or Markdown attachment"
-              title="Add attachment"
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              data-contextual-composer-action
-              onClick={() => void handleComposerAction()}
-              disabled={sending}
-              className={[
-                "absolute right-2 bottom-2 inline-flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border transition-[background-color,color,transform] active:scale-95 disabled:opacity-50 sm:size-9",
-                composerHasText || voiceSessionVisible
-                  ? "border-foreground bg-foreground text-background"
-                  : "bg-background text-foreground",
-              ].join(" ")}
-              aria-label={composerActionLabel}
-              title={composerActionLabel}
-            >
-              {sending ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : composerHasText ? (
-                <ArrowUp className="h-4 w-4" aria-hidden="true" />
-              ) : voiceSessionVisible ? (
-                <X className="h-4 w-4" aria-hidden="true" />
-              ) : (
-                <span
-                  className="vs-voice-action-symbol h-6 w-6"
-                  aria-hidden="true"
-                />
-              )}
-              <span className="sr-only">{composerActionLabel}</span>
-            </button>
+            {!editingMessageId && (
+              <>
+                <button
+                  type="button"
+                  data-chat-attachment-picker
+                  onClick={() => attachmentInputRef.current?.click()}
+                  disabled={
+                    sending ||
+                    pendingAttachments.length >= MAX_CHAT_ATTACHMENTS
+                  }
+                  className="absolute bottom-2 left-2 inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent text-muted-foreground transition-[background-color,color,transform] hover:bg-muted/40 hover:text-foreground focus-visible:bg-muted/40 focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 disabled:opacity-40 sm:size-9"
+                  aria-label="Add TXT or Markdown attachment"
+                  title="Add attachment"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  data-contextual-composer-action
+                  onClick={() => void handleComposerAction()}
+                  disabled={sending}
+                  className={[
+                    "absolute right-2 bottom-2 inline-flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border transition-[background-color,color,transform] active:scale-95 disabled:opacity-50 sm:size-9",
+                    composerHasText || voiceSessionVisible
+                      ? "border-foreground bg-foreground text-background"
+                      : "bg-background text-foreground",
+                  ].join(" ")}
+                  aria-label={composerActionLabel}
+                  title={composerActionLabel}
+                >
+                  {sending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : composerHasText ? (
+                    <ArrowUp className="h-4 w-4" aria-hidden="true" />
+                  ) : voiceSessionVisible ? (
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <span
+                      className="vs-voice-action-symbol h-6 w-6"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className="sr-only">{composerActionLabel}</span>
+                </button>
+              </>
+            )}
               </div>
             </>
           )}
@@ -3389,6 +3488,55 @@ export function BrainsChatPane() {
               disabled={voicePrivacySaving}
             >
               {voicePrivacySaving ? "Saving…" : "Continue with voice"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(deleteMessageTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deletingMessage) {
+            setDeleteMessageTarget(null);
+            setDeleteMessageError("");
+          }
+        }}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Delete this message?</DialogTitle>
+            <DialogDescription>
+              This message and every reply after it will be removed from this
+              chat. Saved and governed memory is not erased.
+            </DialogDescription>
+          </DialogHeader>
+
+          {deleteMessageError && (
+            <p role="alert" className="text-sm text-destructive-foreground">
+              {deleteMessageError}
+            </p>
+          )}
+
+          <DialogFooter>
+            <button
+              type="button"
+              className="min-h-11 rounded-md border px-4 py-2 text-sm"
+              onClick={() => {
+                setDeleteMessageTarget(null);
+                setDeleteMessageError("");
+              }}
+              disabled={deletingMessage}
+              autoFocus
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="min-h-11 rounded-md border border-destructive-border bg-destructive-surface px-4 py-2 text-sm text-destructive-foreground disabled:opacity-50"
+              onClick={() => void deleteEditedMessage()}
+              disabled={deletingMessage}
+            >
+              {deletingMessage ? "Deleting…" : "Delete message"}
             </button>
           </DialogFooter>
         </DialogContent>

@@ -6,6 +6,10 @@ const listSource = readFileSync(
   "components/threads/BrainsThreadList.tsx",
   "utf8",
 );
+const paneSource = readFileSync(
+  "components/threads/BrainsChatPane.tsx",
+  "utf8",
+);
 const pinRouteSource = readFileSync(
   "app/api/threads/[thread_id]/pin/route.ts",
   "utf8",
@@ -119,6 +123,36 @@ test("message edit truncation uses owner-scoped chat clearing and retains Zep", 
     truncateRouteSource,
     /`\$\{BRAINS\}\/threads\/\$\{encodeURIComponent\(tid\)\}/,
   );
+});
+
+test("message editing exposes explicit save, cancel, and confirmed delete actions", () => {
+  assert.match(paneSource, /aria-label="Edit message actions"/);
+  assert.match(paneSource, /requestEditedMessageDeletion/);
+  assert.match(paneSource, /cancelEditingMessage/);
+  assert.match(paneSource, /\{sending \? "Saving…" : "Save"\}/);
+  assert.match(paneSource, /disabled=\{sending \|\| !editingText\.trim\(\)\}/);
+  assert.match(paneSource, /<DialogTitle>Delete this message\?<\/DialogTitle>/);
+  assert.match(
+    paneSource,
+    /This message and every reply after it will be removed from this/,
+  );
+  assert.match(paneSource, /Saved and governed memory is not erased\./);
+  assert.match(paneSource, /autoFocus/);
+  assert.match(paneSource, /\{deletingMessage \? "Deleting…" : "Delete message"\}/);
+  assert.doesNotMatch(paneSource, /window\.confirm/);
+});
+
+test("confirmed message deletion reuses truncation and removes the local message tail", () => {
+  assert.match(paneSource, /async function deleteEditedMessage/);
+  assert.match(
+    paneSource,
+    /await truncateThreadFromMessage\(target\.threadId, target\.messageId\)/,
+  );
+  assert.match(paneSource, /if \(threadId === target\.threadId\)/);
+  assert.match(paneSource, /current\.slice\(0, index\)/);
+  assert.match(paneSource, /setEditingMessageId\(null\)/);
+  assert.match(paneSource, /setEditingText\(""\)/);
+  assert.match(paneSource, /new Event\("vs_threads_refresh"\)/);
 });
 
 test("stored chat forwards its canonical message id for Zep metadata mapping", () => {
