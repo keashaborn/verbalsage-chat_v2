@@ -146,6 +146,14 @@ test("user-message copy reports temporary success and failure feedback", () => {
   assert.match(paneSource, /const \[copyFailedIdx, setCopyFailedIdx\]/);
   assert.match(paneSource, /setCopiedIdx\(idx\)/);
   assert.match(paneSource, /setCopyFailedIdx\(idx\)/);
+  assert.match(
+    paneSource,
+    /setCopiedIdx\(idx\);[\s\S]*?setCopiedIdx\(null\),\s*900/,
+  );
+  assert.match(
+    paneSource,
+    /setCopyFailedIdx\(idx\);[\s\S]*?setCopyFailedIdx\(null\),\s*1500/,
+  );
   assert.match(paneSource, /isCopied \? "Copied"/);
   assert.match(paneSource, /isCopyFailed\s*\? "Copy failed"/);
   assert.match(paneSource, /aria-live="polite"/);

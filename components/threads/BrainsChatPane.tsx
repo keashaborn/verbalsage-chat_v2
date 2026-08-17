@@ -717,7 +717,7 @@ export function BrainsChatPane() {
         setCopiedIdx(idx);
         copiedTimerRef.current = window.setTimeout(
           () => setCopiedIdx(null),
-          1500,
+          900,
         );
       } else if (key) {
         setCopiedKey(key);
