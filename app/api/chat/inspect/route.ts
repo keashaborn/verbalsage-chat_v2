@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
 import { requireFreshCapability } from "@/app/api/_auth/requireCapability";
+import { getSupabaseBearerAuthorizationFromRequest } from "@/app/api/_auth/supabaseUser";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
   inspectorSessionCookieName,
@@ -143,6 +144,14 @@ export async function POST(req: Request) {
       });
     }
 
+    const authorization = getSupabaseBearerAuthorizationFromRequest(req);
+    if (!authorization) {
+      return new Response("unauthorized", {
+        status: 401,
+        headers: { "x-request-id": requestId },
+      });
+    }
+
     const inspectorEnabled = inspectorSessionEnabled(
       jar.get(inspectorSessionCookieName())?.value,
     );
@@ -179,6 +188,7 @@ export async function POST(req: Request) {
           method: "GET",
           headers: brainsUpstreamHeaders(requestId, user_id, {
             Accept: "application/json",
+            authorization,
           }),
           cache: "no-store",
         },

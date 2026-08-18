@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { getSupabaseUserIdFromRequest } from "@/app/api/_auth/supabaseUser";
+import {
+  getSupabaseBearerAuthorizationFromRequest,
+  getSupabaseUserIdFromRequest,
+} from "@/app/api/_auth/supabaseUser";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 export const UUID_RE =
@@ -16,7 +19,27 @@ export async function getThreadUserId(req: Request): Promise<string | null> {
   return await getSupabaseUserIdFromRequest(req);
 }
 
-export async function threadBelongsToUser(thread_id: string, user_id: string, requestId: string): Promise<boolean> {
+export function threadUpstreamHeaders(
+  req: Request,
+  requestId: string,
+  userId: string,
+  extra?: HeadersInit,
+): HeadersInit {
+  const authorization = getSupabaseBearerAuthorizationFromRequest(req);
+  if (!authorization) {
+    throw new Error("missing verified thread authorization");
+  }
+  const headers = new Headers(extra);
+  headers.set("authorization", authorization);
+  return brainsUpstreamHeaders(requestId, userId, headers);
+}
+
+export async function threadBelongsToUser(
+  req: Request,
+  thread_id: string,
+  user_id: string,
+  requestId: string,
+): Promise<boolean> {
   const tid = String(thread_id || "").trim();
   if (!UUID_RE.test(tid)) return false;
 
@@ -24,7 +47,9 @@ export async function threadBelongsToUser(thread_id: string, user_id: string, re
 
   const r = await fetch(`${BRAINS}/threads/list/${encodeURIComponent(user_id)}`, {
     method: "GET",
-    headers: brainsUpstreamHeaders(requestId, user_id, { Accept: "application/json" }),
+    headers: threadUpstreamHeaders(req, requestId, user_id, {
+      Accept: "application/json",
+    }),
     cache: "no-store",
   });
 

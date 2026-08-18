@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
   getRequestId,
   getThreadUserId,
+  threadUpstreamHeaders,
   unauthorized,
   UUID_RE,
 } from "@/app/api/threads/_threadAuth";
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
   const upstream = await fetch(
     `${BRAINS}/threads/active/${encodeURIComponent(user_id)}`,
     {
-      headers: brainsUpstreamHeaders(requestId, user_id, {
+      headers: threadUpstreamHeaders(req, requestId, user_id, {
         Accept: "application/json",
       }),
       cache: "no-store",

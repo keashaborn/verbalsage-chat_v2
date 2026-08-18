@@ -40,6 +40,6 @@ test("browser does not submit conversation text for title generation", () => {
 test("both title routes retain authenticated ownership checks", () => {
   for (const source of [autoTitle, manualRename]) {
     assert.match(source, /getThreadUserId\(req\)/);
-    assert.match(source, /threadBelongsToUser\(tid, user_id, requestId\)/);
+    assert.match(source, /threadBelongsToUser\(req, tid, user_id, requestId\)/);
   }
 });

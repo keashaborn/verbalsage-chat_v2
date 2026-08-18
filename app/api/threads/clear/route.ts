@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
   getRequestId,
   getThreadUserId,
+  threadUpstreamHeaders,
   unauthorized,
 } from "@/app/api/threads/_threadAuth";
 
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     `${BRAINS}/threads/active/${encodeURIComponent(user_id)}`,
     {
       method: "DELETE",
-      headers: brainsUpstreamHeaders(requestId, user_id, {
+      headers: threadUpstreamHeaders(req, requestId, user_id, {
         Accept: "application/json",
       }),
       cache: "no-store",

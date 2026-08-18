@@ -23,13 +23,10 @@ const inspectRouteSource = readFileSync(
 );
 
 test("active-thread fallback uses the authenticated Brains service boundary", () => {
+  assert.match(activeRouteSource, /threadUpstreamHeaders,/);
   assert.match(
     activeRouteSource,
-    /import \{ brainsUpstreamHeaders \} from "@\/app\/api\/_brains\/headers";/,
-  );
-  assert.match(
-    activeRouteSource,
-    /headers: brainsUpstreamHeaders\(requestId, user_id, \{\s*Accept: "application\/json",\s*\}\)/,
+    /headers: threadUpstreamHeaders\(req, requestId, user_id, \{\s*Accept: "application\/json",\s*\}\)/,
   );
   assert.doesNotMatch(
     activeRouteSource,

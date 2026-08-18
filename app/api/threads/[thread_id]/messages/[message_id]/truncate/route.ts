@@ -48,7 +48,7 @@ export async function DELETE(
     );
   }
 
-  const ownsThread = await threadBelongsToUser(threadId, userId, requestId);
+  const ownsThread = await threadBelongsToUser(req, threadId, userId, requestId);
   if (!ownsThread) return forbiddenThread(requestId);
 
   const authorization = (req.headers.get("authorization") || "").trim();

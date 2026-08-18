@@ -3,11 +3,11 @@ export const dynamic = "force-dynamic";
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
   forbiddenThread,
   getRequestId,
   getThreadUserId,
+  threadUpstreamHeaders,
   threadBelongsToUser,
   unauthorized,
   UUID_RE,
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ thread
     return NextResponse.json({ error: "invalid thread_id" }, { status: 400, headers: { "x-request-id": requestId } });
   }
 
-  const ownsThread = await threadBelongsToUser(tid, user_id, requestId);
+  const ownsThread = await threadBelongsToUser(req, tid, user_id, requestId);
   if (!ownsThread) return forbiddenThread(requestId);
 
   const body = await req.json().catch(() => ({}));
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ thread
 
   const r = await fetch(`${BRAINS}/threads/${encodeURIComponent(tid)}/rename`, {
     method: "POST",
-    headers: brainsUpstreamHeaders(requestId, user_id, { "Content-Type": "application/json" }),
+    headers: threadUpstreamHeaders(req, requestId, user_id, { "Content-Type": "application/json" }),
     body: JSON.stringify({ title, title_source: "manual" }),
     cache: "no-store",
   });

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 import {
   forbiddenThread,
   getRequestId,
   getThreadUserId,
+  threadUpstreamHeaders,
   unauthorized,
   UUID_RE,
 } from "@/app/api/threads/_threadAuth";
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   const BRAINS = process.env.BRAINS_URL || "http://172.31.32.171:8088";
   const upstream = await fetch(`${BRAINS}/threads/active`, {
     method: "POST",
-    headers: brainsUpstreamHeaders(requestId, user_id, {
+    headers: threadUpstreamHeaders(req, requestId, user_id, {
       "Content-Type": "application/json",
       Accept: "application/json",
     }),
