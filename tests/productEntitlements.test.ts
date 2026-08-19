@@ -92,7 +92,7 @@ test("legacy form and catalog proxies are no longer anonymous", () => {
     for (const relativePath of routeFiles(directory)) {
       assert.match(
         source(relativePath),
-        /getFreshLifeSwitchUserIdFromRequest/,
+        /getFreshLifeSwitchUserIdFromRequest|getFreshLifeSwitchUpstreamIdentity/,
         `${relativePath} must enforce LifeSwitch product access`,
       );
     }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
-import { getFreshLifeSwitchUserIdFromRequest } from "@/app/api/_auth/productAccess";
+import { getFreshLifeSwitchUpstreamIdentity } from "@/app/api/_auth/productAccess";
 
 export async function DELETE(
   req: NextRequest,
@@ -8,13 +8,14 @@ export async function DELETE(
 ) {
   const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
   const requestId = (raw || crypto.randomUUID()).slice(0, 128);
-  const userId = await getFreshLifeSwitchUserIdFromRequest(req);
-  if (!userId) {
+  const identity = await getFreshLifeSwitchUpstreamIdentity(req);
+  if (!identity) {
     return NextResponse.json(
       { error: "unauthorized" },
       { status: 401, headers: { "x-request-id": requestId } },
     );
   }
+  const { user_id: userId, authorization } = identity;
 
   // Safety gate (match your delete_all pattern)
   if (process.env.VS_ALLOW_FORMS_DELETE !== "true") {
@@ -33,7 +34,7 @@ export async function DELETE(
     const r = await fetch(url, {
       method: "DELETE",
       cache: "no-store",
-      headers: brainsUpstreamHeaders(requestId, userId),
+      headers: brainsUpstreamHeaders(requestId, userId, { authorization }),
     });
 
     const text = await r.text();

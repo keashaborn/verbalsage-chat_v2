@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
-import { getFreshLifeSwitchUserIdFromRequest } from "@/app/api/_auth/productAccess";
+import { getFreshLifeSwitchUpstreamIdentity } from "@/app/api/_auth/productAccess";
 
 export async function POST(req: Request) {
   const raw = (req.headers.get("x-request-id") || req.headers.get("x-correlation-id") || "").trim();
   const requestId = (raw || crypto.randomUUID()).slice(0, 128);
-  const userId = await getFreshLifeSwitchUserIdFromRequest(req);
-  if (!userId) {
+  const identity = await getFreshLifeSwitchUpstreamIdentity(req);
+  if (!identity) {
     return NextResponse.json(
       { error: "unauthorized" },
       { status: 401, headers: { "x-request-id": requestId } },
     );
   }
+  const { user_id: userId, authorization } = identity;
 
   try {
     const body = await req.json();
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
 
     const r = await fetch(url, {
       method: "POST",
-      headers: brainsUpstreamHeaders(requestId, userId, { "Content-Type": "application/json" }),
+      headers: brainsUpstreamHeaders(requestId, userId, { "Content-Type": "application/json", authorization }),
       body: JSON.stringify(body),
       cache: "no-store",
     });
