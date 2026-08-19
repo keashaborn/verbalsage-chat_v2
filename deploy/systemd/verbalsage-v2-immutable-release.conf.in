@@ -1,0 +1,12 @@
+# Render @COMMIT@ and install as
+# /etc/systemd/system/verbalsage-v2.service.d/zz-immutable-release.conf.
+[Service]
+WorkingDirectory=/opt/lifeswitch/releases/@COMMIT@
+EnvironmentFile=/var/www/verbalsage-chat_v2/.env.production
+EnvironmentFile=/var/www/verbalsage-chat_v2/.env.local
+EnvironmentFile=/var/www/verbalsage-chat_v2/.env.production.local
+ExecStartPre=
+ExecStartPre=/usr/bin/test -f /opt/lifeswitch/releases/@COMMIT@/server.js
+ExecStartPre=/usr/bin/test -f /opt/lifeswitch/releases/@COMMIT@/.next/BUILD_ID
+ExecStart=
+ExecStart=/usr/bin/node /opt/lifeswitch/releases/@COMMIT@/server.js
