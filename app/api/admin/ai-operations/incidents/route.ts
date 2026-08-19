@@ -35,6 +35,7 @@ export async function GET(req: Request) {
     `/admin/ai-operations/incidents?${params.toString()}`,
     {
       actorUserId: auth.actorUserId,
+      authorization: auth.authorization,
       correlationId,
     },
   );

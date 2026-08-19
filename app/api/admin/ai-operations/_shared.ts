@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { requireFreshCapability } from "@/app/api/_auth/requireCapability";
+import { getSupabaseBearerAuthorizationFromRequest } from "@/app/api/_auth/supabaseUser";
 import { brainsUpstreamHeaders } from "@/app/api/_brains/headers";
 
 export const NO_STORE_HEADERS = {
@@ -63,7 +64,8 @@ export async function authorizeAiOperations(
   correlationId: string,
   capability: "inspector.view" | "incident.manage" = "inspector.view",
 ): Promise<
-  { ok: true; actorUserId: string } | { ok: false; response: NextResponse }
+  | { ok: true; actorUserId: string; authorization: string }
+  | { ok: false; response: NextResponse }
 > {
   const auth = await requireFreshCapability(req, capability);
   if (!auth.ok) {
@@ -73,13 +75,14 @@ export async function authorizeAiOperations(
     };
   }
   const actorUserId = String(auth.auth?.user_id || "").trim();
-  if (!UUID_PATTERN.test(actorUserId)) {
+  const authorization = getSupabaseBearerAuthorizationFromRequest(req);
+  if (!UUID_PATTERN.test(actorUserId) || !authorization) {
     return {
       ok: false,
       response: fail(401, "unauthorized", correlationId),
     };
   }
-  return { ok: true, actorUserId };
+  return { ok: true, actorUserId, authorization };
 }
 
 function aiOperationsBrainsUrl(): string {
@@ -93,9 +96,11 @@ export async function brainsAiOperationsJson(
   path: string,
   {
     actorUserId,
+    authorization,
     correlationId,
   }: {
     actorUserId: string;
+    authorization: string;
     correlationId: string;
   },
 ): Promise<{ ok: true; value: unknown } | { ok: false }> {
@@ -106,6 +111,7 @@ export async function brainsAiOperationsJson(
       cache: "no-store",
       headers: brainsUpstreamHeaders(correlationId, actorUserId, {
         Accept: "application/json",
+        authorization,
         "x-vs-authorized-capability": "inspector.view",
       }),
       signal: AbortSignal.timeout(10_000),
@@ -188,6 +194,7 @@ export async function mutateAiOperationsIncident(
       cache: "no-store",
       headers: brainsUpstreamHeaders(correlationId, auth.actorUserId, {
         Accept: "application/json",
+        authorization: auth.authorization,
         "x-vs-authorized-capability": "incident.manage",
       }),
       signal: AbortSignal.timeout(10_000),

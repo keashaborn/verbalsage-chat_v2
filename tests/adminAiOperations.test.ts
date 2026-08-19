@@ -16,13 +16,17 @@ test("AI Operations read BFF derives fresh authority and forwards inspector cont
   assert.match(shared, /requireFreshCapability\(req, capability\)/);
   assert.match(shared, /capability: "inspector\.view" \| "incident\.manage"/);
   assert.match(shared, /auth\.auth\?\.user_id/);
+  assert.match(shared, /getSupabaseBearerAuthorizationFromRequest\(req\)/);
   assert.match(shared, /"x-vs-authorized-capability": "inspector\.view"/);
   assert.match(shared, /brainsUpstreamHeaders\(correlationId, actorUserId/);
+  assert.match(shared, /authorization,/);
+  assert.match(shared, /authorization: auth\.authorization/);
   assert.match(shared, /Cache-Control/);
   assert.match(shared, /no-store/);
   assert.match(route, /\/admin\/ai-operations\/incidents\?/);
   assert.doesNotMatch(shared, /SUPABASE_SECRET_KEY/);
   assert.doesNotMatch(route, /actor_user_id/);
+  assert.doesNotMatch(shared, /authorization: `Bearer/);
 });
 
 test("AI Operations management is capability-bound and body-free", () => {
