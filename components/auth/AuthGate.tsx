@@ -145,24 +145,6 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const accessRequestTurnstileRef = useRef<TurnstileWidgetHandle>(null);
   const [msg, setMsg] = useState("");
 
-  async function syncIdentityBestEffort(s: any) {
-    const u = s?.user;
-    if (!u?.id) return;
-
-    const full_name = String(u?.user_metadata?.full_name || "").trim();
-    const email = String(u?.email || "").trim();
-
-    await withTimeout(
-      authFetch("/api/identity", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ full_name, email }),
-      }),
-      2500,
-      "identity.sync",
-    );
-  }
-
   async function syncConversationStyleBestEffort() {
     try {
       const response = await withTimeout(
@@ -259,7 +241,6 @@ export function AuthGate({ children }: { children: ReactNode }) {
     setMfaCode("");
     // Best-effort, non-blocking extras.
     applySettingsFromSession(s);
-    void syncIdentityBestEffort(s).catch(() => undefined);
     void syncConversationStyleBestEffort();
   }
 

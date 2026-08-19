@@ -45,14 +45,10 @@ test("the application viewport permits user zoom", () => {
   assert.match(layout, /viewportFit: "cover"/);
 });
 
-test("identity synchronization stays bounded and best effort", () => {
+test("Supabase metadata remains the account identity authority", () => {
   const gate = read("components/auth/AuthGate.tsx");
 
-  assert.match(gate, /2500,\s*"identity\.sync"/);
-  assert.match(
-    gate,
-    /void syncIdentityBestEffort\(s\)\.catch\(\(\) => undefined\)/,
-  );
-  assert.doesNotMatch(gate, /await syncIdentityBestEffort\(s\)/);
+  assert.doesNotMatch(gate, /identity\.sync|syncIdentityBestEffort|\/api\/identity/);
+  assert.match(gate, /user_metadata/);
   assert.match(gate, /const showApp = !!session && mfaGate === "clear"/);
 });

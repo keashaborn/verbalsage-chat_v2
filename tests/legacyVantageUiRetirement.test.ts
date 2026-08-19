@@ -34,6 +34,7 @@ test("legacy memory admin surfaces and permissions are absent", () => {
     "app/api/admin/vantage-cards/route.ts",
     "app/api/admin/cards/route.ts",
     "app/api/admin/cards/[card_id]/route.ts",
+    "app/api/identity/route.ts",
   ]) {
     assert.equal(fs.existsSync(path.join(root, relativePath)), false, relativePath);
   }
@@ -50,6 +51,12 @@ test("legacy memory admin surfaces and permissions are absent", () => {
   assert.doesNotMatch(
     permissions,
     /memory_cards\.|memory_system\.|category: "memory"/,
+  );
+
+  const authGate = source("components/auth/AuthGate.tsx");
+  assert.doesNotMatch(
+    authGate,
+    /\/api\/identity|syncIdentityBestEffort|frontend\/identity|FULL_NAME:/,
   );
 });
 
