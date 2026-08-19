@@ -24,6 +24,10 @@ test("production dependency floors cover audited findings and unused AI SDK code
   assert.equal(manifest.devDependencies["@eslint/eslintrc"], undefined);
   assert.equal(manifest.overrides.postcss, "8.5.23");
   assert.equal(manifest.overrides.sharp, "0.35.3");
+  assert.equal(manifest.overrides["fast-uri@^3.0.1"], "3.1.5");
+  assert.equal(manifest.overrides["fast-uri@^4.0.0"], "4.1.2");
+  assert.equal(manifest.overrides["nanoid@^3.3.16"], "3.3.18");
+  assert.equal(manifest.overrides["nanoid@^5.1.6"], "5.1.16");
   assert.equal(manifest.dependencies.ai, undefined);
   assert.equal(manifest.dependencies["@ai-sdk/openai"], undefined);
   assert.equal(manifest.dependencies["@assistant-ui/react-ai-sdk"], undefined);
@@ -35,6 +39,13 @@ test("production dependency floors cover audited findings and unused AI SDK code
   assert.match(source("eslint.config.mjs"), /typescript-eslint/);
   assert.match(source("eslint.config.mjs"), /react-hooks\/rules-of-hooks/);
   assert.match(source("eslint.config.mjs"), /react-hooks\/exhaustive-deps/);
+});
+
+test("production builds emit a standalone immutable release artifact", () => {
+  const config = source("next.config.ts");
+
+  assert.match(config, /output:\s*["']standalone["']/);
+  assert.doesNotMatch(config, /output:\s*["']export["']/);
 });
 
 test("proxy applies browser hardening headers to normal and rejected requests", () => {
