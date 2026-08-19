@@ -115,3 +115,21 @@ test("every sensitive administrative route fresh-checks the current role", () =>
     assert.doesNotMatch(route, /requireCapability\(/, routePath);
   }
 });
+
+test("conversation export uses the canonical owner-scoped backend contract", () => {
+  const route = source("app/api/admin/export/route.ts");
+
+  assert.match(route, /requireFreshCapability\(req, "user_data\.export"\)/);
+  assert.match(route, /getSupabaseBearerAuthorizationFromRequest\(req\)/);
+  assert.match(route, /\/conversation\/export/);
+  assert.match(route, /brainsUpstreamHeaders\(requestId, user_id, \{ authorization \}\)/);
+  assert.match(route, /AbortSignal\.timeout\(120_000\)/);
+  assert.match(route, /conversation_export_unavailable/);
+  assert.match(route, /"x-content-sha256"/);
+  assert.match(route, /"content-disposition"/);
+  assert.match(route, /"cache-control": "private, no-store/);
+  assert.match(route, /"x-content-type-options": "nosniff"/);
+  assert.doesNotMatch(route, /\/user\/\$\{/);
+  assert.doesNotMatch(route, /searchParams\.get\("limit"\)/);
+  assert.doesNotMatch(route, /await upstream\.text/);
+});
