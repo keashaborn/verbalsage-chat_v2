@@ -42,6 +42,10 @@ import {
   voiceSessionIdFromRequest,
 } from "@/lib/voiceSession";
 import {
+  backendConversationRuntimeFromValue,
+  type BackendConversationRuntimeV1,
+} from "@/lib/conversationRuntimeV1";
+import {
   responseInspectionFromValue,
   type ResponseInspection,
   type ResponseTraceTimingV2,
@@ -438,6 +442,7 @@ function ordinaryResponseTraceV2({
   voice,
   timings,
   responseInspection,
+  responseRuntime,
 }: {
   rid: string;
   automaticDecision: SearchDecisionV1 | null;
@@ -447,6 +452,7 @@ function ordinaryResponseTraceV2({
   voice: boolean;
   timings: ResponseTraceTimingV2 | null;
   responseInspection: ResponseInspection | null;
+  responseRuntime: BackendConversationRuntimeV1;
 }): ResponseTraceV2 {
   const reasonCodes = automaticDecision
     ? [...automaticDecision.reason_codes]
@@ -464,10 +470,7 @@ function ordinaryResponseTraceV2({
       routing: automaticDecision
         ? "seebx_search_plan_v1"
         : "verbalsage_server_authority_v1",
-      response_runtime:
-        responseInspection?.contract_version === "response_inspection_v3"
-          ? "resse_response_v0_3"
-          : "resse_response_v0_2",
+      response_runtime: responseRuntime,
     },
     request: {
       request_id: rid,
@@ -801,15 +804,17 @@ export async function POST(req: Request) {
     let answerId = "";
     let responseInspection: ResponseInspection | null = null;
     let timings: ResponseTraceTimingV2 | null = null;
+    let responseRuntime: BackendConversationRuntimeV1 | null = null;
     try {
       const parsed = JSON.parse(raw);
       answer = String(parsed?.answer || "");
       answerId = String(parsed?.answer_id || "");
       responseInspection = responseInspectionFromValue(parsed?.inspection);
       timings = normalizedResponseTimings(parsed?.timings);
+      responseRuntime = backendConversationRuntimeFromValue(parsed?.runtime);
     } catch {}
-    if (!answer) {
-      return new Response("Empty response", {
+    if (!answer || !responseRuntime) {
+      return new Response("Invalid backend response", {
         status: 502,
         headers: { "x-request-id": rid },
       });
@@ -827,6 +832,7 @@ export async function POST(req: Request) {
             voice: Boolean(voiceTurn.value),
             timings,
             responseInspection,
+            responseRuntime,
           }),
         )
       : {};
@@ -836,7 +842,7 @@ export async function POST(req: Request) {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "x-request-id": rid,
-        "X-VS-Response-Runtime": "resse_response_v0_2",
+        "X-VS-Response-Runtime": responseRuntime,
         ...voiceTurnHeaders(voiceTurn.value),
         ...(answerId ? { "X-VS-Answer-Id": answerId } : {}),
         ...(timingsHeader ? { "X-VS-Response-Timings": timingsHeader } : {}),

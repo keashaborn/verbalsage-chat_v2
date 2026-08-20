@@ -1,3 +1,8 @@
+import {
+  responseTraceRuntimeFromValue,
+  type ResponseTraceRuntimeV1,
+  // @ts-expect-error Node's strip-types runner requires the TypeScript extension.
+} from "./conversationRuntimeV1.ts";
 import type {
   AutomaticSearchRouteV1,
   SearchDecisionClassV1,
@@ -167,11 +172,7 @@ export type ResponseTraceV2 = {
       | "verbalsage_server_v1"
       | "verbalsage_server_authority_v1"
       | "seebx_search_plan_v1";
-    response_runtime:
-      | "resse_response_v0_2"
-      | "resse_response_v0_3"
-      | "trusted_web_v1"
-      | "current_news_v1";
+    response_runtime: ResponseTraceRuntimeV1;
   };
   request: {
     request_id: string;
@@ -418,6 +419,11 @@ export function responseTraceV2FromValue(value: unknown): ResponseTrace | null {
     !isRecord(value.routing) ||
     !isRecord(value.execution) ||
     !isStringArray(value.routing.reason_codes)
+  ) {
+    return null;
+  }
+  if (
+    responseTraceRuntimeFromValue(value.authorities.response_runtime) === null
   ) {
     return null;
   }

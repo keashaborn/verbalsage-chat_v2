@@ -16,6 +16,14 @@ import {
   type ResponseTraceV2,
   // @ts-expect-error Node's strip-types runner requires the TypeScript extension.
 } from "../lib/responseTraceV2.ts";
+import {
+  CONVERSATION_RESPONSE_RUNTIME_V1,
+  LEGACY_CONVERSATION_RESPONSE_RUNTIME_V0_2,
+  LEGACY_LIFESWITCH_RESPONSE_RUNTIME_V0_3,
+  LIFESWITCH_RESPONSE_RUNTIME_V1,
+  backendConversationRuntimeFromValue,
+  // @ts-expect-error Node's strip-types runner requires the TypeScript extension.
+} from "../lib/conversationRuntimeV1.ts";
 
 const source = (path: string) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
@@ -139,7 +147,7 @@ const trace: ResponseTraceV2 = {
   authorities: {
     identity: "supabase",
     routing: "verbalsage_server_v1",
-    response_runtime: "resse_response_v0_2",
+    response_runtime: CONVERSATION_RESPONSE_RUNTIME_V1,
   },
   request: {
     request_id: "request-correlation-id",
@@ -222,7 +230,7 @@ test("inspection v3 preserves bounded LifeSwitch selection and binding", () => {
     ...trace,
     authorities: {
       ...trace.authorities,
-      response_runtime: "resse_response_v0_3",
+      response_runtime: LIFESWITCH_RESPONSE_RUNTIME_V1,
     },
     response_inspection: inspectionV3,
   };
@@ -377,6 +385,9 @@ test("server composes trace v2 for ordinary and automatic web paths", () => {
   const news = source("app/api/current-news/route.ts");
 
   assert.match(chat, /ordinaryResponseTraceV2/);
+  assert.match(chat, /backendConversationRuntimeFromValue/);
+  assert.match(chat, /"X-VS-Response-Runtime": responseRuntime/);
+  assert.doesNotMatch(chat, /resse_response_v0_[234]/);
   assert.match(chat, /automaticSearchTraceV2/);
   assert.match(chat, /responseTraceHeadersV2/);
   assert.match(chat, /fallbackToChat: automaticFallbackToChat/);
