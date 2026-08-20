@@ -90,11 +90,11 @@ test("AI Operations stays separate and uses deliberate authoritative actions", (
   const page = source("components/admin/settings/AdminConsolePage.tsx");
   const panel = source("components/admin/settings/AiOperationsPanel.tsx");
   const aiOperationsIndex = page.indexOf('title="AI Operations"');
-  const usageIndex = page.indexOf('title="Usage & Analytics"');
+  const archiveIndex = page.indexOf('title="Development History Archive"');
 
   assert.notEqual(aiOperationsIndex, -1);
-  assert.notEqual(usageIndex, -1);
-  assert.ok(aiOperationsIndex < usageIndex);
+  assert.notEqual(archiveIndex, -1);
+  assert.ok(aiOperationsIndex < archiveIndex);
   assert.match(page, /<AiOperationsPanel \/>/);
   assert.match(page, /Private reliability incidents/);
   assert.match(panel, /Private operational metadata only/);

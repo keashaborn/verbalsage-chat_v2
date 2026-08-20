@@ -24,7 +24,7 @@ test("attachment proxy derives fresh owner identity and verifies exact hash", ()
 
 test("attachment turns bind to transcript and bypass automatic web search", () => {
   assert.match(chatRoute, /attachment_ids: attachmentIds/);
-  assert.match(chatRoute, /attachment_message_id: attachmentMessageId/);
+  assert.match(chatRoute, /attachment_message_id: storedMessageId/);
   assert.match(
     chatRoute,
     /automaticSearchAuthorized && attachmentIds\.length === 0/,

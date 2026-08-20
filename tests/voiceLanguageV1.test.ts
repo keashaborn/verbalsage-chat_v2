@@ -45,5 +45,5 @@ test("voice panel exposes searchable account-synced language selection", () => {
   assert.match(panel, /role="listbox"/);
   assert.match(panel, /vs_voice_language/);
   assert.match(panel, /updateUser/);
-  assert.match(panel, /saves automatically/i);
+  assert.match(panel, /Language saved to your account\./);
 });

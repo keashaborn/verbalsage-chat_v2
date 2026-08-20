@@ -101,7 +101,7 @@ test("all admin routes inherit fresh privileged MFA enforcement", () => {
   ]);
   const routes = adminRouteFiles();
 
-  assert.equal(routes.length, 22, "classify every new admin route");
+  assert.equal(routes.length, 17, "classify every new admin route");
   for (const routePath of routes) {
     const route = source(routePath);
     if (directRoutes.has(routePath)) {

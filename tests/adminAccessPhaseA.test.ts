@@ -9,16 +9,17 @@ function source(relativePath: string): string {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
 }
 
-test("Admin Console presents the retained product sections", () => {
+test("Admin Console presents only the retained post-cleanup sections", () => {
   const adminConsole = source("components/admin/settings/AdminConsolePage.tsx");
 
   assert.match(adminConsole, /Voice Health/);
   assert.match(adminConsole, /Response Diagnostics/);
-  assert.match(adminConsole, /Usage & Analytics/);
+  assert.match(adminConsole, /AI Operations/);
+  assert.match(adminConsole, /Development History Archive/);
   assert.match(adminConsole, /Users & Access/);
-  assert.match(adminConsole, /Memory Health/);
   assert.match(adminConsole, /Make Admin/);
   assert.match(adminConsole, /Remove Admin/);
+  assert.doesNotMatch(adminConsole, /Usage & Analytics|Memory Health/);
   assert.doesNotMatch(adminConsole, /Not configured/);
 });
 

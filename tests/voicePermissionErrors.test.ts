@@ -55,7 +55,10 @@ test("all governed conversation failure paths use the normalizer", () => {
 test("voice failure is presented once with a short status label", () => {
   assert.match(chatPane, /const visibleRequestError =/);
   assert.match(chatPane, /voiceStatus === "error"[\s\S]*?"Voice unavailable"/);
-  assert.match(chatPane, /<span>\{visibleRequestError\}<\/span>/);
+  assert.match(
+    chatPane,
+    /<span[^>]*>[\s\S]*?\{visibleRequestError\}[\s\S]*?<\/span>/,
+  );
   assert.match(
     chatPane,
     /if \(governedVoiceHasError\) governedVoice\.stop\(\)/,
