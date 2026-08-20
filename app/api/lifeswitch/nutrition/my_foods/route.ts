@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   try {
     const r = await fetch(upstreamUrl.toString(), {
       method: "GET",
-      headers: lifeSwitchUpstreamHeaders(rid, owner_user_id),
+      headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id),
       cache: "no-store",
     });
 

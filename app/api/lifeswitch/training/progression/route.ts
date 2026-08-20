@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   try {
     const response = await fetch(upstream.toString(), {
       method: "GET",
-      headers: lifeSwitchUpstreamHeaders(rid, ownerUserId),
+      headers: lifeSwitchUpstreamHeaders(req, rid, ownerUserId),
       cache: "no-store",
     });
     const body = await response.text().catch(() => "");

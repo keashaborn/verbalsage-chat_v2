@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ workout_te
   try {
     const r = await fetch(upstream.toString(), {
       method: "POST",
-      headers: lifeSwitchUpstreamHeaders(rid, owner_user_id),
+      headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id),
       cache: "no-store",
     });
 

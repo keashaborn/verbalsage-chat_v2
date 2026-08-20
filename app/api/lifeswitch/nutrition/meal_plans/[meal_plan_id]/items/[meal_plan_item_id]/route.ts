@@ -31,7 +31,7 @@ async function proxy(
 
   const response = await fetch(upstream.toString(), {
     method,
-    headers: lifeSwitchUpstreamHeaders(rid, ownerUserId),
+    headers: lifeSwitchUpstreamHeaders(req, rid, ownerUserId),
     cache: "no-store",
     signal: AbortSignal.timeout(12_000),
   });

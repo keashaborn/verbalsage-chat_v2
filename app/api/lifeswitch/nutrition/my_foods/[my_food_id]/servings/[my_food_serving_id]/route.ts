@@ -24,7 +24,7 @@ export async function PATCH(
   const upstream = `${BRAINS_URL}/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/servings/${encodeURIComponent(my_food_serving_id)}`;
   const r = await fetch(upstream, {
     method: "PATCH",
-    headers: lifeSwitchUpstreamHeaders(rid, owner_user_id, {
+    headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id, {
       "content-type": "application/json; charset=utf-8",
     }),
     body,

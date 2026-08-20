@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   let r: Response;
   try {
     r = await fetch(upstream.toString(), {
-      headers: lifeSwitchUpstreamHeaders(rid, owner_user_id),
+      headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id),
       cache: "no-store",
       signal: AbortSignal.timeout(12_000),
     });
@@ -78,7 +78,7 @@ export async function PATCH(req: NextRequest) {
     r = await fetch(upstream.toString(), {
       method: "PATCH",
       headers: {
-        ...lifeSwitchUpstreamHeaders(rid, owner_user_id),
+        ...lifeSwitchUpstreamHeaders(req, rid, owner_user_id),
         "content-type": "application/json",
       },
       body: JSON.stringify({

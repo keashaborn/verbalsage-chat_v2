@@ -21,7 +21,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ training_s
     const bodyIn = await req.text().catch(() => "");
     const r = await fetch(upstream.toString(), {
       method: "POST",
-      headers: lifeSwitchUpstreamHeaders(rid, owner_user_id, {
+      headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id, {
         "content-type": "application/json; charset=utf-8",
       }),
       body: bodyIn || JSON.stringify({ reason: "user_removed" }),

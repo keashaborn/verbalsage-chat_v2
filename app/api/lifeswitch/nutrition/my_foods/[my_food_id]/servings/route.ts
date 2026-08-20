@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ my_food_id:
   const upstream = new URL(`${BRAINS_URL}/lifeswitch/nutrition/my_foods/${encodeURIComponent(my_food_id)}/servings`);
   injectOwnerUserId(upstream, owner_user_id);
 
-  const r = await fetch(upstream.toString(), { headers: lifeSwitchUpstreamHeaders(rid, owner_user_id), cache: "no-store" });
+  const r = await fetch(upstream.toString(), { headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id), cache: "no-store" });
   const body = await r.text();
 
   return new Response(body, {

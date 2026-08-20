@@ -30,7 +30,7 @@ export async function PATCH(
 
   const response = await fetch(upstream.toString(), {
     method: "PATCH",
-    headers: lifeSwitchUpstreamHeaders(rid, owner_user_id),
+    headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id),
     cache: "no-store",
   });
   const body = await response.text().catch(() => "");

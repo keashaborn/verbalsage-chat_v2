@@ -19,7 +19,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ meal_id: st
   injectOwnerUserId(upstream, owner_user_id);
 
   const r = await fetch(upstream.toString(), {
-    headers: lifeSwitchUpstreamHeaders(rid, owner_user_id),
+    headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id),
     cache: "no-store",
   });
 

@@ -22,7 +22,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ workout_tem
   try {
     const r = await fetch(upstream.toString(), {
       method: "GET",
-      headers: lifeSwitchUpstreamHeaders(rid, owner_user_id),
+      headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id),
       cache: "no-store",
     });
 

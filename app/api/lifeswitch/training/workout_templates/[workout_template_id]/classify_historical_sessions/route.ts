@@ -43,7 +43,7 @@ export async function POST(
   try {
     const response = await fetch(upstream.toString(), {
       method: "POST",
-      headers: lifeSwitchUpstreamHeaders(rid, owner_user_id, {
+      headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id, {
         "Idempotency-Key": req.headers.get("idempotency-key") || randomUUID(),
       }),
       cache: "no-store",

@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   try {
     const r = await fetch(upstream.toString(), {
       method: "GET",
-      headers: lifeSwitchUpstreamHeaders(rid, null),
+      headers: lifeSwitchUpstreamHeaders(req, rid, null),
       cache: "no-store",
     });
 

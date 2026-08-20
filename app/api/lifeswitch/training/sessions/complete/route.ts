@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     const response = await fetch(upstream.toString(), {
       method: "POST",
       headers: {
-        ...lifeSwitchUpstreamHeaders(rid, owner_user_id),
+        ...lifeSwitchUpstreamHeaders(req, rid, owner_user_id),
         "content-type": "application/json",
         "Idempotency-Key": idempotencyKey,
       },

@@ -21,7 +21,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ meal_id: s
 
   const r = await fetch(upstream.toString(), {
     method: "POST",
-    headers: lifeSwitchUpstreamHeaders(rid, owner_user_id),
+    headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id),
     cache: "no-store",
   });
 

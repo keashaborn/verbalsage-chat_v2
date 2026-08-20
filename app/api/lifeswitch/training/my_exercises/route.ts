@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   try {
     const r = await fetch(upstream.toString(), {
       method: "GET",
-      headers: lifeSwitchUpstreamHeaders(rid, owner_user_id),
+      headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id),
       cache: "no-store",
     });
 
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     const bodyIn = await req.text().catch(() => "");
     const r = await fetch(upstream.toString(), {
       method: "POST",
-      headers: lifeSwitchUpstreamHeaders(rid, owner_user_id, { "content-type": "application/json; charset=utf-8" }),
+      headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id, { "content-type": "application/json; charset=utf-8" }),
       body: bodyIn,
       cache: "no-store",
     });

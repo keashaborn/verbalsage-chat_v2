@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   upstream.search = inUrl.search;
   injectOwnerUserId(upstream, owner_user_id);
 
-  const r = await fetch(upstream.toString(), { headers: lifeSwitchUpstreamHeaders(rid, owner_user_id), cache: "no-store" });
+  const r = await fetch(upstream.toString(), { headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id), cache: "no-store" });
   const body = await r.text();
   return new Response(body, {
     status: r.status,

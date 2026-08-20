@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   try {
     const r = await fetch(upstream.toString(), {
       method: "POST",
-      headers: lifeSwitchUpstreamHeaders(rid, owner_user_id, {
+      headers: lifeSwitchUpstreamHeaders(req, rid, owner_user_id, {
         "content-type":
           req.headers.get("content-type") || "application/json; charset=utf-8",
       }),
