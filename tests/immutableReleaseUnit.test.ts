@@ -24,7 +24,7 @@ test("frontend release unit is commit-addressed and build-only", () => {
   assert.match(template, /ExecStartPre=\n/);
   assert.match(template, /ExecStart=\n/);
   assert.doesNotMatch(template, /npm (?:run )?build|next build/);
-  assert.equal((template.match(/@COMMIT@/g) ?? []).length, 5);
+  assert.equal((template.match(/@COMMIT@/g) ?? []).length, 8);
 });
 
 test("frontend release unit loads protected live environment files in precedence order", () => {
@@ -42,4 +42,39 @@ test("frontend release unit loads protected live environment files in precedence
   assert.ok(local > production);
   assert.ok(productionLocal > local);
   assert.doesNotMatch(template, /(?:^|\n)(?:OPENAI_API_KEY|SUPABASE_SECRET_KEY)=/);
+});
+
+test("frontend release unit is filesystem and privilege hardened", () => {
+  for (const directive of [
+    "UMask=0077",
+    "NoNewPrivileges=yes",
+    "PrivateTmp=yes",
+    "PrivateDevices=yes",
+    "ProtectSystem=strict",
+    "ProtectHome=yes",
+    "ProtectKernelTunables=yes",
+    "ProtectKernelModules=yes",
+    "ProtectKernelLogs=yes",
+    "ProtectControlGroups=yes",
+    "ProtectClock=yes",
+    "ProtectHostname=yes",
+    "LockPersonality=yes",
+    "RestrictSUIDSGID=yes",
+    "RestrictRealtime=yes",
+    "RestrictNamespaces=yes",
+    "CapabilityBoundingSet=",
+    "AmbientCapabilities=",
+    "SystemCallArchitectures=native",
+    "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6",
+    "CacheDirectoryMode=0700",
+  ]) {
+    assert.ok(template.includes(`${directive}\n`), directive);
+  }
+
+  assert.match(template, /CacheDirectory=lifeswitch-frontend-@COMMIT@/);
+  assert.match(
+    template,
+    /BindPaths=\/var\/cache\/lifeswitch-frontend-@COMMIT@:\/opt\/lifeswitch\/releases\/@COMMIT@\/\.next\/cache/,
+  );
+  assert.doesNotMatch(template, /ReadWritePaths=\/opt\/lifeswitch\/releases/);
 });
