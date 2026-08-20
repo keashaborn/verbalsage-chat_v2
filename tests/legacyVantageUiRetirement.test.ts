@@ -17,6 +17,7 @@ test("dormant Vantage settings surfaces are absent", () => {
     "components/sslg/SSLGModalLauncher.tsx",
     "app/developer/diagnostics/page.tsx",
     "app/api/dev/models/route.ts",
+    "app/api/chat/inspect/route.ts",
   ]) {
     assert.equal(fs.existsSync(path.join(root, relativePath)), false);
   }
@@ -95,10 +96,4 @@ test("ordinary chat remains independent of legacy Vantage controls", () => {
     /vs_vantage_|lens_fm|memory_cards|pragmatics|roleplay/,
   );
   assert.match(chat, /response\/query/);
-});
-
-test("legacy diagnostics remain explicitly quarantined for RAG evaluation", () => {
-  const diagnosticRoute = source("app/api/chat/inspect/route.ts");
-  assert.match(diagnosticRoute, /Legacy diagnostic defaults/);
-  assert.match(diagnosticRoute, /vantage\/query/);
 });

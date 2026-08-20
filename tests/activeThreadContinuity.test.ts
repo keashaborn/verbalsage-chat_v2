@@ -17,10 +17,6 @@ const threadViewerSource = readFileSync(
   "components/threads/ThreadViewer.tsx",
   "utf8",
 );
-const inspectRouteSource = readFileSync(
-  "app/api/chat/inspect/route.ts",
-  "utf8",
-);
 
 test("active-thread fallback uses the authenticated Brains service boundary", () => {
   assert.match(activeRouteSource, /threadUpstreamHeaders,/);
@@ -72,9 +68,7 @@ test("active-thread behavior no longer reads or writes vs_tid", () => {
     createRouteSource,
     threadAuthSource,
     threadViewerSource,
-    inspectRouteSource,
   ].join("\n");
   assert.doesNotMatch(authoritySources, /vs_tid/);
   assert.match(threadViewerSource, /authFetch\("\/api\/threads\/active"/);
-  assert.match(inspectRouteSource, /\/threads\/active\//);
 });

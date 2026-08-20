@@ -32,9 +32,3 @@ test("thread ownership preflight forwards the same verified bearer", () => {
   assert.match(source, /headers\.set\("authorization", authorization\)/);
   assert.match(source, /threadUpstreamHeaders\(req, requestId, user_id,/);
 });
-
-test("inspector active-thread lookup forwards its verified bearer", () => {
-  const source = read("app/api/chat/inspect/route.ts");
-  assert.match(source, /getSupabaseBearerAuthorizationFromRequest\(req\)/);
-  assert.match(source, /Accept: "application\/json",\s+authorization,/);
-});

@@ -106,7 +106,6 @@ test("every sensitive administrative route fresh-checks the current role", () =>
     "app/api/admin/delete_all/route.ts",
     "app/api/admin/export/route.ts",
     "app/api/admin/forget_recent/route.ts",
-    "app/api/chat/inspect/route.ts",
   ];
 
   for (const routePath of routes) {
