@@ -7,6 +7,8 @@ export type NutritionObservation = {
   adherenceExcluded?: boolean;
   kcal: number | null;
   proteinG: number | null;
+  carbsG?: number | null;
+  fatG?: number | null;
 };
 
 type ComponentStatus = "hit" | "not_hit" | "not_evaluable";
@@ -21,6 +23,8 @@ export type DailyNutritionScore = {
     | "excused";
   calorieStatus: ComponentStatus;
   proteinStatus: ComponentStatus;
+  carbsStatus: ComponentStatus;
+  fatStatus: ComponentStatus;
 };
 
 export type RollingNutritionScore = {
@@ -41,8 +45,29 @@ export type RollingNutritionScore = {
   proteinRuleMet: boolean | null;
 };
 
-function finite(value: number | null): value is number {
+function finite(value: number | null | undefined): value is number {
   return value != null && Number.isFinite(value);
+}
+
+function rangeStatus(
+  configured: boolean,
+  value: number | null | undefined,
+  range: { lower: number; upper: number } | null,
+): ComponentStatus {
+  if (!configured || !finite(value) || !range) return "not_evaluable";
+  return value >= range.lower && value <= range.upper ? "hit" : "not_hit";
+}
+
+function emptyDailyStatus(
+  status: DailyNutritionScore["status"],
+): DailyNutritionScore {
+  return {
+    status,
+    calorieStatus: "not_evaluable",
+    proteinStatus: "not_evaluable",
+    carbsStatus: "not_evaluable",
+    fatStatus: "not_evaluable",
+  };
 }
 
 function dayAtOffset(day: string, offset: number): string {
@@ -56,74 +81,47 @@ export function scoreNutritionDay(
   observation: NutritionObservation,
   targets: PlanNutritionTargetConfig,
 ): DailyNutritionScore {
-  if (observation.adherenceExcluded) {
-    return {
-      status: "excused",
-      calorieStatus: "not_evaluable",
-      proteinStatus: "not_evaluable",
-    };
-  }
-  if (!observation.logged) {
-    return {
-      status: "no_log",
-      calorieStatus: "not_evaluable",
-      proteinStatus: "not_evaluable",
-    };
-  }
+  if (observation.adherenceExcluded) return emptyDailyStatus("excused");
+  if (!observation.logged) return emptyDailyStatus("no_log");
+  if (observation.finalized === false) return emptyDailyStatus("in_progress");
 
-  if (observation.finalized === false) {
-    return {
-      status: "in_progress",
-      calorieStatus: "not_evaluable",
-      proteinStatus: "not_evaluable",
-    };
-  }
-
-  const calorieStatus: ComponentStatus =
-    targets.dailyRangeKcal && finite(observation.kcal)
-      ? observation.kcal >= targets.dailyRangeKcal.lower &&
-        observation.kcal <= targets.dailyRangeKcal.upper
-        ? "hit"
-        : "not_hit"
-      : "not_evaluable";
+  const calorieStatus = rangeStatus(
+    targets.calorieConfigured,
+    observation.kcal,
+    targets.dailyRangeKcal,
+  );
   const proteinStatus: ComponentStatus =
-    targets.proteinMinimumG != null && finite(observation.proteinG)
+    targets.proteinConfigured &&
+    targets.proteinMinimumG != null &&
+    finite(observation.proteinG)
       ? observation.proteinG >= targets.proteinMinimumG
         ? "hit"
         : "not_hit"
       : "not_evaluable";
+  const carbsStatus = rangeStatus(
+    targets.carbsConfigured,
+    observation.carbsG,
+    targets.carbsRangeG,
+  );
+  const fatStatus = rangeStatus(
+    targets.fatConfigured,
+    observation.fatG,
+    targets.fatRangeG,
+  );
+  const components = [
+    targets.calorieConfigured ? calorieStatus : null,
+    targets.proteinConfigured ? proteinStatus : null,
+    targets.carbsConfigured ? carbsStatus : null,
+    targets.fatConfigured ? fatStatus : null,
+  ].filter((status): status is ComponentStatus => status != null);
 
-  if (targets.dailyRequiresBoth) {
-    if (
-      calorieStatus === "not_evaluable" ||
-      proteinStatus === "not_evaluable"
-    ) {
-      return { status: "not_evaluable", calorieStatus, proteinStatus };
-    }
-    return {
-      status:
-        calorieStatus === "hit" && proteinStatus === "hit"
-          ? "hit"
-          : "not_hit",
-      calorieStatus,
-      proteinStatus,
-    };
-  }
-
-  if (targets.nominalKcal != null && !targets.dailyRangeKcal) {
-    return { status: "not_evaluable", calorieStatus, proteinStatus };
-  }
-  const primaryStatus = targets.dailyRangeKcal
-    ? calorieStatus
-    : proteinStatus;
-  return {
-    status:
-      primaryStatus === "not_evaluable"
+  const status: DailyNutritionScore["status"] =
+    components.includes("not_hit")
+      ? "not_hit"
+      : components.length === 0 || components.includes("not_evaluable")
         ? "not_evaluable"
-        : primaryStatus,
-    calorieStatus,
-    proteinStatus,
-  };
+        : "hit";
+  return { status, calorieStatus, proteinStatus, carbsStatus, fatStatus };
 }
 
 export function scoreNutritionRollingWindow(
@@ -173,12 +171,8 @@ export function scoreNutritionRollingWindow(
   const logged = eligiblePeriod
     .map((day) => byDay.get(day))
     .filter((item): item is NutritionObservation => Boolean(item));
-  const calorieValues = logged
-    .map((item) => item.kcal)
-    .filter(finite);
-  const proteinValues = logged
-    .map((item) => item.proteinG)
-    .filter(finite);
+  const calorieValues = logged.map((item) => item.kcal).filter(finite);
+  const proteinValues = logged.map((item) => item.proteinG).filter(finite);
   const calorieAverage = calorieValues.length
     ? calorieValues.reduce((sum, value) => sum + value, 0) /
       calorieValues.length

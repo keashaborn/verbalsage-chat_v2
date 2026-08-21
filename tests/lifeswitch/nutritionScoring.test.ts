@@ -3,11 +3,19 @@ import test from "node:test";
 
 // @ts-expect-error Node's strip-types test runner requires the explicit extension.
 import { scoreNutritionDay, scoreNutritionRollingWindow } from "../../lib/lifeswitch/nutritionScoring.ts";
+// @ts-expect-error Node's strip-types test runner requires the explicit extension.
+import { readPlanNutritionTargets } from "../../lib/lifeswitch/planNutritionTargets.ts";
 
 const targets = {
   nominalKcal: 2000,
   proteinMinimumG: 180,
   dailyRangeKcal: { lower: 1800, upper: 2100 },
+  carbsRangeG: null,
+  fatRangeG: null,
+  calorieConfigured: true,
+  proteinConfigured: true,
+  carbsConfigured: false,
+  fatConfigured: false,
   rollingAverageKcal: { lower: 1900, upper: 2000, windowDays: 7 },
   proteinWeeklyAdherence: {
     mode: "days_hit",
@@ -148,4 +156,98 @@ test("a fully excused rolling window is paused rather than failed", () => {
   assert.equal(score.status, "paused");
   assert.equal(score.eligibleDays, 0);
   assert.equal(score.excludedDays, 7);
+});
+
+
+test("flat Plan ranges configure all four daily targets", () => {
+  const parsed = readPlanNutritionTargets({
+    calories: "1800–2100",
+    protein_g: "180",
+    carbs_g: "190-240 g",
+    fat_g: "55 to 75 g",
+  });
+
+  assert.deepEqual(parsed.dailyRangeKcal, { lower: 1800, upper: 2100 });
+  assert.equal(parsed.proteinMinimumG, 180);
+  assert.deepEqual(parsed.carbsRangeG, { lower: 190, upper: 240 });
+  assert.deepEqual(parsed.fatRangeG, { lower: 55, upper: 75 });
+  assert.equal(parsed.carbsConfigured, true);
+  assert.equal(parsed.fatConfigured, true);
+});
+
+test("daily scoring requires every configured macro target", () => {
+  const configured = readPlanNutritionTargets({
+    calories: "1800-2100",
+    protein_g: "180",
+    carbs_g: "190-240",
+    fat_g: "55-75",
+  });
+  const score = scoreNutritionDay(
+    {
+      day: "2026-08-21",
+      logged: true,
+      finalized: true,
+      kcal: 1950,
+      proteinG: 185,
+      carbsG: 220,
+      fatG: 80,
+    },
+    configured,
+  );
+
+  assert.equal(score.status, "not_hit");
+  assert.equal(score.calorieStatus, "hit");
+  assert.equal(score.proteinStatus, "hit");
+  assert.equal(score.carbsStatus, "hit");
+  assert.equal(score.fatStatus, "not_hit");
+});
+
+test("a configured macro without an observation is not silently passed", () => {
+  const configured = readPlanNutritionTargets({
+    calories: "1800-2100",
+    protein_g: "180",
+    carbs_g: "190-240",
+    fat_g: "55-75",
+  });
+  const score = scoreNutritionDay(
+    {
+      day: "2026-08-21",
+      logged: true,
+      finalized: true,
+      kcal: 1950,
+      proteinG: 185,
+      carbsG: 220,
+      fatG: null,
+    },
+    configured,
+  );
+
+  assert.equal(score.status, "not_evaluable");
+  assert.equal(score.fatStatus, "not_evaluable");
+});
+
+
+test("a definite miss remains a miss when another configured value is absent", () => {
+  const configured = readPlanNutritionTargets({
+    calories: "1800-2100",
+    protein_g: "180",
+    carbs_g: "190-240",
+    fat_g: "55-75",
+  });
+  const score = scoreNutritionDay(
+    {
+      day: "2026-08-21",
+      logged: true,
+      finalized: true,
+      kcal: 1700,
+      proteinG: 185,
+      carbsG: 220,
+      fatG: null,
+    },
+    configured,
+  );
+
+  assert.equal(score.status, "not_hit");
+  assert.equal(score.calorieStatus, "not_hit");
+  assert.equal(score.fatStatus, "not_evaluable");
 });

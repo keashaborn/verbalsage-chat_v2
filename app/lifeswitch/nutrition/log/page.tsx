@@ -1,7 +1,10 @@
 "use client";
 
 import { authFetch } from "@/lib/authFetch";
-import { readPlanNutritionTargets } from "@/lib/lifeswitch/planNutritionTargets";
+import {
+  describeConfiguredDailyTargets,
+  readPlanNutritionTargets,
+} from "@/lib/lifeswitch/planNutritionTargets";
 import {
   scoreNutritionDay,
   scoreNutritionRollingWindow,
@@ -362,11 +365,24 @@ export default function NutritionLogPage() {
     day: string,
     any: boolean,
     finalized: boolean,
-    t: { kcal: number | null; protein_g: number | null },
+    t: {
+      kcal: number | null;
+      protein_g: number | null;
+      carbs_g: number | null;
+      fat_g: number | null;
+    },
     targets = nutritionTargets,
   ) {
     return scoreNutritionDay(
-      { day, logged: any, finalized, kcal: t.kcal, proteinG: t.protein_g },
+      {
+        day,
+        logged: any,
+        finalized,
+        kcal: t.kcal,
+        proteinG: t.protein_g,
+        carbsG: t.carbs_g,
+        fatG: t.fat_g,
+      },
       targets,
     ).status === "hit";
   }
@@ -412,9 +428,23 @@ export default function NutritionLogPage() {
         setTargetName(targetLabel);
         setStatus(targetUid ? `loading ${targetLabel || "delegated"} nutrition…` : "loading days…");
 
-        const nextNutritionTargets = readPlanNutritionTargets(null);
+        let nextNutritionTargets = readPlanNutritionTargets(null);
+        if (targetUid) {
+          setTargetStatus("Plan targets unavailable for delegated view");
+        } else {
+          try {
+            const planProfile = await fetchJson(
+              "/api/lifeswitch/plan/profile?create_if_missing=0",
+            );
+            nextNutritionTargets = readPlanNutritionTargets(
+              planProfile?.nutrition_targets,
+            );
+            setTargetStatus(describeConfiguredDailyTargets(nextNutritionTargets));
+          } catch {
+            setTargetStatus("Plan targets unavailable");
+          }
+        }
         setNutritionTargets(nextNutritionTargets);
-        setTargetStatus("Targets not configured");
 
         const rangeUrl = new URL("/api/lifeswitch/nutrition/log/range", window.location.origin);
         rangeUrl.searchParams.set("start_day", daysAgoYYYYMMDD(59));
@@ -531,6 +561,8 @@ export default function NutritionLogPage() {
         finalized: day.finalized,
         kcal: day.kcal,
         proteinG: day.protein_g,
+        carbsG: day.carbs_g,
+        fatG: day.fat_g,
       })),
       rollingAsOfDay,
       nutritionTargets,

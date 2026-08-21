@@ -64,6 +64,8 @@ type PhaseDraft = {
 type NutritionDraft = {
   calories: string;
   protein_g: string;
+  carbs_g: string;
+  fat_g: string;
   macro_notes: string;
   meal_structure: string;
   adherence_target: string;
@@ -158,6 +160,8 @@ function emptyNutritionDraft(): NutritionDraft {
   return {
     calories: "",
     protein_g: "",
+    carbs_g: "",
+    fat_g: "",
     macro_notes: "",
     meal_structure: "",
     adherence_target: "",
@@ -170,6 +174,8 @@ function draftFromNutritionTargets(plan: PlanProfile | null): NutritionDraft {
   return {
     calories: valueToDisplay(t.calories ?? t.target_kcal ?? t.kcal),
     protein_g: valueToDisplay(t.protein_g ?? t.target_protein_g ?? t.protein),
+    carbs_g: valueToDisplay(t.carbs_g),
+    fat_g: valueToDisplay(t.fat_g),
     macro_notes: valueToDisplay(t.macro_notes ?? t.carbs_fat ?? t.macros),
     meal_structure: valueToDisplay(
       t.meal_structure ?? t.meals ?? t.meal_timing,
@@ -869,8 +875,11 @@ export function PlanProfileClient() {
 
         body_state: asObject(plan?.body_state),
         nutrition_targets: {
+          ...asObject(plan?.nutrition_targets),
           calories: nutritionDraft.calories,
           protein_g: nutritionDraft.protein_g,
+          carbs_g: nutritionDraft.carbs_g,
+          fat_g: nutritionDraft.fat_g,
           macro_notes: nutritionDraft.macro_notes,
           meal_structure: nutritionDraft.meal_structure,
           adherence_target: nutritionDraft.adherence_target,
@@ -1878,9 +1887,27 @@ export function PlanProfileClient() {
               />
 
               <FieldInput
-                label="Carbs / Fat"
+                label="Carbs"
+                value={nutritionDraft.carbs_g}
+                placeholder="Acceptable daily range in grams"
+                onChange={(value) =>
+                  setNutritionDraft((d) => ({ ...d, carbs_g: value }))
+                }
+              />
+
+              <FieldInput
+                label="Fat"
+                value={nutritionDraft.fat_g}
+                placeholder="Acceptable daily range in grams"
+                onChange={(value) =>
+                  setNutritionDraft((d) => ({ ...d, fat_g: value }))
+                }
+              />
+
+              <FieldInput
+                label="Macro notes"
                 value={nutritionDraft.macro_notes}
-                placeholder="Macro ranges or flexible targets"
+                placeholder="Optional flexibility or timing notes"
                 onChange={(value) =>
                   setNutritionDraft((d) => ({ ...d, macro_notes: value }))
                 }
@@ -1950,11 +1977,27 @@ export function PlanProfileClient() {
               )}
             />
             <PlanRow
-              label="Carbs / Fat"
+              label="Carbs"
+              value={readValue(
+                nutritionTargets,
+                ["carbs_g"],
+                "Daily range not set",
+              )}
+            />
+            <PlanRow
+              label="Fat"
+              value={readValue(
+                nutritionTargets,
+                ["fat_g"],
+                "Daily range not set",
+              )}
+            />
+            <PlanRow
+              label="Macro notes"
               value={readValue(
                 nutritionTargets,
                 ["macro_notes", "carbs_fat", "macros"],
-                "Macro ranges or flexible targets",
+                "No additional macro notes",
               )}
             />
             <PlanRow

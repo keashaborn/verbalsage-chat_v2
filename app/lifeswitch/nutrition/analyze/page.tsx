@@ -2,6 +2,7 @@
 
 import { authFetch } from "@/lib/authFetch";
 import {
+  describeConfiguredDailyTargets,
   readPlanNutritionTargets,
   type PlanNutritionTargetConfig,
 } from "@/lib/lifeswitch/planNutritionTargets";
@@ -231,7 +232,7 @@ export default function NutritionAnalyzePage() {
   const [nutritionTargets, setNutritionTargets] = React.useState<PlanNutritionTargetConfig>(
     () => readPlanNutritionTargets(null),
   );
-  const [targetSource] = React.useState("Targets not configured");
+  const [targetSource, setTargetSource] = React.useState("Targets not configured");
   const [days, setDays] = React.useState<DaySummary[]>([]);
   const [recoveryAdjustments, setRecoveryAdjustments] = React.useState<
     RecoveryAdjustment[]
@@ -248,7 +249,19 @@ export default function NutritionAnalyzePage() {
     setStatus("loading nutrition analysis…");
 
     try {
-      setNutritionTargets(readPlanNutritionTargets(null));
+      let nextNutritionTargets = readPlanNutritionTargets(null);
+      try {
+        const planProfile = await fetchJson(
+          "/api/lifeswitch/plan/profile?create_if_missing=0",
+        );
+        nextNutritionTargets = readPlanNutritionTargets(
+          planProfile?.nutrition_targets,
+        );
+        setTargetSource(describeConfiguredDailyTargets(nextNutritionTargets));
+      } catch {
+        setTargetSource("Plan targets unavailable");
+      }
+      setNutritionTargets(nextNutritionTargets);
       setRecoveryAdjustments([]);
       const rangeUrl = new URL("/api/lifeswitch/nutrition/log/range", window.location.origin);
       rangeUrl.searchParams.set("start_day", daysAgoYYYYMMDD(89));
@@ -347,6 +360,8 @@ export default function NutritionAnalyzePage() {
             adherenceExcluded: nutritionRecoveryDays.has(day.day),
             kcal: day.kcal,
             proteinG: day.protein_g,
+            carbsG: day.carbs_g,
+            fatG: day.fat_g,
           },
           nutritionTargets,
         ),
@@ -365,6 +380,18 @@ export default function NutritionAnalyzePage() {
   const proteinHitDays = proteinEvaluableDays.filter(
     ({ score }) => score.proteinStatus === "hit",
   ).length;
+  const carbsEvaluableDays = dailyScores.filter(
+    ({ score }) => score.carbsStatus !== "not_evaluable",
+  );
+  const carbsHitDays = carbsEvaluableDays.filter(
+    ({ score }) => score.carbsStatus === "hit",
+  ).length;
+  const fatEvaluableDays = dailyScores.filter(
+    ({ score }) => score.fatStatus !== "not_evaluable",
+  );
+  const fatHitDays = fatEvaluableDays.filter(
+    ({ score }) => score.fatStatus === "hit",
+  ).length;
 
   const currentDay = days.find((day) => day.day === today) || null;
   const rollingAsOfDay = currentDay?.completedAt ? today : daysAgoYYYYMMDD(1);
@@ -377,6 +404,8 @@ export default function NutritionAnalyzePage() {
           finalized: day.finalized,
           kcal: day.kcal,
           proteinG: day.protein_g,
+          carbsG: day.carbs_g,
+          fatG: day.fat_g,
         })),
         rollingAsOfDay,
         nutritionTargets,
@@ -413,6 +442,16 @@ export default function NutritionAnalyzePage() {
       ? ` · required ${nutritionTargets.proteinWeeklyAdherence.requiredHitDays}/${nutritionTargets.proteinWeeklyAdherence.windowDays} days`
       : ""}`
     : "No protein target configured";
+  const carbsTargetLabel = nutritionTargets.carbsRangeG
+    ? `${nutritionTargets.carbsRangeG.lower}–${nutritionTargets.carbsRangeG.upper}g acceptable daily range`
+    : nutritionTargets.carbsConfigured
+      ? "Carbs target needs an acceptable range"
+      : "No carbs target configured";
+  const fatTargetLabel = nutritionTargets.fatRangeG
+    ? `${nutritionTargets.fatRangeG.lower}–${nutritionTargets.fatRangeG.upper}g acceptable daily range`
+    : nutritionTargets.fatConfigured
+      ? "Fat target needs an acceptable range"
+      : "No fat target configured";
   const rollingTargetLabel = nutritionTargets.rollingAverageKcal
     ? `${nutritionTargets.rollingAverageKcal.windowDays}-day calorie average ${nutritionTargets.rollingAverageKcal.lower}–${nutritionTargets.rollingAverageKcal.upper} kcal`
     : null;
@@ -429,15 +468,24 @@ export default function NutritionAnalyzePage() {
       ? [calorieTargetLabel, rollingTargetLabel].filter(Boolean).join(" · ")
       : nutritionMetric === "protein_g"
         ? proteinTargetLabel
-        : "No Plan target is scored for this metric.";
-  const nutritionReferenceBands: YReferenceBand[] =
-    nutritionMetric === "kcal" && nutritionTargets.dailyRangeKcal
-      ? [{
-          lower: nutritionTargets.dailyRangeKcal.lower,
-          upper: nutritionTargets.dailyRangeKcal.upper,
-          label: "acceptable daily range",
-        }]
-      : [];
+        : nutritionMetric === "carbs_g"
+          ? carbsTargetLabel
+          : fatTargetLabel;
+  const selectedDailyRange =
+    nutritionMetric === "kcal"
+      ? nutritionTargets.dailyRangeKcal
+      : nutritionMetric === "carbs_g"
+        ? nutritionTargets.carbsRangeG
+        : nutritionMetric === "fat_g"
+          ? nutritionTargets.fatRangeG
+          : null;
+  const nutritionReferenceBands: YReferenceBand[] = selectedDailyRange
+    ? [{
+        lower: selectedDailyRange.lower,
+        upper: selectedDailyRange.upper,
+        label: "acceptable daily range",
+      }]
+    : [];
   const nutritionReferenceLines: YReferenceLine[] =
     nutritionMetric === "kcal" && nutritionTargets.nominalKcal != null
       ? [{ y: nutritionTargets.nominalKcal, label: `${nutritionTargets.nominalKcal} kcal target` }]
@@ -532,7 +580,7 @@ export default function NutritionAnalyzePage() {
           ) : null}
         </div>
 
-        <div className="mt-4 grid divide-y divide-border/50 border-y border-border/50 md:grid-cols-3 md:divide-x md:divide-y-0">
+        <div className="mt-4 grid divide-y divide-border/50 border-y border-border/50 md:grid-cols-5 md:divide-x md:divide-y-0">
           <MetricCard
             className="py-3 md:px-3"
             label="Data"
@@ -570,6 +618,22 @@ export default function NutritionAnalyzePage() {
             sub={nutritionTargets.proteinWeeklyAdherence
               ? `required ${rollingScore.proteinRequiredHitDays ?? "—"} eligible days at or above ${nutritionTargets.proteinMinimumG ?? "—"}g`
               : proteinTargetLabel}
+          />
+          <MetricCard
+            className="py-3 md:px-3"
+            label="Carbs"
+            value={nutritionTargets.carbsRangeG
+              ? `${carbsHitDays}/${carbsEvaluableDays.length}`
+              : "Not scored"}
+            sub={carbsTargetLabel}
+          />
+          <MetricCard
+            className="py-3 md:px-3"
+            label="Fat"
+            value={nutritionTargets.fatRangeG
+              ? `${fatHitDays}/${fatEvaluableDays.length}`
+              : "Not scored"}
+            sub={fatTargetLabel}
           />
         </div>
 
