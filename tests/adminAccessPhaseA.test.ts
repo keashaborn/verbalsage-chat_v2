@@ -50,14 +50,14 @@ test("Admin page and navigation use fresh server-verified access", () => {
 });
 
 test("System Tools require fresh Owner or Admin authorization", () => {
-  const debugRoute = source("app/api/admin/debug_cookie/route.ts");
+  const inspectorRoute = source("app/api/admin/inspector-session/route.ts");
   const voiceHealthRoute = source("app/api/admin/voice-health/route.ts");
   const registry = source(
     "components/admin/settings/permissions/permissionRegistry.ts",
   );
 
-  assert.doesNotMatch(debugRoute, /requireCapability\(/);
-  assert.match(debugRoute, /requireFreshCapability/);
+  assert.doesNotMatch(inspectorRoute, /requireCapability\(/);
+  assert.match(inspectorRoute, /requireFreshCapability/);
   assert.doesNotMatch(voiceHealthRoute, /requireCapability\(/);
   assert.match(voiceHealthRoute, /requireFreshCapability/);
   assert.match(

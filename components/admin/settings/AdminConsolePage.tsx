@@ -697,7 +697,7 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
 
     (async () => {
       try {
-        const response = await authFetch("/api/admin/debug_cookie", {
+        const response = await authFetch("/api/admin/inspector-session", {
           method: "GET",
           cache: "no-store",
         });
@@ -718,7 +718,7 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
   async function enableInspector() {
     setStatus("Turning on response trace…");
     try {
-      const response = await authFetch("/api/admin/debug_cookie", {
+      const response = await authFetch("/api/admin/inspector-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
@@ -737,7 +737,7 @@ export function AdminConsolePage({ access }: { access: AdminAccess }) {
   async function disableInspector() {
     setStatus("Turning off response trace…");
     try {
-      const response = await authFetch("/api/admin/debug_cookie", {
+      const response = await authFetch("/api/admin/inspector-session", {
         method: "DELETE",
         credentials: "same-origin",
       });
